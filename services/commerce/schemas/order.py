@@ -1,0 +1,142 @@
+"""Order schemas for commerce service."""
+from pydantic import BaseModel, computed_field
+from typing import List, Optional
+from decimal import Decimal
+from datetime import datetime
+
+
+class CartItem(BaseModel):
+    """Cart item schema."""
+    product_id: int
+    quantity: int = 1
+    variant_id: Optional[int] = None
+
+
+class CartItemResponse(BaseModel):
+    """Cart item response schema."""
+    product_id: int
+    variant_id: Optional[int] = None
+    name: str
+    price: float
+    quantity: int
+    sku: Optional[str] = None
+    image: Optional[str] = None
+    size: Optional[str] = None
+    color: Optional[str] = None
+    hsn_code: Optional[str] = None
+    gst_rate: Optional[float] = None
+
+
+class CartResponse(BaseModel):
+    """Cart response schema."""
+    user_id: int
+    items: List[CartItemResponse]
+    subtotal: float = 0.0
+    discount: float = 0.0
+    shipping: float = 0.0
+    gst_amount: float = 0.0
+    cgst_amount: float = 0.0
+    sgst_amount: float = 0.0
+    igst_amount: float = 0.0
+    delivery_state: Optional[str] = None
+    total: float = 0.0
+    item_count: int = 0
+    promo_code: Optional[str] = None
+    reservation_expires_at: Optional[datetime] = None  # UTC timestamp when earliest reservation expires
+
+
+class SetDeliveryState(BaseModel):
+    """Set delivery state for GST calculation."""
+    delivery_state: str
+    customer_gstin: Optional[str] = None
+
+
+class OrderCreate(BaseModel):
+    """Schema for creating an order."""
+    user_id: int = 0  # Optional in request (inferred from token), required for service
+    shipping_address: Optional[str] = None
+    address_id: Optional[int] = None
+    promo_code: Optional[str] = None
+    notes: Optional[str] = None
+    payment_method: str = "cashfree"
+    payment_id: Optional[str] = None
+    cashfree_order_id: Optional[str] = None
+    # Legacy alias kept for backwards compatibility
+    razorpay_order_id: Optional[str] = None
+    payment_signature: Optional[str] = None
+
+
+class OrderItemResponse(BaseModel):
+    """Order item response schema."""
+    id: int
+    product_id: int
+    product_name: Optional[str] = None
+    sku: Optional[str] = None
+    size: Optional[str] = None
+    color: Optional[str] = None
+    hsn_code: Optional[str] = None
+    gst_rate: Optional[float] = None
+    quantity: int
+    unit_price: Optional[float] = None
+    price: float
+    
+    class Config:
+        from_attributes = True
+
+
+class OrderUpdate(BaseModel):
+    """Schema for updating an order."""
+    status: Optional[str] = None
+    shipping_address: Optional[str] = None
+
+
+class OrderResponse(BaseModel):
+    """Order response schema."""
+    id: int
+    user_id: int
+    # Customer info (populated for admin views)
+    customer_name: Optional[str] = None
+    customer_email: Optional[str] = None
+    invoice_number: Optional[str] = None
+    subtotal: Optional[Decimal] = None
+    discount_applied: Optional[Decimal] = None
+    shipping_cost: Optional[Decimal] = None
+    gst_amount: Optional[Decimal] = None
+    cgst_amount: Optional[Decimal] = None
+    sgst_amount: Optional[Decimal] = None
+    igst_amount: Optional[Decimal] = None
+    place_of_supply: Optional[str] = None
+    customer_gstin: Optional[str] = None
+    total_amount: Decimal
+    payment_method: Optional[str] = None
+    status: str
+    shipping_address: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+    items: List[OrderItemResponse] = []
+    
+    @computed_field
+    def order_number(self) -> str:
+        return f"ORD-{self.id:06d}"
+    
+    @computed_field
+    def items_count(self) -> int:
+        return len(self.items)
+    
+    @computed_field
+    def total(self) -> float:
+        return float(self.total_amount)
+
+    class Config:
+        from_attributes = True
+
+
+# ==================== Bulk Operation Schemas ====================
+
+class BulkOrderStatusUpdate(BaseModel):
+    """Bulk update order status."""
+    order_ids: List[int]
+    status: str
+    admin_notes: Optional[str] = None
+    dry_run: bool = False
+

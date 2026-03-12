@@ -1,0 +1,18 @@
+1) opening page video (probably landing page need to be properly optimized phone layout will have 9:16 ratio video playing and laptop will have 16:9 video with skip button currently it has just 16:9 ratio video so we need to fix the mobile layout thing and also remove aarya clothing text that is coming on the video it should be removed)
+
+2) then comes the landing page which has hero section with tag line full image coverage with header and things proper whatever we see in the landing page header section we must be navigated in the landing page only if new arrivals scroll to new arrival section , if collections then scroll down to collections section , then we have about and contact us same with them it is implemented like that only but there are no mobile optimizations for just hero sections we will have proper hero 9:16 optimized images but other sections must be properly optimized to look proeprly according to the mobile and laptop both 
+right now there is this issues that collections we do not see full collections 
+
+3) if clicked on any thing like contact us , new arrivals , collections , profile , or search or add to cart he must be redirected to login page if not logged in if logged in then we will let the user go to those page make sure after login if thats customer u redirect him to the desired place u clicked right now it navigates to the landing page now 
+4) if clicked on any collection or from header he will always go back to landing page collections section
+5) clicked on any collection we get to see the list of products that are under that collection these products can be added to cart or wishlist 
+6) we need proper cart management stock management so that there is no race conditions 
+7) profile page and all 
+8) payemnt pages , checkout and all when user goes to checkout fills details and proceeds to payment before that make sure actually if stock is available or not if out of stock then a sorry message should come that the stock is over 
+9) if proceeded to payment and payement is done make sure the user can see their status of the order there in idnivisual customer management 
+10) we need to properly manage the order , stock , product thing and in realtime it will be updated or other things 
+11) we need to implement a chat feature for customer to admin where they can interact if there are any issues 
+12) we need to properly make sure admin side all data things tables data is properly visible and is easier for them to use 
+13) we need to create staff dashboards for stock , and order management
+14) we need to have order management status thing like we will provide the live status of their products to the user like staff or admin can change their status of the product if payement done then 
+15) right now admin side and operations are too much heavy we need to have all that but more bulk operations proper optimization and all 

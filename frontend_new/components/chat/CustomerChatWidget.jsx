@@ -22,6 +22,7 @@ export default function CustomerChatWidget() {
 
     const wsRef = useRef(null);
     const messagesEndRef = useRef(null);
+    const reconnectAttemptsRef = useRef(0);  // Track reconnection attempts for backoff
 
     // Auto-scroll to bottom of messages
     useEffect(() => {
@@ -80,6 +81,8 @@ export default function CustomerChatWidget() {
         ws.onopen = () => {
             setIsConnecting(false);
             setWsError(null);
+            reconnectAttemptsRef.current = 0;  // Reset on successful connection
+            console.log("WebSocket connected");
         };
 
         ws.onmessage = (event) => {
@@ -99,12 +102,21 @@ export default function CustomerChatWidget() {
 
         ws.onclose = () => {
             setIsConnecting(false);
-            // Optional: Auto-reconnect logic could go here
+            // Auto-reconnect with exponential backoff (max 30 seconds)
+            console.log("WebSocket closed, attempting reconnect...");
+            setWsError("Reconnecting...");
+            const reconnectDelay = Math.min(30000, 3000 * (reconnectAttemptsRef.current + 1));
+            reconnectAttemptsRef.current += 1;
+            setTimeout(() => {
+                if (isOpen && rId) {
+                    connectWebSocket(rId);
+                }
+            }, reconnectDelay);
         };
 
         ws.onerror = (err) => {
             console.error("WebSocket error:", err);
-            setWsError("Connection lost.");
+            setWsError("Connection lost. Reconnecting...");
             setIsConnecting(false);
         };
 

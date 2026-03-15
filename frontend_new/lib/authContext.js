@@ -23,13 +23,15 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
+import { authApi, clearStoredTokens, setStoredTokens } from './apiClient';
+import { getStoredUser, clearAuthData } from './baseApi';
 import { apiFetch } from './api';
-import { setAuthData, clearAuthData, getStoredUser } from './baseApi';
 
 /**
  * User role constants — single source of truth for role strings
  */
 export const USER_ROLES = {
+  SUPER_ADMIN: 'super_admin',
   ADMIN: 'admin',
   STAFF: 'staff',
   CUSTOMER: 'customer',
@@ -61,20 +63,28 @@ export function AuthProvider({ children }) {
         return;
       }
 
-      // Verify with backend
-      const userData = await apiFetch('/api/v1/users/me');
-      setUser(userData);
+      // Pre-set from local storage to avoid flicker
+      setUser(storedUser);
       setIsAuthenticated(true);
-    } catch (err) {
-      console.warn('Auth check failed:', err.message);
 
-      // Don't clear auth data on network errors - might be temporary
-      if (err.status === 401 || err.status === 403) {
-        clearAuthData();
-        setUser(null);
-        setIsAuthenticated(false);
+      // Verify and get fresh data from backend
+      try {
+        const userData = await apiFetch('/api/v1/users/me');
+        setUser(userData);
+        localStorage.setItem('user', JSON.stringify(userData));
+      } catch (err) {
+        console.warn('Backend session verification failed:', err.message);
+        
+        // If unauthorized, clear everything
+        if (err.status === 401 || err.status === 403) {
+          clearAuthData();
+          clearStoredTokens();
+          setUser(null);
+          setIsAuthenticated(false);
+        }
       }
-
+    } catch (err) {
+      console.error('Critical auth check error:', err);
       setAuthError(err.message);
     } finally {
       setLoading(false);
@@ -102,19 +112,17 @@ export function AuthProvider({ children }) {
         throw new Error('Invalid login response: missing user data');
       }
 
-      // Store auth data (tokens + user) in localStorage
-      setAuthData({
-        access_token: response.tokens?.access_token || response.access_token,
-        refresh_token: response.tokens?.refresh_token || response.refresh_token,
-        user: response.user,
-      });
+      // Store tokens (cookies + localStorage fallback) and user data
+      setStoredTokens(response);
+      localStorage.setItem('user', JSON.stringify(response.user));
 
       setUser(response.user);
       setIsAuthenticated(true);
 
       return response;
     } catch (err) {
-      // Clear any stale auth data
+      // Clear any stale auth data on failure
+      clearStoredTokens();
       clearAuthData();
       setUser(null);
       setIsAuthenticated(false);
@@ -130,7 +138,7 @@ export function AuthProvider({ children }) {
     setAuthError(null);
 
     try {
-      await apiFetch('/api/v1/auth/logout', { method: 'POST' });
+      await authApi.logout();
     } catch (err) {
       // Ignore logout API errors - we'll clear local state anyway
       console.warn('Logout API call failed:', err.message);
@@ -138,6 +146,7 @@ export function AuthProvider({ children }) {
       // Always clear local state
       setUser(null);
       setIsAuthenticated(false);
+      clearStoredTokens();
       clearAuthData();
     }
   }, []);
@@ -149,7 +158,7 @@ export function AuthProvider({ children }) {
     setUser(prev => {
       if (!prev) return userData;
       const updated = { ...prev, ...userData };
-      setAuthData({ user: updated });
+      localStorage.setItem('user', JSON.stringify(updated));
       return updated;
     });
   }, []);
@@ -163,14 +172,19 @@ export function AuthProvider({ children }) {
   }, [user]);
 
   /**
-   * Check if user is admin
+   * Check if user is super admin
    */
-  const isAdmin = useCallback(() => hasRole(USER_ROLES.ADMIN), [hasRole]);
+  const isSuperAdmin = useCallback(() => hasRole(USER_ROLES.SUPER_ADMIN), [hasRole]);
 
   /**
-   * Check if user is staff or admin
+   * Check if user is admin (includes super_admin)
    */
-  const isStaff = useCallback(() => hasRole([USER_ROLES.ADMIN, USER_ROLES.STAFF]), [hasRole]);
+  const isAdmin = useCallback(() => hasRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]), [hasRole]);
+
+  /**
+   * Check if user is staff or admin (includes super_admin)
+   */
+  const isStaff = useCallback(() => hasRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.STAFF]), [hasRole]);
 
   const value = {
     // State
@@ -187,6 +201,7 @@ export function AuthProvider({ children }) {
 
     // Helpers
     hasRole,
+    isSuperAdmin,
     isAdmin,
     isStaff,
   };
@@ -214,7 +229,7 @@ export function useAuth() {
  */
 export function withAuth(Component, options = {}) {
   return function AuthenticatedComponent(props) {
-    const { user, loading, isAuthenticated, isStaff, authError } = useAuth();
+    const { user, loading, isAuthenticated, isAdmin, isStaff, isSuperAdmin, authError } = useAuth();
     const router = useRouter();
     const pathname = usePathname();
 
@@ -226,15 +241,24 @@ export function withAuth(Component, options = {}) {
           const redirectParam = currentPath ? `?redirect_url=${encodeURIComponent(currentPath)}` : '';
           router.push(`/auth/login${redirectParam}`);
         } else if (options.requiredRole) {
-          const hasAccess = options.requiredRole === USER_ROLES.STAFF
-            ? isStaff()
-            : user?.role === options.requiredRole;
+          // Robust role check
+          let hasAccess = false;
+          if (options.requiredRole === USER_ROLES.STAFF) {
+            hasAccess = isStaff();
+          } else if (options.requiredRole === USER_ROLES.ADMIN) {
+            hasAccess = isAdmin();
+          } else if (options.requiredRole === USER_ROLES.SUPER_ADMIN) {
+            hasAccess = isSuperAdmin();
+          } else {
+            hasAccess = user?.role === options.requiredRole;
+          }
+
           if (!hasAccess) {
             router.push(options.unauthorizedRedirect || '/');
           }
         }
       }
-    }, [loading, isAuthenticated, user, isStaff, router, pathname]);
+    }, [loading, isAuthenticated, user, isStaff, isAdmin, isSuperAdmin, router, pathname, options.requiredRole, options.unauthorizedRedirect]);
 
     if (loading) {
       return options.loadingComponent || (
@@ -252,9 +276,17 @@ export function withAuth(Component, options = {}) {
     }
 
     if (options.requiredRole) {
-      const hasAccess = options.requiredRole === USER_ROLES.STAFF
-        ? isStaff()
-        : user?.role === options.requiredRole;
+      let hasAccess = false;
+      if (options.requiredRole === USER_ROLES.STAFF) {
+        hasAccess = isStaff();
+      } else if (options.requiredRole === USER_ROLES.ADMIN) {
+        hasAccess = isAdmin();
+      } else if (options.requiredRole === USER_ROLES.SUPER_ADMIN) {
+        hasAccess = isSuperAdmin();
+      } else {
+        hasAccess = user?.role === options.requiredRole;
+      }
+      
       if (!hasAccess) {
         return options.unauthorizedComponent || null;
       }

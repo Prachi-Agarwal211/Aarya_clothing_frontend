@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Button } from '../../../components/ui/button';
-import { Input } from '../../../components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Lock, Eye, EyeOff, CheckCircle, XCircle } from 'lucide-react';
 import Link from 'next/link';
 import { apiFetch } from '../../../lib/api';

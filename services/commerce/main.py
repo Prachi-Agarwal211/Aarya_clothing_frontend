@@ -88,6 +88,16 @@ from service.review_service import ReviewService
 from service.order_tracking_service import OrderTrackingService
 from service.return_service import ReturnService
 
+# Route modules (for better code organization)
+# These modularize the 2800+ line main.py into manageable route files
+try:
+    from routes import products_router, categories_router, orders_router, cart_router
+    ROUTES_AVAILABLE = True
+except ImportError:
+    ROUTES_AVAILABLE = False
+    # Fallback to monolithic routes in main.py
+    pass
+
 # Concurrency control
 from core.cart_lock import CartConcurrencyManager, cart_operation_lock
 
@@ -370,6 +380,17 @@ app.add_middleware(RequestIDMiddleware)
 
 # Standardized error handlers
 register_error_handlers(app)
+
+# Register route modules (if available)
+# This modularizes the 2800+ line main.py into manageable route files
+if ROUTES_AVAILABLE:
+    app.include_router(products_router)
+    app.include_router(categories_router)
+    app.include_router(orders_router)
+    app.include_router(cart_router)
+    logger.info("Route modules registered successfully")
+else:
+    logger.warning("Route modules not available - using monolithic routes in main.py")
 
 
 # ==================== Health ====================

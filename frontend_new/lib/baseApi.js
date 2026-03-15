@@ -50,76 +50,57 @@ function removeCookie(name) {
 // ==================== Token Management ====================
 
 /**
- * Get the authentication token from localStorage
+ * Get the authentication token
+ * Note: Returns null since tokens are now HttpOnly cookies
+ * Cookies are sent automatically by the browser with credentials: 'include'
  */
 export function getAuthToken() {
-  if (typeof window === 'undefined') return null;
-
-  try {
-    // Try both key formats for backward compatibility
-    return localStorage.getItem('access_token') || localStorage.getItem('accessToken');
-  } catch (e) {
-    console.warn('Failed to get auth token:', e);
-    return null;
-  }
+  return null;
 }
 
 /**
- * Get the refresh token from localStorage
+ * Get the refresh token
+ * Note: Returns null since tokens are now HttpOnly cookies
+ * Backend reads refresh token from cookie during refresh
  */
 export function getRefreshToken() {
-  if (typeof window === 'undefined') return null;
-
-  try {
-    // Try both key formats for backward compatibility
-    return localStorage.getItem('refresh_token') || localStorage.getItem('refreshToken');
-  } catch (e) {
-    console.warn('Failed to get refresh token:', e);
-    return null;
-  }
+  return null;
 }
 
 /**
- * Store authentication data in localStorage and cookies
+ * Store authentication data (user only - tokens are set by backend as HttpOnly cookies)
  * @param {Object} params - { user, access_token, refresh_token }
  */
 export function setAuthData({ user, access_token, refresh_token }) {
   if (typeof window === 'undefined') return;
 
   try {
+    // Store user data in localStorage (safe - doesn't contain tokens)
     if (user) {
       localStorage.setItem('user', JSON.stringify(user));
     }
-    if (access_token) {
-      localStorage.setItem('access_token', access_token);
-      // Also set as cookie for middleware route protection
-      setCookie('access_token', access_token, 7);
-    }
-    if (refresh_token) {
-      localStorage.setItem('refresh_token', refresh_token);
-      // Also set as cookie for auto-refresh
-      setCookie('refresh_token', refresh_token, 7);
-    }
+    
+    // Note: Tokens are NO LONGER stored here by frontend
+    // Backend sets HttpOnly cookies via Set-Cookie header
+    // This prevents XSS attacks from stealing tokens
   } catch (e) {
     console.error('Failed to store auth data:', e);
   }
 }
 
 /**
- * Clear all authentication data from localStorage and cookies
+ * Clear all authentication data from localStorage
+ * Note: HttpOnly cookies are cleared by backend on logout
  */
 export function clearAuthData() {
   if (typeof window === 'undefined') return;
 
   try {
+    // Clear user data from localStorage
     localStorage.removeItem('user');
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
-
-    // Also remove cookies
-    removeCookie('user');
-    removeCookie('access_token');
-    removeCookie('refresh_token');
+    
+    // Note: We no longer clear tokens here since they're HttpOnly
+    // Backend should clear them via Set-Cookie with expiry in the past
   } catch (e) {
     console.error('Failed to clear auth data:', e);
   }
@@ -127,15 +108,16 @@ export function clearAuthData() {
 
 /**
  * Get stored user data from localStorage
+ * Note: User data is safe to store in localStorage (no sensitive tokens)
  */
 export function getStoredUser() {
   if (typeof window === 'undefined') return null;
 
   try {
-    const user = localStorage.getItem('user');
-    return user ? JSON.parse(user) : null;
+    const userStr = localStorage.getItem('user');
+    return userStr ? JSON.parse(userStr) : null;
   } catch (e) {
-    console.warn('Failed to parse stored user:', e);
+    console.warn('Failed to get stored user:', e);
     return null;
   }
 }
@@ -227,16 +209,12 @@ export class BaseApiClient {
 
     this._refreshing = (async () => {
       try {
-        const refreshToken = typeof window !== 'undefined'
-          ? localStorage.getItem('refresh_token')
-          : null;
-
-        if (!refreshToken) return false;
-
+        // Refresh token is HttpOnly cookie - backend will read it from cookie
+        // No need to read or send it in request body
         const response = await fetch(buildUrl(this.baseUrl, '/api/v1/auth/refresh'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ refresh_token: refreshToken }),
+          body: JSON.stringify({}), // Empty body - backend reads from cookie
           ...(this.includeCredentials && { credentials: 'include' }),
         });
 
@@ -244,10 +222,19 @@ export class BaseApiClient {
 
         const data = await response.json();
         if (data.access_token) {
-          setAuthData({
-            access_token: data.access_token,
-            refresh_token: data.refresh_token || refreshToken,
-          });
+          // Backend sets new HttpOnly cookies
+          // Refresh user data from server
+          try {
+            const userResponse = await fetch(buildUrl(this.baseUrl, '/api/v1/users/me'), {
+              ...(this.includeCredentials && { credentials: 'include' }),
+            });
+            if (userResponse.ok) {
+              const userData = await userResponse.json();
+              localStorage.setItem('user', JSON.stringify(userData));
+            }
+          } catch (e) {
+            console.warn('Failed to refresh user data:', e);
+          }
           return true;
         }
         return false;
@@ -263,12 +250,10 @@ export class BaseApiClient {
 
   async fetch(path, options = {}, _isRetry = false) {
     const url = buildUrl(this.baseUrl, path);
-    const token = getAuthToken();
     const hasFormDataBody = options.body instanceof FormData;
 
     const headers = {
       ...(hasFormDataBody ? {} : { 'Content-Type': 'application/json' }),
-      ...(token && { Authorization: `Bearer ${token}` }),
       ...(options.headers || {}),
     };
 
@@ -363,7 +348,6 @@ export class BaseApiClient {
   }
 
   async uploadFile(path, fileOrData, params = {}) {
-    const token = getAuthToken();
     const queryString = buildQuery(params);
     const fullPath = queryString ? `${path}?${queryString}` : path;
     const url = buildUrl(this.baseUrl, fullPath);
@@ -390,7 +374,6 @@ export class BaseApiClient {
     try {
       response = await fetch(url, {
         method: 'POST',
-        headers: { ...(token && { Authorization: `Bearer ${token}` }) },
         body: formData,
         ...(this.includeCredentials && { credentials: 'include' }),
       });

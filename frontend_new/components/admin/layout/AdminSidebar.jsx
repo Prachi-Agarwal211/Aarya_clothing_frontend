@@ -20,31 +20,56 @@ import {
   Warehouse,
   Sparkles,
   Activity,
-  SlidersHorizontal,
+  Key,
+  Cpu,
+  MonitorCheck,
 } from 'lucide-react';
 import { useAuth } from '../../../lib/authContext';
-
-const navigation = [
-  { name: 'Dashboard', href: '/admin', icon: LayoutDashboard },
-  { name: 'Orders', href: '/admin/orders', icon: Package },
-  { name: 'Returns', href: '/admin/returns', icon: RotateCcw },
-  { name: 'Products & Stock', href: '/admin/products', icon: ShoppingBag },
-  { name: 'Inventory', href: '/admin/inventory', icon: Warehouse },
-  { name: 'Collections', href: '/admin/collections', icon: Layers },
-  { name: 'Customers', href: '/admin/customers', icon: Users },
-  { name: 'Analytics', href: '/admin/analytics', icon: BarChart3 },
-  { name: 'Aria AI Assistant', href: '/admin/ai-assistant', icon: Sparkles, highlight: true },
-  { name: 'AI Monitoring', href: '/admin/ai-monitoring', icon: Activity },
-  { name: 'AI Configuration', href: '/admin/ai-settings', icon: SlidersHorizontal },
-  { name: 'Chat Support', href: '/admin/chat', icon: MessageCircle },
-  { name: 'Landing Page', href: '/admin/landing', icon: Image },
-  { name: 'Settings', href: '/admin/settings', icon: Settings },
-];
 
 export default function AdminSidebar({ collapsed, onToggle }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
+
+  // Define navigation based on role
+  let navigation = [];
+
+  if (user?.role === 'super_admin') {
+    navigation = [
+      { name: 'System Overview', href: '/admin/super', icon: Activity },
+      { name: 'AI Key Management', href: '/admin/super/ai-settings', icon: Key },
+      { name: 'AI Monitoring', href: '/admin/super/ai-monitoring', icon: MonitorCheck },
+      { name: 'User Management', href: '/admin/super/users', icon: Users },
+      { name: 'System Settings', href: '/admin/super/settings', icon: Cpu },
+      { name: 'Admin Dashboard', href: '/admin', icon: LayoutDashboard },
+      { name: 'Products & Stock', href: '/admin/products', icon: ShoppingBag },
+      { name: 'Orders', href: '/admin/orders', icon: Package },
+    ];
+  } else if (user?.role === 'staff') {
+    navigation = [
+      { name: 'Dashboard', href: '/admin/staff', icon: LayoutDashboard },
+      { name: 'Orders', href: '/admin/orders', icon: Package },
+      { name: 'Returns', href: '/admin/returns', icon: RotateCcw },
+      { name: 'Products & Stock', href: '/admin/products', icon: ShoppingBag },
+      { name: 'Inventory', href: '/admin/inventory', icon: Warehouse },
+    ];
+  } else {
+    // Regular Admin
+    navigation = [
+      { name: 'Dashboard', href: '/admin', icon: LayoutDashboard },
+      { name: 'Orders', href: '/admin/orders', icon: Package },
+      { name: 'Returns', href: '/admin/returns', icon: RotateCcw },
+      { name: 'Products & Stock', href: '/admin/products', icon: ShoppingBag },
+      { name: 'Inventory', href: '/admin/inventory', icon: Warehouse },
+      { name: 'Collections', href: '/admin/collections', icon: Layers },
+      { name: 'Customers', href: '/admin/customers', icon: Users },
+      { name: 'Analytics', href: '/admin/analytics', icon: BarChart3 },
+      { name: 'Aria AI Assistant', href: '/admin/ai-assistant', icon: Sparkles, highlight: true },
+      { name: 'Chat Support', href: '/admin/chat', icon: MessageCircle },
+      { name: 'Landing Page', href: '/admin/landing', icon: Image },
+      { name: 'Settings', href: '/admin/settings', icon: Settings },
+    ];
+  }
 
   const handleLogout = async () => {
     await logout();

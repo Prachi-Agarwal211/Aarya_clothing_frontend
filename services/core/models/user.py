@@ -11,6 +11,7 @@ class UserRole(str, enum.Enum):
     admin = "admin"
     staff = "staff"
     customer = "customer"
+    super_admin = "super_admin"
 
 
 class User(Base):
@@ -33,6 +34,11 @@ class User(Base):
     verifications = relationship("EmailVerification", back_populates="user", cascade="all, delete-orphan")
     
     @property
+    def is_super_admin(self) -> bool:
+        """Check if user is super admin."""
+        return self.role == UserRole.super_admin
+
+    @property
     def is_admin(self) -> bool:
         """Backward compatibility: check if user is admin."""
         return self.role == UserRole.admin
@@ -40,7 +46,7 @@ class User(Base):
     @property
     def is_staff(self) -> bool:
         """Check if user is staff or admin (has backend access)."""
-        return self.role in [UserRole.staff, UserRole.admin]
+        return self.role in [UserRole.staff, UserRole.admin, UserRole.super_admin]
     
     @property
     def is_customer(self) -> bool:

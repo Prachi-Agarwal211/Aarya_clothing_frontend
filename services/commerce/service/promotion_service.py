@@ -1,7 +1,7 @@
 """Promotion service for managing promotional codes."""
 from typing import List, Optional
 from sqlalchemy.orm import Session
-from sqlalchemy import and_
+from sqlalchemy import and_, text
 from fastapi import HTTPException, status
 from decimal import Decimal
 from datetime import datetime, timezone
@@ -94,18 +94,30 @@ class PromotionService:
         return True
     
     def validate_promotion(
-        self, 
-        code: str, 
-        user_id: int, 
+        self,
+        code: str,
+        user_id: int,
         order_total: Decimal
     ) -> dict:
         """
         Validate promotion code and calculate discount.
-        
+
         Returns dict with validation result and discount details.
-        """
-        promotion = self.get_promotion_by_code(code)
         
+        Uses FOR UPDATE locking to prevent race conditions when multiple
+        users try to use the same promotion code simultaneously.
+        """
+        # Use FOR UPDATE to lock the row and prevent race conditions
+        # This ensures atomic check-then-use for max_uses validation
+        promotion = self.db.execute(
+            text("""
+                SELECT * FROM promotions 
+                WHERE code = :code 
+                FOR UPDATE
+            """),
+            {"code": code.upper()}
+        ).fetchone()
+
         if not promotion:
             return {
                 "valid": False,
@@ -113,7 +125,7 @@ class PromotionService:
                 "discount_amount": Decimal('0'),
                 "final_total": order_total
             }
-        
+
         # Check if promotion is valid
         if not promotion.is_valid:
             if not promotion.is_active:
@@ -126,20 +138,20 @@ class PromotionService:
                 message = "Promotion code has reached its usage limit"
             else:
                 message = "Promotion code is invalid"
-            
+
             return {
                 "valid": False,
                 "message": message,
                 "discount_amount": Decimal('0'),
                 "final_total": order_total
             }
-        
+
         # Check user usage limit
         user_usage_count = self.db.query(PromotionUsage).filter(
             PromotionUsage.promotion_id == promotion.id,
             PromotionUsage.user_id == user_id
         ).count()
-        
+
         if user_usage_count >= promotion.max_uses_per_user:
             return {
                 "valid": False,
@@ -147,11 +159,11 @@ class PromotionService:
                 "discount_amount": Decimal('0'),
                 "final_total": order_total
             }
-        
+
         # Calculate discount
         discount_amount = Decimal(str(promotion.calculate_discount(float(order_total))))
         final_total = max(Decimal('0'), order_total - discount_amount)
-        
+
         return {
             "valid": True,
             "message": "Promotion code applied successfully",

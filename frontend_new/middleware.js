@@ -25,6 +25,10 @@ const AUTH_ROUTES = [
   '/auth/change-password',
 ];
 
+// Convert to Set for O(1) lookups in middleware
+const PUBLIC_ROUTE_SET = new Set(PUBLIC_ROUTES);
+const AUTH_ROUTE_SET = new Set(AUTH_ROUTES);
+
 /**
  * Parse JWT token safely in Edge runtime
  */
@@ -66,38 +70,59 @@ export function middleware(request) {
   // Check if token exists and is not expired
   const isTokenValid = decodedToken && decodedToken.exp && (decodedToken.exp * 1000 > Date.now());
   const isAuthenticated = !!isTokenValid;
+  
+  // Check if refresh token exists (for token refresh scenarios)
+  const refreshToken = request.cookies.get('refresh_token')?.value;
+  const hasRefreshToken = !!refreshToken;
 
   // Get user role from token instead of dummy cookie
   const userRole = decodedToken?.role;
-  const isStaff = userRole === 'admin' || userRole === 'staff';
+  const isStaff = ['admin', 'super_admin', 'staff'].includes(userRole);
+  const isAdmin = ['admin', 'super_admin'].includes(userRole);
 
   // Route classification
   const isAdminRoute = pathname.startsWith('/admin');
   const isProfileRoute = pathname.startsWith('/profile');
-  const isAuthRoute = AUTH_ROUTES.some(route => pathname.startsWith(route));
-  const isPublicRoute = PUBLIC_ROUTES.some(route => pathname === route || pathname.startsWith(route + '/'));
+  const isAuthRoute = AUTH_ROUTE_SET.has(pathname) || AUTH_ROUTES.some(route => pathname.startsWith(route));
+  const isPublicRoute = PUBLIC_ROUTE_SET.has(pathname) || PUBLIC_ROUTES.some(route => pathname.startsWith(route + '/'));
 
   // Handle admin routes - require admin/staff role
   if (isAdminRoute) {
-    if (!isAuthenticated) {
-      // Not logged in - redirect to login with return URL
+    // If not authenticated and no refresh token, redirect to login
+    // If refresh token exists, allow request through (client will refresh)
+    if (!isAuthenticated && !hasRefreshToken) {
+      // Not logged in and no refresh token - redirect to login with return URL
       const loginUrl = new URL('/auth/login', request.url);
       loginUrl.searchParams.set('redirect_url', request.nextUrl.pathname + request.nextUrl.search);
       return NextResponse.redirect(loginUrl);
     }
 
-    if (!isStaff) {
+    // If authenticated, check role permissions
+    if (isAuthenticated && !isStaff) {
       // Logged in but not admin/staff - redirect to home
       const homeUrl = new URL('/', request.url);
       homeUrl.searchParams.set('error', 'unauthorized');
       return NextResponse.redirect(homeUrl);
     }
 
-    // If strict staff tries to access root admin or non-staff routes, redirect them
-    if (userRole === 'staff') {
-      if (pathname === '/admin' || pathname === '/admin/') {
+    // Role-based redirects for root admin route (only if authenticated)
+    if (isAuthenticated && (pathname === '/admin' || pathname === '/admin/')) {
+      if (userRole === 'staff') {
         return NextResponse.redirect(new URL('/admin/staff', request.url));
       }
+      if (userRole === 'super_admin') {
+        return NextResponse.redirect(new URL('/admin/super', request.url));
+      }
+    }
+
+    // Specific handling for staff accessing super admin routes
+    if (userRole === 'staff' && pathname.startsWith('/admin/super')) {
+      return NextResponse.redirect(new URL('/admin/staff', request.url));
+    }
+
+    // Specific handling for admin accessing super admin routes
+    if (userRole === 'admin' && pathname.startsWith('/admin/super')) {
+      return NextResponse.redirect(new URL('/admin', request.url));
     }
 
     // Authorized - proceed
@@ -129,11 +154,16 @@ export function middleware(request) {
       // User was heading somewhere before hitting auth — send them there
       redirectUrl = new URL(redirectParam, request.url);
     } else {
-      redirectUrl = userRole === 'admin'
-        ? new URL('/admin', request.url)
-        : (userRole === 'staff'
-          ? new URL('/admin/staff', request.url)
-          : new URL('/products', request.url)); // Default to products for customers
+      // Default dashboard based on role
+      if (userRole === 'super_admin') {
+        redirectUrl = new URL('/admin/super', request.url);
+      } else if (userRole === 'admin') {
+        redirectUrl = new URL('/admin', request.url);
+      } else if (userRole === 'staff') {
+        redirectUrl = new URL('/admin/staff', request.url);
+      } else {
+        redirectUrl = new URL('/products', request.url);
+      }
     }
     return NextResponse.redirect(redirectUrl);
   }

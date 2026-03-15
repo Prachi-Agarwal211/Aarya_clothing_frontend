@@ -57,7 +57,7 @@ const EnhancedHeader = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
   const { itemCount, toggleCart } = useCart();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const tickingRef = useRef(false);
   const pathname = usePathname();
   const router = useRouter();
@@ -206,7 +206,11 @@ const EnhancedHeader = () => {
               <button
                 onClick={() => {
                   if (isAuthenticated) {
-                    router.push('/profile');
+                    if (user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'staff') {
+                      router.push('/admin');
+                    } else {
+                      router.push('/profile');
+                    }
                   } else {
                     router.push('/auth/login?redirect_url=/profile');
                   }
@@ -320,7 +324,11 @@ const EnhancedHeader = () => {
               onClick={() => {
                 setIsMobileMenuOpen(false);
                 if (isAuthenticated) {
-                  router.push('/profile');
+                  if (user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'staff') {
+                    router.push('/admin');
+                  } else {
+                    router.push('/profile');
+                  }
                 } else {
                   router.push('/auth/login?redirect_url=/profile');
                 }

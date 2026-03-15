@@ -38,6 +38,7 @@ from schemas.auth import (
 from service.auth_service import AuthService
 from service.email_service import email_service
 from middleware.auth_middleware import init_auth, get_current_user, get_current_user_optional
+from middleware.csrf_middleware import CSRFMiddleware
 from shared.request_id_middleware import RequestIDMiddleware
 from shared.error_responses import register_error_handlers
 
@@ -85,6 +86,9 @@ app.add_middleware(
 
 # Request ID
 app.add_middleware(RequestIDMiddleware)
+
+# CSRF Protection
+app.add_middleware(CSRFMiddleware)
 
 # Standardized error handlers
 register_error_handlers(app)

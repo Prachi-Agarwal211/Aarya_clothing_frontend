@@ -148,3 +148,46 @@ export function InventoryStatusBadge({ quantity, threshold = 10 }) {
     </span>
   );
 }
+
+/**
+ * Return Status Badge Component
+ * Displays return request status with consistent styling
+ */
+export function ReturnStatusBadge({ status }) {
+  const statusConfig = {
+    requested: {
+      color: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
+      dot: 'bg-amber-400',
+      label: 'Requested',
+    },
+    approved: {
+      color: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+      dot: 'bg-blue-400',
+      label: 'Approved',
+    },
+    received: {
+      color: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
+      dot: 'bg-purple-400',
+      label: 'Received',
+    },
+    refunded: {
+      color: 'bg-green-500/20 text-green-400 border-green-500/30',
+      dot: 'bg-green-400',
+      label: 'Refunded',
+    },
+    rejected: {
+      color: 'bg-red-500/20 text-red-400 border-red-500/30',
+      dot: 'bg-red-400',
+      label: 'Rejected',
+    },
+  };
+
+  const config = statusConfig[status?.toLowerCase()] || statusConfig.requested;
+
+  return (
+    <span className={`inline-flex items-center gap-1.5 border rounded-full font-medium px-2.5 py-1 text-xs ${config.color}`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${config.dot}`} />
+      <span>{config.label}</span>
+    </span>
+  );
+}

@@ -5,6 +5,7 @@ from fastapi import HTTPException, status
 from decimal import Decimal
 import json
 import logging
+import os
 
 from core.redis_client import redis_client
 
@@ -223,7 +224,8 @@ class CartService:
         sgst = 0.0
         igst = 0.0
         delivery_state = cart.get("delivery_state", "")
-        seller_state = "Maharashtra"  # seller's registered state
+        # Seller's registered state from environment (default: Rajasthan)
+        seller_state = os.getenv("SELLER_STATE", "Rajasthan")
         
         for item in cart["items"]:
             item_total = item["price"] * item["quantity"]

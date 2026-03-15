@@ -1,18 +1,19 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import AdminSidebar from './AdminSidebar';
 import AdminHeader from './AdminHeader';
 import { useAuth } from '../../../lib/authContext';
 
 export default function AdminLayout({ children }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   
   // Use auth context for authentication
-  const { user, loading, isAuthenticated, isStaff } = useAuth();
+  const { user, loading, isAuthenticated, isAdmin } = useAuth();
 
   // Handle authentication and authorization
   useEffect(() => {
@@ -23,13 +24,33 @@ export default function AdminLayout({ children }) {
         return;
       }
       
-      // Redirect to home if not admin or staff
-      if (!isStaff()) {
+      // Default dashboard redirection from root admin path
+      if (pathname === '/admin' || pathname === '/admin/') {
+        if (user?.role === 'super_admin') {
+          router.push('/admin/super');
+          return;
+        }
+        if (user?.role === 'staff') {
+          router.push('/admin/staff');
+          return;
+        }
+      }
+      
+      // Strict section protection
+      // 1. Only super_admin can access /admin/super
+      if (user?.role !== 'super_admin' && pathname.startsWith('/admin/super')) {
+        const target = user?.role === 'staff' ? '/admin/staff' : '/admin';
+        router.push(target);
+        return;
+      }
+
+      // 2. Customers or unknown roles should go to home
+      if (!isAdmin() && user?.role !== 'staff') {
         router.push('/');
         return;
       }
     }
-  }, [loading, isAuthenticated, isStaff, router]);
+  }, [loading, isAuthenticated, isAdmin, user, router, pathname]);
 
   // Show loading state while checking auth
   if (loading) {
@@ -37,14 +58,15 @@ export default function AdminLayout({ children }) {
       <div className="min-h-screen bg-[#050203] flex items-center justify-center">
         <div className="text-center">
           <div className="w-12 h-12 border-2 border-[#B76E79]/30 border-t-[#F2C29A] rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-[#EAE0D5]/70">Loading admin dashboard...</p>
+          <p className="text-[#EAE0D5]/70">Loading dashboard...</p>
         </div>
       </div>
     );
   }
 
   // Don't render anything if not authenticated or not authorized
-  if (!isAuthenticated || !isStaff()) {
+  const isAuthorized = isAuthenticated && (isAdmin() || user?.role === 'staff');
+  if (!isAuthenticated || !isAuthorized) {
     return (
       <div className="min-h-screen bg-[#050203] flex items-center justify-center">
         <div className="text-center">

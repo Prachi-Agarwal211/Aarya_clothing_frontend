@@ -2,6 +2,7 @@
 Shared rate limiter for all Aarya Clothing microservices.
 Redis-backed sliding-window rate limiting with FastAPI dependency support.
 """
+
 import time
 import logging
 from typing import Optional, Callable
@@ -12,14 +13,14 @@ logger = logging.getLogger(__name__)
 # ── Default limits (per window) ──────────────────────────────────────────────
 
 LIMITS = {
-    "auth_login":        (10, 300),   # 10 attempts / 5 min
-    "auth_register":     (5,  3600),  # 5 registrations / 1 hr
-    "auth_password_reset": (5, 3600), # 5 resets / 1 hr
-    "auth_otp":          (6,  600),   # 6 OTP attempts / 10 min
-    "search":            (60, 60),    # 60 searches / 1 min
-    "cart_write":        (30, 60),    # 30 cart mutations / 1 min
-    "review_create":     (3,  3600),  # 3 reviews / 1 hr
-    "default":           (120, 60),   # 120 requests / 1 min
+    "auth_login": (10, 300),  # 10 attempts / 5 min
+    "auth_register": (5, 3600),  # 5 registrations / 1 hr
+    "auth_password_reset": (5, 3600),  # 5 resets / 1 hr
+    "auth_otp": (6, 600),  # 6 OTP attempts / 10 min
+    "search": (60, 60),  # 60 searches / 1 min
+    "cart_write": (30, 60),  # 30 cart mutations / 1 min
+    "review_create": (3, 3600),  # 3 reviews / 1 hr
+    "default": (120, 60),  # 120 requests / 1 min
 }
 
 
@@ -37,6 +38,7 @@ class RateLimiter:
         if self._redis is None:
             try:
                 from shared.unified_redis_client import get_redis_client
+
                 self._redis = get_redis_client()
             except Exception:
                 pass
@@ -45,10 +47,13 @@ class RateLimiter:
     def is_allowed(self, key: str, limit: int, window_seconds: int) -> tuple[bool, int]:
         """
         Check rate limit. Returns (allowed: bool, current_count: int).
-        Falls back to allowed=True if Redis is unavailable.
+        Falls back to allowed=False if Redis is unavailable (fail-closed for security).
         """
         if not self.redis:
-            return True, 0
+            logger.warning(
+                "Redis unavailable - rate limiter failing closed (denying requests)"
+            )
+            return False, 0
 
         now = int(time.time())
         bucket = now // window_seconds
@@ -62,8 +67,8 @@ class RateLimiter:
             count = results[0]
             return count <= limit, count
         except Exception as e:
-            logger.warning(f"RateLimiter Redis error (allowing request): {e}")
-            return True, 0
+            logger.warning(f"RateLimiter Redis error (failing closed): {e}")
+            return False, 0
 
     def check(self, key: str, limit: int, window_seconds: int) -> None:
         """Raise HTTP 429 if rate limit exceeded."""
@@ -87,8 +92,10 @@ class RateLimiter:
         if user_id:
             return f"user:{user_id}"
         forwarded = request.headers.get("X-Forwarded-For")
-        ip = forwarded.split(",")[0].strip() if forwarded else (
-            request.client.host if request.client else "unknown"
+        ip = (
+            forwarded.split(",")[0].strip()
+            if forwarded
+            else (request.client.host if request.client else "unknown")
         )
         return f"ip:{ip}"
 
@@ -107,7 +114,10 @@ def get_rate_limiter() -> RateLimiter:
 
 # ── FastAPI dependency factories ──────────────────────────────────────────────
 
-def rate_limit(endpoint_key: str, limit: Optional[int] = None, window: Optional[int] = None) -> Callable:
+
+def rate_limit(
+    endpoint_key: str, limit: Optional[int] = None, window: Optional[int] = None
+) -> Callable:
     """
     Returns a FastAPI dependency that enforces rate limiting.
 
@@ -128,7 +138,9 @@ def rate_limit(endpoint_key: str, limit: Optional[int] = None, window: Optional[
     return _dep
 
 
-def rate_limit_user(endpoint_key: str, limit: Optional[int] = None, window: Optional[int] = None) -> Callable:
+def rate_limit_user(
+    endpoint_key: str, limit: Optional[int] = None, window: Optional[int] = None
+) -> Callable:
     """
     Rate limit by authenticated user_id (falls back to IP for guests).
     Requires that the route passes `current_user: dict` as a dependency BEFORE this.

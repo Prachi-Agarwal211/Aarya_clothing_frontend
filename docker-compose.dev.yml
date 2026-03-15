@@ -23,7 +23,7 @@ services:
       - SERVICE_NAME=core
       - ENVIRONMENT=development
       - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:-postgres123}@postgres:5432/aarya_clothing
-      - REDIS_URL=redis://redis:6379/0
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-aarya_clothing_redis_password_2024}@redis:6379/0
       - REDIS_DB=0
       - SECRET_KEY=${SECRET_KEY:-dev_secret_key_change_in_production}
       - ALGORITHM=HS256
@@ -75,7 +75,7 @@ services:
       - SERVICE_NAME=commerce
       - ENVIRONMENT=development
       - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:-postgres123}@postgres:5432/aarya_clothing
-      - REDIS_URL=redis://redis:6379/1
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-aarya_clothing_redis_password_2024}@redis:6379/1
       - REDIS_DB=1
       - CORE_SERVICE_URL=http://core:5001
       - CART_TTL_HOURS=168
@@ -109,7 +109,7 @@ services:
       - SERVICE_NAME=payment
       - ENVIRONMENT=development
       - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:-postgres123}@postgres:5432/aarya_clothing
-      - REDIS_URL=redis://redis:6379/2
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-aarya_clothing_redis_password_2024}@redis:6379/2
       - REDIS_DB=2
       - CORE_SERVICE_URL=http://core:5001
       # JWT Verification
@@ -143,7 +143,7 @@ services:
       - SERVICE_NAME=admin
       - ENVIRONMENT=development
       - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:-postgres123}@postgres:5432/aarya_clothing
-      - REDIS_URL=redis://redis:6379/3
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-aarya_clothing_redis_password_2024}@redis:6379/3
       - REDIS_DB=3
       - SECRET_KEY=${SECRET_KEY:-dev_secret_key_change_in_production}
       - ALGORITHM=HS256

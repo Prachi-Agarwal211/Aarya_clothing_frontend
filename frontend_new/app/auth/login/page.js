@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState, useEffect, Suspense } from 'react';
-import { Button } from '../../../components/ui/button';
-import { Input } from '../../../components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -60,14 +60,18 @@ function LoginForm() {
         return;
       }
 
-      // Otherwise, role-based redirect (OPTIMIZED: customers go to /products)
-      if (isStaff()) {
+      // Role-based redirect - proper separation
+      if (user.role === 'super_admin') {
+        router.push('/admin/super');
+      } else if (user.role === 'admin') {
         router.push('/admin');
+      } else if (user.role === 'staff') {
+        router.push('/admin/staff');
       } else {
         router.push('/products');  // Customers go to products section
       }
     }
-  }, [loading, isAuthenticated, user, isStaff, router, redirectUrl]);
+  }, [loading, isAuthenticated, user, router, redirectUrl]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -91,23 +95,23 @@ function LoginForm() {
 
       setStatus('Signed in successfully.');
 
-      // Use hard navigation to ensure cookies are sent to middleware
-      // Small delay to ensure cookies are fully set
-      await new Promise(resolve => setTimeout(resolve, 100));
-
-      // Determine redirect URL
+      // Determine redirect URL based on role
       const user = response.user;
       let targetUrl = '/products'; // Default for customers
 
       if (redirectUrl && redirectUrl.startsWith('/')) {
         targetUrl = redirectUrl;
-      } else if (user.role === 'admin' || user.role === 'staff') {
+      } else if (user.role === 'super_admin') {
+        targetUrl = '/admin/super';
+      } else if (user.role === 'admin') {
         targetUrl = '/admin';
+      } else if (user.role === 'staff') {
+        targetUrl = '/admin/staff';
       }
 
-      // Use hard navigation (window.location.href) instead of router.push()
-      // This ensures the middleware receives the cookies with the request
-      window.location.href = targetUrl;
+      // Use soft navigation - backend sets HttpOnly cookies automatically
+      // Browser will send cookies on next request
+      router.push(targetUrl);
       return; // Exit early, don't set isSubmitting to false yet
     } catch (err) {
       logger.error('Login failed:', err);

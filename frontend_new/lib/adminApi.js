@@ -92,11 +92,10 @@ export const ordersApi = {
   uploadPodExcel: async (file) => {
     const formData = new FormData();
     formData.append('file', file);
-    const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
     const res = await fetch('/api/v1/admin/orders/upload-pod-excel', {
       method: 'POST',
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
       body: formData,
+      credentials: 'include', // Send cookies automatically
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
@@ -116,14 +115,13 @@ export const aiApi = {
     }).then(r => r.json()),
 
   adminChat: (message, sessionId, images) => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
     return fetch('/api/v1/ai/admin/chat', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
       body: JSON.stringify({ message, session_id: sessionId, images }),
+      credentials: 'include', // Send cookies automatically
     }).then(r => r.json());
   },
 
@@ -142,9 +140,8 @@ export const aiApi = {
   exportCsv: (days = 30, role = null) => {
     const q = new URLSearchParams({ days });
     if (role) q.set('role', role);
-    const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
     return fetch(`/api/v1/ai/admin/export/csv?${q}`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      credentials: 'include', // Send cookies automatically
     });
   },
 
@@ -152,19 +149,28 @@ export const aiApi = {
     adminClient.post('/api/v1/ai/admin/execute-action', { action_type, params }),
 };
 
-// ==================== AI Settings API ====================
+// ==================== AI Settings API (Super Admin Only) ====================
 export const aiSettingsApi = {
   getAll: () =>
-    adminClient.get('/api/v1/admin/ai-settings'),
+    adminClient.get('/api/v1/super/ai-settings'),
 
   update: (key, value) =>
-    adminClient.put(`/api/v1/admin/ai-settings/${key}`, { value }),
+    adminClient.put(`/api/v1/super/ai-settings/${key}`, { value }),
 
   bulkUpdate: (settings) =>
-    adminClient.put('/api/v1/admin/ai-settings/bulk', { settings }),
+    adminClient.put('/api/v1/super/ai-settings/bulk', { settings }),
 
   testKey: (api_key) =>
-    adminClient.post('/api/v1/admin/ai-settings/test-key', { api_key }),
+    adminClient.post('/api/v1/super/ai-settings/test-key', { api_key }),
+};
+
+// ==================== AI Monitoring API (Super Admin Only) ====================
+export const aiMonitoringApi = {
+  get: (days = 30, role = null) => {
+    const params = { days };
+    if (role) params.role = role;
+    return adminClient.get('/api/v1/super/ai-monitoring', params);
+  },
 };
 
 // ==================== Users/Customers API ====================
@@ -516,6 +522,18 @@ export const returnsApi = {
 
     return adminClient.post(`/api/v1/admin/returns/${id}/refund`, { refund_transaction_id: refundTransactionId });
   },
+
+  bulkApprove: (returnIds, refundAmount = null) =>
+    adminClient.post('/api/v1/admin/returns/bulk/approve', { 
+      return_ids: returnIds, 
+      refund_amount: refundAmount 
+    }),
+
+  bulkReject: (returnIds, reason) =>
+    adminClient.post('/api/v1/admin/returns/bulk/reject', { 
+      return_ids: returnIds, 
+      reason 
+    }),
 };
 
 // Export all APIs as a single object
@@ -537,3 +555,4 @@ export const adminApi = {
 };
 
 export default adminApi;
+export { adminClient };

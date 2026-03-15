@@ -11,12 +11,14 @@ import { cn } from '@/lib/utils';
 const BottomNavigation = () => {
     const pathname = usePathname();
     const { itemCount } = useCart();
-    const { isAuthenticated } = useAuth();
+    const { user, isAuthenticated } = useAuth();
     const [isMounted, setIsMounted] = useState(false);
 
     useEffect(() => {
         setIsMounted(true);
     }, []);
+
+    const isStaff = user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'staff';
 
     const navItems = [
         {
@@ -47,7 +49,7 @@ const BottomNavigation = () => {
         {
             label: 'Profile',
             icon: User,
-            href: isAuthenticated ? '/profile' : '/auth/login?redirect_url=/profile',
+            href: isAuthenticated ? (isStaff ? '/admin' : '/profile') : '/auth/login?redirect_url=/profile',
             isActive: pathname === '/profile' || pathname.startsWith('/admin')
         }
     ];

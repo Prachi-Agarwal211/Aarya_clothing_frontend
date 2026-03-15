@@ -11,15 +11,15 @@ import { coreClient, adminClient, setAuthData, clearAuthData, getRefreshToken } 
 // ==================== Authentication API ====================
 
 /**
- * Login with credentials and store tokens
+ * Login with credentials
+ * SECURITY: Tokens are stored in HttpOnly cookies by backend, not localStorage
  */
 export async function login(credentials) {
   const response = await coreClient.post('/api/v1/auth/login', credentials);
   
-  // Store tokens and user data
+  // SECURITY: Only store user data, NOT tokens
+  // Tokens are automatically stored in HttpOnly cookies by backend
   setAuthData({
-    access_token: response.tokens?.access_token || response.access_token,
-    refresh_token: response.tokens?.refresh_token || response.refresh_token,
     user: response.user,
   });
   
@@ -47,6 +47,7 @@ export async function register(userData) {
 
 /**
  * Refresh the access token
+ * SECURITY: Tokens are stored in HttpOnly cookies by backend
  */
 export async function refreshToken() {
   const refreshToken = getRefreshToken();
@@ -54,10 +55,11 @@ export async function refreshToken() {
   
   const response = await coreClient.post('/api/v1/auth/refresh', { refresh_token: refreshToken });
   
-  setAuthData({
-    access_token: response.tokens?.access_token || response.access_token,
-    refresh_token: response.tokens?.refresh_token || response.refresh_token,
-  });
+  // SECURITY: Tokens are in HttpOnly cookies, no localStorage storage needed
+  // Only update user data if present
+  if (response.user) {
+    setAuthData({ user: response.user });
+  }
   
   return response;
 }

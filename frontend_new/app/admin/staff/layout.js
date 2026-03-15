@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/authContext';
-import AdminLayout from '@/components/admin/layout/AdminLayout';
+import StaffDashboardLayout from '@/components/admin/staff/layout/StaffDashboardLayout';
 import logger from '@/lib/logger';
 
 export default function StaffLayout({ children }) {
@@ -21,14 +21,14 @@ export default function StaffLayout({ children }) {
       return;
     }
 
-    // Check if user is staff (but NOT admin - admins go to full admin)
-    if (isStaff() && user?.role === 'staff') {
+    // Check user role and redirect accordingly
+    if (user?.role === 'staff') {
       setAuthorized(true);
     } else if (user?.role === 'admin') {
-      // Admins should use full admin panel
       router.push('/admin');
+    } else if (user?.role === 'super_admin') {
+      router.push('/admin/super');
     } else {
-      // Customers or unauthorized
       router.push('/');
     }
   }, [loading, isAuthenticated, user, isStaff, router]);
@@ -45,8 +45,8 @@ export default function StaffLayout({ children }) {
   }
 
   return (
-    <AdminLayout>
+    <StaffDashboardLayout>
       {children}
-    </AdminLayout>
+    </StaffDashboardLayout>
   );
 }

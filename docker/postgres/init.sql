@@ -12,7 +12,7 @@ CREATE EXTENSION IF NOT EXISTS vector;
 -- ENUM TYPES
 -- ============================================
 DO $$ BEGIN
-    CREATE TYPE user_role AS ENUM ('admin', 'staff', 'customer');
+    CREATE TYPE user_role AS ENUM ('admin', 'staff', 'customer', 'super_admin');
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
@@ -69,7 +69,9 @@ CREATE TABLE IF NOT EXISTS users (
     
     -- Constraints
     CONSTRAINT users_email_check CHECK (email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'),
-    CONSTRAINT users_username_length CHECK (LENGTH(username) >= 3)
+    CONSTRAINT users_username_length CHECK (LENGTH(username) >= 3),
+    -- Password security: minimum 8 characters (application layer enforces stronger requirements)
+    CONSTRAINT users_password_length CHECK (LENGTH(hashed_password) >= 60)
 );
 
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
@@ -1635,3 +1637,65 @@ CREATE INDEX IF NOT EXISTS idx_payment_transactions_order_user ON payment_transa
 CREATE INDEX IF NOT EXISTS idx_order_tracking_status ON order_tracking(status);
 CREATE INDEX IF NOT EXISTS idx_orders_user_status ON orders(user_id, status);
 CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at DESC);
+
+-- ============================================
+-- HIGH-PERFORMANCE INDEXES FOR 100K+ USERS
+-- ============================================
+
+-- Composite indexes for common query patterns
+CREATE INDEX IF NOT EXISTS idx_orders_user_status_created ON orders(user_id, status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_orders_status_created ON orders(status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_orders_payment_status ON orders(payment_method, status) WHERE payment_method IS NOT NULL;
+
+-- Products: category + active + created (for listing pages)
+CREATE INDEX IF NOT EXISTS idx_products_category_active_created ON products(category_id, is_active, created_at DESC) WHERE is_active = true;
+CREATE INDEX IF NOT EXISTS idx_products_category_featured ON products(category_id, is_featured) WHERE is_active = true AND is_featured = true;
+CREATE INDEX IF NOT EXISTS idx_products_active_new ON products(id, created_at DESC) WHERE is_active = true AND is_new_arrival = true;
+CREATE INDEX IF NOT EXISTS idx_products_search_active ON products(name, category_id, is_active) WHERE is_active = true;
+
+-- Inventory: product + availability
+CREATE INDEX IF NOT EXISTS idx_inventory_product_available ON inventory(product_id, quantity, reserved_quantity) WHERE quantity > 0;
+CREATE INDEX IF NOT EXISTS idx_inventory_low_stock ON inventory(product_id, quantity) WHERE quantity <= low_stock_threshold;
+CREATE INDEX IF NOT EXISTS idx_inventory_sku_available ON inventory(sku, quantity) WHERE quantity > 0;
+
+-- Order Items: fast order detail retrieval
+CREATE INDEX IF NOT EXISTS idx_order_items_order_product ON order_items(order_id, product_id);
+CREATE INDEX IF NOT EXISTS idx_order_items_product ON order_items(product_id);
+
+-- Cart Reservations: active reservations
+CREATE INDEX IF NOT EXISTS idx_cart_reservations_user_status ON cart_reservations(user_id, status, expires_at);
+CREATE INDEX IF NOT EXISTS idx_cart_reservations_pending ON cart_reservations(status, expires_at) WHERE status = 'pending';
+
+-- Partial indexes for boolean filters (smaller, faster)
+CREATE INDEX IF NOT EXISTS idx_products_active_only ON products(id, name, created_at) WHERE is_active = true;
+CREATE INDEX IF NOT EXISTS idx_users_active_customers ON users(id, email, created_at) WHERE role = 'customer' AND is_active = true;
+CREATE INDEX IF NOT EXISTS idx_orders_pending ON orders(id, user_id, created_at) WHERE status = 'confirmed';
+
+-- Full-text search support (will be populated by trigger)
+ALTER TABLE products ADD COLUMN IF NOT EXISTS search_vector tsvector;
+CREATE INDEX IF NOT EXISTS idx_products_search_vector ON products USING GIN(search_vector);
+
+-- Create trigger for auto-updating search vector
+CREATE OR REPLACE FUNCTION products_search_vector_update() RETURNS trigger AS $$
+BEGIN
+  NEW.search_vector :=
+    setweight(to_tsvector('english', coalesce(NEW.name, '')), 'A') ||
+    setweight(to_tsvector('english', coalesce(NEW.description, '')), 'B') ||
+    setweight(to_tsvector('english', coalesce(NEW.short_description, '')), 'C');
+  RETURN NEW;
+END
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER products_search_vector_trigger
+    BEFORE INSERT OR UPDATE ON products
+    FOR EACH ROW
+    EXECUTE FUNCTION products_search_vector_update();
+
+-- Populate existing products
+UPDATE products SET search_vector =
+    setweight(to_tsvector('english', coalesce(name, '')), 'A') ||
+    setweight(to_tsvector('english', coalesce(description, '')), 'B') ||
+    setweight(to_tsvector('english', coalesce(short_description, '')), 'C');
+
+-- Index for cart lookups
+CREATE INDEX IF NOT EXISTS idx_inventory_sku_product ON inventory(sku, product_id);

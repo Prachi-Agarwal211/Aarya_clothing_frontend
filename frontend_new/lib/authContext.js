@@ -2,19 +2,19 @@
 
 /**
  * Authentication Context for Aarya Clothing
- * 
+ *
  * Centralized authentication state management using React Context.
  * Uses baseApi for token storage (localStorage + cookies for middleware).
- * 
+ *
  * Usage:
  * ```jsx
  * // In layout.js
  * import { AuthProvider } from '@/lib/authContext';
- * 
+ *
  * export default function RootLayout({ children }) {
  *   return <AuthProvider>{children}</AuthProvider>;
  * }
- * 
+ *
  * // In components
  * import { useAuth } from '@/lib/authContext';
  * const { user, isAuthenticated, login, logout, isStaff } = useAuth();
@@ -26,16 +26,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { authApi, clearStoredTokens, setStoredTokens } from './apiClient';
 import { getStoredUser, clearAuthData } from './baseApi';
 import { apiFetch } from './api';
-
-/**
- * User role constants — single source of truth for role strings
- */
-export const USER_ROLES = {
-  SUPER_ADMIN: 'super_admin',
-  ADMIN: 'admin',
-  STAFF: 'staff',
-  CUSTOMER: 'customer',
-};
+import { USER_ROLES, hasRole, isAdmin, isStaff, isSuperAdmin } from './roles';
 
 const AuthContext = createContext(null);
 
@@ -164,27 +155,33 @@ export function AuthProvider({ children }) {
   }, []);
 
   /**
-   * Check if user has specific role
+   * Check if user has specific role - uses centralized helper
    */
-  const hasRole = useCallback((role) => {
+  const hasRoleCallback = useCallback((role) => {
     if (!user?.role) return false;
-    return Array.isArray(role) ? role.includes(user.role) : user.role === role;
+    return hasRole(user.role, role);
   }, [user]);
 
   /**
-   * Check if user is super admin
+   * Check if user is super admin - uses centralized helper
    */
-  const isSuperAdmin = useCallback(() => hasRole(USER_ROLES.SUPER_ADMIN), [hasRole]);
+  const isSuperAdminCallback = useCallback(() => {
+    return user?.role ? isSuperAdmin(user.role) : false;
+  }, [user]);
 
   /**
-   * Check if user is admin (includes super_admin)
+   * Check if user is admin (includes super_admin) - uses centralized helper
    */
-  const isAdmin = useCallback(() => hasRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN]), [hasRole]);
+  const isAdminCallback = useCallback(() => {
+    return user?.role ? isAdmin(user.role) : false;
+  }, [user]);
 
   /**
-   * Check if user is staff or admin (includes super_admin)
+   * Check if user is staff or admin (includes super_admin) - uses centralized helper
    */
-  const isStaff = useCallback(() => hasRole([USER_ROLES.SUPER_ADMIN, USER_ROLES.ADMIN, USER_ROLES.STAFF]), [hasRole]);
+  const isStaffCallback = useCallback(() => {
+    return user?.role ? isStaff(user.role) : false;
+  }, [user]);
 
   const value = {
     // State
@@ -199,11 +196,14 @@ export function AuthProvider({ children }) {
     checkAuth,
     updateUser,
 
-    // Helpers
-    hasRole,
-    isSuperAdmin,
-    isAdmin,
-    isStaff,
+    // Helpers - using centralized role utilities
+    hasRole: hasRoleCallback,
+    isSuperAdmin: isSuperAdminCallback,
+    isAdmin: isAdminCallback,
+    isStaff: isStaffCallback,
+    
+    // Also export role constants for direct access
+    USER_ROLES,
   };
 
   return (
@@ -224,86 +224,5 @@ export function useAuth() {
   return context;
 }
 
-/**
- * withAuth HOC for protecting pages
- */
-export function withAuth(Component, options = {}) {
-  return function AuthenticatedComponent(props) {
-    const { user, loading, isAuthenticated, isAdmin, isStaff, isSuperAdmin, authError } = useAuth();
-    const router = useRouter();
-    const pathname = usePathname();
-
-    useEffect(() => {
-      if (!loading) {
-        if (!isAuthenticated) {
-          // Append current path as redirect param so login page can send user back
-          const currentPath = typeof window !== 'undefined' ? window.location.pathname + window.location.search + window.location.hash : pathname;
-          const redirectParam = currentPath ? `?redirect_url=${encodeURIComponent(currentPath)}` : '';
-          router.push(`/auth/login${redirectParam}`);
-        } else if (options.requiredRole) {
-          // Robust role check
-          let hasAccess = false;
-          if (options.requiredRole === USER_ROLES.STAFF) {
-            hasAccess = isStaff();
-          } else if (options.requiredRole === USER_ROLES.ADMIN) {
-            hasAccess = isAdmin();
-          } else if (options.requiredRole === USER_ROLES.SUPER_ADMIN) {
-            hasAccess = isSuperAdmin();
-          } else {
-            hasAccess = user?.role === options.requiredRole;
-          }
-
-          if (!hasAccess) {
-            router.push(options.unauthorizedRedirect || '/');
-          }
-        }
-      }
-    }, [loading, isAuthenticated, user, isStaff, isAdmin, isSuperAdmin, router, pathname, options.requiredRole, options.unauthorizedRedirect]);
-
-    if (loading) {
-      return options.loadingComponent || (
-        <div className="flex items-center justify-center min-h-screen bg-[#050203]">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-4"></div>
-            <p className="text-white/70">Loading...</p>
-          </div>
-        </div>
-      );
-    }
-
-    if (!isAuthenticated) {
-      return options.unauthenticatedComponent || null;
-    }
-
-    if (options.requiredRole) {
-      let hasAccess = false;
-      if (options.requiredRole === USER_ROLES.STAFF) {
-        hasAccess = isStaff();
-      } else if (options.requiredRole === USER_ROLES.ADMIN) {
-        hasAccess = isAdmin();
-      } else if (options.requiredRole === USER_ROLES.SUPER_ADMIN) {
-        hasAccess = isSuperAdmin();
-      } else {
-        hasAccess = user?.role === options.requiredRole;
-      }
-      
-      if (!hasAccess) {
-        return options.unauthorizedComponent || null;
-      }
-    }
-
-    if (authError && options.showError) {
-      return (
-        <div className="flex items-center justify-center min-h-screen bg-[#050203]">
-          <div className="text-center text-red-400">
-            <p>Authentication Error: {authError}</p>
-          </div>
-        </div>
-      );
-    }
-
-    return <Component {...props} />;
-  };
-}
-
-export default AuthContext;
+// Export role utilities for direct import (preferred over withAuth HOC)
+export { USER_ROLES };

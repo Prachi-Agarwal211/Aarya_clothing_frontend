@@ -1,22 +1,29 @@
 import { NextResponse } from 'next/server';
+import { 
+  USER_ROLES, 
+  getRedirectForRole, 
+  isStaff, 
+  isAdmin,
+  isSuperAdmin,
+  ROLE_ACCESS 
+} from '@/lib/roles';
 
 /**
  * Next.js Middleware for Route Protection
- * 
+ *
  * Handles:
  * - Admin routes protection (requires admin/staff role)
  * - Profile routes protection (requires authentication)
  * - Auth routes redirect (redirect authenticated users away from login/register)
  * - Static files and public assets bypass
- * 
- * OPTIMIZED: Simplified auth routes, public product browsing allowed
+ *
+ * Uses centralized role configuration from @/lib/roles
  */
 
-// Public routes (no login required) - OPTIMIZED: Products/collections now public
+// Public routes (no login required)
 const PUBLIC_ROUTES = ['/', '/products', '/collections', '/new-arrivals', '/about'];
 
 // Auth routes where authenticated users shouldn't go
-// OPTIMIZED: Reduced from 10 to 5 routes
 const AUTH_ROUTES = [
   '/auth/login',
   '/auth/register',
@@ -70,17 +77,15 @@ export function middleware(request) {
   // Check if token exists and is not expired
   const isTokenValid = decodedToken && decodedToken.exp && (decodedToken.exp * 1000 > Date.now());
   const isAuthenticated = !!isTokenValid;
-  
+
   // Check if refresh token exists (for token refresh scenarios)
   const refreshToken = request.cookies.get('refresh_token')?.value;
   const hasRefreshToken = !!refreshToken;
 
-  // Get user role from token instead of dummy cookie
+  // Get user role from token
   const userRole = decodedToken?.role;
-  const isStaff = ['admin', 'super_admin', 'staff'].includes(userRole);
-  const isAdmin = ['admin', 'super_admin'].includes(userRole);
 
-  // Route classification
+  // Route classification using centralized role helpers
   const isAdminRoute = pathname.startsWith('/admin');
   const isProfileRoute = pathname.startsWith('/profile');
   const isAuthRoute = AUTH_ROUTE_SET.has(pathname) || AUTH_ROUTES.some(route => pathname.startsWith(route));
@@ -89,17 +94,18 @@ export function middleware(request) {
   // Handle admin routes - require admin/staff role
   if (isAdminRoute) {
     // If not authenticated and no refresh token, redirect to login
-    // If refresh token exists, allow request through (client will refresh)
     if (!isAuthenticated && !hasRefreshToken) {
-      // Not logged in and no refresh token - redirect to login with return URL
       const loginUrl = new URL('/auth/login', request.url);
       loginUrl.searchParams.set('redirect_url', request.nextUrl.pathname + request.nextUrl.search);
       return NextResponse.redirect(loginUrl);
     }
 
-    // If authenticated, check role permissions
-    if (isAuthenticated && !isStaff) {
-      // Logged in but not admin/staff - redirect to home
+    // If authenticated, check role permissions using centralized helper
+    if (isAuthenticated && !isStaff(userRole)) {
+      // Logged in but not staff/admin - redirect to home with error
+      // Log unauthorized access attempt for security monitoring
+      console.warn(`[Security] Unauthorized admin access attempt by user ${decodedToken.sub} with role ${userRole}`);
+      
       const homeUrl = new URL('/', request.url);
       homeUrl.searchParams.set('error', 'unauthorized');
       return NextResponse.redirect(homeUrl);
@@ -107,21 +113,21 @@ export function middleware(request) {
 
     // Role-based redirects for root admin route (only if authenticated)
     if (isAuthenticated && (pathname === '/admin' || pathname === '/admin/')) {
-      if (userRole === 'staff') {
+      if (userRole === USER_ROLES.STAFF) {
         return NextResponse.redirect(new URL('/admin/staff', request.url));
       }
-      if (userRole === 'super_admin') {
+      if (userRole === USER_ROLES.SUPER_ADMIN) {
         return NextResponse.redirect(new URL('/admin/super', request.url));
       }
     }
 
     // Specific handling for staff accessing super admin routes
-    if (userRole === 'staff' && pathname.startsWith('/admin/super')) {
+    if (userRole === USER_ROLES.STAFF && pathname.startsWith('/admin/super')) {
       return NextResponse.redirect(new URL('/admin/staff', request.url));
     }
 
     // Specific handling for admin accessing super admin routes
-    if (userRole === 'admin' && pathname.startsWith('/admin/super')) {
+    if (userRole === USER_ROLES.ADMIN && pathname.startsWith('/admin/super')) {
       return NextResponse.redirect(new URL('/admin', request.url));
     }
 
@@ -130,7 +136,6 @@ export function middleware(request) {
   }
 
   // Handle protected routes - require authentication
-  // OPTIMIZED: Cart, checkout, profile, and dashboard require login
   const protectedRoutes = ['/cart', '/checkout', '/dashboard', '/profile'];
   const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route));
 
@@ -140,30 +145,20 @@ export function middleware(request) {
       loginUrl.searchParams.set('redirect_url', request.nextUrl.pathname + request.nextUrl.search);
       return NextResponse.redirect(loginUrl);
     }
-    // Authorized - proceed
     return NextResponse.next();
   }
 
   // Handle auth routes - redirect authenticated users away from login/register
   if (isAuthRoute && isAuthenticated) {
-    // Already logged in - honor redirect_url param or default by role
-    const redirectParam = request.nextUrl.searchParams.get('redirect_url') || request.nextUrl.searchParams.get('redirect');
+    // Honor redirect_url param or default by role using centralized helper
+    const redirectParam = request.nextUrl.searchParams.get('redirect_url');
     let redirectUrl;
 
     if (redirectParam && redirectParam.startsWith('/')) {
-      // User was heading somewhere before hitting auth — send them there
       redirectUrl = new URL(redirectParam, request.url);
     } else {
-      // Default dashboard based on role
-      if (userRole === 'super_admin') {
-        redirectUrl = new URL('/admin/super', request.url);
-      } else if (userRole === 'admin') {
-        redirectUrl = new URL('/admin', request.url);
-      } else if (userRole === 'staff') {
-        redirectUrl = new URL('/admin/staff', request.url);
-      } else {
-        redirectUrl = new URL('/products', request.url);
-      }
+      // Use centralized redirect logic
+      redirectUrl = new URL(getRedirectForRole(userRole), request.url);
     }
     return NextResponse.redirect(redirectUrl);
   }

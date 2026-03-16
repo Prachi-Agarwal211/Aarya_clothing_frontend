@@ -3,22 +3,26 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Minus, Plus, Trash2, ShoppingBag, ArrowRight, Tag, X } from 'lucide-react';
+import { Minus, Plus, Trash2, ShoppingBag, ArrowRight, Tag, X, Check } from 'lucide-react';
 import EnhancedHeader from '@/components/landing/EnhancedHeader';
 import Footer from '@/components/landing/Footer';
 import { useCart } from '@/lib/cartContext';
+import { useAuth } from '@/lib/authContext';
+import { useRequireAuth } from '@/lib/useAuthAction';
 import logger from '@/lib/logger';
-import { withAuth } from '@/lib/authContext';
 
 function CartPage() {
   const { cart, loading, updateQuantity, removeItem, clearCart, applyCoupon, removeCoupon, refreshCart } = useCart();
+  const { requireAuth } = useRequireAuth();
   const [couponCode, setCouponCode] = useState('');
   const [applyingCoupon, setApplyingCoupon] = useState(false);
 
   // Fetch cart when this page loads
   useEffect(() => {
+    // Guard cart access with auth check
+    if (!requireAuth('/cart')) return;
     refreshCart();
-  }, [refreshCart]);
+  }, [refreshCart, requireAuth]);
 
   // Format currency
   const formatCurrency = (amount) => {
@@ -86,7 +90,7 @@ function CartPage() {
               <div className="mb-8 p-4 bg-gradient-to-r from-green-500/10 to-transparent border-l-4 border-green-500/50 rounded-r-2xl">
                 <p className="text-sm font-medium text-green-400 flex items-center gap-2">
                   <Check className="w-4 h-4" />
-                  Congratulations! You've unlocked <span className="font-bold">FREE SHIPPING</span> for this order.
+                  Congratulations! You&apos;ve unlocked <span className="font-bold">FREE SHIPPING</span> for this order.
                 </p>
               </div>
             )}
@@ -104,7 +108,7 @@ function CartPage() {
               <div className="text-center py-16">
                 <ShoppingBag className="w-20 h-20 text-[#B76E79]/30 mx-auto mb-6" />
                 <h2 className="text-xl text-[#F2C29A] mb-2">Your cart is empty</h2>
-                <p className="text-[#EAE0D5]/50 mb-6">Looks like you haven't added anything to your cart yet.</p>
+                <p className="text-[#EAE0D5]/50 mb-6">Looks like you haven&apos;t added anything to your cart yet.</p>
                 <Link
                   href="/products"
                   className="inline-flex items-center gap-2 px-8 py-3.5 bg-gradient-to-r from-[#7A2F57] to-[#B76E79] text-white rounded-xl hover:opacity-90 transition-opacity font-semibold"
@@ -331,4 +335,4 @@ function CartPage() {
   );
 }
 
-export default withAuth(CartPage);
+export default CartPage;

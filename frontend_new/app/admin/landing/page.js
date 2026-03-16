@@ -448,7 +448,7 @@ export default function LandingPageConfig() {
                   <div className="py-10 text-center">
                     <Package className="w-10 h-10 text-[#B76E79]/20 mx-auto mb-3" />
                     <p className="text-[#EAE0D5]/40 text-sm">No products selected yet.</p>
-                    <p className="text-[#EAE0D5]/25 text-xs mt-1">Click "Add Products" to select products for this section.</p>
+                    <p className="text-[#EAE0D5]/25 text-xs mt-1">Click &quot;Add Products&quot; to select products for this section.</p>
                   </div>
                 ) : (
                   <div className="space-y-2">
@@ -586,7 +586,7 @@ export default function LandingPageConfig() {
                       ) : (
                         <div className="py-8 text-center border border-dashed border-[#B76E79]/20 rounded-xl">
                           <ImageIcon className="w-8 h-8 text-[#B76E79]/20 mx-auto mb-2" />
-                          <p className="text-[#EAE0D5]/40 text-sm">No laptop images. Select "Laptop" and upload.</p>
+                          <p className="text-[#EAE0D5]/40 text-sm">No laptop images. Select &quot;Laptop&quot; and upload.</p>
                         </div>
                       )}
                     </div>
@@ -645,7 +645,7 @@ export default function LandingPageConfig() {
                       ) : (
                         <div className="py-8 text-center border border-dashed border-[#B76E79]/20 rounded-xl">
                           <ImageIcon className="w-8 h-8 text-[#B76E79]/20 mx-auto mb-2" />
-                          <p className="text-[#EAE0D5]/40 text-sm">No phone images. Select "Phone (9:16)" and upload.</p>
+                          <p className="text-[#EAE0D5]/40 text-sm">No phone images. Select &quot;Phone (9:16)&quot; and upload.</p>
                         </div>
                       )}
                     </div>

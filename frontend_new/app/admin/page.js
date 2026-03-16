@@ -148,7 +148,7 @@ export default function AdminDashboard() {
             Dashboard
           </h1>
           <p className="text-[#EAE0D5]/60 mt-1">
-            Welcome back! Here's what's happening with your store.
+            Welcome back! Here&apos;s what&apos;s happening with your store.
           </p>
         </div>
         <div className="flex items-center gap-2 text-sm text-[#EAE0D5]/50">

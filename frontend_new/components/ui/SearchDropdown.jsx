@@ -235,7 +235,7 @@ const SearchDropdown = ({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <p className="text-[#8B7B8F] text-sm mt-2">
-                No results found for "{query}"
+                No results found for &quot;{query}&quot;
               </p>
               <p className="text-[#5D4E57] text-xs mt-1">
                 Try different keywords or check spelling

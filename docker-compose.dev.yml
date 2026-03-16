@@ -30,7 +30,7 @@ services:
       - ACCESS_TOKEN_EXPIRE_MINUTES=30
       - REFRESH_TOKEN_EXPIRE_MINUTES=1440
       - SESSION_EXPIRE_MINUTES=1440
-      - ALLOWED_ORIGINS=["http://localhost:6004","http://localhost:6005","http://127.0.0.1:6004","http://127.0.0.1:6005"]
+      - ALLOWED_ORIGINS=["http://localhost:6004","http://localhost:6005","http://127.0.0.1:6004","http://127.0.0.1:6005","http://72.61.255.8:6004","http://72.61.255.8:6005"]
       - DEBUG=true
       - LOG_LEVEL=DEBUG
       # Password Policy
@@ -80,7 +80,7 @@ services:
       - CORE_SERVICE_URL=http://core:5001
       - CART_TTL_HOURS=168
       - ORDER_TIMEOUT_MINUTES=15
-      - ALLOWED_ORIGINS=["http://localhost:6004","http://localhost:6005","http://127.0.0.1:6004","http://127.0.0.1:6005"]
+      - ALLOWED_ORIGINS=["http://localhost:6004","http://localhost:6005","http://127.0.0.1:6004","http://127.0.0.1:6005","http://72.61.255.8:6004","http://72.61.255.8:6005"]
       - DEBUG=true
       - LOG_LEVEL=DEBUG
       # JWT Verification
@@ -127,7 +127,7 @@ services:
       - MAX_RETRY_ATTEMPTS=3
       - PAYMENT_SUCCESS_URL=http://localhost:6005/payment/success
       - PAYMENT_FAILURE_URL=http://localhost:6005/payment/failure
-      - ALLOWED_ORIGINS=["http://localhost:6004","http://localhost:6005","http://127.0.0.1:6004","http://127.0.0.1:6005"]
+      - ALLOWED_ORIGINS=["http://localhost:6004","http://localhost:6005","http://127.0.0.1:6004","http://127.0.0.1:6005","http://72.61.255.8:6004","http://72.61.255.8:6005"]
       - DEBUG=true
       - LOG_LEVEL=DEBUG
 
@@ -150,7 +150,7 @@ services:
       - CORE_SERVICE_URL=http://core:5001
       - COMMERCE_SERVICE_URL=http://commerce:5002
       - PAYMENT_SERVICE_URL=http://payment:5003
-      - ALLOWED_ORIGINS=["http://localhost:6004","http://localhost:6005","http://127.0.0.1:6004","http://127.0.0.1:6005"]
+      - ALLOWED_ORIGINS=["http://localhost:6004","http://localhost:6005","http://127.0.0.1:6004","http://127.0.0.1:6005","http://72.61.255.8:6004","http://72.61.255.8:6005"]
       - DEBUG=true
       - LOG_LEVEL=DEBUG
       # R2 Storage (optional)
@@ -175,5 +175,5 @@ services:
       - /app/.next
     environment:
       - NODE_ENV=development
-      - NEXT_PUBLIC_API_URL=http://localhost:6005
+      - NEXT_PUBLIC_API_URL=http://72.61.255.8:6005
     command: npm run dev

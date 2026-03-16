@@ -31,8 +31,8 @@ export default function AboutPage() {
                 to offer stylish, high-quality clothing at reasonable prices, just a click away.
               </p>
               <p className="text-[#EAE0D5]/80 text-lg leading-relaxed">
-                What began with a few live sessions on Facebook soon grew into a trusted independent brand, 
-                powered by customer love and support. Rooted in Jaipur's rich textile heritage and inspired 
+                What began with a few live sessions on Facebook soon grew into a trusted independent brand,
+                powered by customer love and support. Rooted in Jaipur&apos;s rich textile heritage and inspired
                 by modern fashion trends, our collections blend style, comfort, and affordability.
               </p>
               <p className="text-[#EAE0D5]/80 text-lg leading-relaxed">

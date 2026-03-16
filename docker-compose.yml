@@ -390,9 +390,12 @@ services:
     image: nginx:alpine
     container_name: aarya_nginx
     ports:
-      - "6005:80"
+      - "80:80"
+      - "443:443"
     volumes:
       - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - /etc/nginx/ssl:/etc/nginx/ssl:ro
+      - /var/www/certbot:/var/www/certbot:ro
     depends_on:
       - frontend
       - core

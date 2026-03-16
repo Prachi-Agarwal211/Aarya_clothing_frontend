@@ -79,7 +79,7 @@ export default function ForgotPasswordPage() {
 
         {/* Info Text */}
         <p className="text-xs sm:text-sm md:text-base text-[#6E5E58] text-center">
-          We'll send a password reset link to your email address.
+          We&apos;ll send a password reset link to your email address.
         </p>
 
         {/* LUXURY BUTTON */}

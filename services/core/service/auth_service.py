@@ -745,17 +745,26 @@ class AuthService:
         return self.db.query(User).filter(User.id == user_id).first()
 
     def update_user_role(self, user_id: int, new_role: UserRole) -> User:
-        """Update a user's role (admin only)."""
+        """Update a user's role (admin only).
+        
+        SECURITY: Invalidates all existing tokens when role changes
+        to prevent privilege escalation with old tokens.
+        """
         user = self.db.query(User).filter(User.id == user_id).first()
 
         if not user:
             raise ValueError("User not found")
 
+        old_role = user.role
         user.role = new_role
         self.db.commit()
         self.db.refresh(user)
 
-        logger.info(f"User {user_id} role updated to {new_role}")
+        # SECURITY: Logout from all devices to invalidate old tokens
+        # This prevents privilege escalation with old JWT tokens
+        self.logout_all(user_id)
+        
+        logger.info(f"User {user_id} role updated from {old_role} to {new_role}. All sessions invalidated.")
         return user
 
     def deactivate_user(self, user_id: int) -> bool:

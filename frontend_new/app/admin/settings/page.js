@@ -156,7 +156,7 @@ export default function SettingsPage() {
             <div className="flex items-center justify-between p-4 bg-[#0B0608]/60 border border-[#B76E79]/10 rounded-xl">
               <div>
                 <p className="text-sm text-[#EAE0D5] font-medium">Intro Video Playback</p>
-                <p className="text-xs text-[#EAE0D5]/40 mt-0.5">Enable or disable the introductory video on user's first visit</p>
+                <p className="text-xs text-[#EAE0D5]/40 mt-0.5">Enable or disable the introductory video on user&apos;s first visit</p>
               </div>
               <button 
                 type="button"

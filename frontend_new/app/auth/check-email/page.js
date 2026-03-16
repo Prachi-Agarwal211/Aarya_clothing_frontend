@@ -31,7 +31,7 @@ export default function CheckEmailPage() {
           Check Your Email
         </h2>
         <p className="text-white/70 text-sm sm:text-base max-w-sm">
-          We've sent a verification link to your email address.
+          We&apos;ve sent a verification link to your email address.
           Click the link to verify your account and get started.
         </p>
       </div>
@@ -39,7 +39,7 @@ export default function CheckEmailPage() {
       {/* INFO BOX */}
       <div className="w-full p-4 bg-[#7A2F57]/20 border border-[#B76E79]/30 rounded-xl mb-8 animate-fade-in-up-delay">
         <p className="text-[#EAE0D5]/80 text-sm text-center">
-          <span className="text-[#F2C29A] font-medium">Didn't receive the email?</span>
+          <span className="text-[#F2C29A] font-medium">Didn&apos;t receive the email?</span>
           <br />
           Check your spam folder or
           <Link href="/auth/register" className="text-[#C27A4E] hover:text-[#F2C29A] ml-1">
@@ -61,7 +61,7 @@ export default function CheckEmailPage() {
         </Link>
 
         <p className="text-white/50 text-xs">
-          The verification link will expire in 24 hours
+          The verification link will expire in 24 hours.
         </p>
       </div>
     </div>

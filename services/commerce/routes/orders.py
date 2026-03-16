@@ -136,13 +136,17 @@ async def get_my_orders(
         if status_filter:
             query = query.filter(Order.status == status_filter)
         total = query.count()
-        
+
+        # Calculate pagination metadata to match PaginatedResponse schema
+        skip_val = (page - 1) * limit
+        has_more = skip_val + limit < total
+
         return {
             "items": [_enrich_order_response(o) for o in orders],
             "total": total,
-            "page": page,
+            "skip": skip_val,
             "limit": limit,
-            "pages": (total + limit - 1) // limit
+            "has_more": has_more
         }
     except Exception as e:
         logger.error(f"Error getting orders: {e}")
@@ -248,13 +252,17 @@ async def get_all_orders(
         if status_filter:
             query = query.filter(Order.status == status_filter)
         total = query.count()
-        
+
+        # Calculate pagination metadata to match PaginatedResponse schema
+        skip_val = (page - 1) * limit
+        has_more = skip_val + limit < total
+
         return {
             "items": [_enrich_order_response(o) for o in orders],
             "total": total,
-            "page": page,
+            "skip": skip_val,
             "limit": limit,
-            "pages": (total + limit - 1) // limit
+            "has_more": has_more
         }
     except Exception as e:
         logger.error(f"Error getting all orders: {e}")

@@ -91,7 +91,7 @@ from service.return_service import ReturnService
 # Route modules (for better code organization)
 # These modularize the 2800+ line main.py into manageable route files
 try:
-    from routes import products_router, categories_router, orders_router, cart_router
+    from routes import products_router, categories_router, orders_router, cart_router, addresses_router
     ROUTES_AVAILABLE = True
 except ImportError:
     ROUTES_AVAILABLE = False
@@ -388,6 +388,7 @@ if ROUTES_AVAILABLE:
     app.include_router(categories_router)
     app.include_router(orders_router)
     app.include_router(cart_router)
+    app.include_router(addresses_router)
     logger.info("Route modules registered successfully")
 else:
     logger.warning("Route modules not available - using monolithic routes in main.py")

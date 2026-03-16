@@ -62,7 +62,7 @@ export default function AnalyticsPage() {
           <h1 className="text-2xl md:text-3xl font-bold text-[#F2C29A]" style={{ fontFamily: 'Cinzel, serif' }}>
             Store Analytics
           </h1>
-          <p className="text-[#EAE0D5]/60 mt-1 text-sm">Deep insights into your store's performance</p>
+          <p className="text-[#EAE0D5]/60 mt-1 text-sm">Deep insights into your store&apos;s performance</p>
         </div>
         <div className="flex items-center gap-3">
           <select 

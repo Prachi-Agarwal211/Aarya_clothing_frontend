@@ -7,8 +7,10 @@ from datetime import datetime, timedelta, timezone
 import logging
 import jwt
 
-# Import standardized token validator - use relative import for package compatibility
+# Import standardized token validator
 from .token_validator import TokenValidator, TokenValidationError, get_token_validator
+# Import centralized role configuration
+from .roles import UserRole, has_access, is_admin, is_staff, is_super_admin, get_redirect_for_role
 
 logger = logging.getLogger(__name__)
 
@@ -161,10 +163,10 @@ def require_admin(
     current_user: Dict[str, Any] = Depends(get_current_user),
 ) -> Dict[str, Any]:
     """
-    Require admin role - STRICT admin only.
+    Require admin role - STRICT admin only (includes super_admin).
     Use this for admin-only endpoints that require full administrative access.
     """
-    if current_user.get("role") not in ["admin", "super_admin"]:
+    if not is_admin(current_user.get("role")):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin access required",
@@ -179,7 +181,7 @@ def require_super_admin(
     Require super_admin role - STRICT super admin only.
     Use this for system configuration and AI key management.
     """
-    if current_user.get("role") != "super_admin":
+    if not is_super_admin(current_user.get("role")):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Super Admin access required",
@@ -190,8 +192,8 @@ def require_super_admin(
 def require_staff(
     current_user: Dict[str, Any] = Depends(get_current_user),
 ) -> Dict[str, Any]:
-    """Require staff role."""
-    if current_user.get("role") not in ["admin", "staff", "super_admin"]:
+    """Require staff role (includes admin and super_admin)."""
+    if not is_staff(current_user.get("role")):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Staff access required",
@@ -203,7 +205,7 @@ def require_customer(
     current_user: Dict[str, Any] = Depends(get_current_user),
 ) -> Dict[str, Any]:
     """Require customer role."""
-    if current_user.get("role") != "customer":
+    if current_user.get("role") != UserRole.CUSTOMER.value:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Customer access required",
@@ -214,7 +216,7 @@ def require_customer(
 def check_user_ownership(current_user: Dict[str, Any], resource_user_id: int) -> bool:
     """Check if current user owns the resource."""
     # Admin and staff can access any resource
-    if current_user.get("role") in ["admin", "staff"]:
+    if is_staff(current_user.get("role")):
         return True
 
     # Users can only access their own resources
@@ -237,12 +239,10 @@ def require_ownership(resource_user_id: int):
 
 class TokenManager:
     """
-    Utility class for JWT token management with token rotation support.
+    Utility class for JWT token management.
     
-    Token rotation enhances security by:
-    - Generating new refresh tokens on each use
-    - Tracking token families to detect reuse attacks
-    - Invalidating entire token family if compromise detected
+    Provides basic token creation and verification.
+    Note: Token rotation is NOT implemented - tokens are managed by auth_service.py
     """
 
     def __init__(self, secret_key: str, algorithm: str = "HS256", redis_client=None):
@@ -262,21 +262,13 @@ class TokenManager:
         else:
             expire = now + timedelta(minutes=30)  # Default 30 minutes
 
-        to_encode.update({"exp": expire})
-        to_encode.update({"iat": now})
-
+        to_encode.update({"exp": expire, "iat": now})
         return jwt.encode(to_encode, self.secret_key, algorithm=self.algorithm)
 
     def create_refresh_token(
         self, data: Dict[str, Any], expires_delta: Optional[timedelta] = None
     ) -> str:
-        """
-        Create JWT refresh token with rotation support.
-        
-        Adds:
-        - jti: Unique token ID for tracking
-        - type: Token type (refresh)
-        """
+        """Create JWT refresh token."""
         to_encode = data.copy()
         now = datetime.now(timezone.utc)
 
@@ -285,15 +277,7 @@ class TokenManager:
         else:
             expire = now + timedelta(days=7)  # Default 7 days
 
-        # Add unique token ID for rotation tracking
-        import secrets
-        to_encode.update({
-            "exp": expire,
-            "type": "refresh",
-            "jti": secrets.token_urlsafe(32),
-            "iat": now
-        })
-
+        to_encode.update({"exp": expire, "iat": now})
         return jwt.encode(to_encode, self.secret_key, algorithm=self.algorithm)
 
     def verify_token(self, token: str) -> Dict[str, Any]:
@@ -319,121 +303,6 @@ class TokenManager:
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token verification failed",
             )
-
-    def rotate_refresh_token(
-        self,
-        old_refresh_token: str,
-        user_id: int,
-        role: str = "customer"
-    ) -> Dict[str, str]:
-        """
-        Rotate refresh token - invalidate old token and issue new one.
-        
-        This implements the refresh token rotation pattern:
-        1. Validate the old refresh token
-        2. Blacklist the old token (prevent reuse)
-        3. Generate new access and refresh tokens
-        4. Store token family for compromise detection
-        
-        Args:
-            old_refresh_token: The current refresh token to rotate
-            user_id: User ID for new token generation
-            role: User role for new token generation
-            
-        Returns:
-            Dictionary with new access_token and refresh_token
-            
-        Security:
-            - If a rotated token is reused (replay attack), the entire
-              token family is invalidated to prevent account takeover
-        """
-        import secrets
-        
-        # Step 1: Validate old token
-        try:
-            old_payload = self.verify_token(old_refresh_token)
-        except HTTPException as e:
-            # Token is invalid/expired - could be a replay attack
-            logger.warning(f"Attempt to rotate invalid token for user {user_id}")
-            raise e
-        
-        # Verify it's a refresh token
-        if old_payload.get("type") != "refresh":
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token type",
-            )
-        
-        # Step 2: Get old token JTI for blacklisting
-        old_jti = old_payload.get("jti")
-        
-        # Step 3: Blacklist old token
-        if self.redis_client:
-            try:
-                # Get token expiration to set blacklist TTL
-                exp_timestamp = old_payload.get("exp", 0)
-                now_timestamp = datetime.now(timezone.utc).timestamp()
-                ttl = max(0, int(exp_timestamp - now_timestamp))
-                
-                if ttl > 0:
-                    # Store in blacklist with TTL
-                    self.redis_client.client.setex(
-                        f"blacklist:{old_jti}",
-                        ttl,
-                        "rotated"
-                    )
-                    
-                    # Track token family for compromise detection
-                    token_family = old_payload.get("family") or secrets.token_urlsafe(16)
-                    self.redis_client.client.setex(
-                        f"token_family:{token_family}",
-                        ttl,
-                        user_id
-                    )
-            except Exception as e:
-                logger.error(f"Error blacklisting token: {e}")
-        
-        # Step 4: Generate new tokens
-        new_access_token = self.create_access_token(
-            data={"sub": str(user_id), "role": role},
-            expires_delta=timedelta(minutes=30)
-        )
-        
-        new_refresh_token_data = {
-            "sub": str(user_id),
-            "role": role,
-            "family": old_payload.get("family") or secrets.token_urlsafe(16)
-        }
-        new_refresh_token = self.create_refresh_token(
-            data=new_refresh_token_data,
-            expires_delta=timedelta(days=7)
-        )
-        
-        logger.info(f"Token rotated successfully for user {user_id}")
-        
-        return {
-            "access_token": new_access_token,
-            "refresh_token": new_refresh_token
-        }
-
-    def check_token_blacklist(self, jti: str) -> bool:
-        """
-        Check if a token JTI is blacklisted.
-        
-        Args:
-            jti: Token ID to check
-            
-        Returns:
-            True if blacklisted, False otherwise
-        """
-        if not self.redis_client:
-            return False
-        
-        try:
-            return self.redis_client.client.exists(f"blacklist:{jti}") > 0
-        except Exception as e:
-            logger.error(f"Error checking token blacklist: {e}")
-            return False
 
 
 # Global token manager instance (will be initialized with proper secret key)

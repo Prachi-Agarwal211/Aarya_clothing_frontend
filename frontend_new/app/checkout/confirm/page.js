@@ -103,7 +103,7 @@ export default function CheckoutConfirmPage() {
 
         <h2 className="text-2xl font-bold text-[#F2C29A] mb-2">Order Confirmed!</h2>
         <p className="text-[#EAE0D5]/70 mb-4">
-          Thank you for your order. We've received your order and will process it shortly.
+          Thank you for your order. We&apos;ve received your order and will process it shortly.
         </p>
 
         {order?.order_number && (
@@ -116,7 +116,7 @@ export default function CheckoutConfirmPage() {
 
       {/* Order Timeline */}
       <div className="p-6 bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl">
-        <h3 className="text-lg font-semibold text-[#F2C29A] mb-4">What's Next?</h3>
+        <h3 className="text-lg font-semibold text-[#F2C29A] mb-4">What&apos;s Next?</h3>
 
         <div className="space-y-4">
           <div className="flex items-start gap-4">
@@ -135,7 +135,7 @@ export default function CheckoutConfirmPage() {
             </div>
             <div>
               <p className="font-medium text-[#EAE0D5]">Processing</p>
-              <p className="text-sm text-[#EAE0D5]/70">We're preparing your order for shipment</p>
+              <p className="text-sm text-[#EAE0D5]/70">We&apos;re preparing your order for shipment</p>
             </div>
           </div>
 

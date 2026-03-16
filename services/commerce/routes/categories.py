@@ -88,13 +88,17 @@ async def list_collections(
     total = query.count()
     offset = (page - 1) * limit
     categories = query.offset(offset).limit(limit).all()
-    
+
+    # Calculate pagination metadata to match PaginatedResponse schema
+    skip = offset
+    has_more = offset + limit < total
+
     return {
         "items": [_enrich_category(cat) for cat in categories],
         "total": total,
-        "page": page,
+        "skip": skip,
         "limit": limit,
-        "pages": (total + limit - 1) // limit
+        "has_more": has_more
     }
 
 

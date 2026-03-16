@@ -7,6 +7,7 @@ import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../../../lib/authContext';
+import { getRedirectForRole, USER_ROLES } from '../../../lib/roles';
 import logger from '../../../lib/logger';
 import { useLogo } from '../../../lib/siteConfigContext';
 
@@ -49,9 +50,10 @@ function LoginForm() {
   const logoUrl = useLogo();
 
   // Get redirect URL from query params (set by middleware)
-  const redirectUrl = searchParams.get('redirect_url') || searchParams.get('redirect') || null;
+  // Note: Only redirect_url is supported (redirect param removed for consistency)
+  const redirectUrl = searchParams.get('redirect_url') || null;
 
-  // Redirect if already authenticated - with role-based routing
+  // Redirect if already authenticated - with role-based routing using centralized helper
   useEffect(() => {
     if (!loading && isAuthenticated && user) {
       // If there's a redirect URL, use it (but validate it's safe)
@@ -60,16 +62,8 @@ function LoginForm() {
         return;
       }
 
-      // Role-based redirect - proper separation
-      if (user.role === 'super_admin') {
-        router.push('/admin/super');
-      } else if (user.role === 'admin') {
-        router.push('/admin');
-      } else if (user.role === 'staff') {
-        router.push('/admin/staff');
-      } else {
-        router.push('/products');  // Customers go to products section
-      }
+      // Use centralized role-based redirect
+      router.push(getRedirectForRole(user.role));
     }
   }, [loading, isAuthenticated, user, router, redirectUrl]);
 
@@ -95,19 +89,10 @@ function LoginForm() {
 
       setStatus('Signed in successfully.');
 
-      // Determine redirect URL based on role
-      const user = response.user;
-      let targetUrl = '/products'; // Default for customers
-
-      if (redirectUrl && redirectUrl.startsWith('/')) {
-        targetUrl = redirectUrl;
-      } else if (user.role === 'super_admin') {
-        targetUrl = '/admin/super';
-      } else if (user.role === 'admin') {
-        targetUrl = '/admin';
-      } else if (user.role === 'staff') {
-        targetUrl = '/admin/staff';
-      }
+      // Use centralized redirect logic
+      const targetUrl = redirectUrl && redirectUrl.startsWith('/')
+        ? redirectUrl
+        : getRedirectForRole(user.role);
 
       // Use soft navigation - backend sets HttpOnly cookies automatically
       // Browser will send cookies on next request
@@ -137,11 +122,17 @@ function LoginForm() {
     <div className="w-full max-w-[480px] lg:max-w-[520px] xl:max-w-[560px] flex flex-col items-center">
       {/* LOGO */}
       <div className="flex flex-col items-center mb-8 sm:mb-10 md:mb-12 lg:mb-14 animate-fade-in-up">
-        <img
-          src={logoUrl || ''}
-          alt="Aarya"
-          className="w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 lg:w-36 lg:h-36 object-contain drop-shadow-[0_0_15px_rgba(242,194,154,0.2)]"
-        />
+        {logoUrl ? (
+          <img
+            src={logoUrl}
+            alt="Aarya"
+            className="w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 lg:w-36 lg:h-36 object-contain drop-shadow-[0_0_15px_rgba(242,194,154,0.2)]"
+          />
+        ) : (
+          <div className="w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 lg:w-36 lg:h-36 flex items-center justify-center text-4xl font-bold text-[#F2C29A] drop-shadow-[0_0_15px_rgba(242,194,154,0.2)]">
+            A
+          </div>
+        )}
       </div>
 
       {/* HEADER */}

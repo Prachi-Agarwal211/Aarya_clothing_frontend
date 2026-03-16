@@ -31,11 +31,6 @@ export default function CustomerChatWidget() {
         }
     }, [messages, isOpen, isMinimized]);
 
-    // Hide widget on admin and staff pages
-    if (pathname?.startsWith('/admin') || pathname?.startsWith('/staff')) {
-        return null;
-    }
-
     // Load existing active room on mount (if authenticated)
     useEffect(() => {
         if (!user) return;
@@ -63,6 +58,11 @@ export default function CustomerChatWidget() {
             }
         };
     }, [user]);
+
+    // Hide widget on admin and staff pages (AFTER hooks)
+    if (pathname?.startsWith('/admin') || pathname?.startsWith('/staff')) {
+        return null;
+    }
 
     const connectWebSocket = (rId) => {
         if (wsRef.current?.readyState === WebSocket.OPEN) return;

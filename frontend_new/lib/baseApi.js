@@ -1,150 +1,68 @@
 /**
  * Base API Client for Aarya Clothing
- * 
- * Unified base class for all API clients.
- * Handles authentication, request/response processing, and error handling.
- * 
+ *
+ * This file now re-exports from apiClient.js for consistency.
+ * The BaseApiClient class is kept for advanced usage with custom base URLs.
+ *
+ * For most use cases, import from apiClient.js instead:
+ *   import { apiClient, authApi, productsApi } from './apiClient';
+ *
  * Token storage: localStorage + cookies (for middleware route protection)
- * 
- * Usage:
- *   import { coreClient, setAuthData, clearAuthData } from './baseApi';
- *   const data = await coreClient.fetch('/api/v1/products');
  */
 
- const REQUEST_OPTION_KEYS = new Set(['params', 'headers', 'credentials', 'signal', 'cache', 'mode', 'redirect', 'referrer', 'integrity', 'keepalive']);
+// Re-export all token management functions from apiClient.js
+export {
+  getStoredTokens,
+  setStoredTokens,
+  clearStoredTokens,
+  getStoredUser,
+  getAccessToken,
+  setCookie,
+  removeCookie,
+} from './apiClient';
 
-// ==================== Cookie Helpers ====================
-
-/**
- * Set a cookie with expiration and security options
- */
-function setCookie(name, value, days = 7) {
-  if (typeof document === 'undefined') return;
-
-  try {
-    const expires = new Date();
-    expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000);
-    const encodedValue = encodeURIComponent(value);
-
-    // Use SameSite=Lax for CSRF protection, consider Secure in production
-    const secureFlag = window.location.protocol === 'https:' ? ';Secure' : '';
-    document.cookie = `${name}=${encodedValue};expires=${expires.toUTCString()};path=/;SameSite=Lax${secureFlag}`;
-  } catch (e) {
-    console.error('Failed to set cookie:', e);
-  }
-}
-
-/**
- * Remove a cookie
- */
-function removeCookie(name) {
-  if (typeof document === 'undefined') return;
-
-  try {
-    document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`;
-  } catch (e) {
-    console.warn('Failed to remove cookie:', e);
-  }
-}
-
-// ==================== Token Management ====================
-
-/**
- * Get the authentication token
- * Note: Returns null since tokens are now HttpOnly cookies
- * Cookies are sent automatically by the browser with credentials: 'include'
- */
-export function getAuthToken() {
-  return null;
-}
-
-/**
- * Get the refresh token
- * Note: Returns null since tokens are now HttpOnly cookies
- * Backend reads refresh token from cookie during refresh
- */
-export function getRefreshToken() {
-  return null;
-}
-
-/**
- * Store authentication data (user only - tokens are set by backend as HttpOnly cookies)
- * @param {Object} params - { user, access_token, refresh_token }
- */
+// Re-export auth data functions (aliases for apiClient.js functions)
 export function setAuthData({ user, access_token, refresh_token }) {
   if (typeof window === 'undefined') return;
-
   try {
-    // Store user data in localStorage (safe - doesn't contain tokens)
     if (user) {
       localStorage.setItem('user', JSON.stringify(user));
     }
-    
-    // Note: Tokens are NO LONGER stored here by frontend
-    // Backend sets HttpOnly cookies via Set-Cookie header
-    // This prevents XSS attacks from stealing tokens
+    // Tokens are set by backend as HttpOnly cookies
   } catch (e) {
     console.error('Failed to store auth data:', e);
   }
 }
 
-/**
- * Clear all authentication data from localStorage
- * Note: HttpOnly cookies are cleared by backend on logout
- */
 export function clearAuthData() {
   if (typeof window === 'undefined') return;
-
   try {
-    // Clear user data from localStorage
     localStorage.removeItem('user');
-    
-    // Note: We no longer clear tokens here since they're HttpOnly
-    // Backend should clear them via Set-Cookie with expiry in the past
   } catch (e) {
     console.error('Failed to clear auth data:', e);
   }
 }
 
-/**
- * Get stored user data from localStorage
- * Note: User data is safe to store in localStorage (no sensitive tokens)
- */
-export function getStoredUser() {
-  if (typeof window === 'undefined') return null;
-
-  try {
-    const userStr = localStorage.getItem('user');
-    return userStr ? JSON.parse(userStr) : null;
-  } catch (e) {
-    console.warn('Failed to get stored user:', e);
-    return null;
-  }
+export function getAuthToken() {
+  // Returns null - tokens are HttpOnly cookies now
+  return null;
 }
 
-// ==================== Legacy Functions (for backward compatibility) ====================
+export function getRefreshToken() {
+  // Returns null - tokens are HttpOnly cookies now
+  return null;
+}
 
+// Legacy function for backward compatibility
 export function setTokens(tokens) {
-  setAuthData({ access_token: tokens.access_token, refresh_token: tokens.refresh_token });
+  setAuthData(tokens);
 }
 
 export function clearTokens() {
   clearAuthData();
 }
 
-export function setStoredUser(user) {
-  if (typeof window === 'undefined') return;
-
-  try {
-    localStorage.setItem('user', JSON.stringify(user));
-    setCookie('user', JSON.stringify(user));
-  } catch (e) {
-    console.error('Failed to store user:', e);
-  }
-}
-
-// ==================== Utility Functions ====================
-
+// Utility functions
 export function buildQuery(params) {
   const searchParams = new URLSearchParams();
   Object.entries(params).forEach(([key, value]) => {
@@ -153,21 +71,6 @@ export function buildQuery(params) {
     }
   });
   return searchParams.toString();
-}
-
-async function parseResponse(response) {
-  const contentType = response.headers.get('content-type') || '';
-
-  try {
-    if (contentType.includes('application/json')) {
-      return await response.json();
-    }
-    const text = await response.text();
-    return text ? { detail: text } : {};
-  } catch (e) {
-    console.warn('Failed to parse response:', e);
-    return {};
-  }
 }
 
 export function normalizeBaseUrl(url) {
@@ -180,41 +83,48 @@ export function buildUrl(baseUrl, path) {
   return `${normalizedBase}${normalizedPath}`;
 }
 
+// BaseApiClient class for advanced usage
+const REQUEST_OPTION_KEYS = new Set(['params', 'headers', 'credentials', 'signal', 'cache', 'mode', 'redirect', 'referrer', 'integrity', 'keepalive']);
+
 function isRequestOptions(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value) || value instanceof FormData) {
     return false;
   }
-
   return Object.keys(value).length > 0 && Object.keys(value).every((key) => REQUEST_OPTION_KEYS.has(key));
 }
 
-// ==================== Base API Client Class ====================
+async function parseResponse(response) {
+  const contentType = response.headers.get('content-type') || '';
+  try {
+    if (contentType.includes('application/json')) {
+      return await response.json();
+    }
+    const text = await response.text();
+    return text ? { detail: text } : {};
+  } catch (e) {
+    console.warn('Failed to parse response:', e);
+    return {};
+  }
+}
 
 export class BaseApiClient {
   constructor(baseUrl, options = {}) {
     this.baseUrl = normalizeBaseUrl(baseUrl);
     this.includeCredentials = options.includeCredentials !== false;
-    this._refreshing = null; // Lock to prevent concurrent refresh attempts
+    this._refreshing = null;
   }
 
-  /**
-   * Attempt to refresh the access token using the stored refresh token.
-   * Uses a lock so multiple 401s only trigger one refresh.
-   */
   async _tryRefreshToken() {
-    // If a refresh is already in progress, wait for it
     if (this._refreshing) {
       return this._refreshing;
     }
 
     this._refreshing = (async () => {
       try {
-        // Refresh token is HttpOnly cookie - backend will read it from cookie
-        // No need to read or send it in request body
         const response = await fetch(buildUrl(this.baseUrl, '/api/v1/auth/refresh'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({}), // Empty body - backend reads from cookie
+          body: JSON.stringify({}),
           ...(this.includeCredentials && { credentials: 'include' }),
         });
 
@@ -222,8 +132,6 @@ export class BaseApiClient {
 
         const data = await response.json();
         if (data.access_token) {
-          // Backend sets new HttpOnly cookies
-          // Refresh user data from server
           try {
             const userResponse = await fetch(buildUrl(this.baseUrl, '/api/v1/users/me'), {
               ...(this.includeCredentials && { credentials: 'include' }),
@@ -302,7 +210,6 @@ export class BaseApiClient {
     if (isRequestOptions(payload) && Object.keys(options).length === 0) {
       return { payload: undefined, options: payload };
     }
-
     return { payload, options };
   }
 
@@ -398,20 +305,14 @@ export class BaseApiClient {
   }
 }
 
-// ==================== Pre-configured Clients ====================
-
-/**
- * Get the API base URL (nginx proxy)
- */
+// Pre-configured clients
 export function getCoreBaseUrl() {
   if (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_API_URL) {
     return process.env.NEXT_PUBLIC_API_URL;
   }
-
   if (typeof window !== 'undefined') {
     return window.location.origin;
   }
-
   return 'http://localhost:6005';
 }
 

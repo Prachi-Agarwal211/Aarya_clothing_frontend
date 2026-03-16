@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Plus, MapPin, Phone, ChevronRight, Check, Building2 } from 'lucide-react';
 import { addressesApi, cartApi } from '@/lib/customerApi';
 import { useCart } from '@/lib/cartContext';
-import { useAuth, withAuth } from '@/lib/authContext';
+import { useAuth } from '@/lib/authContext';
 import logger from '@/lib/logger';
 
 const INDIAN_STATES = [
@@ -40,7 +40,7 @@ function CheckoutAddressPage() {
     address_line2: '',
     city: '',
     state: '',
-    pincode: '',
+    postal_code: '',
     is_default: false,
   });
 
@@ -106,9 +106,9 @@ function CheckoutAddressPage() {
       if (!newAddress.state?.trim()) {
         validationErrors.push('State is required');
       }
-      if (!newAddress.pincode?.trim()) {
+      if (!newAddress.postal_code?.trim()) {
         validationErrors.push('Pincode is required');
-      } else if (!/^\d{6}$/.test(newAddress.pincode)) {
+      } else if (!/^\d{6}$/.test(newAddress.postal_code)) {
         validationErrors.push('Pincode must be 6 digits');
       }
 
@@ -132,7 +132,7 @@ function CheckoutAddressPage() {
         address_line2: '',
         city: '',
         state: '',
-        pincode: '',
+        postal_code: '',
         is_default: false,
       });
     } catch (err) {
@@ -235,7 +235,7 @@ function CheckoutAddressPage() {
                       {address.address_line2 && `, ${address.address_line2}`}
                     </p>
                     <p className="text-sm text-[#EAE0D5]/70">
-                      {address.city}, {address.state} - {address.pincode}
+                      {address.city}, {address.state} - {address.postal_code}
                     </p>
                     <p className="text-sm text-[#EAE0D5]/70 mt-1">
                       <Phone className="w-3 h-3 inline mr-1" />
@@ -338,8 +338,8 @@ function CheckoutAddressPage() {
                     <label className="block text-sm text-[#EAE0D5]/70 mb-1">Pincode</label>
                     <input
                       type="text"
-                      value={newAddress.pincode}
-                      onChange={(e) => setNewAddress(prev => ({ ...prev, pincode: e.target.value }))}
+                      value={newAddress.postal_code}
+                      onChange={(e) => setNewAddress(prev => ({ ...prev, postal_code: e.target.value }))}
                       className="w-full px-3 py-2.5 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-lg text-[#EAE0D5] placeholder-[#EAE0D5]/40 focus:outline-none focus:border-[#B76E79]/40"
                     />
                   </div>
@@ -432,4 +432,4 @@ function CheckoutAddressPage() {
     </div>
   );
 }
-export default withAuth(CheckoutAddressPage);
+export default CheckoutAddressPage;

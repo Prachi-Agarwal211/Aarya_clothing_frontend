@@ -190,7 +190,7 @@ export default function CollectionPage() {
               Collection Not Found
             </h1>
             <p className="text-[#EAE0D5]/60 mb-8">
-              The collection you're looking for doesn't exist or has been removed.
+              The collection you&apos;re looking for doesn&apos;t exist or has been removed.
             </p>
             <Link
               href="/"

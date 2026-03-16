@@ -28,15 +28,15 @@ const SiteConfigContext = createContext(null);
 
 // Default fallback values (only used when API completely fails)
 const DEFAULT_CONFIG = {
-  logo: '',
+  logo: null,
   video: {
     intro: {
-      desktop: '',
-      mobile: ''
+      desktop: null,
+      mobile: null
     }
   },
-  noise: '',
-  r2BaseUrl: ''
+  noise: null,
+  r2BaseUrl: null
 };
 
 /**
@@ -56,9 +56,9 @@ export function SiteConfigProvider({ children }) {
       const response = await getSiteConfig();
       if (response) {
         setConfig({
-          logo: response.logo || DEFAULT_CONFIG.logo,
+          logo: response.logo && response.logo.trim() !== '' ? response.logo : DEFAULT_CONFIG.logo,
           video: response.video || DEFAULT_CONFIG.video,
-          noise: response.noise || DEFAULT_CONFIG.noise,
+          noise: response.noise && response.noise.trim() !== '' ? response.noise : DEFAULT_CONFIG.noise,
           r2BaseUrl: response.r2BaseUrl || ''
         });
         logger.log('Site config loaded from backend');

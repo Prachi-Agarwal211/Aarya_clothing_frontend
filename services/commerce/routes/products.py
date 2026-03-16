@@ -191,13 +191,17 @@ async def list_products(
     
     # Enrich products
     items = [_enrich_product(p, db) for p in products]
-    
+
+    # Calculate pagination metadata to match PaginatedResponse schema
+    skip = offset
+    has_more = offset + limit < total
+
     return {
         "items": items,
         "total": total,
-        "page": page,
+        "skip": skip,
         "limit": limit,
-        "pages": (total + limit - 1) // limit
+        "has_more": has_more
     }
 
 

@@ -27,6 +27,7 @@ export function useAuthAction(action) {
 
             if (!isAuthenticated) {
                 // Redirect to login with current path as redirect target
+                // Note: Only redirect_url is supported (redirect param deprecated)
                 const currentPath = typeof window !== 'undefined'
                     ? window.location.pathname + window.location.search + window.location.hash
                     : pathname;
@@ -55,6 +56,7 @@ export function useRequireAuth() {
             if (loading) return false;
 
             if (!isAuthenticated) {
+                // Note: Only redirect_url is supported (redirect param deprecated)
                 const currentTarget = targetPath || (typeof window !== 'undefined' ? window.location.pathname + window.location.search + window.location.hash : pathname);
                 router.push(`/auth/login?redirect_url=${encodeURIComponent(currentTarget)}`);
                 return false;

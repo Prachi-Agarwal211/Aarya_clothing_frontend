@@ -1690,16 +1690,41 @@ input[type="radio"],
   min-width: 44px;
 }
 
-/* Link styling - always underlined for accessibility */
-a:not(.no-underline) {
+/* Link styling - underlined for accessibility in content areas only */
+/* Exclude navigation, buttons, and elements with no-underline class */
+main a:not(.no-underline):not([role="button"]):not(.nav-link *),
+article a:not(.no-underline),
+p a:not(.no-underline) {
   text-decoration: underline;
   text-decoration-color: rgba(242, 194, 154, 0.4);
   text-underline-offset: 2px;
   transition: text-decoration-color 0.2s ease;
 }
 
-a:not(.no-underline):hover {
+main a:not(.no-underline):not([role="button"]):not(.nav-link *):hover,
+article a:not(.no-underline):hover,
+p a:not(.no-underline):hover {
   text-decoration-color: #F2C29A;
+}
+
+/* Navigation links - no underline by default, only on hover */
+nav a,
+.header-link,
+.nav-link {
+  text-decoration: none !important;
+}
+
+nav a:hover,
+.header-link:hover,
+.nav-link:hover {
+  text-decoration: none !important;
+}
+
+/* Button links - never underlined */
+button a,
+a[role="button"],
+.btn a {
+  text-decoration: none !important;
 }
 
 /* Reduced Motion Preferences - respects user settings */

@@ -25,7 +25,11 @@ import type { ImageLoaderProps } from "next/image";
  */
 
 const normalizeSrc = (src: string): string => {
-  // Remove leading slash if present
+  // If it's a full URL (starts with http/https), keep it as is
+  if (src.startsWith('http://') || src.startsWith('https://')) {
+    return src;
+  }
+  // Remove leading slash if present for relative paths
   return src.startsWith("/") ? src.slice(1) : src;
 };
 

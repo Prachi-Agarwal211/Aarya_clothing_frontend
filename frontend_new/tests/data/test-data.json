@@ -1,0 +1,67 @@
+{
+  "users": {
+    "customer": {
+      "email": "test.customer.1773747591089@aaryaclothing.com",
+      "password": "TestPassword123!",
+      "phone": "9876543210",
+      "firstName": "Test",
+      "lastName": "Customer"
+    },
+    "admin": {
+      "email": "test.admin.1773747591089@aaryaclothing.com",
+      "password": "AdminPassword123!",
+      "role": "admin"
+    },
+    "staff": {
+      "email": "test.staff.1773747591089@aaryaclothing.com",
+      "password": "StaffPassword123!",
+      "role": "staff"
+    }
+  },
+  "products": [
+    {
+      "name": "Test Product - Kurti",
+      "category": "kurti",
+      "price": 1999,
+      "sizes": [
+        "XS",
+        "S",
+        "M",
+        "L",
+        "XL"
+      ],
+      "colors": [
+        "Red",
+        "Blue"
+      ]
+    },
+    {
+      "name": "Test Product - Dress",
+      "category": "dress",
+      "price": 2999,
+      "sizes": [
+        "S",
+        "M",
+        "L"
+      ],
+      "colors": [
+        "Black",
+        "White"
+      ]
+    }
+  ],
+  "coupons": [
+    {
+      "code": "TEST10",
+      "discount": 10,
+      "type": "percentage",
+      "minOrder": 500
+    },
+    {
+      "code": "INVALID",
+      "discount": 0,
+      "type": "percentage",
+      "expired": true
+    }
+  ]
+}

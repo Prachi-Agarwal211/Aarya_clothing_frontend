@@ -1,36 +1,63 @@
 import type { ImageLoaderProps } from "next/image";
 
 /**
- * Cloudflare Images Loader for Next.js
- * 
- * This loader transforms Next.js Image component requests into Cloudflare Images CDN URLs.
- * Cloudflare Images provides on-the-fly image optimization, resizing, and format conversion.
- * 
+ * Cloudflare R2 Image Loader for Next.js
+ *
+ * ARCHITECTURE: This loader handles images from Cloudflare R2 storage.
+ * All dynamic images (products, collections, hero, about) come from R2 via backend API.
+ * Local /public images are only for static assets (logo, placeholders, noise texture).
+ *
+ * Image Flow:
+ * 1. Admin uploads image → R2 Storage
+ * 2. R2 returns URL → Stored in database (relative path)
+ * 3. Frontend fetches API → Backend converts to full R2 URL
+ * 4. Frontend <Image> → This loader optimizes via Cloudflare CDN
+ *
  * Features:
  * - Automatic WebP/AVIF format negotiation
  * - On-demand resizing at edge locations
  * - Quality optimization
  * - 50-70% file size reduction
  * - Global CDN delivery
- * 
- * Setup:
- * 1. Enable "Resize images from any origin" in Cloudflare Dashboard
- * 2. Configure Browser TTL (recommended: 30 days minimum)
- * 3. Optionally set up custom domain for branded URLs
- * 
- * Pricing (as of 2025):
- * - $1 per 100K transformations
- * - 100K images stored free
- * - Much cheaper than Vercel at scale
+ *
+ * R2 Configuration:
+ * - Bucket: aarya-clothing-images
+ * - Public URL: https://pub-7846c786f7154610b57735df47899fa0.r2.dev
+ * - Folders: /collections/, /products/, /hero/, /about/, /landing/
  */
 
+const R2_PUBLIC_URL = "https://pub-7846c786f7154610b57735df47899fa0.r2.dev";
+
 const normalizeSrc = (src: string): string => {
-  // If it's a full URL (starts with http/https), keep it as is
-  if (src.startsWith('http://') || src.startsWith('https://')) {
+  // If it's already a full URL, keep it as is
+  if (src.startsWith("http://") || src.startsWith("https://")) {
     return src;
   }
-  // Remove leading slash if present for relative paths
+  // Remove leading slash for relative paths
   return src.startsWith("/") ? src.slice(1) : src;
+};
+
+const isR2Url = (src: string): boolean => {
+  // Check if this is an R2 URL (either full URL or relative path that should go to R2)
+  return (
+    src.includes("pub-") && src.includes("r2.dev") ||
+    src.includes(R2_PUBLIC_URL)
+  );
+};
+
+const isLocalStaticAsset = (src: string): boolean => {
+  // These are the ONLY images that should be served from /public
+  // ALL other images (including about page) come from R2 via backend API
+  const staticAssets = [
+    "/logo.png",                    // Branding logo
+    "/noise.png",                   // Texture overlay
+    "/placeholder-image.jpg",       // Fallback for broken images
+    "/placeholder-collection.jpg",  // Fallback for collections
+    "/Create_a_video_",             // Intro video thumbnail
+    // NOTE: About page images (kurti1.jpg, kurti2.jpg) come from R2 via API
+    // They are NOT local static assets - database stores R2 relative paths
+  ];
+  return staticAssets.some((asset) => src.includes(asset));
 };
 
 export default function cloudflareLoader({
@@ -44,22 +71,36 @@ export default function cloudflareLoader({
   if (quality) {
     params.push(`quality=${quality}`);
   }
+  const queryParams = params.join("&");
 
-  // Development: Direct access without CDN transformation
-  if (process.env.NODE_ENV === "development") {
-    return `${src}?${params.join("&")}`;
+  // Handle empty or invalid sources
+  if (!src || src.trim() === "") {
+    return `/placeholder-image.jpg?${queryParams}`;
   }
 
-  // ONLY use Cloudflare Images for R2 URLs (pub-*.r2.dev)
-  // Local public folder images should use Next.js built-in optimizer
-  if (src.includes('pub-') && src.includes('r2.dev')) {
-    // This is an R2 image - use Cloudflare Images CDN
+  // R2 URLs: Use Cloudflare Images CDN for optimization
+  if (isR2Url(src)) {
     const normalizedSrc = normalizeSrc(src);
+    // Cloudflare Images transformation: /cdn-cgi/image/<params>/<image-url>
     return `/cdn-cgi/image/${params.join(",")}/${normalizedSrc}`;
   }
 
-  // This is a local image - return as-is for Next.js to optimize
-  // Next.js will serve from /_next/image with optimization
+  // Local static assets: Let Next.js handle optimization
+  // These are served from /public folder
+  if (isLocalStaticAsset(src)) {
+    // Return as-is, Next.js will optimize via /_next/image
+    return src;
+  }
+
+  // Relative paths (e.g., /collections/kurti.jpg from API without full domain)
+  // These should be R2 images that backend didn't fully qualify
+  if (src.startsWith("/")) {
+    // Assume it's an R2 relative path and construct full URL
+    const fullR2Url = `${R2_PUBLIC_URL}${src}`;
+    return `/cdn-cgi/image/${params.join(",")}/${fullR2Url}`;
+  }
+
+  // Fallback: Return as-is for Next.js to handle
   return src;
 }
 

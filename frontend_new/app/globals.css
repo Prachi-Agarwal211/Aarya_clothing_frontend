@@ -1690,44 +1690,121 @@ input[type="radio"],
   min-width: 44px;
 }
 
-/* Link styling - underlined for accessibility in content areas only */
-/* Exclude navigation, buttons, and elements with no-underline class */
-main a:not(.no-underline):not([role="button"]):not(.nav-link *),
+/* ==================== LINK & UNDERLINE STYLING ==================== */
+/* 
+ * ARCHITECTURE: Underlines for accessibility in CONTENT areas ONLY.
+ * Navigation, buttons, and interactive elements should NEVER have underlines.
+ */
+
+/* Content area links - underlined for accessibility */
+main a:not(.no-underline):not([role="button"]):not(.nav-link):not(.header-link),
 article a:not(.no-underline),
-p a:not(.no-underline) {
+p a:not(.no-underline),
+.prose a:not(.no-underline) {
   text-decoration: underline;
   text-decoration-color: rgba(242, 194, 154, 0.4);
   text-underline-offset: 2px;
   transition: text-decoration-color 0.2s ease;
 }
 
-main a:not(.no-underline):not([role="button"]):not(.nav-link *):hover,
+main a:not(.no-underline):not([role="button"]):not(.nav-link):not(.header-link):hover,
 article a:not(.no-underline):hover,
-p a:not(.no-underline):hover {
+p a:not(.no-underline):hover,
+.prose a:not(.no-underline):hover {
   text-decoration-color: #F2C29A;
 }
 
-/* Navigation links - no underline by default, only on hover */
+/* ==================== NAVIGATION - NO UNDERLINES ==================== */
+/* Global rule: ALL navigation links should NEVER have underlines */
 nav a,
+nav a *,
 .header-link,
-.nav-link {
+.header-link *,
+.nav-link,
+.nav-link *,
+header a,
+header a *,
+[data-nav] a,
+[data-nav] a * {
   text-decoration: none !important;
 }
 
 nav a:hover,
+nav a *:hover,
 .header-link:hover,
-.nav-link:hover {
+.header-link *:hover,
+.nav-link:hover,
+.nav-link *:hover,
+header a:hover,
+header a *:hover,
+[data-nav] a:hover,
+[data-nav] a *:hover {
   text-decoration: none !important;
 }
 
-/* Button links - never underlined */
-button a,
+/* ==================== BUTTONS - NO UNDERLINES ==================== */
+/* Global rule: ALL button elements and button-like links should NEVER have underlines */
+button,
+button *,
 a[role="button"],
-.btn a {
+a[role="button"] *,
+.btn,
+.btn *,
+[class*="button"],
+[class*="button"] *,
+[class*="btn"],
+[class*="btn"] * {
   text-decoration: none !important;
 }
 
-/* Reduced Motion Preferences - respects user settings */
+button:hover,
+button *:hover,
+a[role="button"]:hover,
+a[role="button"] *:hover,
+.btn:hover,
+.btn *:hover,
+[class*="button"]:hover,
+[class*="button"] *:hover,
+[class*="btn"]:hover,
+[class*="btn"] *:hover {
+  text-decoration: none !important;
+}
+
+/* ==================== INTERACTIVE ELEMENTS - NO UNDERLINES ==================== */
+/* Cards, menus, dropdowns, and other interactive components */
+.card a,
+.card a *,
+[role="menu"] a,
+[role="menu"] a *,
+[role="menuitem"] a,
+[role="menuitem"] a *,
+.dropdown a,
+.dropdown a *,
+.menu a,
+.menu a * {
+  text-decoration: none !important;
+}
+
+.card a:hover,
+.card a *:hover,
+[role="menu"] a:hover,
+[role="menu"] a *:hover,
+[role="menuitem"] a:hover,
+[role="menuitem"] a *:hover,
+.dropdown a:hover,
+.dropdown a *:hover,
+.menu a:hover,
+.menu a *:hover {
+  text-decoration: none !important;
+}
+
+/* ==================== EXCEPTION: Explicit .underline class ==================== */
+/* If user explicitly wants underline, they can use Tailwind's .underline class */
+.underline {
+  text-decoration: underline !important;
+}
+
+/* ==================== REDUCED MOTION ==================== */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

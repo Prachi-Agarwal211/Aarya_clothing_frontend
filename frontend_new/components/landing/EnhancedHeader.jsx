@@ -227,7 +227,7 @@ const EnhancedHeader = () => {
                   href={link.href}
                   scroll={false}
                   onClick={(e) => handleNavClick(e, link)}
-                  className={`relative text-sm font-medium transition-colors duration-300 py-2 group ${link.highlight
+                  className={`relative text-sm font-medium transition-colors duration-300 py-2 group nav-link ${link.highlight
                       ? 'text-[#F2C29A] hover:text-white px-3 py-1.5 rounded-full bg-gradient-to-r from-[#7A2F57]/40 to-[#B76E79]/30 border border-[#B76E79]/40 hover:border-[#B76E79]/70'
                       : 'text-[#EAE0D5]/80 hover:text-[#F2C29A]'
                     }`}
@@ -386,7 +386,7 @@ const EnhancedHeader = () => {
               href={link.href}
               scroll={false}
               ref={index === 0 ? firstNavItemRef : null}
-              className="text-2xl text-[#EAE0D5] hover:text-[#F2C29A] transition-colors duration-300"
+              className="text-2xl text-[#EAE0D5] hover:text-[#F2C29A] transition-colors duration-300 nav-link"
               style={{ fontFamily: 'Cinzel, serif', transitionDelay: `${index * 100}ms` }}
               onClick={(e) => {
                 setIsMobileMenuOpen(false);

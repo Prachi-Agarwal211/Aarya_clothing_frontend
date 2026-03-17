@@ -45,7 +45,7 @@ export const ROLE_HIERARCHY = {
   },
   [USER_ROLES.CUSTOMER]: {
     level: 1,
-    redirect: '/products',
+    redirect: '/profile',
     label: 'Customer',
     canAccess: [USER_ROLES.CUSTOMER],
   },

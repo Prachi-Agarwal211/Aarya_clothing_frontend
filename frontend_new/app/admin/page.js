@@ -20,14 +20,25 @@ import StatCard from '@/components/admin/shared/StatCard';
 import DataTable from '@/components/admin/shared/DataTable';
 import { OrderStatusBadge, InventoryStatusBadge } from '@/components/admin/shared/StatusBadge';
 import { dashboardApi, ordersApi, inventoryApi } from '@/lib/adminApi';
+import { useAuth } from '@/lib/authContext';
+import { isAdmin } from '@/lib/roles';
 import logger from '@/lib/logger';
 
 export default function AdminDashboard() {
   const router = useRouter();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [dashboardData, setDashboardData] = useState(null);
   const [lowStockItems, setLowStockItems] = useState([]);
   const [error, setError] = useState(null);
+
+  // Role guard - redirect non-admin users away
+  useEffect(() => {
+    if (user && !isAdmin(user.role)) {
+      // Redirect to appropriate dashboard based on role
+      router.push(`/admin/${user.role === 'staff' ? 'staff' : 'super'}`);
+    }
+  }, [user, router]);
 
   const fetchDashboardData = useCallback(async () => {
     try {

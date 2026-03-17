@@ -43,7 +43,7 @@ ROLE_HIERARCHY: Dict[UserRole, dict] = {
     },
     UserRole.CUSTOMER: {
         "level": 1,
-        "redirect": "/products",
+        "redirect": "/profile",
         "label": "Customer",
     },
 }

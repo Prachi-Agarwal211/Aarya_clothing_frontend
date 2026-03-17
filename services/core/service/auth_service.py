@@ -76,7 +76,7 @@ class AuthService:
     # ==================== JWT Token Methods ====================
 
     def create_access_token(
-        self, user_id: int, role: str, expires_delta: Optional[timedelta] = None
+        self, user_id: int, role: str, email: str = None, username: str = None, is_active: bool = True
     ) -> str:
         """Create a JWT access token."""
         if expires_delta is None:
@@ -86,6 +86,9 @@ class AuthService:
         payload = {
             "sub": str(user_id),
             "role": role,
+            "email": email,
+            "username": username,
+            "is_active": is_active,
             "type": "access",
             "exp": expire,
             "iat": datetime.now(timezone.utc),
@@ -93,7 +96,7 @@ class AuthService:
         return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
     def create_refresh_token(
-        self, user_id: int, role: str, expires_delta: Optional[timedelta] = None
+        self, user_id: int, role: str, email: str = None, username: str = None, is_active: bool = True
     ) -> str:
         """Create a JWT refresh token."""
         if expires_delta is None:
@@ -103,6 +106,9 @@ class AuthService:
         payload = {
             "sub": str(user_id),
             "role": role,
+            "email": email,
+            "username": username,
+            "is_active": is_active,
             "type": "refresh",
             "exp": expire,
             "iat": datetime.now(timezone.utc),
@@ -408,15 +414,26 @@ class AuthService:
             user.security.last_login_at = datetime.now(timezone.utc)
             self.db.commit()
 
-        # Generate tokens
+        # Generate tokens with user data
         refresh_delta = (
             timedelta(minutes=settings.REFRESH_TOKEN_EXPIRE_MINUTES)
             if remember_me
             else None
         )
-        access_token = self.create_access_token(user.id, user.role.value)
+        access_token = self.create_access_token(
+            user.id, 
+            user.role.value,
+            email=user.email,
+            username=user.username,
+            is_active=user.is_active
+        )
         refresh_token = self.create_refresh_token(
-            user.id, user.role.value, refresh_delta
+            user.id, 
+            user.role.value,
+            email=user.email,
+            username=user.username,
+            is_active=user.is_active,
+            expires_delta=refresh_delta
         )
 
         # Create session

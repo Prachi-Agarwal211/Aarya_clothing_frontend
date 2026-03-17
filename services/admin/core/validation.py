@@ -14,6 +14,7 @@ class OrderStatus(str, Enum):
 
 class UserRole(str, Enum):
     """Valid user roles."""
+    SUPER_ADMIN = "super_admin"
     CUSTOMER = "customer"
     ADMIN = "admin"
     STAFF = "staff"

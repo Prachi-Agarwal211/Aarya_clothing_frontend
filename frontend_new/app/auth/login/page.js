@@ -89,10 +89,10 @@ function LoginForm() {
 
       setStatus('Signed in successfully.');
 
-      // Use centralized redirect logic
+      // Use centralized redirect logic with response.user (not context user which might be stale)
       const targetUrl = redirectUrl && redirectUrl.startsWith('/')
         ? redirectUrl
-        : getRedirectForRole(user.role);
+        : getRedirectForRole(response.user.role);
 
       // Use soft navigation - backend sets HttpOnly cookies automatically
       // Browser will send cookies on next request

@@ -78,18 +78,19 @@ export default function cloudflareLoader({
     return `/placeholder-image.jpg?${queryParams}`;
   }
 
+  // CRITICAL FIX: Check local static assets FIRST before R2 URLs
+  // This ensures logo.png, noise.png, etc. are ALWAYS served from /public
+  // even if backend sends an R2 URL for them
+  if (isLocalStaticAsset(src)) {
+    // Return as-is, Next.js will optimize via /_next/image
+    return src;
+  }
+
   // R2 URLs: Use Cloudflare Images CDN for optimization
   if (isR2Url(src)) {
     const normalizedSrc = normalizeSrc(src);
     // Cloudflare Images transformation: /cdn-cgi/image/<params>/<image-url>
     return `/cdn-cgi/image/${params.join(",")}/${normalizedSrc}`;
-  }
-
-  // Local static assets: Let Next.js handle optimization
-  // These are served from /public folder
-  if (isLocalStaticAsset(src)) {
-    // Return as-is, Next.js will optimize via /_next/image
-    return src;
   }
 
   // Relative paths (e.g., /collections/kurti.jpg from API without full domain)

@@ -1096,7 +1096,8 @@ INSERT INTO site_config (key, value, description) VALUES
     ('currency', 'INR', 'Default store currency'),
     ('free_shipping_threshold', '1000', 'Amount above which shipping is free'),
     ('intro_video_url', 'https://pub-7846c786f7154610b57735df47899fa0.r2.dev/Create_a_video_202602141450_ub9p5.mp4', 'URL of the intro video'),
-    ('intro_video_enabled', 'true', 'Whether to show the intro video')
+    ('intro_video_enabled', 'true', 'Whether to show the intro video'),
+    ('logo_url', 'https://pub-7846c786f7154610b57735df47899fa0.r2.dev/logo.png', 'URL of the brand logo')
 ON CONFLICT (key) DO NOTHING;
 
 

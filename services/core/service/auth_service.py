@@ -76,7 +76,7 @@ class AuthService:
     # ==================== JWT Token Methods ====================
 
     def create_access_token(
-        self, user_id: int, role: str, email: str = None, username: str = None, is_active: bool = True
+        self, user_id: int, role: str, email: str = None, username: str = None, is_active: bool = True, expires_delta: Optional[timedelta] = None
     ) -> str:
         """Create a JWT access token."""
         if expires_delta is None:
@@ -96,7 +96,7 @@ class AuthService:
         return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 
     def create_refresh_token(
-        self, user_id: int, role: str, email: str = None, username: str = None, is_active: bool = True
+        self, user_id: int, role: str, email: str = None, username: str = None, is_active: bool = True, expires_delta: Optional[timedelta] = None
     ) -> str:
         """Create a JWT refresh token."""
         if expires_delta is None:

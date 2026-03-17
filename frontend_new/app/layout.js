@@ -104,11 +104,8 @@ export default function RootLayout({ children }) {
           </AuthProvider>
         </ErrorBoundary>
         
-        {/* Cashfree JS SDK - preload for faster checkout */}
-        <Script
-          src="https://sdk.cashfree.com/js/v3/cashfree.js"
-          strategy="lazyOnload"
-        />
+        {/* Razorpay SDK - preload for faster checkout */}
+        <link rel="preconnect" href="https://checkout.razorpay.com" />
         <Script id="register-sw" strategy="afterInteractive">
           {`
             if ('serviceWorker' in navigator) {

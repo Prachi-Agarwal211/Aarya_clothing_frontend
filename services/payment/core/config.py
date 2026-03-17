@@ -43,7 +43,7 @@ class Settings(SharedBaseSettings):
     MAX_RETRY_ATTEMPTS: int = 3
     PAYMENT_SUCCESS_URL: str = "https://aaryaclothing.in/payment/success"
     PAYMENT_FAILURE_URL: str = "https://aaryaclothing.in/payment/failure"
-    PAYMENT_NOTIFY_URL: str = "https://aaryaclothing.in/api/v1/payments/cashfree/webhook"
+    PAYMENT_NOTIFY_URL: str = "https://aaryaclothing.in/api/v1/webhooks/razorpay"
     
     # ==================== Currency ====================
     DEFAULT_CURRENCY: str = "INR"

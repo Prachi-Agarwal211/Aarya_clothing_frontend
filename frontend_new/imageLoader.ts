@@ -81,46 +81,31 @@ export default function cloudflareLoader({
   width,
   quality = 75,
 }: ImageLoaderProps): string {
-  const params = [`width=${width}`];
-
-  // Add quality parameter
-  if (quality) {
-    params.push(`quality=${quality}`);
-  }
-  const queryParams = params.join("&");
+  const queryParams = `width=${width}&quality=${quality ?? 75}`;
 
   // Handle empty or invalid sources
   if (!src || src.trim() === "") {
-    return `/placeholder-image.jpg?${queryParams}`;
+    return `/placeholder-image.jpg`;
   }
 
-  // CRITICAL FIX: Check local static assets FIRST before R2 URLs
-  // This ensures logo.png, noise.png, etc. are ALWAYS served from /public
-  // even if backend sends an R2 URL for them
+  // Local static assets are always served from /public
   if (isLocalStaticAsset(src)) {
-    // Return as-is, Next.js will optimize via /_next/image
     return src;
   }
 
-  // R2 URLs: Use Cloudflare Images CDN for optimization
+  // R2 URLs: return direct URL — R2 CDN delivers these efficiently.
+  // NOTE: /cdn-cgi/image/ only works at Cloudflare edge (not origin),
+  // so we return the direct R2 URL to avoid 404s.
   if (isR2Url(src)) {
-    const normalizedSrc = normalizeSrc(src);
-    const encodedSrc = encodeForCloudflare(normalizedSrc);
-    // Cloudflare Images transformation: /cdn-cgi/image/<params>/<image-url>
-    // URL must be encoded to prevent path parsing issues
-    return `/cdn-cgi/image/${params.join(",")}/${encodedSrc}`;
+    return normalizeSrc(src);
   }
 
-  // Relative paths (e.g., /collections/kurti.jpg from API without full domain)
-  // These should be R2 images that backend didn't fully qualify
+  // Relative paths — reconstruct full R2 URL
   if (src.startsWith("/")) {
-    // Assume it's an R2 relative path and construct full URL
-    const fullR2Url = `${R2_PUBLIC_URL}${src}`;
-    const encodedSrc = encodeForCloudflare(fullR2Url);
-    return `/cdn-cgi/image/${params.join(",")}/${encodedSrc}`;
+    return `${R2_PUBLIC_URL}${src}`;
   }
 
-  // Fallback: Return as-is for Next.js to handle
+  // Fallback: return as-is
   return src;
 }
 

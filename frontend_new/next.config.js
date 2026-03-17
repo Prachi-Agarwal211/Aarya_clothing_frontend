@@ -184,7 +184,7 @@ const nextConfig = {
           },
           {
             key: 'Content-Security-Policy',
-            value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.razorpay.com https://*.cashfree.com https://*.easebuzz.in; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: blob:; font-src 'self' data:; connect-src 'self' https://*.razorpay.com https://*.cashfree.com https://*.easebuzz.in wss://aaryaclothing.in; frame-src 'self' https://*.razorpay.com https://*.cashfree.com https://*.easebuzz.in;"
+            value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.razorpay.com https://checkout.razorpay.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: blob:; font-src 'self' data:; connect-src 'self' https://*.razorpay.com wss://aaryaclothing.in; frame-src 'self' https://*.razorpay.com;"
           }
         ]
       },

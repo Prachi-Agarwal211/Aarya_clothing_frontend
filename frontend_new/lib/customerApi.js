@@ -187,21 +187,17 @@ export const userApi = {
 
 // ==================== Payment API ====================
 export const paymentApi = {
-  // Get public payment configuration
+  // Get public payment configuration (includes Razorpay key_id)
   getConfig: () =>
     paymentClient.get('/api/v1/payment/config'),
 
-  // Cashfree: create order → returns payment_session_id for JS SDK
-  createOrder: (data) =>
-    paymentClient.post('/api/v1/payments/cashfree/create-order', data),
+  // Razorpay: create order → returns { id, amount, currency, ... }
+  createRazorpayOrder: (data) =>
+    paymentClient.post('/api/v1/payments/razorpay/create-order', data),
 
-  // Cashfree: verify payment after JS SDK completes
-  verify: (data) =>
-    paymentClient.post('/api/v1/payments/cashfree/verify', data),
-
-  // Cashfree: refund
-  refund: (data) =>
-    paymentClient.post('/api/v1/payments/cashfree/refund', data),
+  // Razorpay: verify HMAC signature after checkout completes
+  verifyRazorpaySignature: (data) =>
+    paymentClient.post('/api/v1/payments/razorpay/verify-signature', data),
 
   getMethods: () =>
     paymentClient.get('/api/v1/payments/methods'),

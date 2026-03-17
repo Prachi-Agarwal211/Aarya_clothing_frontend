@@ -160,28 +160,14 @@ async def get_payment_config():
         - Currency and other public settings
     """
     return {
-        "cashfree": {
-            "enabled": settings.cashfree_enabled,
-            "env": settings.CASHFREE_ENV,
-            "app_id": settings.CASHFREE_APP_ID[:10] + "..." if settings.CASHFREE_APP_ID else ""
-        },
         "razorpay": {
             "key_id": settings.RAZORPAY_KEY_ID or "",
             "enabled": bool(settings.RAZORPAY_KEY_ID and settings.RAZORPAY_KEY_SECRET)
         },
-        "easebuzz": {
-            "enabled": settings.easebuzz_enabled,
-        },
-        "direct_payments": {
-            "enabled": True,
-            "upi_enabled": True,
-        },
         "currency": "INR",
-        "default_method": "cashfree" if settings.cashfree_enabled else "razorpay",
+        "default_method": "razorpay",
         "fee_structure": {
-            "cashfree": {"type": "percentage", "rate": 1.75},
-            "upi": {"type": "fixed", "amount": 0},
-            "razorpay": {"type": "percentage", "rate": 2.3},
+            "razorpay": {"type": "percentage", "rate": 2.0},
         }
     }
 
@@ -399,6 +385,40 @@ async def verify_razorpay_payment(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Payment verification failed: {str(e)}"
+        )
+
+
+@app.post("/api/v1/payments/razorpay/verify-signature", tags=["Razorpay"])
+async def verify_razorpay_signature(request: RazorpayPaymentVerification):
+    """
+    Verify Razorpay payment signature directly (no DB transaction lookup).
+    Use this after Razorpay checkout completes - just validates the HMAC signature.
+    Returns { success: true, razorpay_payment_id, razorpay_order_id } on success.
+    """
+    try:
+        razorpay_client = get_razorpay_client()
+        is_valid = razorpay_client.verify_payment(
+            request.razorpay_order_id,
+            request.razorpay_payment_id,
+            request.razorpay_signature,
+        )
+        if not is_valid:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid payment signature",
+            )
+        return {
+            "success": True,
+            "razorpay_payment_id": request.razorpay_payment_id,
+            "razorpay_order_id": request.razorpay_order_id,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Razorpay signature verification error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Signature verification failed: {str(e)}",
         )
 
 

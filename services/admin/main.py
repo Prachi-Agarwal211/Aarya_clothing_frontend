@@ -284,7 +284,7 @@ async def get_dashboard_overview(
         inventory_alerts=InventoryAlert(low_stock=stats[7], out_of_stock=stats[8]),
         recent_orders=recent_orders,
     )
-    redis_client.set_cache(cache_key, result.model_dump(), ttl=120)
+    redis_client.set_cache(cache_key, result.model_dump(), ttl=30)
     return result
 
 
@@ -3292,7 +3292,7 @@ async def get_public_landing_config(db: Session = Depends(get_db)):
         sections[r[0]] = {"config": config, "is_active": r[2]}
 
     result = {"sections": sections}
-    redis_client.set_cache(cache_key, result, ttl=300)  # Cache for 5 minutes
+    redis_client.set_cache(cache_key, result, ttl=30)  # Cache for 30 seconds
     return result
 
 
@@ -3353,7 +3353,7 @@ async def get_public_landing_images(
     ]
 
     result = {"images": images}
-    redis_client.set_cache(cache_key, result, ttl=300)  # Cache for 5 minutes
+    redis_client.set_cache(cache_key, result, ttl=30)  # Cache for 30 seconds
     return result
 
 
@@ -3456,7 +3456,7 @@ async def get_public_landing_all(db: Session = Depends(get_db)):
     # This ensures database is always the PRIMARY source
     if not has_database_data:
         result = _get_default_landing_data()
-        redis_client.set_cache(cache_key, result, ttl=300)
+        redis_client.set_cache(cache_key, result, ttl=30)
         return result
 
     # Build result from DATABASE (PRIMARY SOURCE)
@@ -3489,7 +3489,7 @@ async def get_public_landing_all(db: Session = Depends(get_db)):
                     "subtitle": r[4],
                     "link": r[5],
                 }
-            if variant == "mobile":
+            if variant in ("mobile", "phone"):
                 hero_groups[order]["imageMobile"] = _get_r2_public_url(r[2])
             else:
                 hero_groups[order]["image"] = _get_r2_public_url(r[2])
@@ -3624,7 +3624,7 @@ async def get_public_landing_all(db: Session = Depends(get_db)):
             _get_r2_public_url(r[2]) for r in sorted(about_images, key=lambda x: x[6])
         ]
 
-    redis_client.set_cache(cache_key, result, ttl=300)  # Cache for 5 minutes
+    redis_client.set_cache(cache_key, result, ttl=30)  # Cache for 30 seconds
     return result
 
 

@@ -37,7 +37,7 @@ export default function CheckoutConfirmPage() {
 
       const addressId = sessionStorage.getItem('checkout_address_id');
       const paymentId = sessionStorage.getItem('payment_id');
-      const cashfreeOrderId = sessionStorage.getItem('cashfree_order_id');
+      const razorpayOrderId = sessionStorage.getItem('razorpay_order_id');
 
       if (!addressId) {
         setError('Missing delivery address. Please start checkout again.');
@@ -48,9 +48,9 @@ export default function CheckoutConfirmPage() {
       // Create order
       const orderData = await ordersApi.create({
         address_id: parseInt(addressId),
-        payment_method: 'cashfree',
-        payment_id: paymentId || cashfreeOrderId,
-        cashfree_order_id: cashfreeOrderId,
+        payment_method: 'razorpay',
+        payment_id: paymentId || razorpayOrderId,
+        razorpay_order_id: razorpayOrderId,
       });
 
       setOrder(orderData.order || orderData);
@@ -59,7 +59,7 @@ export default function CheckoutConfirmPage() {
       clearCart();
       sessionStorage.removeItem('checkout_address_id');
       sessionStorage.removeItem('payment_id');
-      sessionStorage.removeItem('cashfree_order_id');
+      sessionStorage.removeItem('razorpay_order_id');
     } catch (err) {
       logger.error('Error creating order:', err);
       // Surface specific error from backend (e.g. stock-out, payment verification failure)
@@ -192,7 +192,7 @@ export default function CheckoutConfirmPage() {
             </div>
             <div>
               <p className="text-[#EAE0D5]/50 text-xs mb-0.5">Payment Method</p>
-              <p className="text-[#EAE0D5] capitalize">{order.payment_method || 'Cashfree'}</p>
+              <p className="text-[#EAE0D5] capitalize">{order.payment_method || 'Razorpay'}</p>
             </div>
             {order.place_of_supply && (
               <div>

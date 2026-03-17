@@ -1753,7 +1753,14 @@ a[role="button"] *,
 [class*="button"],
 [class*="button"] *,
 [class*="btn"],
-[class*="btn"] * {
+[class*="btn"] *,
+/* Anchor tags used as CTA buttons (common Next.js Link-as-button pattern) */
+main a.flex,
+main a.flex *,
+main a.inline-flex,
+main a.inline-flex *,
+main a.flex-1,
+main a.flex-1 * {
   text-decoration: none !important;
 }
 

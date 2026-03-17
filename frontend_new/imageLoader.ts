@@ -39,24 +39,28 @@ export default function cloudflareLoader({
   quality = 75,
 }: ImageLoaderProps): string {
   const params = [`width=${width}`];
-  
+
   // Add quality parameter
   if (quality) {
     params.push(`quality=${quality}`);
   }
 
   // Development: Direct access without CDN transformation
-  // This allows testing without Cloudflare setup
   if (process.env.NODE_ENV === "development") {
-    // In development, just return the src with query params
-    // Next.js built-in optimizer will handle it
     return `${src}?${params.join("&")}`;
   }
 
-  // Production: Use Cloudflare Images CDN
-  // Format: /cdn-cgi/image/{params}/{source-image}
-  const normalizedSrc = normalizeSrc(src);
-  return `/cdn-cgi/image/${params.join(",")}/${normalizedSrc}`;
+  // ONLY use Cloudflare Images for R2 URLs (pub-*.r2.dev)
+  // Local public folder images should use Next.js built-in optimizer
+  if (src.includes('pub-') && src.includes('r2.dev')) {
+    // This is an R2 image - use Cloudflare Images CDN
+    const normalizedSrc = normalizeSrc(src);
+    return `/cdn-cgi/image/${params.join(",")}/${normalizedSrc}`;
+  }
+
+  // This is a local image - return as-is for Next.js to optimize
+  // Next.js will serve from /_next/image with optimization
+  return src;
 }
 
 /**

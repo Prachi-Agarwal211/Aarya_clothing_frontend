@@ -37,6 +37,22 @@ const normalizeSrc = (src: string): string => {
   return src.startsWith("/") ? src.slice(1) : src;
 };
 
+/**
+ * Encodes a URL for use in Cloudflare Images CDN path.
+ * Cloudflare requires URL-encoding for remote image URLs to prevent
+ * path parsing issues with special characters like ://
+ * 
+ * Example:
+ *   https://example.com/image.jpg → https%3A%2F%2Fexample.com%2Fimage.jpg
+ */
+const encodeForCloudflare = (url: string): string => {
+  // Only encode if it's a full URL (contains protocol)
+  if (url.startsWith("http://") || url.startsWith("https://")) {
+    return encodeURIComponent(url);
+  }
+  return url;
+};
+
 const isR2Url = (src: string): boolean => {
   // Check if this is an R2 URL (either full URL or relative path that should go to R2)
   return (
@@ -89,8 +105,10 @@ export default function cloudflareLoader({
   // R2 URLs: Use Cloudflare Images CDN for optimization
   if (isR2Url(src)) {
     const normalizedSrc = normalizeSrc(src);
+    const encodedSrc = encodeForCloudflare(normalizedSrc);
     // Cloudflare Images transformation: /cdn-cgi/image/<params>/<image-url>
-    return `/cdn-cgi/image/${params.join(",")}/${normalizedSrc}`;
+    // URL must be encoded to prevent path parsing issues
+    return `/cdn-cgi/image/${params.join(",")}/${encodedSrc}`;
   }
 
   // Relative paths (e.g., /collections/kurti.jpg from API without full domain)
@@ -98,7 +116,8 @@ export default function cloudflareLoader({
   if (src.startsWith("/")) {
     // Assume it's an R2 relative path and construct full URL
     const fullR2Url = `${R2_PUBLIC_URL}${src}`;
-    return `/cdn-cgi/image/${params.join(",")}/${fullR2Url}`;
+    const encodedSrc = encodeForCloudflare(fullR2Url);
+    return `/cdn-cgi/image/${params.join(",")}/${encodedSrc}`;
   }
 
   // Fallback: Return as-is for Next.js to handle

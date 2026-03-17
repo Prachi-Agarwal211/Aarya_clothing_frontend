@@ -2,14 +2,16 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useParams, useRouter } from 'next/navigation';
-import { 
-  RotateCcw, Package, ChevronLeft, Clock, CheckCircle, XCircle, Truck, 
+import {
+  RotateCcw, Package, ChevronLeft, Clock, CheckCircle, XCircle, Truck,
   AlertCircle, MapPin, Phone, Mail, Camera, Upload, MessageSquare,
   ArrowRight, CreditCard, ShoppingBag
 } from 'lucide-react';
 import { returnsApi } from '@/lib/customerApi';
 import logger from '@/lib/logger';
+import { useAlertToast } from '@/lib/useAlertToast';
 
 const STATUS_CONFIG = {
   requested: { label: 'Pending Review', color: 'text-yellow-400', bg: 'bg-yellow-400/10', icon: Clock },
@@ -37,6 +39,7 @@ const TYPE_LABELS = {
 export default function ReturnDetailsPage() {
   const params = useParams();
   const router = useRouter();
+  const { showAlert } = useAlertToast();
   const [returnData, setReturnData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -64,14 +67,14 @@ export default function ReturnDetailsPage() {
 
   const handleCancelReturn = async () => {
     if (!confirm('Are you sure you want to cancel this return request?')) return;
-    
+
     try {
       setCancelling(true);
       await returnsApi.cancel(params.id);
       router.push('/profile/returns');
     } catch (err) {
       logger.error('Error cancelling return:', err);
-      alert('Failed to cancel return request');
+      showAlert('Failed to cancel return request');
     } finally {
       setCancelling(false);
     }
@@ -231,8 +234,14 @@ export default function ReturnDetailsPage() {
                   <p className="text-sm text-[#EAE0D5]/50 mb-2">Attached Images</p>
                   <div className="flex gap-2">
                     {returnData.images.map((img, idx) => (
-                      <div key={idx} className="w-20 h-20 bg-[#7A2F57]/20 rounded-lg overflow-hidden">
-                        <img src={img} alt={`Evidence ${idx + 1}`} className="w-full h-full object-cover" />
+                      <div key={idx} className="relative w-20 h-20 bg-[#7A2F57]/20 rounded-lg overflow-hidden flex-shrink-0">
+                        <Image
+                          src={img}
+                          alt={`Evidence image ${idx + 1}`}
+                          fill
+                          className="object-cover"
+                          sizes="80px"
+                        />
                       </div>
                     ))}
                   </div>

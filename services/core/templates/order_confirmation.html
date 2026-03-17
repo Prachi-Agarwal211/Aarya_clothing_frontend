@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order Confirmation - Aarya Clothings</title>
+</head>
+<body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #0B0608; margin: 0; padding: 20px;">
+    <div style="max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #180F14 0%, #0B0608 100%); border-radius: 20px; padding: 40px; border: 1px solid rgba(183, 110, 121, 0.3); box-shadow: 0 8px 32px rgba(183, 110, 121, 0.15);">
+        <!-- Header -->
+        <div style="text-align: center; margin-bottom: 30px;">
+            <h1 style="color: #F2C29A; font-size: 32px; margin: 0; font-family: 'Cinzel', serif; letter-spacing: 2px; text-shadow: 0 2px 8px rgba(242, 194, 154, 0.3);">AARYA</h1>
+            <p style="color: #B76E79; font-size: 14px; margin: 8px 0 0 0; letter-spacing: 4px;">CLOTHINGS</p>
+        </div>
+
+        <!-- Success Icon -->
+        <div style="text-align: center; margin-bottom: 25px;">
+            <div style="display: inline-block; background: linear-gradient(135deg, #B76E79 0%, #7A2F57 100%); border-radius: 50%; padding: 20px; box-shadow: 0 4px 20px rgba(183, 110, 121, 0.4);">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M9 12L11 14L15 10M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="#F2C29A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </div>
+        </div>
+
+        <!-- Content -->
+        <div style="color: #EAE0D5; font-size: 16px; line-height: 1.7;">
+            <h2 style="color: #F2C29A; font-size: 24px; margin-bottom: 15px; font-weight: 600; text-align: center;">Order Confirmed!</h2>
+            <p style="text-align: center; margin-bottom: 25px; color: #EAE0D5; opacity: 0.9;">Thank you for your purchase, {{customer_name}}!</p>
+
+            <!-- Order Number -->
+            <div style="background: rgba(183, 110, 121, 0.15); border: 1px solid rgba(183, 110, 121, 0.3); border-radius: 12px; padding: 20px; margin-bottom: 25px; text-align: center;">
+                <p style="color: #B76E79; font-size: 13px; margin: 0 0 8px 0; letter-spacing: 1px;">ORDER NUMBER</p>
+                <p style="color: #F2C29A; font-size: 22px; font-weight: bold; margin: 0; letter-spacing: 2px;">{{order_number}}</p>
+            </div>
+
+            <!-- Order Summary Table -->
+            <div style="margin-bottom: 25px;">
+                <h3 style="color: #F2C29A; font-size: 18px; margin-bottom: 15px; border-bottom: 1px solid rgba(183, 110, 121, 0.3); padding-bottom: 10px;">Order Summary</h3>
+                <table style="width: 100%; border-collapse: collapse;">
+                    <thead>
+                        <tr style="color: #B76E79; font-size: 13px; border-bottom: 1px solid rgba(183, 110, 121, 0.3);">
+                            <th style="text-align: left; padding: 10px 0;">Item</th>
+                            <th style="text-align: center; padding: 10px 0;">Qty</th>
+                            <th style="text-align: right; padding: 10px 0;">Price</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{order_items}}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Totals -->
+            <div style="background: rgba(183, 110, 121, 0.1); border: 1px solid rgba(183, 110, 121, 0.2); border-radius: 12px; padding: 20px; margin-bottom: 25px;">
+                <table style="width: 100%; border-collapse: collapse;">
+                    <tr>
+                        <td style="padding: 8px 0; color: #EAE0D5; opacity: 0.8;">Subtotal</td>
+                        <td style="padding: 8px 0; color: #F2C29A; text-align: right; font-weight: 600;">₹{{subtotal}}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px 0; color: #EAE0D5; opacity: 0.8;">Shipping</td>
+                        <td style="padding: 8px 0; color: #F2C29A; text-align: right; font-weight: 600;">₹{{shipping}}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 8px 0; color: #EAE0D5; opacity: 0.8;">GST</td>
+                        <td style="padding: 8px 0; color: #F2C29A; text-align: right; font-weight: 600;">₹{{gst}}</td>
+                    </tr>
+                    {{discount_row}}
+                    <tr style="border-top: 1px solid rgba(183, 110, 121, 0.3);">
+                        <td style="padding: 12px 0 0 0; color: #F2C29A; font-size: 18px; font-weight: bold;">Total</td>
+                        <td style="padding: 12px 0 0 0; color: #F2C29A; font-size: 18px; font-weight: bold; text-align: right;">₹{{total}}</td>
+                    </tr>
+                </table>
+            </div>
+
+            <!-- Shipping Address -->
+            <div style="background: rgba(183, 110, 121, 0.1); border: 1px solid rgba(183, 110, 121, 0.2); border-radius: 12px; padding: 20px; margin-bottom: 25px;">
+                <h3 style="color: #F2C29A; font-size: 16px; margin: 0 0 12px 0; display: flex; align-items: center;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style="margin-right: 8px;" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M17.657 16.657L13.414 20.9C13.044 21.27 12.447 21.27 12.076 20.9L7.829 16.657C6.309 15.137 5.5 13.161 5.5 11.001C5.5 6.859 8.859 3.5 13 3.5C17.141 3.5 20.5 6.859 20.5 11.001C20.5 13.161 19.691 15.137 18.171 16.657Z" stroke="#F2C29A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <path d="M13 13C14.1046 13 15 12.1046 15 11C15 9.89543 14.1046 9 13 9C11.8954 9 11 9.89543 11 11C11 12.1046 11.8954 13 13 13Z" stroke="#F2C29A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    Shipping Address
+                </h3>
+                <p style="color: #EAE0D5; opacity: 0.9; margin: 0; line-height: 1.6; white-space: pre-line;">{{shipping_address}}</p>
+            </div>
+
+            <!-- Payment Method -->
+            <div style="background: rgba(183, 110, 121, 0.1); border: 1px solid rgba(183, 110, 121, 0.2); border-radius: 12px; padding: 20px; margin-bottom: 25px;">
+                <h3 style="color: #F2C29A; font-size: 16px; margin: 0 0 12px 0; display: flex; align-items: center;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style="margin-right: 8px;" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M3 10H21M7 15H7.01M11 15H13M3 5H21C21.5523 5 22 5.44772 22 6V19C22 19.5523 21.5523 20 21 20H3C2.44772 20 2 19.5523 2 19V6C2 5.44772 2.44772 5 3 5Z" stroke="#F2C29A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    Payment Method
+                </h3>
+                <p style="color: #EAE0D5; opacity: 0.9; margin: 0;">{{payment_method}}</p>
+            </div>
+
+            <!-- Estimated Delivery -->
+            <div style="background: linear-gradient(135deg, rgba(183, 110, 121, 0.2) 0%, rgba(122, 47, 87, 0.2) 100%); border: 1px solid rgba(183, 110, 121, 0.3); border-radius: 12px; padding: 20px; margin-bottom: 25px; text-align: center;">
+                <p style="color: #B76E79; font-size: 13px; margin: 0 0 8px 0; letter-spacing: 1px;">ESTIMATED DELIVERY</p>
+                <p style="color: #F2C29A; font-size: 20px; font-weight: bold; margin: 0;">{{estimated_delivery}}</p>
+            </div>
+
+            <!-- Track Order Button -->
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="{{track_order_url}}" style="display: inline-block; background: linear-gradient(135deg, #B76E79 0%, #7A2F57 100%); color: #FFFFFF; text-decoration: none; padding: 16px 40px; border-radius: 12px; font-weight: 600; font-size: 16px; letter-spacing: 1px; box-shadow: 0 4px 16px rgba(183, 110, 121, 0.4); border: 1px solid rgba(242, 194, 154, 0.2);">Track Your Order</a>
+            </div>
+
+            <hr style="border: none; border-top: 1px solid rgba(183, 110, 121, 0.2); margin: 30px 0;">
+
+            <!-- Customer Support -->
+            <div style="text-align: center; margin-bottom: 20px;">
+                <p style="color: #EAE0D5; opacity: 0.7; font-size: 14px; margin-bottom: 12px;">Need help? Contact our customer support</p>
+                <p style="color: #B76E79; font-size: 14px; margin: 4px 0;">
+                    <a href="mailto:support@aaryaclothings.com" style="color: #B76E79; text-decoration: none;">support@aaryaclothings.com</a>
+                </p>
+                <p style="color: #B76E79; font-size: 14px; margin: 4px 0;">
+                    <a href="tel:+911234567890" style="color: #B76E79; text-decoration: none;">+91 123 456 7890</a>
+                </p>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div style="text-align: center; margin-top: 35px; padding-top: 25px; border-top: 1px solid rgba(183, 110, 121, 0.2);">
+            <p style="color: #EAE0D5; opacity: 0.4; font-size: 11px; margin: 0 0 8px 0; letter-spacing: 0.5px;">
+                © 2026 Aarya Clothings. All rights reserved.
+            </p>
+            <p style="color: #EAE0D5; opacity: 0.3; font-size: 10px; margin: 0;">
+                This email was sent to {{customer_email}}
+            </p>
+        </div>
+    </div>
+</body>
+</html>

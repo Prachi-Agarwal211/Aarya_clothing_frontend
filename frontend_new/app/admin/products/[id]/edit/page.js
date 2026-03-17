@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import {
   ArrowLeft,
   Save,
@@ -54,6 +55,7 @@ export default function EditProductPage() {
       fetchProduct();
       fetchCategories();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [productId]);
 
   const fetchProduct = async () => {
@@ -445,8 +447,8 @@ export default function EditProductPage() {
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
                     {existingImages.map((img, index) => (
-                      <div 
-                        key={img.id || index} 
+                      <div
+                        key={img.id || index}
                         className="relative aspect-square rounded-xl overflow-hidden bg-[#7A2F57]/10 border border-[#B76E79]/30 group cursor-move"
                         draggable
                         onDragStart={(e) => e.dataTransfer.setData('text/plain', index.toString())}
@@ -458,7 +460,13 @@ export default function EditProductPage() {
                           }
                         }}
                       >
-                        <img src={img.image_url} alt="" className="w-full h-full object-cover" />
+                        <Image
+                          src={img.image_url}
+                          alt={`Product image ${index + 1}`}
+                          fill
+                          className="object-cover"
+                          sizes="(max-width: 640px) 50vw, 25vw"
+                        />
                         {img.is_primary ? (
                           <span className="absolute top-2 left-2 bg-[#7A2F57] text-[#F2C29A] text-[10px] px-2 py-0.5 rounded shadow">Primary</span>
                         ) : (
@@ -496,7 +504,13 @@ export default function EditProductPage() {
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
                   {newImages.map((img, index) => (
                     <div key={`new-${index}`} className="relative aspect-square rounded-xl overflow-hidden bg-[#7A2F57]/10 border border-[#B76E79]/30 group">
-                      <img src={img.preview} alt="" className="w-full h-full object-cover" />
+                      <Image
+                        src={img.preview}
+                        alt={`New product image ${index + 1}`}
+                        fill
+                        className="object-cover"
+                        sizes="(max-width: 640px) 50vw, 25vw"
+                      />
                       {existingImages.length === 0 && index === 0 && (
                         <span className="absolute top-2 left-2 bg-[#7A2F57] text-[#F2C29A] text-[10px] px-2 py-0.5 rounded shadow">Primary</span>
                       )}

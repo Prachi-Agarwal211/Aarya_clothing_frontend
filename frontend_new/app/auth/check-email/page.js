@@ -3,6 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { useLogo } from '../../../lib/siteConfigContext';
+import { Mail } from 'lucide-react';
 
 export default function CheckEmailPage() {
   const logoUrl = useLogo();
@@ -13,16 +14,16 @@ export default function CheckEmailPage() {
       <div className="flex flex-col items-center mb-8 sm:mb-10 animate-fade-in-up">
         <img
           src={logoUrl || ''}
-          alt="Aarya"
+          alt="Aarya Clothing Logo"
           className="w-24 h-24 sm:w-28 sm:h-28 object-contain drop-shadow-[0_0_15px_rgba(242,194,154,0.2)]"
+          loading="eager"
+          fetchPriority="high"
         />
       </div>
 
       {/* EMAIL ICON */}
-      <div className="w-20 h-20 rounded-full bg-[#7A2F57]/30 flex items-center justify-center mb-8 animate-fade-in-up-delay">
-        <svg className="w-10 h-10 text-[#F2C29A]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-        </svg>
+      <div className="w-20 h-20 rounded-full bg-[#7A2F57]/30 flex items-center justify-center mb-8 animate-fade-in-up-delay" aria-hidden="true">
+        <Mail className="w-10 h-10 text-[#F2C29A]" />
       </div>
 
       {/* HEADER */}
@@ -37,7 +38,7 @@ export default function CheckEmailPage() {
       </div>
 
       {/* INFO BOX */}
-      <div className="w-full p-4 bg-[#7A2F57]/20 border border-[#B76E79]/30 rounded-xl mb-8 animate-fade-in-up-delay">
+      <div className="w-full p-4 bg-[#7A2F57]/20 border border-[#B76E79]/30 rounded-xl mb-8 animate-fade-in-up-delay" role="status">
         <p className="text-[#EAE0D5]/80 text-sm text-center">
           <span className="text-[#F2C29A] font-medium">Didn&apos;t receive the email?</span>
           <br />
@@ -52,9 +53,9 @@ export default function CheckEmailPage() {
       <div className="space-y-4 text-center animate-fade-in-up-delay">
         <Link
           href="/auth/login"
-          className="block w-full py-3 px-6 bg-gradient-to-r from-[#7A2F57]/80 via-[#B76E79]/70 to-[#2A1208]/80 
+          className="block w-full py-3 px-6 bg-gradient-to-r from-[#7A2F57]/80 via-[#B76E79]/70 to-[#2A1208]/80
                          text-white font-serif tracking-widest rounded-xl border border-[#B76E79]/40
-                         hover:border-[#F2C29A]/60 hover:shadow-[0_0_30px_rgba(183,110,121,0.3)] 
+                         hover:border-[#F2C29A]/60 hover:shadow-[0_0_30px_rgba(183,110,121,0.3)]
                          transition-all duration-500"
         >
           Back to Login

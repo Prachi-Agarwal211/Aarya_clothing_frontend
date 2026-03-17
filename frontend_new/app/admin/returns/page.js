@@ -3,21 +3,23 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { 
+import {
   RotateCcw, Eye, CheckCircle, XCircle, RefreshCw, Download, Square, CheckSquare
 } from 'lucide-react';
 import AdminLayout from '@/components/admin/layout/AdminLayout';
 import DataTable from '@/components/admin/shared/DataTable';
 import { ReturnStatusBadge } from '@/components/admin/shared/StatusBadge';
 import { returnsApi } from '@/lib/adminApi';
-import { 
+import {
   RETURN_STATUS,
-  getReasonLabel 
+  getReasonLabel
 } from '@/lib/returnConstants';
 import logger from '@/lib/logger';
+import { useAlertToast } from '@/lib/useAlertToast';
 
 export default function AdminReturnsPage() {
   const router = useRouter();
+  const { showAlert } = useAlertToast();
   const [returns, setReturns] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -108,7 +110,7 @@ export default function AdminReturnsPage() {
       await fetchReturns();
     } catch (err) {
       logger.error('Error approving return:', err);
-      alert('Failed to approve return');
+      showAlert('Failed to approve return');
     }
   };
 
@@ -116,20 +118,20 @@ export default function AdminReturnsPage() {
   const handleQuickReject = async (id) => {
     const reason = prompt('Enter rejection reason:');
     if (!reason) return;
-    
+
     try {
       await returnsApi.reject(id, reason);
       await fetchReturns();
     } catch (err) {
       logger.error('Error rejecting return:', err);
-      alert('Failed to reject return');
+      showAlert('Failed to reject return');
     }
   };
 
   // Handle bulk approve
   const handleBulkApprove = async () => {
     if (!confirm(`Approve ${selected.size} return requests?`)) return;
-    
+
     setBulkLoading(true);
     try {
       await Promise.all(
@@ -139,7 +141,7 @@ export default function AdminReturnsPage() {
       await fetchReturns();
     } catch (err) {
       logger.error('Error bulk approving:', err);
-      alert('Failed to approve some returns');
+      showAlert('Failed to approve some returns');
     } finally {
       setBulkLoading(false);
     }
@@ -149,7 +151,7 @@ export default function AdminReturnsPage() {
   const handleBulkReject = async () => {
     const reason = prompt('Enter rejection reason for all selected:');
     if (!reason) return;
-    
+
     setBulkLoading(true);
     try {
       await Promise.all(
@@ -159,7 +161,7 @@ export default function AdminReturnsPage() {
       await fetchReturns();
     } catch (err) {
       logger.error('Error bulk rejecting:', err);
-      alert('Failed to reject some returns');
+      showAlert('Failed to reject some returns');
     } finally {
       setBulkLoading(false);
     }

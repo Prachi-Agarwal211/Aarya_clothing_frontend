@@ -2,9 +2,10 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useParams, useRouter } from 'next/navigation';
-import { 
-  RotateCcw, Package, ChevronLeft, Clock, CheckCircle, XCircle, Truck, 
+import {
+  RotateCcw, Package, ChevronLeft, Clock, CheckCircle, XCircle, Truck,
   AlertCircle, Mail, Phone, MapPin, MessageSquare, CreditCard, ShoppingBag,
   ArrowRight, Upload, FileText, Send, Ban, RefreshCw, DollarSign
 } from 'lucide-react';
@@ -288,8 +289,14 @@ export default function AdminReturnDetailsPage() {
                     <p className="text-sm text-[#EAE0D5]/50 mb-2">Attached Images</p>
                     <div className="flex gap-2">
                       {returnData.images.map((img, idx) => (
-                        <div key={idx} className="w-24 h-24 bg-[#7A2F57]/20 rounded-lg overflow-hidden">
-                          <img src={img} alt={`Evidence ${idx + 1}`} className="w-full h-full object-cover" />
+                        <div key={idx} className="relative w-24 h-24 bg-[#7A2F57]/20 rounded-lg overflow-hidden flex-shrink-0">
+                          <Image
+                            src={img}
+                            alt={`Evidence image ${idx + 1}`}
+                            fill
+                            className="object-cover"
+                            sizes="96px"
+                          />
                         </div>
                       ))}
                     </div>

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import Image from 'next/image';
 import {
   RefreshCw, Upload, Trash2, Edit, Save, X,
   AlertCircle, CheckCircle, Loader2, ExternalLink,
@@ -458,8 +459,17 @@ export default function LandingPageConfig() {
                       }`}>
                         <span className="text-xs text-[#EAE0D5]/30 w-5 text-center">{idx + 1}</span>
                         {lp.primary_image ? (
-                          <img src={lp.primary_image} alt={lp.name}
-                            className="w-12 h-12 rounded-lg object-cover flex-shrink-0 bg-[#1a0f0a]" />
+                          <div className="relative w-12 h-12 flex-shrink-0">
+                            <Image
+                              src={lp.primary_image}
+                              alt={lp.name}
+                              fill
+                              className="rounded-lg object-cover bg-[#1a0f0a]"
+                              sizes="48px"
+                              loading="lazy"
+                              decoding="async"
+                            />
+                          </div>
                         ) : (
                           <div className="w-12 h-12 rounded-lg bg-[#1a0f0a] flex items-center justify-center flex-shrink-0">
                             <Package className="w-5 h-5 text-[#B76E79]/30" />
@@ -545,8 +555,15 @@ export default function LandingPageConfig() {
                             <div key={image.id}
                               className="relative aspect-video rounded-xl overflow-hidden bg-[#7A2F57]/10 group border border-[#B76E79]/10">
                               {image.image_url ? (
-                                <img src={image.image_url} alt={image.title || 'Laptop image'}
-                                  className="absolute inset-0 w-full h-full object-cover" />
+                                <Image
+                                  src={image.image_url}
+                                  alt={image.title || 'Hero laptop banner image'}
+                                  fill
+                                  className="object-cover"
+                                  sizes="(max-width: 768px) 50vw, 33vw"
+                                  loading="lazy"
+                                  decoding="async"
+                                />
                               ) : (
                                 <div className="absolute inset-0 flex items-center justify-center">
                                   {image.isUploading ? <Loader2 className="w-8 h-8 text-[#B76E79] animate-spin" /> : <ImageIcon className="w-8 h-8 text-[#B76E79]/30" />}
@@ -604,8 +621,15 @@ export default function LandingPageConfig() {
                             <div key={image.id}
                               className="relative aspect-[9/16] rounded-xl overflow-hidden bg-[#7A2F57]/10 group border border-[#B76E79]/10">
                               {image.image_url ? (
-                                <img src={image.image_url} alt={image.title || 'Phone image'}
-                                  className="absolute inset-0 w-full h-full object-cover" />
+                                <Image
+                                  src={image.image_url}
+                                  alt={image.title || 'Hero phone banner image'}
+                                  fill
+                                  className="object-cover"
+                                  sizes="(max-width: 768px) 50vw, 33vw"
+                                  loading="lazy"
+                                  decoding="async"
+                                />
                               ) : (
                                 <div className="absolute inset-0 flex items-center justify-center">
                                   {image.isUploading ? <Loader2 className="w-8 h-8 text-[#B76E79] animate-spin" /> : <ImageIcon className="w-8 h-8 text-[#B76E79]/30" />}
@@ -656,8 +680,15 @@ export default function LandingPageConfig() {
                       <div key={image.id}
                         className="relative aspect-video rounded-xl overflow-hidden bg-[#7A2F57]/10 group border border-[#B76E79]/10">
                         {image.image_url ? (
-                          <img src={image.image_url} alt={image.title || 'Landing image'}
-                            className="absolute inset-0 w-full h-full object-cover" />
+                          <Image
+                            src={image.image_url}
+                            alt={image.title || 'Landing page section image'}
+                            fill
+                            className="object-cover"
+                            sizes="(max-width: 768px) 50vw, 33vw"
+                            loading="lazy"
+                            decoding="async"
+                          />
                         ) : (
                           <div className="absolute inset-0 flex items-center justify-center">
                             {image.isUploading ? <Loader2 className="w-8 h-8 text-[#B76E79] animate-spin" /> : <ImageIcon className="w-8 h-8 text-[#B76E79]/30" />}
@@ -700,8 +731,15 @@ export default function LandingPageConfig() {
                       <div key={image.id}
                         className="relative aspect-video rounded-xl overflow-hidden bg-[#7A2F57]/10 group border border-[#B76E79]/10">
                         {image.image_url ? (
-                          <img src={image.image_url} alt={image.title || 'Landing image'}
-                            className="absolute inset-0 w-full h-full object-cover" />
+                          <Image
+                            src={image.image_url}
+                            alt={image.title || 'Landing page section image'}
+                            fill
+                            className="object-cover"
+                            sizes="(max-width: 768px) 50vw, 33vw"
+                            loading="lazy"
+                            decoding="async"
+                          />
                         ) : (
                           <div className="absolute inset-0 flex items-center justify-center">
                             {image.isUploading ? <Loader2 className="w-8 h-8 text-[#B76E79] animate-spin" /> : <ImageIcon className="w-8 h-8 text-[#B76E79]/30" />}
@@ -879,7 +917,15 @@ export default function LandingPageConfig() {
                       {isSelected && <CheckCircle className="w-3 h-3 text-white" />}
                     </div>
                     {img ? (
-                      <img src={img} alt={p.name} className="w-10 h-10 rounded-lg object-cover flex-shrink-0 bg-[#1a0f0a]" />
+                      <div className="relative w-10 h-10 flex-shrink-0">
+                        <Image
+                          src={img}
+                          alt={p.name}
+                          fill
+                          className="rounded-lg object-cover bg-[#1a0f0a]"
+                          sizes="40px"
+                        />
+                      </div>
                     ) : (
                       <div className="w-10 h-10 rounded-lg bg-[#1a0f0a] flex items-center justify-center flex-shrink-0">
                         <Package className="w-4 h-4 text-[#B76E79]/30" />

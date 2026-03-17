@@ -11,6 +11,36 @@
     align-items: center;
     justify-content: center;
   }
+  
+  /* Enhanced touch target for icon buttons */
+  .touch-target-icon {
+    min-width: 44px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px;
+  }
+  
+  /* Mobile-safe minimum font size */
+  .text-mobile-safe {
+    font-size: clamp(0.875rem, 2vw, 1rem); /* Minimum 14px */
+  }
+  
+  /* Auth page container optimization */
+  .auth-container {
+    @apply w-full px-4 sm:px-6 md:px-8;
+    @apply max-w-[480px] sm:max-w-[520px] lg:max-w-[560px];
+    @apply mx-auto;
+  }
+  
+  /* Safe area inset wrapper for auth pages */
+  .auth-safe-area {
+    padding-top: max(1rem, env(safe-area-inset-top));
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+    padding-left: max(1rem, env(safe-area-inset-left));
+    padding-right: max(1rem, env(safe-area-inset-right));
+  }
 }
 
 /* Font loading is now handled by next/font/google in layout.js */
@@ -469,19 +499,21 @@ button, .btn {
 }
 
 /* Custom Checkbox Styling for Luxury Theme */
+/* Note: The checkbox itself is visually small but wrapped in a 44px touch target */
 input[type="checkbox"] {
   appearance: none;
   -webkit-appearance: none;
-  width: 18px;
-  height: 18px;
-  min-width: 18px;
-  min-height: 18px;
-  border: 1px solid rgba(183, 110, 121, 0.4);
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  min-height: 20px;
+  border: 2px solid rgba(183, 110, 121, 0.4);
   border-radius: 4px;
   background: rgba(20, 10, 10, 0.4);
   cursor: pointer;
   transition: all 0.3s var(--transition-smooth);
   position: relative;
+  margin: 0;
 }
 
 input[type="checkbox"]:hover {
@@ -502,8 +534,8 @@ input[type="checkbox"]:checked::after {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 10px;
-  height: 10px;
+  width: 12px;
+  height: 12px;
   background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23F2C29A' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'%3E%3C/polyline%3E%3C/svg%3E") no-repeat center;
   background-size: contain;
   animation: scaleIn 0.3s var(--transition-bounce);
@@ -514,18 +546,47 @@ input[type="checkbox"]:focus {
   box-shadow: 0 0 0 3px rgba(183, 110, 121, 0.3);
 }
 
+/* Checkbox wrapper for 44px touch target (WCAG 2.1 compliant) */
+.checkbox-wrapper {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 8px;
+  margin: -8px;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: background-color 0.2s ease;
+}
+
+.checkbox-wrapper:hover {
+  background: rgba(183, 110, 121, 0.1);
+}
+
+.checkbox-wrapper:active {
+  background: rgba(183, 110, 121, 0.15);
+}
+
 /* Mobile-optimized checkbox */
 @media (max-width: 640px) {
   input[type="checkbox"] {
-    width: 16px;
-    height: 16px;
-    min-width: 16px;
-    min-height: 16px;
+    width: 20px;
+    height: 20px;
+    min-width: 20px;
+    min-height: 20px;
+  }
+
+  input[type="checkbox"]:checked::after {
+    width: 10px;
+    height: 10px;
   }
   
-  input[type="checkbox"]:checked::after {
-    width: 8px;
-    height: 8px;
+  /* Ensure touch target remains 44px on mobile */
+  .checkbox-wrapper {
+    min-height: 44px;
+    min-width: 44px;
+    padding: 10px;
+    margin: -10px;
   }
 }
 
@@ -1558,4 +1619,210 @@ button, .btn, a, .no-select {
 .focus-visible:focus-visible {
   outline: 2px solid #F2C29A;
   outline-offset: 2px;
+}
+
+/* ============================================
+   ACCESSIBILITY ENHANCEMENTS (WCAG 2.1 AA)
+   ============================================ */
+
+/* Screen Reader Only Utility */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+.sr-only:focus,
+.sr-only:active {
+  position: static;
+  width: auto;
+  height: auto;
+  padding: inherit;
+  margin: inherit;
+  overflow: visible;
+  clip: auto;
+  white-space: normal;
+}
+
+/* Universal Focus Visible */
+*:focus-visible {
+  outline: 2px solid #F2C29A;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(242, 194, 154, 0.2);
+}
+
+/* Remove default focus for mouse users */
+*:focus:not(:focus-visible) {
+  outline: none;
+  box-shadow: none;
+}
+
+/* Enhanced focus for interactive elements */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid #F2C29A;
+  outline-offset: 2px;
+  box-shadow: 
+    0 0 0 2px rgba(5, 2, 3, 0.8),
+    0 0 0 4px rgba(242, 194, 154, 0.5);
+}
+
+/* Minimum touch target size (44x44px) */
+button,
+a,
+input[type="button"],
+input[type="submit"],
+input[type="checkbox"],
+input[type="radio"],
+[role="button"],
+[tabindex] {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* Link styling - always underlined for accessibility */
+a:not(.no-underline) {
+  text-decoration: underline;
+  text-decoration-color: rgba(242, 194, 154, 0.4);
+  text-underline-offset: 2px;
+  transition: text-decoration-color 0.2s ease;
+}
+
+a:not(.no-underline):hover {
+  text-decoration-color: #F2C29A;
+}
+
+/* Reduced Motion Preferences - respects user settings */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  
+  .parallax-layer,
+  .product-card-enhanced:hover,
+  .animate-shimmer,
+  .animate-sheen,
+  .animate-float {
+    animation: none !important;
+    transform: none !important;
+  }
+  
+  .gradient-text-gold,
+  .gradient-text-rose {
+    animation: none !important;
+    background-size: 100% 100% !important;
+  }
+}
+
+/* High Contrast Mode Support */
+@media (prefers-contrast: high) {
+  .border-\[\#B76E79\]\/10,
+  .border-\[\#B76E79\]\/15,
+  .border-\[\#B76E79\]\/20 {
+    border-color: #B76E79 !important;
+  }
+  
+  .text-\[\#EAE0D5\]\/50,
+  .text-\[\#EAE0D5\]\/60,
+  .text-\[\#EAE0D5\]\/70 {
+    color: #EAE0D5 !important;
+  }
+  
+  *:focus-visible {
+    outline-width: 3px !important;
+    outline-offset: 3px !important;
+  }
+}
+
+/* Forced Colors Mode (Windows High Contrast) */
+@media (forced-colors: active) {
+  button, a, input, select, textarea, [role="button"], [tabindex] {
+    border: 2px solid currentColor !important;
+  }
+  
+  *:focus-visible {
+    outline: 3px solid currentColor !important;
+    outline-offset: 2px !important;
+  }
+}
+
+/* Text Resizing - supports up to 200% zoom */
+.text-scalable {
+  font-size: clamp(0.875rem, 2vw, 1rem);
+}
+
+.heading-scalable {
+  font-size: clamp(1.5rem, 4vw, 3rem);
+}
+
+/* Prevent horizontal scroll on text resize */
+body {
+  overflow-x: hidden;
+  word-wrap: break-word;
+}
+
+/* Error state accessibility */
+.input-error {
+  border-color: #EF4444 !important;
+  border-width: 2px !important;
+}
+
+.error-message {
+  color: #FCA5A5;
+  font-size: 0.875rem;
+  margin-top: 0.25rem;
+}
+
+/* Required field indicator */
+.required::after {
+  content: ' *';
+  color: #EF4444;
+}
+
+/* Button disabled state */
+button:disabled,
+[aria-disabled="true"] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Loading state accessibility */
+[aria-busy="true"] {
+  cursor: wait;
+}
+
+/* Print styles */
+@media print {
+  header, footer, nav, button, a {
+    display: none !important;
+  }
+  
+  body {
+    background: white !important;
+    color: black !important;
+    font-size: 12pt;
+  }
+  
+  a[href]::after {
+    content: " (" attr(href) ")";
+  }
+  
+  img::after {
+    content: " (" attr(alt) ")";
+  }
 }

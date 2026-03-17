@@ -42,14 +42,17 @@ function useDebounce(value, delay) {
 /**
  * EnhancedHeader - Header with glass effect and logo image
  * 
- * Features:
- * - Logo image from auth pages (optimized with Next.js Image)
- * - Glass morphism effect when scrolled
- * - Smooth GSAP scroll to anchor sections on the landing page
- * - Mobile responsive menu
- * - Cart integration with item count
- * - Performance optimized with throttled scroll handler
+ * Accessibility Features:
+ * - Semantic HTML with <header> and <nav> landmarks
+ * - ARIA labels for navigation and buttons
+ * - Keyboard navigation support
+ * - Focus management for mobile menu
+ * - Screen reader announcements
+ * 
+ * Performance Features:
+ * - Throttled scroll handler
  * - Debounced search input
+ * - Optimized re-renders
  */
 const EnhancedHeader = () => {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -61,6 +64,8 @@ const EnhancedHeader = () => {
   const tickingRef = useRef(false);
   const pathname = usePathname();
   const router = useRouter();
+  const mobileMenuButtonRef = useRef(null);
+  const firstNavItemRef = useRef(null);
 
   // Get logo URL and noise texture from backend via context
   const logoUrl = useLogo();
@@ -68,6 +73,37 @@ const EnhancedHeader = () => {
 
   // Is the user currently on the landing page?
   const isLandingPage = pathname === '/';
+
+  // Trap focus in mobile menu when open
+  useEffect(() => {
+    if (isMobileMenuOpen) {
+      // Focus first nav item when menu opens
+      firstNavItemRef.current?.focus();
+      
+      // Prevent body scroll when mobile menu is open
+      document.body.style.overflow = 'hidden';
+    } else {
+      // Return focus to menu button when closed
+      mobileMenuButtonRef.current?.focus();
+      document.body.style.overflow = 'unset';
+    }
+
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isMobileMenuOpen]);
+
+  // Handle Escape key to close mobile menu
+  useEffect(() => {
+    const handleEscape = (e) => {
+      if (e.key === 'Escape' && isMobileMenuOpen) {
+        setIsMobileMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [isMobileMenuOpen]);
 
   // Throttled scroll handler using requestAnimationFrame
   useEffect(() => {
@@ -94,8 +130,6 @@ const EnhancedHeader = () => {
 
   /**
    * Smooth scroll to an anchor section on the landing page.
-   * If we're already on the landing page, GSAP scrolls directly.
-   * If on another page, navigate to / first and let the hash trigger scroll.
    */
   const handleNavClick = useCallback((e, link) => {
     if (isLandingPage && link.anchor) {
@@ -125,6 +159,11 @@ const EnhancedHeader = () => {
     }
   }, [isAuthenticated, toggleCart, router, pathname]);
 
+  // Toggle mobile menu with keyboard support
+  const toggleMobileMenu = useCallback(() => {
+    setIsMobileMenuOpen(prev => !prev);
+  }, []);
+
   // Memoize navLinks reference
   const navLinks = NAV_LINKS;
 
@@ -137,6 +176,8 @@ const EnhancedHeader = () => {
             ? "py-2"
             : "py-3"
         )}
+        role="banner"
+        aria-label="Main header"
       >
         {/* Glass Background - only visible when scrolled */}
         <div
@@ -146,16 +187,21 @@ const EnhancedHeader = () => {
               ? "bg-[#0B0608]/60 backdrop-blur-md border-b border-[#B76E79]/10"
               : "bg-transparent border-b border-transparent"
           )}
+          aria-hidden="true"
         />
 
         <div className="container mx-auto px-4 md:px-8 relative z-10">
           <div className="flex items-center justify-between">
             {/* Logo - Using Next.js Image for optimization */}
-            <Link href="/" className="relative z-50 group flex items-center">
+            <Link 
+              href="/" 
+              className="relative z-50 group flex items-center"
+              aria-label="Aarya Clothing - Go to homepage"
+            >
               {logoUrl ? (
                 <Image
                   src={logoUrl}
-                  alt="Aarya Clothing"
+                  alt="Aarya Clothing Logo"
                   width={80}
                   height={80}
                   priority
@@ -169,7 +215,12 @@ const EnhancedHeader = () => {
             </Link>
 
             {/* Desktop Navigation */}
-            <nav className="hidden md:flex items-center gap-8">
+            <nav 
+              id="main-navigation"
+              className="hidden md:flex items-center gap-8" 
+              aria-label="Main navigation"
+              role="navigation"
+            >
               {navLinks.map((link) => (
                 <Link
                   key={link.name}
@@ -180,17 +231,18 @@ const EnhancedHeader = () => {
                       ? 'text-[#F2C29A] hover:text-white px-3 py-1.5 rounded-full bg-gradient-to-r from-[#7A2F57]/40 to-[#B76E79]/30 border border-[#B76E79]/40 hover:border-[#B76E79]/70'
                       : 'text-[#EAE0D5]/80 hover:text-[#F2C29A]'
                     }`}
+                  aria-current={link.name === 'New Arrivals' ? 'page' : undefined}
                 >
                   {link.name}
                   {!link.highlight && (
-                    <span className="absolute bottom-0 left-0 w-0 h-[1px] bg-[#F2C29A] transition-all duration-300 group-hover:w-full" />
+                    <span className="absolute bottom-0 left-0 w-0 h-[1px] bg-[#F2C29A] transition-all duration-300 group-hover:w-full" aria-hidden="true" />
                   )}
                 </Link>
               ))}
             </nav>
 
             {/* Action Icons */}
-            <div className="hidden md:flex items-center gap-6">
+            <div className="hidden md:flex items-center gap-6" role="navigation" aria-label="Account and cart actions">
               <button
                 onClick={() => {
                   if (isAuthenticated) {
@@ -200,8 +252,10 @@ const EnhancedHeader = () => {
                   }
                 }}
                 className="text-[#EAE0D5] hover:text-[#F2C29A] transition-colors duration-300"
+                aria-label={isAuthenticated ? 'View wishlist' : 'Login to view wishlist'}
+                type="button"
               >
-                <Heart className="w-5 h-5" />
+                <Heart className="w-5 h-5" aria-hidden="true" />
               </button>
               <button
                 onClick={() => {
@@ -216,32 +270,45 @@ const EnhancedHeader = () => {
                   }
                 }}
                 className="text-[#EAE0D5] hover:text-[#F2C29A] transition-colors duration-300"
+                aria-label={isAuthenticated ? 'View profile' : 'Login to view profile'}
+                type="button"
               >
-                <User className="w-5 h-5" />
+                <User className="w-5 h-5" aria-hidden="true" />
               </button>
-              <input
-                key="search-input"
-                suppressHydrationWarning
-                type="text"
-                placeholder="Search..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && searchQuery.trim()) {
-                    router.push(`/products?q=${encodeURIComponent(searchQuery.trim())}`);
-                  }
-                }}
-                className="w-full px-4 py-2 bg-transparent border border-[#3D322C] rounded-lg text-[#EAE0D5] placeholder-[#8B7D77] focus:outline-none focus:border-[#F2C29A] transition-all duration-300"
-              />
+              <div className="relative">
+                <label htmlFor="search-input" className="sr-only">
+                  Search products
+                </label>
+                <input
+                  id="search-input"
+                  suppressHydrationWarning
+                  type="search"
+                  placeholder="Search..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && searchQuery.trim()) {
+                      router.push(`/products?q=${encodeURIComponent(searchQuery.trim())}`);
+                    }
+                  }}
+                  className="w-full px-4 py-2 bg-transparent border border-[#3D322C] rounded-lg text-[#EAE0D5] placeholder-[#8B7D77] focus:outline-none focus:border-[#F2C29A] transition-all duration-300"
+                  aria-label="Search products"
+                />
+              </div>
               <button
-                key="cart-button"
+                id="cart-button"
                 suppressHydrationWarning
                 onClick={handleCartClick}
                 className="relative text-[#EAE0D5] hover:text-[#F2C29A] transition-colors duration-300 group"
+                aria-label={`Shopping cart with ${itemCount} items`}
+                type="button"
               >
-                <ShoppingBag className="w-5 h-5" />
+                <ShoppingBag className="w-5 h-5" aria-hidden="true" />
                 {itemCount > 0 && (
-                  <span className="absolute -top-2 -right-2 bg-[#7A2F57] text-[#EAE0D5] text-[10px] w-4 h-4 rounded-full flex items-center justify-center">
+                  <span 
+                    className="absolute -top-2 -right-2 bg-[#7A2F57] text-[#EAE0D5] text-[10px] w-4 h-4 rounded-full flex items-center justify-center"
+                    aria-label={`${itemCount} items in cart`}
+                  >
                     {itemCount > 9 ? '9+' : itemCount}
                   </span>
                 )}
@@ -250,10 +317,19 @@ const EnhancedHeader = () => {
 
             {/* Mobile Menu Button */}
             <button
-              className="md:hidden relative z-50 text-[#EAE0D5] hover:text-[#F2C29A]"
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              ref={mobileMenuButtonRef}
+              className="md:hidden relative z-50 text-[#EAE0D5] hover:text-[#F2C29A] min-h-[44px] min-w-[44px] flex items-center justify-center"
+              onClick={toggleMobileMenu}
+              aria-expanded={isMobileMenuOpen}
+              aria-controls="mobile-menu"
+              aria-label={isMobileMenuOpen ? 'Close menu' : 'Open menu'}
+              type="button"
             >
-              {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+              {isMobileMenuOpen ? (
+                <X className="w-6 h-6" aria-hidden="true" />
+              ) : (
+                <Menu className="w-6 h-6" aria-hidden="true" />
+              )}
             </button>
           </div>
         </div>
@@ -261,24 +337,33 @@ const EnhancedHeader = () => {
 
       {/* Mobile Menu Overlay */}
       <div
+        id="mobile-menu"
         className={cn(
           "fixed inset-0 z-[90] flex flex-col items-center justify-center transition-all duration-500 md:hidden",
           isMobileMenuOpen
             ? "opacity-100 pointer-events-auto"
             : "opacity-0 pointer-events-none"
         )}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Mobile navigation menu"
+        hidden={!isMobileMenuOpen}
       >
         {/* Glass Background */}
-        <div className="absolute inset-0 bg-[#0B0608]/95 backdrop-blur-lg" />
+        <div 
+          className="absolute inset-0 bg-[#0B0608]/95 backdrop-blur-lg" 
+          onClick={() => setIsMobileMenuOpen(false)}
+          aria-hidden="true"
+        />
 
-        <div className="absolute inset-0 opacity-5" style={{ backgroundImage: `url('${noise}')` }} />
+        <div className="absolute inset-0 opacity-5" style={{ backgroundImage: `url('${noise}')` }} aria-hidden="true" />
 
         {/* Mobile Logo */}
         <div className="relative z-10 mb-12">
           {logoUrl ? (
             <Image
               src={logoUrl}
-              alt="Aarya Clothing"
+              alt="Aarya Clothing Logo"
               width={80}
               height={80}
               className="w-20 h-20 object-contain drop-shadow-[0_0_15px_rgba(242,194,154,0.25)]"
@@ -290,12 +375,17 @@ const EnhancedHeader = () => {
           )}
         </div>
 
-        <nav className="relative z-10 flex flex-col items-center gap-8">
+        <nav 
+          className="relative z-10 flex flex-col items-center gap-8" 
+          role="navigation"
+          aria-label="Mobile navigation"
+        >
           {navLinks.map((link, index) => (
             <Link
               key={link.name}
               href={link.href}
               scroll={false}
+              ref={index === 0 ? firstNavItemRef : null}
               className="text-2xl text-[#EAE0D5] hover:text-[#F2C29A] transition-colors duration-300"
               style={{ fontFamily: 'Cinzel, serif', transitionDelay: `${index * 100}ms` }}
               onClick={(e) => {
@@ -306,7 +396,7 @@ const EnhancedHeader = () => {
               {link.name}
             </Link>
           ))}
-          <div className="flex gap-8 mt-8">
+          <div className="flex gap-8 mt-8" role="navigation" aria-label="Mobile account actions">
             <button
               onClick={() => {
                 setIsMobileMenuOpen(false);
@@ -316,9 +406,11 @@ const EnhancedHeader = () => {
                   router.push('/auth/login?redirect_url=/profile/wishlist');
                 }
               }}
-              className="text-[#EAE0D5] hover:text-[#F2C29A]"
+              className="text-[#EAE0D5] hover:text-[#F2C29A] min-h-[44px] min-w-[44px] flex items-center justify-center"
+              aria-label={isAuthenticated ? 'View wishlist' : 'Login to view wishlist'}
+              type="button"
             >
-              <Heart className="w-6 h-6" />
+              <Heart className="w-6 h-6" aria-hidden="true" />
             </button>
             <button
               onClick={() => {
@@ -333,20 +425,27 @@ const EnhancedHeader = () => {
                   router.push('/auth/login?redirect_url=/profile');
                 }
               }}
-              className="text-[#EAE0D5] hover:text-[#F2C29A]"
+              className="text-[#EAE0D5] hover:text-[#F2C29A] min-h-[44px] min-w-[44px] flex items-center justify-center"
+              aria-label={isAuthenticated ? 'View profile' : 'Login to view profile'}
+              type="button"
             >
-              <User className="w-6 h-6" />
+              <User className="w-6 h-6" aria-hidden="true" />
             </button>
             <button
               onClick={() => {
                 setIsMobileMenuOpen(false);
                 handleCartClick();
               }}
-              className="relative text-[#EAE0D5] hover:text-[#F2C29A]"
+              className="relative text-[#EAE0D5] hover:text-[#F2C29A] min-h-[44px] min-w-[44px] flex items-center justify-center"
+              aria-label={`Shopping cart with ${itemCount} items`}
+              type="button"
             >
-              <ShoppingBag className="w-6 h-6" />
+              <ShoppingBag className="w-6 h-6" aria-hidden="true" />
               {itemCount > 0 && (
-                <span className="absolute -top-2 -right-2 bg-[#7A2F57] text-[#EAE0D5] text-xs w-5 h-5 rounded-full flex items-center justify-center">
+                <span 
+                  className="absolute -top-2 -right-2 bg-[#7A2F57] text-[#EAE0D5] text-xs w-5 h-5 rounded-full flex items-center justify-center"
+                  aria-label={`${itemCount} items in cart`}
+                >
                   {itemCount > 9 ? '9+' : itemCount}
                 </span>
               )}

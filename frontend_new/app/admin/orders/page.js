@@ -23,6 +23,7 @@ import DataTable from '@/components/admin/shared/DataTable';
 import { OrderStatusBadge } from '@/components/admin/shared/StatusBadge';
 import { ordersApi } from '@/lib/adminApi';
 import logger from '@/lib/logger';
+import { useAlertToast } from '@/lib/useAlertToast';
 
 const STATUS_OPTIONS = [
   { value: '', label: 'All Orders' },
@@ -35,6 +36,7 @@ const STATUS_OPTIONS = [
 function OrdersContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { showAlert } = useAlertToast();
 
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -118,7 +120,7 @@ function OrdersContent() {
     if (!selected.size) return;
     if (newStatus === 'shipped') {
       const pod = prompt(`Enter POD number for ${selected.size} order(s):`);
-      if (!pod || !pod.trim()) { alert('POD number is required.'); return; }
+      if (!pod || !pod.trim()) { showAlert('POD number is required.'); return; }
       if (!confirm(`Ship ${selected.size} order(s) with POD: ${pod}?`)) return;
       setBulkLoading(true);
       try {
@@ -178,7 +180,7 @@ function OrdersContent() {
 
   const confirmShip = async () => {
     if (!shipModal.podNumber.trim()) {
-      alert('POD number is required to ship an order.');
+      showAlert('POD number is required to ship an order.');
       return;
     }
     try {

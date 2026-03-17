@@ -19,6 +19,14 @@ from schemas.order import OrderCreate, OrderUpdate
 
 logger = logging.getLogger(__name__)
 
+# Import email service for order notifications
+try:
+    from core.email_service import email_service
+    EMAIL_SERVICE_AVAILABLE = True
+except ImportError:
+    EMAIL_SERVICE_AVAILABLE = False
+    logger.warning("Email service not available - order confirmation emails disabled")
+
 # Try to import payment service client
 try:
     from shared.service_client import PaymentServiceClient, ServiceError
@@ -262,6 +270,13 @@ class OrderService:
                 user_id, order.id, e
             )
 
+        # Send order confirmation email
+        if EMAIL_SERVICE_AVAILABLE:
+            try:
+                self._send_order_confirmation_email(order, user_id)
+            except Exception as e:
+                logger.error(f"Failed to send order confirmation email for order {order.id}: {e}")
+
         return order
     
     def update_order_status(
@@ -368,7 +383,19 @@ class OrderService:
             redis_client.set_cache(f"order:event:{order_id}", _json.loads(event_payload), ttl=60)
         except Exception as pub_err:
             logger.warning(f"Failed to publish order status event: {pub_err}")
-        
+
+        # Send email notification based on status
+        if EMAIL_SERVICE_AVAILABLE:
+            try:
+                if new_status == OrderStatus.SHIPPED:
+                    self._send_order_shipped_email(order, tracking_number)
+                elif new_status == OrderStatus.DELIVERED:
+                    self._send_order_delivered_email(order)
+                elif new_status == OrderStatus.CANCELLED:
+                    self._send_order_cancelled_email(order, admin_notes)
+            except Exception as e:
+                logger.error(f"Failed to send order status email for order {order_id}: {e}")
+
         return order
     
     def bulk_update_order_status(
@@ -769,7 +796,7 @@ class OrderService:
                 "payment_method": payment.get("payment_method"),
                 "created_at": payment.get("created_at")
             }
-            
+
         except ServiceError as e:
             logger.error(f"Get payment status error: {e}")
             return {
@@ -777,3 +804,133 @@ class OrderService:
                 "payment_status": "error",
                 "message": str(e.message)
             }
+
+    # ==================== Email Notifications ====================
+
+    def _send_order_confirmation_email(self, order: Order, user_id: int) -> bool:
+        """Send order confirmation email to customer."""
+        if not EMAIL_SERVICE_AVAILABLE:
+            return False
+
+        # Get user email
+        user = self.db.query(User).filter(User.id == user_id).first()
+        if not user or not user.email:
+            logger.warning(f"No email found for user {user_id}")
+            return False
+
+        # Build order items HTML
+        items_html = ""
+        for item in order.items:
+            items_html += f"""
+            <tr style="border-bottom: 1px solid rgba(183, 110, 121, 0.2);">
+                <td style="padding: 12px 0; color: #EAE0D5;">
+                    <strong style="color: #F2C29A;">{item.product_name}</strong>
+                    {f'<br><span style="color: #B76E79; font-size: 13px;">Size: {item.size}</span>' if item.size else ''}
+                    {f'<span style="color: #B76E79; font-size: 13px;"> | Color: {item.color}</span>' if item.color else ''}
+                </td>
+                <td style="padding: 12px 0; color: #EAE0D5; text-align: center;">{item.quantity}</td>
+                <td style="padding: 12px 0; color: #F2C29A; text-align: right;">₹{float(item.price):.2f}</td>
+            </tr>
+            """
+
+        # Build discount row if applicable
+        discount_row = ""
+        if order.discount_applied and order.discount_applied > 0:
+            discount_row = f"""
+            <tr>
+                <td style="padding: 8px 0; color: #B76E79;">Discount ({order.promo_code})</td>
+                <td style="padding: 8px 0; color: #B76E79; text-align: right;">-₹{float(order.discount_applied):.2f}</td>
+            </tr>
+            """
+
+        # Calculate estimated delivery (7 days from now)
+        from datetime import timedelta
+        estimated_delivery = (order.created_at + timedelta(days=7)).strftime("%B %d, %Y")
+
+        # Track order URL
+        track_order_url = f"http://localhost:6005/orders/{order.id}"
+
+        # Send email
+        return email_service.send_order_confirmation_email(
+            to_email=user.email,
+            customer_name=user.username,
+            order_number=order.invoice_number or f"#{order.id}",
+            order_items=items_html,
+            subtotal=f"{float(order.subtotal):.2f}",
+            shipping=f"{float(order.shipping_cost):.2f}",
+            gst=f"{float(order.gst_amount):.2f}",
+            total=f"{float(order.total_amount):.2f}",
+            discount_row=discount_row,
+            shipping_address=order.shipping_address or "",
+            payment_method=order.payment_method.upper() if order.payment_method else "ONLINE",
+            estimated_delivery=estimated_delivery,
+            track_order_url=track_order_url
+        )
+
+    def _send_order_shipped_email(self, order: Order, tracking_number: Optional[str] = None) -> bool:
+        """Send order shipped notification email."""
+        if not EMAIL_SERVICE_AVAILABLE or not tracking_number:
+            return False
+
+        user = self.db.query(User).filter(User.id == order.user_id).first()
+        if not user or not user.email:
+            return False
+
+        from datetime import timedelta
+        estimated_delivery = (order.created_at + timedelta(days=7)).strftime("%B %d, %Y")
+        track_order_url = f"http://localhost:6005/orders/{order.id}"
+
+        return email_service.send_order_shipped_email(
+            to_email=user.email,
+            customer_name=user.username,
+            order_number=order.invoice_number or f"#{order.id}",
+            tracking_number=tracking_number,
+            shipping_carrier="Standard Shipping",
+            estimated_delivery=estimated_delivery,
+            track_order_url=track_order_url
+        )
+
+    def _send_order_delivered_email(self, order: Order) -> bool:
+        """Send order delivered notification email."""
+        if not EMAIL_SERVICE_AVAILABLE:
+            return False
+
+        user = self.db.query(User).filter(User.id == order.user_id).first()
+        if not user or not user.email:
+            return False
+
+        delivery_date = order.delivered_at.strftime("%B %d, %Y") if order.delivered_at else "Today"
+        order_details_url = f"http://localhost:6005/orders/{order.id}"
+        review_url = f"http://localhost:6005/orders/{order.id}/review"
+
+        return email_service.send_order_delivered_email(
+            to_email=user.email,
+            customer_name=user.username,
+            order_number=order.invoice_number or f"#{order.id}",
+            delivery_date=delivery_date,
+            order_details_url=order_details_url,
+            review_url=review_url
+        )
+
+    def _send_order_cancelled_email(self, order: Order, reason: Optional[str] = None) -> bool:
+        """Send order cancelled notification email."""
+        if not EMAIL_SERVICE_AVAILABLE:
+            return False
+
+        user = self.db.query(User).filter(User.id == order.user_id).first()
+        if not user or not user.email:
+            return False
+
+        cancellation_date = order.cancelled_at.strftime("%B %d, %Y") if order.cancelled_at else "Today"
+        refund_info = "Refund will be processed within 5-7 business days." if order.payment_method != "cod" else "No refund required (Cash on Delivery order)."
+        shop_url = "http://localhost:6005"
+
+        return email_service.send_order_cancelled_email(
+            to_email=user.email,
+            customer_name=user.username,
+            order_number=order.invoice_number or f"#{order.id}",
+            cancellation_date=cancellation_date,
+            reason=reason or order.cancellation_reason or "",
+            refund_info=refund_info,
+            shop_url=shop_url
+        )

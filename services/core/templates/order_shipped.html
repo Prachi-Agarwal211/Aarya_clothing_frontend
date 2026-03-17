@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order Shipped - Aarya Clothings</title>
+</head>
+<body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #0B0608; margin: 0; padding: 20px;">
+    <div style="max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #180F14 0%, #0B0608 100%); border-radius: 20px; padding: 40px; border: 1px solid rgba(183, 110, 121, 0.3); box-shadow: 0 8px 32px rgba(183, 110, 121, 0.15);">
+        <!-- Header -->
+        <div style="text-align: center; margin-bottom: 30px;">
+            <h1 style="color: #F2C29A; font-size: 32px; margin: 0; font-family: 'Cinzel', serif; letter-spacing: 2px; text-shadow: 0 2px 8px rgba(242, 194, 154, 0.3);">AARYA</h1>
+            <p style="color: #B76E79; font-size: 14px; margin: 8px 0 0 0; letter-spacing: 4px;">CLOTHINGS</p>
+        </div>
+
+        <!-- Success Icon -->
+        <div style="text-align: center; margin-bottom: 25px;">
+            <div style="display: inline-block; background: linear-gradient(135deg, #B76E79 0%, #7A2F57 100%); border-radius: 50%; padding: 20px; box-shadow: 0 4px 20px rgba(183, 110, 121, 0.4);">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M5 8L9 12L5 16M9 12H19M13 4L21 12L13 20" stroke="#F2C29A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </div>
+        </div>
+
+        <!-- Content -->
+        <div style="color: #EAE0D5; font-size: 16px; line-height: 1.7;">
+            <h2 style="color: #F2C29A; font-size: 24px; margin-bottom: 15px; font-weight: 600; text-align: center;">Your Order Has Shipped!</h2>
+            <p style="text-align: center; margin-bottom: 25px; color: #EAE0D5; opacity: 0.9;">Great news, {{customer_name}}! Your order is on its way.</p>
+
+            <!-- Order Number -->
+            <div style="background: rgba(183, 110, 121, 0.15); border: 1px solid rgba(183, 110, 121, 0.3); border-radius: 12px; padding: 20px; margin-bottom: 25px; text-align: center;">
+                <p style="color: #B76E79; font-size: 13px; margin: 0 0 8px 0; letter-spacing: 1px;">ORDER NUMBER</p>
+                <p style="color: #F2C29A; font-size: 22px; font-weight: bold; margin: 0; letter-spacing: 2px;">{{order_number}}</p>
+            </div>
+
+            <!-- Tracking Number -->
+            <div style="background: linear-gradient(135deg, rgba(183, 110, 121, 0.2) 0%, rgba(122, 47, 87, 0.2) 100%); border: 1px solid rgba(183, 110, 121, 0.3); border-radius: 12px; padding: 20px; margin-bottom: 25px; text-align: center;">
+                <p style="color: #B76E79; font-size: 13px; margin: 0 0 8px 0; letter-spacing: 1px;">TRACKING NUMBER</p>
+                <p style="color: #F2C29A; font-size: 20px; font-weight: bold; margin: 0; letter-spacing: 1px;">{{tracking_number}}</p>
+            </div>
+
+            <!-- Shipping Carrier -->
+            <div style="background: rgba(183, 110, 121, 0.1); border: 1px solid rgba(183, 110, 121, 0.2); border-radius: 12px; padding: 20px; margin-bottom: 25px;">
+                <h3 style="color: #F2C29A; font-size: 16px; margin: 0 0 12px 0; display: flex; align-items: center;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style="margin-right: 8px;" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M9 17H15M9 17C7.89543 17 7 16.1046 7 15V5C7 3.89543 7.89543 3 9 3H15C16.1046 3 17 3.89543 17 5V15C17 16.1046 16.1046 17 15 17M9 17C7.89543 17 7 17.8954 7 19V21M15 17C16.1046 17 17 17.8954 17 19V21M5 11H7M17 11H19M3 11H5M19 11H21" stroke="#F2C29A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    Shipping Carrier
+                </h3>
+                <p style="color: #EAE0D5; opacity: 0.9; margin: 0;">{{shipping_carrier}}</p>
+            </div>
+
+            <!-- Estimated Delivery -->
+            <div style="background: rgba(183, 110, 121, 0.1); border: 1px solid rgba(183, 110, 121, 0.2); border-radius: 12px; padding: 20px; margin-bottom: 25px; text-align: center;">
+                <p style="color: #B76E79; font-size: 13px; margin: 0 0 8px 0; letter-spacing: 1px;">ESTIMATED DELIVERY</p>
+                <p style="color: #F2C29A; font-size: 20px; font-weight: bold; margin: 0;">{{estimated_delivery}}</p>
+            </div>
+
+            <!-- Track Order Button -->
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="{{track_order_url}}" style="display: inline-block; background: linear-gradient(135deg, #B76E79 0%, #7A2F57 100%); color: #FFFFFF; text-decoration: none; padding: 16px 40px; border-radius: 12px; font-weight: 600; font-size: 16px; letter-spacing: 1px; box-shadow: 0 4px 16px rgba(183, 110, 121, 0.4); border: 1px solid rgba(242, 194, 154, 0.2);">Track Your Package</a>
+            </div>
+
+            <hr style="border: none; border-top: 1px solid rgba(183, 110, 121, 0.2); margin: 30px 0;">
+
+            <!-- Customer Support -->
+            <div style="text-align: center; margin-bottom: 20px;">
+                <p style="color: #EAE0D5; opacity: 0.7; font-size: 14px; margin-bottom: 12px;">Questions about your shipment?</p>
+                <p style="color: #B76E79; font-size: 14px; margin: 4px 0;">
+                    <a href="mailto:support@aaryaclothings.com" style="color: #B76E79; text-decoration: none;">support@aaryaclothings.com</a>
+                </p>
+                <p style="color: #B76E79; font-size: 14px; margin: 4px 0;">
+                    <a href="tel:+911234567890" style="color: #B76E79; text-decoration: none;">+91 123 456 7890</a>
+                </p>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div style="text-align: center; margin-top: 35px; padding-top: 25px; border-top: 1px solid rgba(183, 110, 121, 0.2);">
+            <p style="color: #EAE0D5; opacity: 0.4; font-size: 11px; margin: 0 0 8px 0; letter-spacing: 0.5px;">
+                © 2026 Aarya Clothings. All rights reserved.
+            </p>
+            <p style="color: #EAE0D5; opacity: 0.3; font-size: 10px; margin: 0;">
+                This email was sent to {{customer_email}}
+            </p>
+        </div>
+    </div>
+</body>
+</html>

@@ -84,7 +84,7 @@ const Footer = ({ id }) => {
 
             {/* Customer Care */}
             <div>
-              <h3 
+              <h3
                 className="text-lg mb-6 text-[#EAE0D5]"
                 style={{ fontFamily: 'Cinzel, serif' }}
               >
@@ -93,10 +93,11 @@ const Footer = ({ id }) => {
               <ul className="space-y-4 text-sm text-[#EAE0D5]/70">
                 {[
                   { name: 'Contact Us', href: '/contact' },
-                  { name: 'Shipping & Returns', href: '/shipping-returns' },
+                  { name: 'Shipping Policy', href: '/shipping' },
+                  { name: 'Returns & Refunds', href: '/returns' },
+                  { name: 'COD Policy', href: '/cod-policy' },
                   { name: 'Size Guide', href: '/size-guide' },
-                  { name: 'FAQ', href: '/faq' },
-                  { name: 'Privacy Policy', href: '/privacy-policy' }
+                  { name: 'FAQ', href: '/faq' }
                 ].map((item) => (
                   <li key={item.name}>
                     <Link href={item.href} className="hover:text-[#F2C29A] transition-colors flex items-center gap-2 group">
@@ -147,10 +148,11 @@ const Footer = ({ id }) => {
           {/* Bottom Bar */}
           <div className="flex flex-col md:flex-row justify-between items-center text-xs text-[#EAE0D5]/50 gap-4 relative z-10">
             <p>&copy; {new Date().getFullYear()} Aarya Clothing. All rights reserved.</p>
-            <div className="flex gap-6">
-              <span className="hover:text-[#F2C29A] cursor-pointer transition-colors">Terms of Service</span>
-              <span className="hover:text-[#F2C29A] cursor-pointer transition-colors">Privacy Policy</span>
-              <span className="hover:text-[#F2C29A] cursor-pointer transition-colors">Cookie Policy</span>
+            <div className="flex gap-6 flex-wrap justify-center">
+              <Link href="/terms" className="hover:text-[#F2C29A] cursor-pointer transition-colors">Terms of Service</Link>
+              <Link href="/privacy" className="hover:text-[#F2C29A] cursor-pointer transition-colors">Privacy Policy</Link>
+              <Link href="/returns" className="hover:text-[#F2C29A] cursor-pointer transition-colors">Returns Policy</Link>
+              <Link href="/shipping" className="hover:text-[#F2C29A] cursor-pointer transition-colors">Shipping Policy</Link>
             </div>
           </div>
         </div>

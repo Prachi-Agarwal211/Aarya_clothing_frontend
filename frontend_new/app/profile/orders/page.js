@@ -3,11 +3,12 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Package, ChevronRight, Eye, Truck, Clock, CheckCircle, XCircle, RotateCcw, Hash } from 'lucide-react';
+import { Package, ChevronRight, Eye, Truck, Clock, CheckCircle, XCircle, RotateCcw, Hash, Download, Printer } from 'lucide-react';
 import { ordersApi } from '@/lib/customerApi';
 import { useAuth } from '@/lib/authContext';
 import { useCart } from '@/lib/cartContext';
 import logger from '@/lib/logger';
+import { useAlertToast } from '@/lib/useAlertToast';
 
 const STATUS_CONFIG = {
   confirmed: { label: 'Processing Your Order', color: 'text-purple-400', bg: 'bg-purple-400/10', icon: Clock },
@@ -18,6 +19,7 @@ const STATUS_CONFIG = {
 
 export default function OrdersPage() {
   const router = useRouter();
+  const { showAlert } = useAlertToast();
   const { isAuthenticated, loading: authLoading } = useAuth();
   const { addItem, openCart } = useCart();
   const [orders, setOrders] = useState([]);
@@ -85,9 +87,78 @@ export default function OrdersPage() {
       openCart();
     } catch (err) {
       logger.error('Error reordering:', err);
-      alert('Failed to add items to cart. Some products might be out of stock.');
+      showAlert('Failed to add items to cart. Some products might be out of stock.');
     } finally {
       setReordering(null);
+    }
+  };
+
+  const handleDownloadInvoice = async (orderId, invoiceNumber) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        showAlert('Please login to download invoice', 'error');
+        return;
+      }
+
+      const response = await fetch(`/api/v1/orders/${orderId}/invoice`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to download invoice');
+      }
+
+      // Create blob and download
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Invoice_${invoiceNumber || orderId}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      logger.error('Error downloading invoice:', error);
+      showAlert('Failed to download invoice. Please try again.', 'error');
+    }
+  };
+
+  const handlePrintInvoice = async (orderId) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        showAlert('Please login to print invoice', 'error');
+        return;
+      }
+
+      // Open invoice in new window for printing
+      const response = await fetch(`/api/v1/orders/${orderId}/invoice`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to load invoice');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const printWindow = window.open(url, '_blank');
+      if (printWindow) {
+        printWindow.onload = () => {
+          printWindow.print();
+        };
+      }
+    } catch (error) {
+      logger.error('Error printing invoice:', error);
+      showAlert('Failed to print invoice. Please try again.', 'error');
     }
   };
 
@@ -235,19 +306,35 @@ export default function OrdersPage() {
                   {/* Actions */}
                   <div className="flex gap-2">
                     <button
+                      onClick={() => handleDownloadInvoice(order.id, order.invoice_number)}
+                      className="flex items-center gap-1 px-4 py-2 bg-[#B76E79]/10 text-[#B76E79] hover:bg-[#B76E79]/20 hover:text-[#F2C29A] rounded-xl transition-all"
+                      title="Download Invoice"
+                    >
+                      <Download className="w-4 h-4" />
+                      <span className="hidden sm:inline">Invoice</span>
+                    </button>
+                    <button
+                      onClick={() => handlePrintInvoice(order.id)}
+                      className="flex items-center gap-1 px-4 py-2 bg-[#B76E79]/10 text-[#B76E79] hover:bg-[#B76E79]/20 hover:text-[#F2C29A] rounded-xl transition-all"
+                      title="Print Invoice"
+                    >
+                      <Printer className="w-4 h-4" />
+                      <span className="hidden sm:inline">Print</span>
+                    </button>
+                    <button
                       onClick={() => handleReorder(order)}
                       disabled={reordering === order.id}
                       className="flex items-center gap-1 px-4 py-2 bg-[#B76E79]/10 text-[#B76E79] hover:bg-[#B76E79]/20 hover:text-[#F2C29A] rounded-xl transition-all disabled:opacity-50"
                     >
                       <RotateCcw className={`w-4 h-4 ${reordering === order.id ? 'animate-spin' : ''}`} />
-                      Reorder
+                      <span className="hidden sm:inline">Reorder</span>
                     </button>
                     <Link
                       href={`/profile/orders/${order.id}`}
                       className="flex items-center gap-1 px-4 py-2 text-[#EAE0D5]/70 hover:text-[#F2C29A] transition-colors"
                     >
                       <Eye className="w-4 h-4" />
-                      View
+                      <span className="hidden sm:inline">View</span>
                     </Link>
                   </div>
                 </div>

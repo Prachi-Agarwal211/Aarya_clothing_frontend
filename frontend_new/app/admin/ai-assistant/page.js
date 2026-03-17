@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { 
+import Image from 'next/image';
+import {
   Send, Sparkles, Loader2, RefreshCw, Paperclip,
   X, TrendingUp, Package, Users, ShoppingCart,
   BarChart2, AlertTriangle, ChevronRight, Copy, Check,
@@ -481,7 +482,15 @@ export default function AdminAiAssistantPage() {
               {msg.imagesPreviews?.length > 0 && (
                 <div className="flex gap-2 mb-2 justify-end">
                   {msg.imagesPreviews.map((src, i) => (
-                    <img key={i} src={src} alt="attached" className="w-20 h-20 rounded-xl object-cover border border-[#B76E79]/20" />
+                    <div key={i} className="relative w-20 h-20 flex-shrink-0">
+                      <Image
+                        src={src}
+                        alt={`Attached image ${i + 1}`}
+                        fill
+                        className="rounded-xl object-cover border border-[#B76E79]/20"
+                        sizes="80px"
+                      />
+                    </div>
                   ))}
                 </div>
               )}
@@ -554,8 +563,14 @@ export default function AdminAiAssistantPage() {
       {images.length > 0 && (
         <div className="flex gap-2 px-6 py-2 border-t border-[#B76E79]/10">
           {images.map((img, i) => (
-            <div key={i} className="relative">
-              <img src={img.preview} alt="attach" className="w-16 h-16 rounded-xl object-cover border border-[#B76E79]/20" />
+            <div key={i} className="relative w-16 h-16 flex-shrink-0">
+              <Image
+                src={img.preview}
+                alt={`Image attachment ${i + 1}`}
+                fill
+                className="rounded-xl object-cover border border-[#B76E79]/20"
+                sizes="64px"
+              />
               <button
                 onClick={() => setImages(prev => prev.filter((_, j) => j !== i))}
                 className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 flex items-center justify-center"

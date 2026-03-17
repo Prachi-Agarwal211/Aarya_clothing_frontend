@@ -9,10 +9,10 @@ import { MagneticButton } from '../ui/MagneticButton';
 
 /**
  * HeroSection - Full viewport hero with image carousel
- * 
+ *
  * ARCHITECTURE: All data comes from backend API via props.
  * No hard-coded defaults - parent component provides all data.
- * 
+ *
  * Features:
  * - Full viewport (100vh) image carousel
  * - Mobile-optimized: serves 9:16 images on mobile, 16:9 on desktop
@@ -21,6 +21,12 @@ import { MagneticButton } from '../ui/MagneticButton';
  * - Modern GSAP scroll animations
  * - Parallax effects
  * - Proper cleanup for all animations
+ * 
+ * Accessibility:
+ * - ARIA labels for carousel
+ * - Keyboard navigation support
+ * - Reduced motion support
+ * - Proper heading hierarchy
  */
 const HeroSection = ({
   tagline,
@@ -174,6 +180,8 @@ const HeroSection = ({
     <section
       ref={sectionRef}
       className="relative h-screen w-full"
+      aria-label="Hero section"
+      role="region"
     >
       {/* Slides - Full viewport */}
       {slides.map((slide, index) => {
@@ -186,13 +194,17 @@ const HeroSection = ({
               absolute inset-0 parallax-layer
               ${index === 0 ? 'opacity-100 z-10' : 'opacity-0 z-0'}
             `}
+            role="group"
+            aria-roledescription="slide"
+            aria-label={`Slide ${index + 1} of ${slides.length}`}
+            aria-hidden={index !== currentSlide.current}
           >
             {/* Image - Full viewport with Next.js Image optimization */}
             {imgSrc && (
               <div className="absolute inset-0">
                 <Image
                   src={imgSrc}
-                  alt={`Slide ${index + 1}`}
+                  alt={slide.alt || `Hero slide ${index + 1}`}
                   fill
                   priority={index === 0} // Priority load first slide
                   sizes="100vw"
@@ -201,13 +213,13 @@ const HeroSection = ({
                 />
                 {/* Subtle gradient overlays - reduced intensity for brighter images */}
                 {/* Light header visibility gradient */}
-                <div className="absolute inset-0 bg-gradient-to-b from-[#050203]/40 via-transparent to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-b from-[#050203]/40 via-transparent to-transparent" aria-hidden="true" />
                 {/* Light bottom gradient for button area */}
-                <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[#050203]/50" />
+                <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[#050203]/50" aria-hidden="true" />
                 {/* Subtle side gradients */}
-                <div className="absolute inset-0 bg-gradient-to-r from-[#050203]/20 via-transparent to-[#050203]/20" />
+                <div className="absolute inset-0 bg-gradient-to-r from-[#050203]/20 via-transparent to-[#050203]/20" aria-hidden="true" />
                 {/* Light vignette effect */}
-                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_0%,#050203/30_100%)]" />
+                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_0%,#050203/30_100%)]" aria-hidden="true" />
               </div>
             )}
           </div>
@@ -215,11 +227,11 @@ const HeroSection = ({
       })}
 
       {/* Premium Decorative Elements */}
-      <div className="absolute top-1/4 left-8 w-32 h-32 bg-[#B76E79]/10 rounded-full blur-[80px] pointer-events-none z-20" />
-      <div className="absolute bottom-1/4 right-8 w-40 h-40 bg-[#F2C29A]/5 rounded-full blur-[100px] pointer-events-none z-20" />
+      <div className="absolute top-1/4 left-8 w-32 h-32 bg-[#B76E79]/10 rounded-full blur-[80px] pointer-events-none z-20" aria-hidden="true" />
+      <div className="absolute bottom-1/4 right-8 w-40 h-40 bg-[#F2C29A]/5 rounded-full blur-[100px] pointer-events-none z-20" aria-hidden="true" />
 
       {/* Decorative Glow Elements */}
-      <div className="absolute inset-0 z-20 pointer-events-none overflow-hidden">
+      <div className="absolute inset-0 z-20 pointer-events-none overflow-hidden" aria-hidden="true">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-[#B76E79]/5 rounded-full blur-[120px] opacity-30" />
       </div>
 
@@ -231,7 +243,7 @@ const HeroSection = ({
           className="text-center mb-6 sm:mb-8"
         >
           {/* Decorative line above tagline */}
-          <div className="flex items-center justify-center gap-4 mb-4">
+          <div className="flex items-center justify-center gap-4 mb-4" aria-hidden="true">
             <div className="w-16 h-[1px] bg-gradient-to-r from-transparent to-[#B76E79]/50" />
             <div className="w-2 h-2 rounded-full bg-[#F2C29A]/30" />
             <div className="w-16 h-[1px] bg-gradient-to-l from-transparent to-[#B76E79]/50" />
@@ -243,7 +255,7 @@ const HeroSection = ({
             {tagline}
           </p>
           {/* Decorative line below tagline */}
-          <div className="flex items-center justify-center gap-4 mt-4">
+          <div className="flex items-center justify-center gap-4 mt-4" aria-hidden="true">
             <div className="w-16 h-[1px] bg-gradient-to-r from-transparent to-[#B76E79]/50" />
             <div className="w-2 h-2 rounded-full bg-[#F2C29A]/30" />
             <div className="w-16 h-[1px] bg-gradient-to-l from-transparent to-[#B76E79]/50" />
@@ -254,6 +266,8 @@ const HeroSection = ({
         <div
           ref={buttonContainerRef}
           className="w-full max-w-2xl mx-auto"
+          role="navigation"
+          aria-label="Hero actions"
         >
           <div className="flex flex-col sm:flex-row gap-4 sm:gap-6 justify-center items-center">
             {buttons.map((btn, index) => (

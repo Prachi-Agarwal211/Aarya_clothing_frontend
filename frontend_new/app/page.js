@@ -8,25 +8,50 @@ import IntroVideo from '@/components/landing/IntroVideo';
 import { getLandingAll } from '@/lib/api';
 import { gsap } from '@/lib/gsapConfig';
 import logger from '@/lib/logger';
+import { LazyLoad, CardSkeleton } from '@/components/ui/LazyLoad';
 
 // Lazy load below-fold sections for faster initial load
 const NewArrivals = dynamic(() => import('@/components/landing/NewArrivals'), {
-  loading: () => <div className="min-h-[400px]" />,
+  loading: () => (
+    <section aria-label="Loading new arrivals" className="py-16 sm:py-20 md:py-24">
+      <div className="container mx-auto px-4">
+        <CardSkeleton count={4} className="grid-cols-1 sm:grid-cols-2 lg:grid-cols-4" />
+      </div>
+    </section>
+  ),
   ssr: false,
 });
 
 const Collections = dynamic(() => import('@/components/landing/Collections'), {
-  loading: () => <div className="min-h-[400px]" />,
+  loading: () => (
+    <section aria-label="Loading collections" className="py-16 sm:py-20 md:py-24">
+      <div className="container mx-auto px-4">
+        <CardSkeleton count={3} className="grid-cols-1 md:grid-cols-3" />
+      </div>
+    </section>
+  ),
   ssr: false,
 });
 
 const AboutSection = dynamic(() => import('@/components/landing/AboutSection'), {
-  loading: () => <div className="min-h-[600px]" />,
+  loading: () => (
+    <section aria-label="Loading about section" className="py-16 sm:py-20 md:py-24">
+      <div className="container mx-auto px-4">
+        <div className="skeleton h-64 rounded-2xl" />
+      </div>
+    </section>
+  ),
   ssr: false,
 });
 
 const Footer = dynamic(() => import('@/components/landing/Footer'), {
-  loading: () => <div className="min-h-[300px]" />,
+  loading: () => (
+    <footer aria-label="Loading footer" className="py-16">
+      <div className="container mx-auto px-4">
+        <div className="skeleton h-48 rounded-3xl" />
+      </div>
+    </footer>
+  ),
   ssr: false,
 });
 
@@ -164,8 +189,20 @@ export default function Home() {
   // Show loading state
   if (isLoading || !landingData) {
     return (
-      <main className="min-h-screen text-[#EAE0D5] flex items-center justify-center">
-        <div className="animate-pulse text-xl">Loading...</div>
+      <main 
+        id="main-content"
+        className="min-h-screen text-[#EAE0D5] flex items-center justify-center"
+        role="main"
+        aria-label="Main content"
+        aria-busy="true"
+      >
+        <div 
+          className="animate-pulse text-xl"
+          role="status"
+          aria-live="polite"
+        >
+          Loading...
+        </div>
       </main>
     );
   }
@@ -178,7 +215,12 @@ export default function Home() {
       )}
 
       {/* Main Landing Page */}
-      <main className={`min-h-screen text-[#EAE0D5] overflow-x-hidden selection:bg-[#F2C29A] selection:text-[#050203] transition-opacity duration-700 ${showLanding ? 'opacity-100' : 'opacity-0'}`}>
+      <main 
+        id="main-content"
+        className={`min-h-screen text-[#EAE0D5] overflow-x-hidden selection:bg-[#F2C29A] selection:text-[#050203] transition-opacity duration-700 ${showLanding ? 'opacity-100' : 'opacity-0'}`}
+        role="main"
+        aria-label="Aarya Clothing Landing Page"
+      >
         {/* Background is now handled by root layout - no duplicate SilkBackground here */}
 
         {/* Scrollable Content Layer */}
@@ -191,30 +233,38 @@ export default function Home() {
             buttons={landingData.hero?.buttons}
           />
 
-          <NewArrivals
-            id="new-arrivals"
-            title={landingData.newArrivals?.title}
-            subtitle={landingData.newArrivals?.subtitle}
-            products={landingData.newArrivals?.products}
-          />
+          <LazyLoad skeletonHeight="400px">
+            <NewArrivals
+              id="new-arrivals"
+              title={landingData.newArrivals?.title}
+              subtitle={landingData.newArrivals?.subtitle}
+              products={landingData.newArrivals?.products}
+            />
+          </LazyLoad>
 
-          <Collections
-            id="collections"
-            title={landingData.collections?.title}
-            categories={landingData.collections?.categories}
-          />
+          <LazyLoad skeletonHeight="300px">
+            <Collections
+              id="collections"
+              title={landingData.collections?.title}
+              categories={landingData.collections?.categories}
+            />
+          </LazyLoad>
 
-          <AboutSection
-            id="about"
-            title={landingData.about?.title}
-            story={landingData.about?.story}
-            stats={landingData.about?.stats}
-            images={landingData.about?.images}
-          />
+          <LazyLoad skeletonHeight="600px">
+            <AboutSection
+              id="about"
+              title={landingData.about?.title}
+              story={landingData.about?.story}
+              stats={landingData.about?.stats}
+              images={landingData.about?.images}
+            />
+          </LazyLoad>
 
-          <Footer
-            id="footer"
-          />
+          <LazyLoad skeletonHeight="300px">
+            <Footer
+              id="footer"
+            />
+          </LazyLoad>
         </div>
       </main>
     </>

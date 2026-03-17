@@ -477,13 +477,13 @@ export const staffApi = {
 
 // ==================== Returns API ====================
 export const returnsApi = {
-  list: (params = {}) => 
+  list: (params = {}) =>
     adminClient.get('/api/v1/admin/returns', {
       ...params,
       status_filter: params.status && params.status !== 'all' ? params.status : undefined,
     }),
 
-  get: (id) => 
+  get: (id) =>
     adminClient.get(`/api/v1/admin/returns/${id}`),
 
   updateStatus: (id, { status, note, refund_amount, tracking_number }) => {
@@ -506,13 +506,13 @@ export const returnsApi = {
     return Promise.reject(new Error(`Unsupported return status transition: ${status}`));
   },
 
-  approve: (id, refundAmount = null) => 
+  approve: (id, refundAmount = null) =>
     adminClient.post(`/api/v1/admin/returns/${id}/approve`, refundAmount ? { refund_amount: refundAmount } : {}),
 
-  reject: (id, reason) => 
+  reject: (id, reason) =>
     adminClient.post(`/api/v1/admin/returns/${id}/reject`, { reason }),
 
-  markReceived: (id, trackingNumber = null) => 
+  markReceived: (id, trackingNumber = null) =>
     adminClient.post(`/api/v1/admin/returns/${id}/receive`, trackingNumber ? { tracking_number: trackingNumber } : {}),
 
   processRefund: (id, refundData) => {
@@ -524,16 +524,147 @@ export const returnsApi = {
   },
 
   bulkApprove: (returnIds, refundAmount = null) =>
-    adminClient.post('/api/v1/admin/returns/bulk/approve', { 
-      return_ids: returnIds, 
-      refund_amount: refundAmount 
+    adminClient.post('/api/v1/admin/returns/bulk/approve', {
+      return_ids: returnIds,
+      refund_amount: refundAmount
     }),
 
   bulkReject: (returnIds, reason) =>
-    adminClient.post('/api/v1/admin/returns/bulk/reject', { 
-      return_ids: returnIds, 
-      reason 
+    adminClient.post('/api/v1/admin/returns/bulk/reject', {
+      return_ids: returnIds,
+      reason
     }),
+};
+
+// ==================== Super Admin AI Dashboard API ====================
+export const aiDashboardApi = {
+  getTools: () =>
+    adminClient.get('/api/v1/admin/ai-dashboard/tools'),
+
+  executeQuery: (tool, args = {}) =>
+    adminClient.post('/api/v1/admin/ai-dashboard/query', { tool, args }),
+
+  getInsights: (focusArea = 'all') =>
+    adminClient.get('/api/v1/admin/ai-dashboard/insights', { focus_area: focusArea }),
+
+  getPendingActions: (status = 'pending') =>
+    adminClient.get('/api/v1/admin/ai-dashboard/pending-actions', { status }),
+
+  approveAction: (actionId) =>
+    adminClient.post(`/api/v1/admin/ai-dashboard/pending-actions/${actionId}/approve`),
+
+  rejectAction: (actionId, reason) =>
+    adminClient.post(`/api/v1/admin/ai-dashboard/pending-actions/${actionId}/reject`, null, { params: { reason } }),
+};
+
+// ==================== Staff Management API ====================
+export const staffManagementApi = {
+  // Custom Roles
+  createRole: (roleData) =>
+    adminClient.post('/api/v1/admin/staff/roles', roleData),
+
+  listRoles: (activeOnly = false) =>
+    adminClient.get('/api/v1/admin/staff/roles', { active_only: activeOnly }),
+
+  getRole: (roleId) =>
+    adminClient.get(`/api/v1/admin/staff/roles/${roleId}`),
+
+  updateRole: (roleId, roleData) =>
+    adminClient.put(`/api/v1/admin/staff/roles/${roleId}`, roleData),
+
+  deleteRole: (roleId) =>
+    adminClient.delete(`/api/v1/admin/staff/roles/${roleId}`),
+
+  getPermissionPresets: () =>
+    adminClient.get('/api/v1/admin/staff/permission-presets'),
+
+  // Staff Accounts
+  createAccount: (accountData) =>
+    adminClient.post('/api/v1/admin/staff/accounts', accountData),
+
+  listAccounts: (params = {}) =>
+    adminClient.get('/api/v1/admin/staff/accounts', params),
+
+  getAccount: (userId) =>
+    adminClient.get(`/api/v1/admin/staff/accounts/${userId}`),
+
+  updateAccount: (userId, accountData) =>
+    adminClient.put(`/api/v1/admin/staff/accounts/${userId}`, accountData),
+
+  deactivateAccount: (userId) =>
+    adminClient.post(`/api/v1/admin/staff/accounts/${userId}/deactivate`),
+
+  // Access Control
+  createIPRestriction: (restrictionData) =>
+    adminClient.post('/api/v1/admin/staff/access/ip-restrictions', restrictionData),
+
+  getIPRestrictions: (staffId) =>
+    adminClient.get(`/api/v1/admin/staff/access/ip-restrictions/${staffId}`),
+
+  deleteIPRestriction: (restrictionId) =>
+    adminClient.delete(`/api/v1/admin/staff/access/ip-restrictions/${restrictionId}`),
+
+  createTimeRestriction: (restrictionData) =>
+    adminClient.post('/api/v1/admin/staff/access/time-restrictions', restrictionData),
+
+  getTimeRestrictions: (staffId) =>
+    adminClient.get(`/api/v1/admin/staff/access/time-restrictions/${staffId}`),
+
+  deleteTimeRestriction: (restrictionId) =>
+    adminClient.delete(`/api/v1/admin/staff/access/time-restrictions/${restrictionId}`),
+
+  // Security
+  setup2FA: (staffId) =>
+    adminClient.post('/api/v1/admin/staff/security/2fa/setup', { staff_id: staffId, enable: true }),
+
+  verify2FA: (staffId, code) =>
+    adminClient.post('/api/v1/admin/staff/security/2fa/verify', { staff_id: staffId, code }),
+
+  toggle2FA: (staffId, enable) =>
+    adminClient.post('/api/v1/admin/staff/security/2fa/toggle', { staff_id: staffId, enable }),
+
+  // Session Management
+  getSessions: (userId) =>
+    adminClient.get(`/api/v1/admin/staff/sessions/${userId}`),
+
+  invalidateSession: (sessionId) =>
+    adminClient.delete(`/api/v1/admin/staff/sessions/${sessionId}`),
+
+  invalidateAllSessions: (userId) =>
+    adminClient.post(`/api/v1/admin/staff/sessions/${userId}/invalidate-all`),
+
+  // Audit Logs
+  getAuditLogs: (params = {}) =>
+    adminClient.get('/api/v1/admin/staff/audit-logs', params),
+
+  exportAuditLogs: (params = {}) => {
+    const qs = new URLSearchParams(params).toString();
+    return `/api/v1/admin/staff/audit-logs/export${qs ? `?${qs}` : ''}`;
+  },
+
+  // Tasks
+  createTask: (taskData) =>
+    adminClient.post('/api/v1/admin/staff/tasks', taskData),
+
+  listTasks: (params = {}) =>
+    adminClient.get('/api/v1/admin/staff/tasks', params),
+
+  updateTask: (taskId, taskData) =>
+    adminClient.put(`/api/v1/admin/staff/tasks/${taskId}`, taskData),
+
+  // Staff Dashboard
+  getStaffDashboard: () =>
+    adminClient.get('/api/v1/admin/staff/dashboard'),
+
+  getActivityTimeline: (limit = 50) =>
+    adminClient.get('/api/v1/admin/staff/activity-timeline', { limit }),
+
+  // Permission Checks
+  checkPermission: (module, action) =>
+    adminClient.get('/api/v1/admin/staff/permissions/check', { module, action }),
+
+  getModulePermissions: (module) =>
+    adminClient.get('/api/v1/admin/staff/permissions/modules', { module }),
 };
 
 // Export all APIs as a single object
@@ -552,6 +683,8 @@ export const adminApi = {
   staff: staffApi,
   returns: returnsApi,
   aiSettings: aiSettingsApi,
+  aiDashboard: aiDashboardApi,
+  staffManagement: staffManagementApi,
 };
 
 export default adminApi;

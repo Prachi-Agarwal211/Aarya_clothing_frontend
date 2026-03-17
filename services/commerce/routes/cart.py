@@ -19,6 +19,7 @@ from database.database import get_db
 from schemas.order import CartItem, CartResponse
 from schemas.error import ErrorResponse
 from service.cart_service import CartService
+from service.coupon_service import CouponService, CouponValidationError
 from core.redis_client import redis_client
 from core.cart_lock import cart_operation_lock
 from shared.auth_middleware import get_current_user, get_current_user_optional
@@ -231,26 +232,158 @@ async def apply_coupon_to_my_cart(
     current_user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Apply promo code to cart."""
+    """
+    Apply promo code to cart with comprehensive validation.
+    
+    Features:
+    - One coupon per order (prevents coupon stacking)
+    - Per-user usage tracking
+    - Rate limiting on validation attempts
+    - Disposable email blocking
+    - Minimum order value validation
+    - Maximum discount cap enforcement
+    - Validity period checks
+    """
     user_id = current_user.get("user_id")
+    user_email = current_user.get("email")
+    user_ip = request.client.host if request.client else None
+    
     cart_service = _get_cart_service(db)
+    coupon_service = CouponService(db, redis_client)
     
     try:
-        cart = cart_service.apply_promo_code(
+        # Get current cart
+        cart = cart_service.get_cart(user_id)
+        
+        # Check if coupon already applied (prevent stacking)
+        if cart.get("promo_code"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Coupon '{cart['promo_code']}' is already applied. Only one coupon per order is allowed."
+            )
+        
+        # Calculate order total for validation
+        order_total = Decimal(str(cart.get("subtotal", 0)))
+        
+        # Validate coupon with enhanced service
+        promotion, discount_amount, metadata = coupon_service.validate_coupon(
+            promo_code=promo_code,
             user_id=user_id,
-            promo_code=promo_code
+            order_total=order_total,
+            user_email=user_email,
+            user_ip=user_ip
         )
+        
+        if not promotion or not metadata.get("valid"):
+            error_msg = metadata.get("errors", ["Invalid coupon code"])[0]
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=error_msg
+            )
+        
+        # Apply warnings to response headers if any
+        if metadata.get("warnings"):
+            logger.info(f"Coupon validation warnings: {metadata['warnings']}")
+        
+        # Apply discount to cart
+        cart["promo_code"] = promo_code.upper().strip()
+        cart["discount"] = float(discount_amount)
+        cart["discount_metadata"] = {
+            "promotion_id": promotion.id,
+            "discount_type": promotion.discount_type.value,
+            "discount_value": float(promotion.discount_value),
+            "max_discount": float(promotion.max_discount_amount) if promotion.max_discount_amount else None,
+            "min_order_value": float(promotion.min_order_value),
+        }
+        
+        # Recalculate total with discount
+        cart["total"] = max(0, round(
+            float(cart.get("subtotal", 0)) + 
+            float(cart.get("gst_amount", 0)) + 
+            float(cart.get("shipping", 0)) - 
+            float(discount_amount),
+            2
+        ))
+        
+        # Save cart
+        cart_service.save_cart(user_id, cart)
+        
+        logger.info(f"Coupon applied: {promo_code} by user {user_id}, discount: {discount_amount}")
+        
         return _enrich_cart_response(cart)
+        
+    except CouponValidationError as e:
+        logger.warning(f"Coupon validation error: {e.message}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=e.message
+        )
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
     except Exception as e:
-        logger.error(f"Error applying coupon: {e}")
+        logger.error(f"Error applying coupon: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to apply coupon"
+        )
+
+
+@router.delete("/coupon", response_model=CartResponse)
+@cart_operation_lock
+async def remove_coupon_from_my_cart(
+    request: Request,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Remove applied coupon from cart.
+    
+    Useful when user wants to try a different coupon or cancel the discount.
+    """
+    user_id = current_user.get("user_id")
+    cart_service = _get_cart_service(db)
+    
+    try:
+        # Get current cart
+        cart = cart_service.get_cart(user_id)
+        
+        # Check if there's a coupon to remove
+        if not cart.get("promo_code"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No coupon is currently applied to your cart"
+            )
+        
+        # Remove coupon
+        removed_coupon = cart.pop("promo_code")
+        cart.pop("discount_metadata", None)
+        cart["discount"] = 0
+        
+        # Recalculate total without discount
+        cart["total"] = round(
+            float(cart.get("subtotal", 0)) + 
+            float(cart.get("gst_amount", 0)) + 
+            float(cart.get("shipping", 0)),
+            2
+        )
+        
+        # Save cart
+        cart_service.save_cart(user_id, cart)
+        
+        logger.info(f"Coupon removed: {removed_coupon} from user {user_id}'s cart")
+        
+        return _enrich_cart_response(cart)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error removing coupon: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to remove coupon"
         )
 
 

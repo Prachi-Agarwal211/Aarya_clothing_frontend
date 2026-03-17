@@ -134,6 +134,21 @@ export function AuthProvider({ children }) {
       // Ignore logout API errors - we'll clear local state anyway
       console.warn('Logout API call failed:', err.message);
     } finally {
+      // Persist current cart to localStorage before clearing auth
+      // This allows cart to survive logout for guest persistence
+      try {
+        const currentCart = JSON.parse(localStorage.getItem('cart') || 'null');
+        if (currentCart && currentCart.items && currentCart.items.length > 0) {
+          localStorage.setItem('guest_cart', JSON.stringify({
+            ...currentCart,
+            isGuestCart: true,
+            persistedAt: new Date().toISOString()
+          }));
+        }
+      } catch (cartErr) {
+        console.warn('Failed to persist cart on logout:', cartErr);
+      }
+      
       // Always clear local state
       setUser(null);
       setIsAuthenticated(false);

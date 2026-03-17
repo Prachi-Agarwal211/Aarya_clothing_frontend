@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import {
   ArrowLeft,
   Save,
@@ -382,7 +383,13 @@ export default function CreateProductPage() {
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
                   {images.map((img, index) => (
                     <div key={index} className="relative aspect-square rounded-xl overflow-hidden bg-[#7A2F57]/10 border border-[#B76E79]/30 group">
-                      <img src={img.preview} alt="" className="w-full h-full object-cover" />
+                      <Image
+                        src={img.preview}
+                        alt={`Product image ${index + 1}`}
+                        fill
+                        className="object-cover"
+                        sizes="(max-width: 640px) 50vw, 25vw"
+                      />
                       {index === primaryIndex && (
                         <span className="absolute top-2 left-2 bg-[#7A2F57] text-[#F2C29A] text-[10px] px-2 py-0.5 rounded shadow font-semibold">
                           Primary

@@ -91,7 +91,7 @@ from service.return_service import ReturnService
 # Route modules (for better code organization)
 # These modularize the 2800+ line main.py into manageable route files
 try:
-    from routes import products_router, categories_router, orders_router, cart_router, addresses_router
+    from routes import products_router, categories_router, orders_router, cart_router, addresses_router, size_guide_router
     ROUTES_AVAILABLE = True
 except ImportError:
     ROUTES_AVAILABLE = False
@@ -304,6 +304,74 @@ async def _reservation_reconciler(stop_event: asyncio.Event, interval_seconds: i
 
 
 
+# ==================== Rate Limiting Helpers ====================
+
+import ipaddress
+
+LOCAL_TEST_IPS = {"127.0.0.1", "::1", "localhost", "testclient"}
+
+
+def _get_client_ip(request: Request) -> str:
+    """Resolve the best-effort client IP, honoring proxy headers when present."""
+    forwarded_for = request.headers.get("x-forwarded-for", "")
+    if forwarded_for:
+        first_hop = forwarded_for.split(",")[0].strip()
+        if first_hop:
+            return first_hop
+    return request.client.host if request.client else "unknown"
+
+
+def _should_bypass_local_rate_limit(request: Request) -> bool:
+    """
+    Keep rate limiting for deployed traffic while allowing local dev/test
+    automation from loopback addresses to exercise flows repeatedly.
+    """
+    if not settings.is_development:
+        return False
+
+    client_ip = _get_client_ip(request)
+    if client_ip in LOCAL_TEST_IPS:
+        return True
+
+    try:
+        parsed_ip = ipaddress.ip_address(client_ip)
+    except ValueError:
+        return False
+
+    return parsed_ip.is_loopback or parsed_ip.is_private
+
+
+def _check_rate_limit(request: Request, endpoint: str, limit: int, window: int = 60) -> bool:
+    """
+    Check if request exceeds rate limit.
+    
+    Args:
+        request: FastAPI request object
+        endpoint: Endpoint identifier (e.g., 'cart_add', 'order_create')
+        limit: Maximum requests allowed in window
+        window: Time window in seconds (default: 60)
+    
+    Returns:
+        True if within limit, False if exceeded
+    """
+    if _should_bypass_local_rate_limit(request):
+        return True
+    
+    try:
+        client_ip = _get_client_ip(request)
+        limit_key = f"rate_limit:{endpoint}:{client_ip}"
+        count = redis_client.get_cache(limit_key) or 0
+        
+        if int(count) >= limit:
+            return False
+        
+        redis_client.set_cache(limit_key, int(count) + 1, ttl=window)
+        return True
+    except Exception as e:
+        logger.warning(f"Rate limit check error (skipping): {e}")
+        return True  # Allow on error (fail open)
+
+
 # ==================== Lifespan ====================
 
 # Global instances
@@ -389,6 +457,7 @@ if ROUTES_AVAILABLE:
     app.include_router(orders_router)
     app.include_router(cart_router)
     app.include_router(addresses_router)
+    app.include_router(size_guide_router)
     logger.info("Route modules registered successfully")
 else:
     logger.warning("Route modules not available - using monolithic routes in main.py")
@@ -681,6 +750,7 @@ async def get_featured_products(
 
 @app.get("/api/v1/products/search", tags=["Products"])
 async def search_products(
+    request: Request,
     q: str = Query(..., min_length=1, description="Search query"),
     category_id: Optional[int] = None,
     min_price: Optional[float] = None,
@@ -692,6 +762,13 @@ async def search_products(
 ):
     """Search products using Meilisearch (typo-tolerant full-text search).
     Falls back to database search if Meilisearch is unavailable."""
+    # Rate limiting: 20 searches per minute per IP
+    if not _check_rate_limit(request, "product_search", limit=20, window=60):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many search requests. Please try again later."
+        )
+
     # Try Meilisearch first
     result = meili_search_products(
         query=q,
@@ -718,6 +795,31 @@ async def search_products(
         "query": q,
         "fallback": True,
     }
+
+
+@app.get("/api/v1/search/suggestions", tags=["Search"])
+async def get_search_suggestions(
+    request: Request,
+    q: str = Query(..., min_length=1, description="Search query for suggestions"),
+    limit: int = Query(5, ge=1, le=10, description="Max suggestions per category"),
+    db: Session = Depends(get_db)
+):
+    """
+    Get search suggestions for autocomplete.
+    Returns products, categories, and trending searches.
+    Optimized for fast response times.
+    """
+    # Rate limiting: 30 requests per minute per IP
+    if not _check_rate_limit(request, "search_suggestions", limit=30, window=60):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many suggestion requests. Please try again later."
+        )
+
+    from search.meilisearch_client import get_search_suggestions as meili_suggestions
+    
+    result = meili_suggestions(query=q, limit=limit, db_session=db)
+    return result
 
 
 @app.get("/api/v1/products/{product_id}", tags=["Products"])
@@ -759,10 +861,18 @@ async def get_my_cart(
 @app.post("/api/v1/cart/items", response_model=CartResponse, tags=["Cart"])
 async def add_to_my_cart(
     item: CartItem,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
     """Add item to current user's cart (user_id from token)."""
+    # Rate limiting: 30 requests per minute per IP
+    if not _check_rate_limit(request, "cart_add", limit=30, window=60):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many cart operations. Please try again later."
+        )
+    
     user_id = current_user["user_id"]  # Fixed: use user_id from auth middleware
     
     # Validate product exists
@@ -1398,10 +1508,18 @@ async def delete_promotion(
           tags=["Orders"])
 async def create_order(
     order_data: OrderCreate,
+    request: Request,
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user)
 ):
     """Create a new order from cart."""
+    # Rate limiting: 10 orders per minute per IP
+    if not _check_rate_limit(request, "order_create", limit=10, window=60):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many order creation attempts. Please try again later."
+        )
+    
     order_service = OrderService(db)
     # Create order via service
     try:

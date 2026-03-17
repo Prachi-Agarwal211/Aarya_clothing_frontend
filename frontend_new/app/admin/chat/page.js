@@ -101,7 +101,8 @@ export default function ChatPage() {
       setMessages(prev => prev.filter(m => m.id !== message.id));
       logger.error('Failed to send message:', err);
     }
-  }, [newMessage, selectedRoom, messages]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [newMessage, selectedRoom]);
 
   // WebSocket connection when a room is selected
   useEffect(() => {
@@ -144,6 +145,7 @@ export default function ChatPage() {
         wsRef.current.close();
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedRoom]);
 
   const formatTime = (dateStr) => {

@@ -56,26 +56,55 @@ def init_products_index():
             "total_stock",
         ])
 
-        # Ranking rules
+        # Ranking rules - optimized for e-commerce
         index.update_ranking_rules([
             "words",
             "typo",
             "proximity",
             "attribute",
-            "sort",
             "exactness",
+            "sort",
         ])
 
-        # Synonyms for fashion terms
+        # Enhanced synonyms for Indian fashion terms
         index.update_synonyms({
-            "kurta": ["kurti", "kurtis"],
-            "saree": ["sari", "sarees"],
-            "lehenga": ["lehnga", "lehngas"],
-            "dupatta": ["chunni", "stole"],
-            "salwar": ["shalwar", "palazzo"],
-            "anarkali": ["anarkalis", "frock"],
-            "top": ["blouse", "crop top"],
-            "dress": ["gown", "maxi"],
+            "kurta": ["kurti", "kurtis", "kurtas"],
+            "saree": ["sari", "sarees", "saris"],
+            "lehenga": ["lehnga", "lehngas", "lehengas"],
+            "dupatta": ["chunni", "stole", "scarf"],
+            "salwar": ["shalwar", "palazzo", "churidar"],
+            "anarkali": ["anarkalis", "frock", "gown"],
+            "top": ["blouse", "crop top", "tee"],
+            "dress": ["gown", "maxi", "frock"],
+            "pants": ["trousers", "bottoms", "jeans"],
+            "jacket": ["coat", "blazer", "shrug"],
+            "ethnic": ["traditional", "indian", "desi"],
+            "western": ["modern", "casual", "contemporary"],
+            "party": ["wedding", "function", "celebration", "festive"],
+            "casual": ["daily", "everyday", "regular"],
+            "formal": ["office", "work", "professional"],
+        })
+
+        # Typo tolerance configuration
+        index.update_typo_tolerance({
+            "enabled": True,
+            "min_word_size_for_typos": {
+                "one_typo": 5,
+                "two_typos": 9
+            },
+            "disable_on_words": [],
+            "disable_on_attributes": ["sku"]
+        })
+
+        # Custom ranking for better relevance
+        index.update_settings({
+            "customRanking": [
+                "desc(is_featured)",
+                "desc(is_new_arrival)",
+                "desc(average_rating)",
+                "desc(total_stock)",
+                "asc(price)"
+            ]
         })
 
         logger.info("Meilisearch products index initialized successfully")
@@ -259,3 +288,92 @@ def _format_product(p: Dict[str, Any]) -> Dict[str, Any]:
         "category_name": p.get("category_name", ""),
         "created_at": str(p["created_at"]) if p.get("created_at") else None,
     }
+
+
+def get_search_suggestions(query: str, limit: int = 5, db_session=None) -> Dict[str, Any]:
+    """
+    Get search suggestions including products, categories, and trending searches.
+    Optimized for autocomplete functionality.
+    """
+    try:
+        client = get_client()
+        index = client.index(PRODUCTS_INDEX)
+
+        # Search for products with typo tolerance
+        product_results = index.search(
+            query,
+            {
+                "limit": limit,
+                "attributesToRetrieve": ["id", "name", "price", "image_url", "category_name", "slug"],
+                "attributesToHighlight": ["name"],
+                "highlightPreTag": "<mark>",
+                "highlightPostTag": "</mark>",
+            }
+        )
+
+        products = [
+            {
+                "id": hit.get("id"),
+                "name": hit.get("name", ""),
+                "price": hit.get("price", 0),
+                "image": hit.get("image_url", ""),
+                "category": hit.get("category_name", ""),
+                "slug": hit.get("slug", ""),
+            }
+            for hit in product_results.get("hits", [])
+        ]
+
+        # Get category suggestions
+        categories = []
+        if db_session:
+            from sqlalchemy import text
+            cat_rows = db_session.execute(text("""
+                SELECT id, name, slug, 
+                       (SELECT COUNT(*) FROM products p 
+                        WHERE p.category_id = c.id AND p.is_active = true) as product_count
+                FROM collections c
+                WHERE c.is_active = true 
+                  AND (c.name ILIKE :q OR c.description ILIKE :q)
+                ORDER BY product_count DESC, c.display_order ASC
+                LIMIT :lim
+            """), {"q": f"%{query}%", "lim": limit}).fetchall()
+            
+            categories = [
+                {
+                    "id": r[0],
+                    "name": r[1],
+                    "slug": r[2],
+                    "count": r[3]
+                }
+                for r in cat_rows
+            ]
+
+        # Get trending/popular searches (from product names matching query)
+        trending = []
+        if db_session:
+            trend_rows = db_session.execute(text("""
+                SELECT DISTINCT p.name
+                FROM products p
+                WHERE p.is_active = true 
+                  AND p.name ILIKE :q
+                ORDER BY p.average_rating DESC, p.total_stock DESC
+                LIMIT :lim
+            """), {"q": f"%{query}%", "lim": 3}).fetchall()
+            trending = [r[0] for r in trend_rows]
+
+        return {
+            "products": products,
+            "categories": categories,
+            "trending": trending,
+            "query": query,
+        }
+
+    except Exception as e:
+        logger.warning(f"Meilisearch suggestions error: {e}")
+        return {
+            "products": [],
+            "categories": [],
+            "trending": [],
+            "query": query,
+            "error": str(e),
+        }

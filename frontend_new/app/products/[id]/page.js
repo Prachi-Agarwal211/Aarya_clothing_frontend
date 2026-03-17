@@ -17,17 +17,21 @@ import {
   Star,
   MessageCircle,
   AlertCircle,
+  Ruler,
 } from 'lucide-react';
 import EnhancedHeader from '@/components/landing/EnhancedHeader';
 import Footer from '@/components/landing/Footer';
+import SizeGuideModal from '@/components/product/SizeGuideModal';
 import { productsApi, reviewsApi, wishlistApi } from '@/lib/customerApi';
 import { useCart } from '@/lib/cartContext';
 import { useAuth } from '@/lib/authContext';
 import logger from '@/lib/logger';
+import { useAlertToast } from '@/lib/useAlertToast';
 
 export default function ProductDetailPage() {
   const params = useParams();
   const productId = params.id;
+  const { showAlert } = useAlertToast();
   const { addItem, openCart, isAuthenticated } = useCart();
   const { user } = useAuth();
 
@@ -43,6 +47,7 @@ export default function ProductDetailPage() {
   const [isWishlisted, setIsWishlisted] = useState(false);
   const [addingToCart, setAddingToCart] = useState(false);
   const [activeTab, setActiveTab] = useState('description');
+  const [showSizeGuide, setShowSizeGuide] = useState(false);
 
   useEffect(() => {
     fetchProduct();
@@ -119,7 +124,7 @@ export default function ProductDetailPage() {
     }
 
     if (!selectedSize) {
-      alert('Please select a size');
+      showAlert('Please select a size');
       return;
     }
 
@@ -386,7 +391,13 @@ export default function ProductDetailPage() {
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-sm text-[#EAE0D5]/70">Size: <span className="text-[#EAE0D5]">{selectedSize || 'Select'}</span></p>
-                  <button className="text-sm text-[#B76E79] hover:text-[#F2C29A]">Size Guide</button>
+                  <button 
+                    onClick={() => setShowSizeGuide(true)}
+                    className="text-sm text-[#B76E79] hover:text-[#F2C29A] flex items-center gap-1 transition-colors"
+                  >
+                    <Ruler className="w-4 h-4" />
+                    Size Guide
+                  </button>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {product.sizes?.map((size) => (
@@ -584,6 +595,13 @@ export default function ProductDetailPage() {
 
         <Footer />
       </div>
+
+      {/* Size Guide Modal */}
+      <SizeGuideModal 
+        isOpen={showSizeGuide} 
+        onClose={() => setShowSizeGuide(false)} 
+        category={product?.category?.toLowerCase() || 'kurta'}
+      />
     </main>
   );
 }

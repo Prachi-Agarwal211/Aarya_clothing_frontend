@@ -1,35 +1,51 @@
-// Playwright Configuration for Aarya Clothing E-commerce
 // @ts-check
 const { defineConfig, devices } = require('@playwright/test');
 
+/**
+ * Playwright Configuration for Aarya Clothing E-commerce Platform
+ * 
+ * This configuration supports:
+ * - Multi-browser testing (Chrome, Firefox, Safari)
+ * - Mobile and desktop viewport testing
+ * - Parallel test execution
+ * - Screenshots and video recording on failure
+ * - Trace collection for debugging
+ * - CI/CD integration
+ * 
+ * @see https://playwright.dev/docs/test-configuration
+ */
 module.exports = defineConfig({
   testDir: './tests',
   
-  /* Run tests in files in parallel */
-  fullyParallel: false,
+  /* Output directory for test artifacts */
+  outputDir: './test-results',
   
-  /* Fail the build on CI if you accidentally left test.only in the source code. */
+  /* Run tests in files in parallel */
+  fullyParallel: true,
+  
+  /* Fail the build on CI if you accidentally left test.only in the source code */
   forbidOnly: !!process.env.CI,
   
-  /* Retry on CI only */
+  /* Retry on CI only to handle flaky tests */
   retries: process.env.CI ? 2 : 1,
   
-  /* Opt out of parallel tests on CI. */
-  workers: process.env.CI ? 1 : undefined,
+  /* Number of parallel workers */
+  workers: process.env.CI ? 2 : undefined,
   
-  /* Reporter to use. See https://playwright.dev/docs/test-reporters */
+  /* Reporter to use - HTML, List, and JSON */
   reporter: [
-    ['html', { outputFolder: 'playwright-report' }],
-    ['list'],
-    ['json', { outputFile: 'test-results/results.json' }]
+    ['html', { outputFolder: 'playwright-report', open: 'never' }],
+    ['list', { printSteps: true }],
+    ['json', { outputFile: 'test-results/results.json' }],
+    ['junit', { outputFile: 'test-results/junit.xml' }],
   ],
   
-  /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
+  /* Shared settings for all projects */
   use: {
-    /* Base URL to use in actions like `await page.goto('/')`. */
-    baseURL: 'http://localhost:6004',
+    /* Base URL for all tests */
+    baseURL: process.env.BASE_URL || 'http://localhost:6004',
     
-    /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
+    /* Collect trace when retrying the failed test */
     trace: 'on-first-retry',
     
     /* Screenshot on failure */
@@ -44,38 +60,91 @@ module.exports = defineConfig({
     /* Maximum time each test can take */
     timeout: 120000,
     
-    /* Set viewport size */
+    /* Navigation timeout */
+    navigationTimeout: 30000,
+    
+    /* Set default viewport */
     viewport: { width: 1920, height: 1080 },
+    
+    /* Ignore HTTPS errors in development */
+    ignoreHTTPSErrors: true,
+    
+    /* Extra HTTP headers */
+    extraHTTPHeaders: {
+      'Accept-Language': 'en-US,en',
+    },
+    
+    /* Record HAR file for network debugging */
+    recordHAR: {
+      mode: 'minimal',
+      path: './test-results/har',
+    },
   },
   
-  /* Configure projects for major browsers */
+  /* Configure projects for different browsers and viewports */
   projects: [
+    /* Desktop Browsers */
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      use: { 
+        ...devices['Desktop Chrome'],
+        viewport: { width: 1920, height: 1080 },
+      },
     },
-    
     {
       name: 'firefox',
-      use: { ...devices['Desktop Firefox'] },
+      use: { 
+        ...devices['Desktop Firefox'],
+        viewport: { width: 1920, height: 1080 },
+      },
     },
-    
     {
       name: 'webkit',
-      use: { ...devices['Desktop Safari'] },
+      use: { 
+        ...devices['Desktop Safari'],
+        viewport: { width: 1920, height: 1080 },
+      },
     },
     
-    /* Test against mobile viewports. */
+    /* Mobile Viewports */
     {
       name: 'Mobile Chrome',
-      use: { ...devices['Pixel 5'] },
+      use: { 
+        ...devices['Pixel 5'],
+        viewport: { width: 375, height: 667 },
+      },
     },
     {
       name: 'Mobile Safari',
-      use: { ...devices['iPhone 12'] },
+      use: { 
+        ...devices['iPhone 12'],
+        viewport: { width: 390, height: 844 },
+      },
     },
+    
+    /* Tablet Viewport */
+    {
+      name: 'iPad',
+      use: {
+        ...devices['iPad Pro'],
+        viewport: { width: 1024, height: 768 },
+      },
+    },
+    
+    /* Test against branded browsers */
+    // {
+    //   name: 'Microsoft Edge',
+    //   use: { ...devices['Desktop Edge'], channel: 'msedge' },
+    // },
+    // {
+    //   name: 'Google Chrome',
+    //   use: { ...devices['Desktop Chrome'], channel: 'chrome' },
+    // },
   ],
   
-  /* Folder for test artifacts such as screenshots, videos, traces, etc. */
-  outputDir: 'test-results/',
+  /* Global setup file */
+  globalSetup: require.resolve('./tests/global-setup'),
+  
+  /* Global teardown file */
+  globalTeardown: require.resolve('./tests/global-teardown'),
 });

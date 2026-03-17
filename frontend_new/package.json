@@ -5,8 +5,23 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:analyze": "ANALYZE=true next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:ui": "playwright test --ui",
+    "test:debug": "playwright test --debug",
+    "test:chromium": "playwright test --project=chromium",
+    "test:firefox": "playwright test --project=firefox",
+    "test:webkit": "playwright test --project=webkit",
+    "test:mobile": "playwright test --project=\"Mobile Chrome\" --project=\"Mobile Safari\"",
+    "test:customer": "playwright test tests/e2e/customer/",
+    "test:admin": "playwright test tests/e2e/admin/",
+    "test:seed": "node tests/utils/seed-test-data.js",
+    "test:clear": "node tests/utils/seed-test-data.js --clear",
+    "test:report": "playwright show-report",
+    "test:codegen": "playwright codegen"
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",
@@ -21,16 +36,22 @@
     "next": "^15.5.12",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "recharts": "^3.8.0",
     "tailwind-merge": "^3.4.0",
     "tailwindcss": "^3.4.19",
-    "tailwindcss-animate": "^1.0.7"
+    "tailwindcss-animate": "^1.0.7",
+    "web-vitals": "^4.2.4"
   },
   "devDependencies": {
+    "@next/bundle-analyzer": "^15.5.12",
     "@playwright/test": "^1.58.2",
+    "@types/node": "25.5.0",
+    "@types/react": "19.2.14",
     "autoprefixer": "^10.4.24",
     "critters": "^0.0.23",
     "eslint": "8.57.0",
     "eslint-config-next": "15.5.12",
-    "postcss": "^8.5.6"
+    "postcss": "^8.5.6",
+    "typescript": "5.9.3"
   }
 }

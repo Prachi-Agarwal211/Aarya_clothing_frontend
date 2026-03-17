@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Image from 'next/image';
 import {
   Plus, Search, RefreshCw, Layers, Edit, Trash2, Image as ImageIcon,
   AlertCircle, CheckSquare, Square, Upload, X, Save, Eye, EyeOff,
@@ -83,7 +84,15 @@ function CollectionModal({ collection, onClose, onSaved }) {
               style={{ height: '140px' }}
             >
               {imagePreview ? (
-                <img src={imagePreview} alt="preview" className="w-full h-full object-cover" />
+                <Image
+                  src={imagePreview}
+                  alt="Category image preview"
+                  fill
+                  className="object-cover"
+                  sizes="140px"
+                  loading="lazy"
+                  decoding="async"
+                />
               ) : (
                 <div className="flex flex-col items-center justify-center h-full">
                   <Upload className="w-8 h-8 text-[#B76E79]/40 mb-2" />
@@ -317,7 +326,15 @@ export default function CollectionsPage() {
                 {/* Image */}
                 <div className="relative h-40 bg-[#7A2F57]/10">
                   {c.image_url ? (
-                    <img src={c.image_url} alt={c.name} className="w-full h-full object-cover" />
+                    <Image
+                      src={c.image_url}
+                      alt={c.name}
+                      fill
+                      className="object-cover"
+                      sizes="(max-width: 768px) 50vw, 33vw"
+                      loading="lazy"
+                      decoding="async"
+                    />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">
                       <ImageIcon className="w-10 h-10 text-[#B76E79]/20" />

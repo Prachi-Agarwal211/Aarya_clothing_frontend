@@ -2,9 +2,10 @@
 
 import React, { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { 
-  RotateCcw, Package, ChevronLeft, AlertCircle, Camera, Upload, 
+import {
+  RotateCcw, Package, ChevronLeft, AlertCircle, Camera, Upload,
   CheckCircle, X, Trash2, ChevronRight, Loader2
 } from 'lucide-react';
 import { returnsApi, ordersApi } from '@/lib/customerApi';
@@ -412,7 +413,13 @@ function CreateReturnContent() {
               <div className="flex flex-wrap gap-4">
                 {images.map((img, index) => (
                   <div key={index} className="relative w-24 h-24 rounded-xl overflow-hidden bg-[#7A2F57]/20">
-                    <img src={img.preview} alt={`Upload ${index + 1}`} className="w-full h-full object-cover" />
+                    <Image
+                      src={img.preview}
+                      alt={`Upload preview ${index + 1}`}
+                      fill
+                      className="object-cover"
+                      sizes="96px"
+                    />
                     <button
                       type="button"
                       onClick={() => handleRemoveImage(index)}

@@ -78,7 +78,7 @@ export const cartApi = {
     commerceClient.delete('/api/v1/cart'),
 
   applyCoupon: (code) =>
-    commerceClient.post('/api/v1/cart/coupon', { code }),
+    commerceClient.post(`/api/v1/cart/coupon?promo_code=${encodeURIComponent(code)}`),
 
   removeCoupon: () =>
     commerceClient.delete('/api/v1/cart/coupon'),

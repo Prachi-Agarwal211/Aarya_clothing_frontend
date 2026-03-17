@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import Image from 'next/image';
 import EnhancedHeader from '@/components/landing/EnhancedHeader';
 import dynamic from 'next/dynamic';
 
@@ -9,8 +10,7 @@ const Footer = dynamic(() => import('@/components/landing/Footer'), { ssr: false
 export default function AboutPage() {
   const [imgErrors, setImgErrors] = useState({});
 
-  const handleImageError = (idx) => (e) => {
-    e.target.style.display = 'none';
+  const handleImageError = (idx) => () => {
     setImgErrors(prev => ({ ...prev, [idx]: true }));
   };
 
@@ -42,28 +42,33 @@ export default function AboutPage() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="aspect-[3/4] rounded-xl overflow-hidden bg-[#0B0608]/40 border border-[#B76E79]/15 flex items-center justify-center">
-                {!imgErrors[0] && (
-                  <img 
-                    src="/about/kurti1.jpg" 
-                    alt="Aarya Collection" 
-                    className="w-full h-full object-cover"
+                {!imgErrors[0] ? (
+                  <Image
+                    src="/about/kurti1.jpg"
+                    alt="Aarya Collection - Traditional Kurti"
+                    fill
+                    className="object-cover"
+                    sizes="(max-width: 768px) 50vw, 25vw"
+                    priority
+                    quality={85}
                     onError={handleImageError(0)}
                   />
-                )}
-                {imgErrors[0] && (
+                ) : (
                   <div className="text-[#B76E79]/30 text-sm">Image coming soon</div>
                 )}
               </div>
               <div className="aspect-[3/4] rounded-xl overflow-hidden bg-[#0B0608]/40 border border-[#B76E79]/15 flex items-center justify-center mt-8">
-                {!imgErrors[1] && (
-                  <img 
-                    src="/about/kurti2.jpg" 
-                    alt="Aarya Collection" 
-                    className="w-full h-full object-cover"
+                {!imgErrors[1] ? (
+                  <Image
+                    src="/about/kurti2.jpg"
+                    alt="Aarya Collection - Designer Kurti"
+                    fill
+                    className="object-cover"
+                    sizes="(max-width: 768px) 50vw, 25vw"
+                    quality={85}
                     onError={handleImageError(1)}
                   />
-                )}
-                {imgErrors[1] && (
+                ) : (
                   <div className="text-[#B76E79]/30 text-sm">Image coming soon</div>
                 )}
               </div>

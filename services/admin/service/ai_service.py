@@ -60,45 +60,108 @@ PRICE_PER_TOKEN = {
 }
 
 # ── System prompts ────────────────────────────────────────────────────────────
-CUSTOMER_SYSTEM_PROMPT_EN = """You are Aarya, a friendly AI fashion assistant for Aarya Clothing — a premium Indian fashion brand.
+CUSTOMER_SYSTEM_PROMPT_EN = """You are AaryaBot, an intelligent shopping assistant for Aarya Clothing — a premium Indian fashion brand.
 
-Your role: Help customers discover beautiful clothing they'll love.
+CAPABILITIES:
+- Help customers find products using natural language
+- Provide personalized recommendations based on preferences
+- Check order status and tracking information
+- Assist with cart management (add items, show cart, apply coupons)
+- Answer questions about shipping, returns, payments, and policies
+- Suggest sizes and provide styling advice
+- Apply coupon codes and calculate discounts
+- Check stock availability in real-time
 
-Rules:
-- Keep responses SHORT (2-4 sentences max). Be warm, enthusiastic, and fashion-forward.
-- Never make up product details. Only use data from tool results.
-- If user asks about new arrivals, promotions, or categories → use the tools.
-- Guide confused users: ask if they want to see New Arrivals, Collections, or a specific style.
-- Never discuss orders, payments, or account issues — redirect to support.
-- Respond in English only.
+PERSONALITY:
+- Friendly, helpful, and knowledgeable about fashion
+- Concise but thorough in responses (2-4 sentences max)
+- Proactive in suggesting relevant products and deals
+- Professional yet warm tone
+- Multilingual (English and Hindi)
+
+CONSTRAINTS:
+- Only recommend products from our catalog (use tools)
+- Never make up order information — always verify with tools
+- Always verify stock before recommending products
+- Respect customer preferences and budget constraints
+- Don't spam — be helpful but not pushy
+- For complex issues, suggest contacting human support
+
+TOOLS YOU HAVE:
+- Product search (keyword and semantic)
+- New arrivals browsing
+- Collections/categories browsing
+- Active promotions lookup
+- Order status lookup (requires order ID)
+- Order history (for authenticated users)
+- Cart management (view, add items)
+- Coupon validation and application
+- Size guide recommendations
+- Shipping time estimates
+- FAQ answers for common questions
 """
 
-CUSTOMER_SYSTEM_PROMPT_HI = """आप Aarya हैं — Aarya Clothing के लिए एक मित्रवत AI फैशन सहायक, जो एक प्रीमियम भारतीय फैशन ब्रांड है।
+CUSTOMER_SYSTEM_PROMPT_HI = """आप AaryaBot हैं — Aarya Clothing के लिए एक बुद्धिमान AI शॉपिंग सहायक, जो एक प्रीमियम भारतीय फैशन ब्रांड है।
 
-आपकी भूमिका: ग्राहकों को उनके पसंदीदा कपड़े खोजने में मदद करना।
+क्षमताएं:
+- ग्राहकों को प्राकृतिक भाषा में उत्पाद खोजने में मदद करें
+- वरीयताओं के आधार पर व्यक्तिगत सिफारिशें प्रदान करें
+- ऑर्डर स्थिति और ट्रैकिंग जानकारी जांचें
+- कार्ट प्रबंधन में सहायता (आइटम जोड़ें, कार्ट दिखाएं, कूपन लागू करें)
+- शिपिंग, रिटर्न, भुगतान और नीतियों के बारे में प्रश्नों के उत्तर दें
+- आकार सुझाव दें और स्टाइलिंग सलाह प्रदान करें
+- कूपन कोड लागू करें और छूट की गणना करें
+- रियल-टाइम में स्टॉक उपलब्धता जांचें
+
+व्यक्तित्व:
+- मित्रवत, सहायक, और फैशन के बारे में जानकार
+- संक्षिप्त लेकिन पूर्ण जवाब (अधिकतम 2-4 वाक्य)
+- प्रासंगिक उत्पादों और सौदों का सुझाव देने में सक्रिय
+- पेशेवर लेकिन गर्मजोशी भरा लहजा
+- बहुभाषी (अंग्रेजी और हिंदी)
 
 नियम:
-- जवाब छोटे रखें (2-4 वाक्य)। गर्मजोशी और उत्साह के साथ बोलें।
-- कभी भी उत्पाद विवरण न बनाएं। केवल टूल परिणामों से डेटा का उपयोग करें।
-- नए आगमन, प्रमोशन, या कलेक्शन के बारे में पूछने पर → टूल का उपयोग करें।
-- हमेशा हिंदी में जवाब दें, लेकिन उत्पाद के नाम और प्राइस अंग्रेज़ी में रख सकते हैं।
-- ऑर्डर, भुगतान या खाता संबंधी प्रश्नों पर सपोर्ट की ओर निर्देशित करें।
+- केवल हमारे कैटलॉग से उत्पादों की सिफारिश करें (टूल का उपयोग करें)
+- कभी भी ऑर्डर जानकारी न बनाएं — हमेशा टूल से सत्यापित करें
+- उत्पादों की सिफारिश करने से पहले हमेशा स्टॉक सत्यापित करें
+- ग्राहक वरीयताओं और बजट का सम्मान करें
+- स्पैम न करें — सहायक बनें लेकिन धक्का देने वाला नहीं
+- जटिल मुद्दों के लिए, मानव संपर्क का सुझाव दें
 """
 
-CUSTOMER_SYSTEM_PROMPT_AUTO = """You are Aarya, a friendly AI fashion assistant for Aarya Clothing — a premium Indian fashion brand.
+CUSTOMER_SYSTEM_PROMPT_AUTO = """You are AaryaBot, an intelligent shopping assistant for Aarya Clothing — a premium Indian fashion brand.
 
-Your role: Help customers discover beautiful clothing they'll love.
+CAPABILITIES:
+- Help customers find products using natural language
+- Provide personalized recommendations based on preferences
+- Check order status and tracking information
+- Assist with cart management (add items, show cart, apply coupons)
+- Answer questions about shipping, returns, payments, and policies
+- Suggest sizes and provide styling advice
+- Apply coupon codes and calculate discounts
+- Check stock availability in real-time
+
+PERSONALITY:
+- Friendly, helpful, and knowledgeable about fashion
+- Concise but thorough in responses (2-4 sentences max)
+- Proactive in suggesting relevant products and deals
+- Professional yet warm tone
+- Multilingual (English and Hindi)
 
 LANGUAGE RULES (very important):
 - Detect the customer's language from their message.
 - If they write in Hindi/Hinglish → respond in Hindi (Devanagari script preferred, Hinglish acceptable).
 - If they write in English → respond in English.
-- Keep responses SHORT (2-4 sentences max). Be warm and fashion-forward.
-- Never make up product details. Only use data from tool results.
-- If user asks about new arrivals, promotions, or categories → use the tools.
-- Never discuss orders, payments, or account issues — redirect to support.
 
-Hindi example: "बिल्कुल! 🌸 यहाँ हमारे नए कुर्तियाँ हैं जो आपको पसंद आएंगी।"
+CONSTRAINTS:
+- Only recommend products from our catalog (use tools)
+- Never make up order information — always verify with tools
+- Always verify stock before recommending products
+- Respect customer preferences and budget constraints
+- Don't spam — be helpful but not pushy
+- For complex issues, suggest contacting human support
+
+EXAMPLE (Hindi): "बिल्कुल! 🌸 यहाँ हमारे नए कुर्तियाँ हैं जो आपको पसंद आएंगी।"
 """
 
 # Default (auto-detect)
@@ -286,6 +349,7 @@ def save_message(db: Session, session_id: str, role: str, content: str,
 # ── Customer tools ────────────────────────────────────────────────────────────
 
 def _customer_tools(db: Session) -> List[Dict]:
+    """Enhanced customer tools for comprehensive e-commerce assistance."""
     return [
         {
             "name": "get_new_arrivals",
@@ -299,12 +363,13 @@ def _customer_tools(db: Session) -> List[Dict]:
         },
         {
             "name": "search_products",
-            "description": "Search for products by name, category, color, or style.",
+            "description": "Search for products by name, category, color, style, or price range.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "query": {"type": "string", "description": "Search query"},
                     "category": {"type": "string", "description": "Optional category filter"},
+                    "max_price": {"type": "number", "description": "Maximum price filter"},
                     "limit": {"type": "integer", "description": "Number of results (default 6)"}
                 },
                 "required": ["query"]
@@ -330,6 +395,104 @@ def _customer_tools(db: Session) -> List[Dict]:
                     "limit": {"type": "integer", "description": "Number of results (default 6, max 12)"}
                 },
                 "required": ["query"]
+            }
+        },
+        {
+            "name": "get_order_status",
+            "description": "Get order status and tracking information. Requires order_id. Use when customer asks 'where is my order' or provides order number.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "order_id": {"type": "integer", "description": "Order ID to check status for"}
+                },
+                "required": ["order_id"]
+            }
+        },
+        {
+            "name": "get_order_history",
+            "description": "Get customer's order history. Use when authenticated user asks about their past orders.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "limit": {"type": "integer", "description": "Number of orders (default 5, max 20)"}
+                }
+            }
+        },
+        {
+            "name": "get_cart",
+            "description": "Get current user's shopping cart contents. Use when customer asks 'what's in my cart' or 'show my cart'.",
+            "parameters": {"type": "object", "properties": {}}
+        },
+        {
+            "name": "add_to_cart",
+            "description": "Add a product to the user's cart. Requires product_id and quantity. Use when customer says 'add this to cart' or 'I want to buy this'.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "product_id": {"type": "integer", "description": "Product ID to add"},
+                    "quantity": {"type": "integer", "description": "Quantity (default 1)"},
+                    "size": {"type": "string", "description": "Size variant (optional)"},
+                    "color": {"type": "string", "description": "Color variant (optional)"}
+                },
+                "required": ["product_id"]
+            }
+        },
+        {
+            "name": "apply_coupon",
+            "description": "Validate and apply a coupon code to the cart. Use when customer provides a coupon code or asks about discounts.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "code": {"type": "string", "description": "Coupon code to apply"}
+                },
+                "required": ["code"]
+            }
+        },
+        {
+            "name": "get_size_guide",
+            "description": "Get size guide recommendations for a product. Use when customer asks about sizing or 'what size should I get'.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "product_id": {"type": "integer", "description": "Product ID to get size guide for"},
+                    "measurements": {"type": "string", "description": "Customer's body measurements (optional, e.g., 'bust: 36, waist: 28')"}
+                },
+                "required": ["product_id"]
+            }
+        },
+        {
+            "name": "get_shipping_estimate",
+            "description": "Get estimated delivery time for a pincode. Use when customer asks about delivery time or shipping.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "pincode": {"type": "string", "description": "Delivery pincode"}
+                },
+                "required": ["pincode"]
+            }
+        },
+        {
+            "name": "get_faq_answer",
+            "description": "Get answer to frequently asked questions about shipping, returns, payments, policies. Use for common customer service questions.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "question": {"type": "string", "description": "Customer's question"}
+                },
+                "required": ["question"]
+            }
+        },
+        {
+            "name": "get_product_recommendations",
+            "description": "Get personalized product recommendations based on browsing history or preferences. Use for 'what do you recommend' or 'suggest something'.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "style": {"type": "string", "description": "Style preference (optional, e.g., 'casual', 'formal', 'traditional')"},
+                    "occasion": {"type": "string", "description": "Occasion (optional, e.g., 'wedding', 'party', 'office')"},
+                    "budget": {"type": "number", "description": "Budget range (optional)"},
+                    "limit": {"type": "integer", "description": "Number of recommendations (default 6)"}
+                }
             }
         }
     ]
@@ -496,6 +659,455 @@ def _execute_customer_tool(db: Session, tool_name: str, args: Dict) -> str:
             ]
             return json.dumps({"products": products, "count": len(products),
                                "query": query, "search_type": "semantic"})
+
+        elif tool_name == "get_order_status":
+            # Get order status for a specific order ID
+            order_id = int(args.get("order_id", 0))
+            user_id = args.get("user_id")  # Optional: for authorization
+            row = db.execute(text("""
+                SELECT o.id, o.status, o.total_amount, o.tracking_number, 
+                       o.created_at, o.shipped_at, o.delivered_at,
+                       o.shipping_address, o.payment_method,
+                       STRING_AGG(oi.product_name || ' (x' || oi.quantity || ')', ', ') as items
+                FROM orders o
+                LEFT JOIN order_items oi ON oi.order_id = o.id
+                WHERE o.id = :oid
+                GROUP BY o.id
+            """), {"oid": order_id}).fetchone()
+            if not row:
+                return json.dumps({"error": f"Order #{order_id} not found", "order_id": order_id})
+            
+            # Check authorization if user_id provided
+            if user_id:
+                owner = db.execute(text(
+                    "SELECT user_id FROM orders WHERE id = :oid"
+                ), {"oid": order_id}).fetchone()
+                if owner and owner[0] != user_id:
+                    # Check if user is admin
+                    user_role = db.execute(text(
+                        "SELECT role FROM users WHERE id = :uid"
+                    ), {"uid": user_id}).fetchone()
+                    if not user_role or user_role[0] != 'admin':
+                        return json.dumps({"error": "Unauthorized: This order belongs to another customer"})
+            
+            return json.dumps({
+                "order": {
+                    "id": row[0],
+                    "status": str(row[1]),
+                    "total": float(row[2] or 0),
+                    "tracking": row[3],
+                    "created_at": str(row[4]),
+                    "shipped_at": str(row[5]),
+                    "delivered_at": str(row[6]),
+                    "address": row[7],
+                    "payment": row[8],
+                    "items": row[9]
+                }
+            })
+
+        elif tool_name == "get_order_history":
+            # Get customer's order history
+            limit = min(int(args.get("limit", 5)), 20)
+            user_id = args.get("user_id")
+            if not user_id:
+                return json.dumps({"error": "Authentication required", "orders": [], "count": 0})
+            
+            rows = db.execute(text("""
+                SELECT o.id, o.status, o.total_amount, o.created_at, 
+                       o.tracking_number,
+                       STRING_AGG(oi.product_name, ', ') as items
+                FROM orders o
+                LEFT JOIN order_items oi ON oi.order_id = o.id
+                WHERE o.user_id = :uid
+                GROUP BY o.id
+                ORDER BY o.created_at DESC LIMIT :lim
+            """), {"uid": user_id, "lim": limit}).fetchall()
+            
+            orders = [
+                {
+                    "id": r[0],
+                    "status": str(r[1]),
+                    "total": float(r[2] or 0),
+                    "date": str(r[3]),
+                    "tracking": r[4],
+                    "items": r[5]
+                }
+                for r in rows
+            ]
+            return json.dumps({"orders": orders, "count": len(orders)})
+
+        elif tool_name == "get_cart":
+            # Get current user's cart
+            user_id = args.get("user_id")
+            if not user_id:
+                return json.dumps({"error": "Authentication required", "cart": None})
+            
+            cart = db.execute(text("""
+                SELECT c.id, c.total_amount, c.coupon_code, c.discount_amount
+                FROM carts c
+                WHERE c.user_id = :uid AND c.is_active = true
+                ORDER BY c.updated_at DESC LIMIT 1
+            """), {"uid": user_id}).fetchone()
+            
+            if not cart:
+                return json.dumps({"cart": {"items": [], "total": 0, "count": 0}})
+            
+            items = db.execute(text("""
+                SELECT ci.quantity, ci.price, p.name, p.id,
+                       ci.size, ci.color,
+                       (SELECT pi.image_url FROM product_images pi 
+                        WHERE pi.product_id = p.id 
+                        ORDER BY pi.is_primary DESC LIMIT 1) as image
+                FROM cart_items ci
+                JOIN products p ON p.id = ci.product_id
+                WHERE ci.cart_id = :cid
+            """), {"cid": cart[0]}).fetchall()
+            
+            cart_items = [
+                {
+                    "product_id": r[3],
+                    "name": r[2],
+                    "quantity": r[0],
+                    "price": float(r[1] or 0),
+                    "size": r[4],
+                    "color": r[5],
+                    "image": r[6]
+                }
+                for r in items
+            ]
+            
+            return json.dumps({
+                "cart": {
+                    "id": cart[0],
+                    "total": float(cart[1] or 0),
+                    "coupon": cart[2],
+                    "discount": float(cart[3] or 0),
+                    "items": cart_items,
+                    "count": len(cart_items)
+                }
+            })
+
+        elif tool_name == "add_to_cart":
+            # Add product to cart (simplified - returns success/failure)
+            user_id = args.get("user_id")
+            product_id = int(args.get("product_id", 0))
+            quantity = int(args.get("quantity", 1))
+            size = args.get("size")
+            color = args.get("color")
+            
+            if not user_id:
+                return json.dumps({"error": "Authentication required", "success": False})
+            
+            try:
+                # Get or create cart
+                cart = db.execute(text("""
+                    SELECT id FROM carts 
+                    WHERE user_id = :uid AND is_active = true 
+                    ORDER BY updated_at DESC LIMIT 1
+                """), {"uid": user_id}).fetchone()
+                
+                if not cart:
+                    cart = db.execute(text("""
+                        INSERT INTO carts (user_id, total_amount, is_active)
+                        VALUES (:uid, 0, true) RETURNING id
+                    """), {"uid": user_id}).fetchone()
+                
+                cart_id = cart[0]
+                
+                # Get product price
+                product = db.execute(text("""
+                    SELECT base_price FROM products WHERE id = :pid
+                """), {"pid": product_id}).fetchone()
+                
+                if not product:
+                    return json.dumps({"error": "Product not found", "success": False})
+                
+                price = float(product[0] or 0)
+                
+                # Add to cart items
+                db.execute(text("""
+                    INSERT INTO cart_items (cart_id, product_id, quantity, price, size, color)
+                    VALUES (:cid, :pid, :qty, :price, :size, :color)
+                    ON CONFLICT (cart_id, product_id, size, color) 
+                    DO UPDATE SET quantity = cart_items.quantity + :qty
+                """), {"cid": cart_id, "pid": product_id, "qty": quantity, 
+                       "price": price, "size": size, "color": color})
+                
+                db.commit()
+                return json.dumps({"success": True, "message": "Added to cart", "product_id": product_id})
+            except Exception as e:
+                db.rollback()
+                logger.error(f"Add to cart error: {e}")
+                return json.dumps({"error": str(e), "success": False})
+
+        elif tool_name == "apply_coupon":
+            # Validate and apply coupon
+            user_id = args.get("user_id")
+            code = args.get("code", "").strip().upper()
+            
+            if not user_id:
+                return json.dumps({"error": "Authentication required", "valid": False})
+            
+            coupon = db.execute(text("""
+                SELECT code, discount_type, discount_value, minimum_order, 
+                       description, valid_until
+                FROM promotions
+                WHERE code = :code AND is_active = true
+                  AND (valid_until IS NULL OR valid_until > NOW())
+            """), {"code": code}).fetchone()
+            
+            if not coupon:
+                return json.dumps({"valid": False, "error": "Invalid or expired coupon"})
+            
+            # Get cart total
+            cart = db.execute(text("""
+                SELECT id, total_amount FROM carts 
+                WHERE user_id = :uid AND is_active = true 
+                ORDER BY updated_at DESC LIMIT 1
+            """), {"uid": user_id}).fetchone()
+            
+            if not cart:
+                return json.dumps({"valid": False, "error": "Cart not found"})
+            
+            cart_total = float(cart[1] or 0)
+            min_order = float(coupon[4] or 0)
+            
+            if cart_total < min_order:
+                return json.dumps({
+                    "valid": False, 
+                    "error": f"Minimum order value ₹{min_order} required"
+                })
+            
+            discount_value = float(coupon[3] or 0)
+            discount_type = str(coupon[2])
+            
+            if discount_type == "percentage":
+                discount = (cart_total * discount_value) / 100
+            else:  # fixed
+                discount = discount_value
+            
+            return json.dumps({
+                "valid": True,
+                "code": coupon[0],
+                "description": coupon[4],
+                "discount_type": discount_type,
+                "discount_value": discount_value,
+                "discount_amount": discount,
+                "final_total": cart_total - discount
+            })
+
+        elif tool_name == "get_size_guide":
+            # Get size guide for a product
+            product_id = int(args.get("product_id", 0))
+            measurements = args.get("measurements")
+            
+            product = db.execute(text("""
+                SELECT p.name, c.name as category
+                FROM products p
+                LEFT JOIN collections c ON c.id = p.category_id
+                WHERE p.id = :pid
+            """), {"pid": product_id}).fetchone()
+            
+            if not product:
+                return json.dumps({"error": "Product not found"})
+            
+            # Get available sizes from inventory
+            sizes = db.execute(text("""
+                SELECT DISTINCT size, quantity
+                FROM inventory
+                WHERE product_id = :pid AND size IS NOT NULL AND quantity > 0
+                ORDER BY 
+                    CASE size 
+                        WHEN 'XS' THEN 1 WHEN 'S' THEN 2 WHEN 'M' THEN 3 
+                        WHEN 'L' THEN 4 WHEN 'XL' THEN 5 WHEN 'XXL' THEN 6 
+                        ELSE 7 
+                    END
+            """), {"pid": product_id}).fetchall()
+            
+            size_chart = {
+                "XS": {"bust": "32-34", "waist": "24-26", "hips": "34-36"},
+                "S": {"bust": "34-36", "waist": "26-28", "hips": "36-38"},
+                "M": {"bust": "36-38", "waist": "28-30", "hips": "38-40"},
+                "L": {"bust": "38-40", "waist": "30-32", "hips": "40-42"},
+                "XL": {"bust": "40-42", "waist": "32-34", "hips": "42-44"},
+                "XXL": {"bust": "42-44", "waist": "34-36", "hips": "44-46"},
+            }
+            
+            recommendation = None
+            if measurements:
+                # Simple size recommendation logic
+                try:
+                    bust = float(measurements.split('bust')[1].split(':')[1].split(',')[0].strip()) if 'bust' in measurements else None
+                    if bust:
+                        if bust <= 34: recommendation = "S"
+                        elif bust <= 36: recommendation = "M"
+                        elif bust <= 38: recommendation = "L"
+                        elif bust <= 40: recommendation = "XL"
+                        else: recommendation = "XXL"
+                except:
+                    pass
+            
+            return json.dumps({
+                "product": product[0],
+                "category": product[1],
+                "available_sizes": [r[0] for r in sizes],
+                "size_chart": size_chart,
+                "recommendation": recommendation,
+                "note": "For best fit, compare your measurements with our size chart"
+            })
+
+        elif tool_name == "get_shipping_estimate":
+            # Get shipping estimate for pincode
+            pincode = args.get("pincode", "")
+            
+            # Simple pincode-based estimation logic
+            # In production, integrate with shipping partner API
+            metro_pincodes = ["110", "400", "560", "600", "700", "500", "380"]  # Major city prefixes
+            is_metro = any(pincode.startswith(prefix) for prefix in metro_pincodes)
+            
+            if is_metro:
+                delivery_days = "2-3 business days"
+                shipping_cost = 0  # Free for metro
+            else:
+                delivery_days = "4-6 business days"
+                shipping_cost = 99
+            
+            return json.dumps({
+                "pincode": pincode,
+                "estimated_delivery": delivery_days,
+                "shipping_cost": shipping_cost,
+                "is_metro": is_metro,
+                "note": "Express delivery available for metro cities"
+            })
+
+        elif tool_name == "get_faq_answer":
+            # Get FAQ answer
+            question = args.get("question", "").lower()
+            
+            faq_database = {
+                "shipping": {
+                    "keywords": ["ship", "delivery", "deliver", "shipping", "post", "courier"],
+                    "answer": "We offer free shipping on orders above ₹999. Metro cities: 2-3 days, Other cities: 4-6 days. You'll receive tracking details via email once shipped."
+                },
+                "return": {
+                    "keywords": ["return", "exchange", "refund", "send back"],
+                    "answer": "We offer 15-day easy returns. Items must be unused with tags intact. Free pickup available. Refund processed within 5-7 business days after quality check."
+                },
+                "payment": {
+                    "keywords": ["pay", "payment", "cod", "card", "upi", "wallet"],
+                    "answer": "We accept all major payment methods: Credit/Debit Cards, UPI, Net Banking, Wallets (Paytm, PhonePe), and Cash on Delivery (COD) for orders under ₹5000."
+                },
+                "size": {
+                    "keywords": ["size", "fit", "measurement", "small", "large"],
+                    "answer": "Check our detailed size chart on each product page. For traditional wear, we recommend ordering your usual size. For western wear, consider sizing up for a relaxed fit."
+                },
+                "order": {
+                    "keywords": ["order", "track", "status", "where"],
+                    "answer": "You can track your order using the order ID from your confirmation email. Login to your account to view order history and real-time tracking."
+                },
+                "cancel": {
+                    "keywords": ["cancel", "cancellation"],
+                    "answer": "Orders can be cancelled within 24 hours if not yet shipped. Contact support immediately with your order ID. Once shipped, you'll need to initiate a return after delivery."
+                },
+                "quality": {
+                    "keywords": ["quality", "fabric", "material", "original", "genuine"],
+                    "answer": "All our products are 100% genuine with quality assurance. We source directly from manufacturers. If you're not satisfied, we offer hassle-free returns within 15 days."
+                }
+            }
+            
+            best_match = None
+            max_matches = 0
+            
+            for topic, data in faq_database.items():
+                matches = sum(1 for keyword in data["keywords"] if keyword in question)
+                if matches > max_matches:
+                    max_matches = matches
+                    best_match = topic
+            
+            if best_match and max_matches > 0:
+                return json.dumps({
+                    "topic": best_match,
+                    "answer": faq_database[best_match]["answer"],
+                    "matched": True
+                })
+            else:
+                return json.dumps({
+                    "topic": "general",
+                    "answer": "For detailed assistance, please contact our customer support at support@aaryaclothing.com or call +91-XXX-XXX-XXXX. We're available Mon-Sat, 10 AM - 7 PM IST.",
+                    "matched": False
+                })
+
+        elif tool_name == "get_product_recommendations":
+            # Get personalized product recommendations
+            style = args.get("style", "")
+            occasion = args.get("occasion", "")
+            budget = args.get("budget")
+            limit = min(int(args.get("limit", 6)), 12)
+            user_id = args.get("user_id")
+            
+            # Build query based on preferences
+            conditions = ["p.is_active = true"]
+            params: Dict[str, Any] = {"lim": limit}
+            
+            if budget:
+                conditions.append("p.base_price <= :budget")
+                params["budget"] = float(budget)
+            
+            if style:
+                conditions.append("(p.name ILIKE :style OR p.description ILIKE :style OR p.tags ILIKE :style)")
+                params["style"] = f"%{style}%"
+            
+            if occasion:
+                conditions.append("(p.name ILIKE :occ OR p.description ILIKE :occ OR p.tags ILIKE :occ)")
+                params["occ"] = f"%{occasion}%"
+            
+            where_clause = " AND ".join(conditions)
+            
+            rows = db.execute(text(f"""
+                SELECT p.id, p.name, p.description, p.base_price,
+                       (
+                           SELECT pi.image_url
+                           FROM product_images pi
+                           WHERE pi.product_id = p.id
+                           ORDER BY pi.is_primary DESC LIMIT 1
+                       ) as primary_image,
+                       c.name as category,
+                       COALESCE(p.average_rating, 0) as rating,
+                       p.is_new_arrival,
+                       p.is_featured
+                FROM products p
+                LEFT JOIN collections c ON c.id = p.category_id
+                WHERE {where_clause}
+                ORDER BY 
+                    (CASE WHEN p.is_featured THEN 1 ELSE 0 END) DESC,
+                    (CASE WHEN p.is_new_arrival THEN 1 ELSE 0 END) DESC,
+                    p.average_rating DESC,
+                    p.updated_at DESC
+                LIMIT :lim
+            """), params).fetchall()
+            
+            products = [
+                {
+                    "id": r[0],
+                    "name": r[1],
+                    "description": (r[2] or "")[:120],
+                    "price": float(r[3] or 0),
+                    "image": r[4],
+                    "category": r[5],
+                    "rating": float(r[6] or 0),
+                    "is_new": r[7],
+                    "is_featured": r[8]
+                }
+                for r in rows
+            ]
+            
+            return json.dumps({
+                "products": products,
+                "count": len(products),
+                "style": style,
+                "occasion": occasion,
+                "budget": budget
+            })
 
     except Exception as e:
         logger.error(f"Customer tool error [{tool_name}]: {e}")
@@ -1065,7 +1677,7 @@ def customer_chat(
     language: str = "auto",  # 'auto' | 'en' | 'hi'
 ) -> Dict[str, Any]:
     """
-    Customer AI Salesman chat.
+    Customer AI Salesman chat with enhanced e-commerce capabilities.
     Uses Gemini Flash Lite for minimal cost.
     Returns: { session_id, reply, tool_results, tokens_used, cost }
     """
@@ -1073,7 +1685,7 @@ def customer_chat(
     genai.configure(api_key=api_key)
     model_name = _get_setting(db, "CUSTOMER_MODEL", os.environ.get("AI_MODEL", GEMINI_FLASH_LITE))
     max_tokens = int(_get_setting(db, "CUSTOMER_MAX_TOKENS", os.environ.get("AI_CUSTOMER_MAX_TOKENS", "512")))
-    max_history = int(_get_setting(db, "CUSTOMER_HISTORY", "6"))
+    max_history = int(_get_setting(db, "CUSTOMER_HISTORY", "8"))  # Increased to 8 for better context
 
     # Pick system prompt based on language setting
     lang = language or _get_setting(db, "CUSTOMER_LANGUAGE", "auto")
@@ -1110,7 +1722,11 @@ def customer_chat(
         for part in response.parts:
             if hasattr(part, "function_call") and part.function_call:
                 fc = part.function_call
-                result = _execute_customer_tool(db, fc.name, dict(fc.args))
+                # Pass user_id to tool execution for auth-dependent tools
+                args_dict = dict(fc.args)
+                if user_id:
+                    args_dict["user_id"] = user_id
+                result = _execute_customer_tool(db, fc.name, args_dict)
                 tool_results[fc.name] = result
                 # Second pass with tool result
                 follow_up = chat.send_message(

@@ -38,6 +38,61 @@ const EMPTY_CART = {
 const CartContext = createContext(null);
 
 /**
+ * Merge guest cart with account cart
+ * - For duplicate items (same product + size), keep higher quantity
+ * - Combine totals appropriately
+ */
+function mergeCarts(accountCart, guestCart) {
+  if (!accountCart || !accountCart.items) {
+    return guestCart || EMPTY_CART;
+  }
+  
+  if (!guestCart || !guestCart.items) {
+    return accountCart;
+  }
+
+  const mergedItems = [...accountCart.items];
+  
+  // Add guest items, merging duplicates
+  for (const guestItem of guestCart.items) {
+    const existingIndex = mergedItems.findIndex(
+      item => item.product_id === guestItem.product_id && 
+              item.variant_id === guestItem.variant_id &&
+              item.size === guestItem.size
+    );
+    
+    if (existingIndex >= 0) {
+      // Duplicate found - keep higher quantity
+      const existingItem = mergedItems[existingIndex];
+      if (guestItem.quantity > existingItem.quantity) {
+        mergedItems[existingIndex] = {
+          ...existingItem,
+          quantity: guestItem.quantity
+        };
+      }
+    } else {
+      // New item - add to cart
+      mergedItems.push(guestItem);
+    }
+  }
+  
+  // Recalculate totals
+  const subtotal = mergedItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const item_count = mergedItems.reduce((sum, item) => sum + item.quantity, 0);
+  
+  // Keep account cart's discount and shipping, recalculate total
+  const mergedCart = {
+    ...accountCart,
+    items: mergedItems,
+    subtotal: subtotal,
+    item_count: item_count,
+    total: subtotal - (accountCart.discount || 0) + (accountCart.shipping || 0)
+  };
+  
+  return mergedCart;
+}
+
+/**
  * Simple mutex lock for preventing race conditions
  */
 class Mutex {
@@ -77,14 +132,67 @@ export function CartProvider({ children }) {
   
   const { isAuthenticated, loading: authLoading } = useAuth();
 
-  // Reset cart when user logs out
+  // Persist cart to localStorage
+  const persistCartToLocalStorage = useCallback((cartData, isGuest = true) => {
+    try {
+      localStorage.setItem('guest_cart', JSON.stringify({
+        ...cartData,
+        isGuestCart: isGuest,
+        persistedAt: new Date().toISOString()
+      }));
+    } catch (err) {
+      console.error('Failed to persist cart to localStorage:', err);
+    }
+  }, []);
+
+  // Load cart from localStorage
+  const loadCartFromLocalStorage = useCallback(() => {
+    try {
+      const savedCart = localStorage.getItem('guest_cart');
+      if (savedCart) {
+        const parsed = JSON.parse(savedCart);
+        // Check if cart is older than 30 days
+        const persistedAt = new Date(parsed.persistedAt);
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        
+        if (persistedAt < thirtyDaysAgo) {
+          // Cart is too old, clear it
+          localStorage.removeItem('guest_cart');
+          return null;
+        }
+        return parsed;
+      }
+    } catch (err) {
+      console.error('Failed to load cart from localStorage:', err);
+    }
+    return null;
+  }, []);
+
+  // Clear persisted cart from localStorage
+  const clearPersistedCart = useCallback(() => {
+    try {
+      localStorage.removeItem('guest_cart');
+    } catch (err) {
+      console.error('Failed to clear persisted cart:', err);
+    }
+  }, []);
+
+  // Reset cart when user logs out - BUT keep it in localStorage for guest persistence
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
-      setCart(EMPTY_CART);
-      setHasFetched(false);
+      // Don't clear the cart state immediately - preserve guest cart
+      const guestCart = loadCartFromLocalStorage();
+      if (guestCart) {
+        setCart(guestCart);
+        setHasFetched(true);
+      } else {
+        setCart(EMPTY_CART);
+        setHasFetched(false);
+      }
       setError(null);
     }
-  }, [isAuthenticated, authLoading]);
+  }, [isAuthenticated, authLoading, loadCartFromLocalStorage]);
 
   // Fetch cart when user is authenticated
   const fetchCart = useCallback(async (force = false) => {
@@ -93,21 +201,33 @@ export function CartProvider({ children }) {
       setCart(EMPTY_CART);
       return;
     }
-    
+
     // Prevent duplicate fetches
     if (fetchingRef.current) return;
     if (hasFetched && !force) return;
-    
+
     // Acquire lock to prevent race conditions
     await mutexRef.current.lock();
-    
+
     try {
       fetchingRef.current = true;
       setLoading(true);
       setError(null);
-      
+
       const data = await cartApi.get();
-      setCart(data);
+      
+      // Check if there's a guest cart to merge
+      const guestCart = loadCartFromLocalStorage();
+      if (guestCart && guestCart.items && guestCart.items.length > 0) {
+        // Merge guest cart with account cart
+        const mergedCart = mergeCarts(data, guestCart);
+        setCart(mergedCart);
+        // Clear the guest cart after successful merge
+        clearPersistedCart();
+      } else {
+        setCart(data);
+      }
+      
       setHasFetched(true);
     } catch (err) {
       console.error('Error fetching cart:', err);
@@ -120,7 +240,18 @@ export function CartProvider({ children }) {
       fetchingRef.current = false;
       mutexRef.current.unlock();
     }
-  }, [hasFetched, isAuthenticated]);
+  }, [hasFetched, isAuthenticated, loadCartFromLocalStorage, clearPersistedCart]);
+
+  // Persist cart to localStorage whenever it changes (for authenticated users)
+  useEffect(() => {
+    if (isAuthenticated && cart && cart.items) {
+      try {
+        localStorage.setItem('cart', JSON.stringify(cart));
+      } catch (err) {
+        console.error('Failed to persist cart to localStorage:', err);
+      }
+    }
+  }, [cart, isAuthenticated]);
 
   // Fetch cart when auth state changes
   useEffect(() => {
@@ -218,17 +349,19 @@ export function CartProvider({ children }) {
     if (!isAuthenticated) {
       throw new Error('Please login to modify cart');
     }
-    
+
     try {
       setError(null);
       await cartApi.clear();
       setCart(EMPTY_CART);
+      // Also clear persisted guest cart
+      clearPersistedCart();
     } catch (err) {
       console.error('Error clearing cart:', err);
       setError(err.message);
       throw err;
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, clearPersistedCart]);
 
   // Apply coupon code
   const applyCoupon = useCallback(async (code) => {
@@ -285,22 +418,28 @@ export function CartProvider({ children }) {
     toggleCart,
     refreshCart: () => fetchCart(true),
     clearError: () => setError(null),
+    persistCartToLocalStorage,
+    loadCartFromLocalStorage,
+    clearPersistedCart,
   }), [
-    cart, 
-    loading, 
-    error, 
-    isOpen, 
+    cart,
+    loading,
+    error,
+    isOpen,
     isAuthenticated,
-    addItem, 
-    updateQuantity, 
-    removeItem, 
-    clearCart, 
-    applyCoupon, 
-    removeCoupon, 
-    openCart, 
-    closeCart, 
-    toggleCart, 
-    fetchCart
+    addItem,
+    updateQuantity,
+    removeItem,
+    clearCart,
+    applyCoupon,
+    removeCoupon,
+    openCart,
+    closeCart,
+    toggleCart,
+    fetchCart,
+    persistCartToLocalStorage,
+    loadCartFromLocalStorage,
+    clearPersistedCart
   ]);
 
   return (

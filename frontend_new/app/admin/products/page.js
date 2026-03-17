@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import {
   Plus, Search, RefreshCw, Package, Edit, Trash2, Image as ImageIcon,
   AlertCircle, CheckSquare, Square, Tag, X, Save,
@@ -303,7 +304,17 @@ function ProductRow({ product, collections, onRefresh, selected, onToggleSelect,
         </td>
         <td className="p-4">
           {product.image_url ? (
-            <img src={product.image_url} alt={product.name} className="w-12 h-12 object-cover rounded-lg border border-[#B76E79]/20" />
+            <div className="relative w-12 h-12">
+              <Image
+                src={product.image_url}
+                alt={product.name}
+                fill
+                className="object-cover rounded-lg border border-[#B76E79]/20"
+                sizes="48px"
+                loading="lazy"
+                decoding="async"
+              />
+            </div>
           ) : (
             <div className="w-12 h-12 rounded-lg bg-[#7A2F57]/20 flex items-center justify-center">
               <ImageIcon className="w-5 h-5 text-[#B76E79]/40" />
@@ -674,7 +685,17 @@ export default function ProductsPage() {
               {collections.map(c => (
                 <div key={c.id} className="border border-[#B76E79]/20 rounded-xl p-4 flex items-center gap-4 bg-[#0B0608]/60 hover:border-[#B76E79]/40 transition-colors">
                   {c.image_url ? (
-                    <img src={c.image_url} alt={c.name} className="w-12 h-12 rounded-lg object-cover border border-[#B76E79]/20" />
+                    <div className="relative w-12 h-12 flex-shrink-0">
+                      <Image
+                        src={c.image_url}
+                        alt={c.name}
+                        fill
+                        className="object-cover rounded-lg border border-[#B76E79]/20"
+                        sizes="48px"
+                        loading="lazy"
+                        decoding="async"
+                      />
+                    </div>
                   ) : (
                     <div className="w-12 h-12 rounded-lg bg-[#7A2F57]/20 flex items-center justify-center">
                       <ImageIcon className="w-5 h-5 text-[#B76E79]/40" />

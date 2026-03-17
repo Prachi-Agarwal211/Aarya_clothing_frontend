@@ -6,9 +6,11 @@ import { usePathname } from 'next/navigation';
 import { customerApi } from '@/lib/customerApi';
 import { getAuthToken, getCommerceBaseUrl } from '@/lib/baseApi';
 import { useAuth } from '@/lib/authContext';
+import { useAlertToast } from '@/lib/useAlertToast';
 
 export default function CustomerChatWidget() {
     const { user } = useAuth();
+    const { showAlert } = useAlertToast();
     const pathname = usePathname();
 
     const [isOpen, setIsOpen] = useState(false);
@@ -57,6 +59,7 @@ export default function CustomerChatWidget() {
                 wsRef.current.close();
             }
         };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user]);
 
     // Hide widget on admin and staff pages (AFTER hooks)
@@ -128,7 +131,7 @@ export default function CustomerChatWidget() {
         if (!inputMessage.trim()) return;
         if (!user) {
             // Prompt login, or you could implement guest chat
-            alert("Please log in to use chat support.");
+            showAlert("Please log in to use chat support.");
             return;
         }
 

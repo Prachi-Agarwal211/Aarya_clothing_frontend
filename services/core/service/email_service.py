@@ -331,6 +331,309 @@ class EmailService:
         
         return self.send(to_email, subject, html_content, text_content)
 
+    # ==================== Order Email Templates ====================
+
+    def send_order_confirmation_email(
+        self,
+        to_email: str,
+        customer_name: str,
+        order_number: str,
+        order_items: str,
+        subtotal: str,
+        shipping: str,
+        gst: str,
+        total: str,
+        discount_row: str = "",
+        shipping_address: str = "",
+        payment_method: str = "",
+        estimated_delivery: str = "",
+        track_order_url: str = ""
+    ) -> bool:
+        """Send order confirmation email with beautiful HTML template."""
+        subject = f"Order Confirmed! {order_number} - Aarya Clothings"
+
+        # Read template from file
+        template_path = os.path.join(os.path.dirname(__file__), "..", "templates", "order_confirmation.html")
+        try:
+            with open(template_path, "r", encoding="utf-8") as f:
+                html_content = f.read()
+        except FileNotFoundError:
+            logger.error(f"[EMAIL] Template not found: {template_path}")
+            # Fallback to inline template
+            html_content = self._get_order_confirmation_template()
+
+        # Replace placeholders
+        html_content = html_content.replace("{{customer_name}}", customer_name)
+        html_content = html_content.replace("{{order_number}}", order_number)
+        html_content = html_content.replace("{{order_items}}", order_items)
+        html_content = html_content.replace("{{subtotal}}", subtotal)
+        html_content = html_content.replace("{{shipping}}", shipping)
+        html_content = html_content.replace("{{gst}}", gst)
+        html_content = html_content.replace("{{total}}", total)
+        html_content = html_content.replace("{{discount_row}}", discount_row)
+        html_content = html_content.replace("{{shipping_address}}", shipping_address)
+        html_content = html_content.replace("{{payment_method}}", payment_method)
+        html_content = html_content.replace("{{estimated_delivery}}", estimated_delivery)
+        html_content = html_content.replace("{{track_order_url}}", track_order_url)
+        html_content = html_content.replace("{{customer_email}}", to_email)
+
+        text_content = f"""
+        Order Confirmed! - Aarya Clothings
+
+        Thank you for your purchase, {customer_name}!
+
+        Order Number: {order_number}
+
+        Order Summary:
+        {order_items}
+
+        Subtotal: ₹{subtotal}
+        Shipping: ₹{shipping}
+        GST: ₹{gst}
+        Total: ₹{total}
+
+        Shipping Address:
+        {shipping_address}
+
+        Payment Method: {payment_method}
+        Estimated Delivery: {estimated_delivery}
+
+        Track your order: {track_order_url}
+
+        Need help? Contact us at support@aaryaclothings.com
+
+        © 2026 Aarya Clothings
+        """
+
+        return self.send(to_email, subject, html_content, text_content)
+
+    def _get_order_confirmation_template(self) -> str:
+        """Fallback inline template for order confirmation."""
+        return """
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        </head>
+        <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #0B0608; margin: 0; padding: 20px;">
+            <div style="max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #180F14 0%, #0B0608 100%); border-radius: 20px; padding: 40px; border: 1px solid rgba(183, 110, 121, 0.3);">
+                <div style="text-align: center; margin-bottom: 30px;">
+                    <h1 style="color: #F2C29A; font-size: 32px; margin: 0;">AARYA</h1>
+                    <p style="color: #B76E79; font-size: 14px; margin: 8px 0 0 0; letter-spacing: 4px;">CLOTHINGS</p>
+                </div>
+                <div style="color: #EAE0D5; font-size: 16px; line-height: 1.7;">
+                    <h2 style="color: #F2C29A; font-size: 24px; margin-bottom: 15px;">Order Confirmed!</h2>
+                    <p>Thank you for your purchase!</p>
+                    <p>Order Number: <strong>{{order_number}}</strong></p>
+                    <p>Track your order: <a href="{{track_order_url}}" style="color: #B76E79;">{{track_order_url}}</a></p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+
+    def send_order_shipped_email(
+        self,
+        to_email: str,
+        customer_name: str,
+        order_number: str,
+        tracking_number: str,
+        shipping_carrier: str,
+        estimated_delivery: str,
+        track_order_url: str
+    ) -> bool:
+        """Send order shipped notification email."""
+        subject = f"Your Order Has Shipped! {order_number} - Aarya Clothings"
+
+        # Read template from file
+        template_path = os.path.join(os.path.dirname(__file__), "..", "templates", "order_shipped.html")
+        try:
+            with open(template_path, "r", encoding="utf-8") as f:
+                html_content = f.read()
+        except FileNotFoundError:
+            logger.error(f"[EMAIL] Template not found: {template_path}")
+            html_content = self._get_order_shipped_template()
+
+        # Replace placeholders
+        html_content = html_content.replace("{{customer_name}}", customer_name)
+        html_content = html_content.replace("{{order_number}}", order_number)
+        html_content = html_content.replace("{{tracking_number}}", tracking_number)
+        html_content = html_content.replace("{{shipping_carrier}}", shipping_carrier)
+        html_content = html_content.replace("{{estimated_delivery}}", estimated_delivery)
+        html_content = html_content.replace("{{track_order_url}}", track_order_url)
+        html_content = html_content.replace("{{customer_email}}", to_email)
+
+        text_content = f"""
+        Your Order Has Shipped! - Aarya Clothings
+
+        Great news, {customer_name}! Your order is on its way.
+
+        Order Number: {order_number}
+        Tracking Number: {tracking_number}
+        Shipping Carrier: {shipping_carrier}
+        Estimated Delivery: {estimated_delivery}
+
+        Track your package: {track_order_url}
+
+        © 2026 Aarya Clothings
+        """
+
+        return self.send(to_email, subject, html_content, text_content)
+
+    def _get_order_shipped_template(self) -> str:
+        """Fallback inline template for order shipped."""
+        return """
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+        </head>
+        <body style="background-color: #0B0608; font-family: sans-serif;">
+            <div style="max-width: 600px; margin: 0 auto; padding: 40px; background: #180F14; border-radius: 20px;">
+                <h1 style="color: #F2C29A;">AARYA CLOTHINGS</h1>
+                <h2 style="color: #F2C29A;">Your Order Has Shipped!</h2>
+                <p style="color: #EAE0D5;">Tracking: {{tracking_number}}</p>
+                <a href="{{track_order_url}}" style="color: #B76E79;">Track Your Package</a>
+            </div>
+        </body>
+        </html>
+        """
+
+    def send_order_delivered_email(
+        self,
+        to_email: str,
+        customer_name: str,
+        order_number: str,
+        delivery_date: str,
+        order_details_url: str,
+        review_url: str
+    ) -> bool:
+        """Send order delivered notification email."""
+        subject = f"Your Order Has Been Delivered! {order_number} - Aarya Clothings"
+
+        # Read template from file
+        template_path = os.path.join(os.path.dirname(__file__), "..", "templates", "order_delivered.html")
+        try:
+            with open(template_path, "r", encoding="utf-8") as f:
+                html_content = f.read()
+        except FileNotFoundError:
+            logger.error(f"[EMAIL] Template not found: {template_path}")
+            html_content = self._get_order_delivered_template()
+
+        # Replace placeholders
+        html_content = html_content.replace("{{customer_name}}", customer_name)
+        html_content = html_content.replace("{{order_number}}", order_number)
+        html_content = html_content.replace("{{delivery_date}}", delivery_date)
+        html_content = html_content.replace("{{order_details_url}}", order_details_url)
+        html_content = html_content.replace("{{review_url}}", review_url)
+        html_content = html_content.replace("{{customer_email}}", to_email)
+
+        text_content = f"""
+        Your Order Has Been Delivered! - Aarya Clothings
+
+        Thank you for choosing Aarya Clothings, {customer_name}!
+
+        Order Number: {order_number}
+        Delivered On: {delivery_date}
+
+        We hope you love your purchase!
+
+        View order details: {order_details_url}
+
+        © 2026 Aarya Clothings
+        """
+
+        return self.send(to_email, subject, html_content, text_content)
+
+    def _get_order_delivered_template(self) -> str:
+        """Fallback inline template for order delivered."""
+        return """
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+        </head>
+        <body style="background-color: #0B0608; font-family: sans-serif;">
+            <div style="max-width: 600px; margin: 0 auto; padding: 40px; background: #180F14; border-radius: 20px;">
+                <h1 style="color: #F2C29A;">AARYA CLOTHINGS</h1>
+                <h2 style="color: #F2C29A;">Delivered!</h2>
+                <p style="color: #EAE0D5;">Order: {{order_number}}</p>
+                <a href="{{review_url}}" style="color: #B76E79;">Write a Review</a>
+            </div>
+        </body>
+        </html>
+        """
+
+    def send_order_cancelled_email(
+        self,
+        to_email: str,
+        customer_name: str,
+        order_number: str,
+        cancellation_date: str,
+        reason: str = "",
+        refund_info: str = "Refund will be processed within 5-7 business days.",
+        shop_url: str = ""
+    ) -> bool:
+        """Send order cancelled notification email."""
+        subject = f"Order Cancelled {order_number} - Aarya Clothings"
+
+        # Read template from file
+        template_path = os.path.join(os.path.dirname(__file__), "..", "templates", "order_cancelled.html")
+        try:
+            with open(template_path, "r", encoding="utf-8") as f:
+                html_content = f.read()
+        except FileNotFoundError:
+            logger.error(f"[EMAIL] Template not found: {template_path}")
+            html_content = self._get_order_cancelled_template()
+
+        # Replace placeholders
+        reason_section = f'<p style="color: #EAE0D5; opacity: 0.9; margin: 0;"><strong>Reason:</strong> {reason}</p>' if reason else ""
+        html_content = html_content.replace("{{customer_name}}", customer_name)
+        html_content = html_content.replace("{{order_number}}", order_number)
+        html_content = html_content.replace("{{cancellation_date}}", cancellation_date)
+        html_content = html_content.replace("{{reason_section}}", reason_section)
+        html_content = html_content.replace("{{refund_info}}", refund_info)
+        html_content = html_content.replace("{{shop_url}}", shop_url)
+        html_content = html_content.replace("{{customer_email}}", to_email)
+
+        text_content = f"""
+        Order Cancelled - Aarya Clothings
+
+        Your order has been cancelled, {customer_name}.
+
+        Order Number: {order_number}
+        Cancellation Date: {cancellation_date}
+        {f"Reason: {reason}" if reason else ""}
+
+        Refund Information: {refund_info}
+
+        We're sorry to see you go. Shop again: {shop_url}
+
+        © 2026 Aarya Clothings
+        """
+
+        return self.send(to_email, subject, html_content, text_content)
+
+    def _get_order_cancelled_template(self) -> str:
+        """Fallback inline template for order cancelled."""
+        return """
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+        </head>
+        <body style="background-color: #0B0608; font-family: sans-serif;">
+            <div style="max-width: 600px; margin: 0 auto; padding: 40px; background: #180F14; border-radius: 20px;">
+                <h1 style="color: #F2C29A;">AARYA CLOTHINGS</h1>
+                <h2 style="color: #F2C29A;">Order Cancelled</h2>
+                <p style="color: #EAE0D5;">Order: {{order_number}}</p>
+                <p style="color: #EAE0D5;">{{refund_info}}</p>
+            </div>
+        </body>
+        </html>
+        """
+
 
 # Global email service instance
 email_service = EmailService()

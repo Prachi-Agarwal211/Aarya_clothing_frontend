@@ -64,98 +64,115 @@ export default function ChangePasswordPage() {
   };
 
   return (
-    <div className="w-full max-w-[420px] flex flex-col items-center">
+    <div className="w-full max-w-[480px] lg:max-w-[520px] xl:max-w-[560px] flex flex-col items-center">
       {/* LOGO */}
       <div className="flex flex-col items-center mb-8 sm:mb-10 md:mb-12 animate-fade-in-up">
         <img
           src={logoUrl || ''}
-          alt="Aarya"
-          className="w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 object-contain drop-shadow-[0_0_15px_rgba(242,194,154,0.2)]"
+          alt="Aarya Clothing Logo"
+          className="w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 object-contain drop-shadow-[0_0_15px_rgba(242,194,154,0.2)]"
+          loading="eager"
+          fetchPriority="high"
         />
       </div>
 
       {/* HEADER */}
       <div className="text-center mb-10 space-y-2 animate-fade-in-up-delay">
-        <h2 className="text-2xl text-white/90 font-body">
+        <h2 className="text-2xl sm:text-3xl text-white/90 font-body">
           Change Password
         </h2>
-        <p className="text-[#8A6A5C] text-xs uppercase tracking-[0.2em] font-light">
+        <p className="text-[#8A6A5C] text-sm uppercase tracking-[0.2em] font-light">
           Update your security
         </p>
       </div>
 
       {/* FORM */}
-      <form className="w-full space-y-4 sm:space-y-5 md:space-y-6 animate-fade-in-up-delay" onSubmit={handleSubmit}>
+      <form className="w-full space-y-4 sm:space-y-5 md:space-y-6 animate-fade-in-up-delay" onSubmit={handleSubmit} noValidate>
         {/* Current Password */}
-        <div className="luxury-input-wrapper h-12 sm:h-14 rounded-2xl relative group flex items-center px-4 sm:px-5">
-          <Lock className="w-4 h-4 sm:w-5 sm:h-5 text-[#B76E79] group-focus-within:text-[#F2C29A] transition-colors duration-300" />
+        <div className="luxury-input-wrapper h-14 sm:h-16 rounded-2xl relative group flex items-center px-5 sm:px-6">
+          <Lock className="w-5 h-5 sm:w-6 sm:h-6 text-[#B76E79] group-focus-within:text-[#F2C29A] transition-colors duration-300" aria-hidden="true" />
           <Input
             type={showCurrentPassword ? "text" : "password"}
             placeholder="Current Password"
             value={currentPassword}
             onChange={(e) => setCurrentPassword(e.target.value)}
             variant="minimal"
-            className="h-full pl-3 sm:pl-4 pr-10 text-[#EAE0D5] placeholder:text-[#8A6A5C] text-sm sm:text-base"
+            className="h-full pl-4 sm:pl-5 pr-12 text-[#EAE0D5] placeholder:text-[#8A6A5C] text-base sm:text-lg"
+            autoComplete="current-password"
+            aria-label="Current password"
+            required
           />
           <button
             type="button"
             onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-            className="absolute right-4 text-[#8A6A5C] hover:text-[#F2C29A] transition-colors"
+            className="touch-target-icon absolute right-3 sm:right-4 text-[#8A6A5C] hover:text-[#F2C29A] transition-colors"
+            aria-label={showCurrentPassword ? "Hide password" : "Show password"}
+            tabIndex={0}
           >
-            {showCurrentPassword ? <EyeOff className="w-4 h-4 sm:w-5 sm:h-5" /> : <Eye className="w-4 h-4 sm:w-5 sm:h-5" />}
+            {showCurrentPassword ? <EyeOff className="w-5 h-5 sm:w-6 sm:h-6" /> : <Eye className="w-5 h-5 sm:w-6 sm:h-6" />}
           </button>
         </div>
 
         {/* New Password */}
-        <div className="luxury-input-wrapper h-12 sm:h-14 rounded-2xl relative group flex items-center px-4 sm:px-5">
-          <Lock className="w-4 h-4 sm:w-5 sm:h-5 text-[#B76E79] group-focus-within:text-[#F2C29A] transition-colors duration-300" />
+        <div className="luxury-input-wrapper h-14 sm:h-16 rounded-2xl relative group flex items-center px-5 sm:px-6">
+          <Lock className="w-5 h-5 sm:w-6 sm:h-6 text-[#B76E79] group-focus-within:text-[#F2C29A] transition-colors duration-300" aria-hidden="true" />
           <Input
             type={showNewPassword ? "text" : "password"}
             placeholder="New Password"
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
             variant="minimal"
-            className="h-full pl-3 sm:pl-4 pr-10 text-[#EAE0D5] placeholder:text-[#8A6A5C] text-sm sm:text-base"
+            className="h-full pl-4 sm:pl-5 pr-12 text-[#EAE0D5] placeholder:text-[#8A6A5C] text-base sm:text-lg"
+            autoComplete="new-password"
+            aria-label="New password"
+            required
           />
           <button
             type="button"
             onClick={() => setShowNewPassword(!showNewPassword)}
-            className="absolute right-4 text-[#8A6A5C] hover:text-[#F2C29A] transition-colors"
+            className="touch-target-icon absolute right-3 sm:right-4 text-[#8A6A5C] hover:text-[#F2C29A] transition-colors"
+            aria-label={showNewPassword ? "Hide password" : "Show password"}
+            tabIndex={0}
           >
-            {showNewPassword ? <EyeOff className="w-4 h-4 sm:w-5 sm:h-5" /> : <Eye className="w-4 h-4 sm:w-5 sm:h-5" />}
+            {showNewPassword ? <EyeOff className="w-5 h-5 sm:w-6 sm:h-6" /> : <Eye className="w-5 h-5 sm:w-6 sm:h-6" />}
           </button>
         </div>
 
         {/* Confirm Password */}
-        <div className="luxury-input-wrapper h-12 sm:h-14 rounded-2xl relative group flex items-center px-4 sm:px-5">
-          <Lock className="w-4 h-4 sm:w-5 sm:h-5 text-[#B76E79] group-focus-within:text-[#F2C29A] transition-colors duration-300" />
+        <div className="luxury-input-wrapper h-14 sm:h-16 rounded-2xl relative group flex items-center px-5 sm:px-6">
+          <Lock className="w-5 h-5 sm:w-6 sm:h-6 text-[#B76E79] group-focus-within:text-[#F2C29A] transition-colors duration-300" aria-hidden="true" />
           <Input
             type={showConfirmPassword ? "text" : "password"}
             placeholder="Confirm New Password"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
             variant="minimal"
-            className="h-full pl-3 sm:pl-4 pr-10 text-[#EAE0D5] placeholder:text-[#8A6A5C] text-sm sm:text-base"
+            className="h-full pl-4 sm:pl-5 pr-12 text-[#EAE0D5] placeholder:text-[#8A6A5C] text-base sm:text-lg"
+            autoComplete="new-password"
+            aria-label="Confirm new password"
+            required
           />
           <button
             type="button"
             onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-            className="absolute right-4 text-[#8A6A5C] hover:text-[#F2C29A] transition-colors"
+            className="touch-target-icon absolute right-3 sm:right-4 text-[#8A6A5C] hover:text-[#F2C29A] transition-colors"
+            aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+            tabIndex={0}
           >
-            {showConfirmPassword ? <EyeOff className="w-4 h-4 sm:w-5 sm:h-5" /> : <Eye className="w-4 h-4 sm:w-5 sm:h-5" />}
+            {showConfirmPassword ? <EyeOff className="w-5 h-5 sm:w-6 sm:h-6" /> : <Eye className="w-5 h-5 sm:w-6 sm:h-6" />}
           </button>
         </div>
 
         {/* Password Requirements */}
-        <div className="text-[10px] text-[#6E5E58] space-y-1">
+        <div className="text-xs sm:text-sm text-[#6E5E58] space-y-1" aria-live="polite">
           <p>New password must contain:</p>
           <ul className="space-y-0.5 ml-2">
             {passwordRequirements.map((req, index) => (
               <li key={index} className="flex items-center gap-2">
                 {req.test(newPassword) ? (
-                  <CheckCircle className="w-3 h-3 text-[#C27A4E]" />
+                  <CheckCircle className="w-4 h-4 text-[#C27A4E]" aria-hidden="true" />
                 ) : (
-                  <XCircle className="w-3 h-3 text-[#6E5E58]" />
+                  <XCircle className="w-4 h-4 text-[#6E5E58]" aria-hidden="true" />
                 )}
                 <span className={req.test(newPassword) ? 'text-[#C27A4E]' : ''}>{req.label}</span>
               </li>
@@ -165,15 +182,15 @@ export default function ChangePasswordPage() {
 
         {/* Password Match Indicator */}
         {confirmPassword && (
-          <div className="flex items-center gap-2 text-[10px]">
+          <div className="flex items-center gap-2 text-xs sm:text-sm" role="status" aria-live="polite">
             {passwordsMatch ? (
               <>
-                <CheckCircle className="w-3 h-3 text-[#C27A4E]" />
+                <CheckCircle className="w-4 h-4 text-[#C27A4E]" aria-hidden="true" />
                 <span className="text-[#C27A4E]">Passwords match</span>
               </>
             ) : (
               <>
-                <XCircle className="w-3 h-3 text-[#6E5E58]" />
+                <XCircle className="w-4 h-4 text-[#6E5E58]" aria-hidden="true" />
                 <span className="text-[#6E5E58]">Passwords do not match</span>
               </>
             )}
@@ -184,7 +201,8 @@ export default function ChangePasswordPage() {
         <Button
           type="submit"
           disabled={isSubmitting}
-          className="w-full h-12 sm:h-14 mt-4 sm:mt-6 relative overflow-hidden rounded-2xl bg-transparent border border-[#B76E79]/40 group transition-all duration-500 hover:border-[#F2C29A]/60 hover:shadow-[0_0_30px_rgba(183,110,121,0.3)]"
+          className="w-full h-14 sm:h-16 mt-4 sm:mt-6 relative overflow-hidden rounded-2xl bg-transparent border border-[#B76E79]/40 group transition-all duration-500 hover:border-[#F2C29A]/60 hover:shadow-[0_0_30px_rgba(183,110,121,0.3)]"
+          aria-busy={isSubmitting}
         >
           <div className="absolute inset-0 bg-gradient-to-r from-[#7A2F57]/80 via-[#B76E79]/70 to-[#2A1208]/80 opacity-90"></div>
           <div className="animate-sheen"></div>
@@ -196,17 +214,22 @@ export default function ChangePasswordPage() {
           </span>
         </Button>
 
+        {/* Error/Status Messages */}
         {(error || status) && (
-          <div className="text-center text-[10px]">
-            {error && <p className="text-red-300">{error}</p>}
-            {!error && status && <p className="text-[#C27A4E]">{status}</p>}
+          <div 
+            className={`text-center text-xs sm:text-sm ${error ? 'text-red-300' : 'text-[#C27A4E]'}`} 
+            role={error ? "alert" : "status"}
+            aria-live="polite"
+          >
+            {error && <p>{error}</p>}
+            {!error && status && <p>{status}</p>}
           </div>
         )}
       </form>
 
       {/* BACK TO PRODUCTS */}
       <div className="w-full mt-8 sm:mt-10 md:mt-12">
-        <Link href="/products" className="text-[#8A6A5C] hover:text-[#F2C29A] transition-colors text-xs sm:text-sm tracking-wide uppercase text-[10px] sm:text-xs font-bold tracking-widest">
+        <Link href="/products" className="text-[#8A6A5C] hover:text-[#F2C29A] transition-colors text-xs sm:text-sm tracking-wide uppercase text-xs font-bold tracking-widest">
           ← Back to Products
         </Link>
       </div>

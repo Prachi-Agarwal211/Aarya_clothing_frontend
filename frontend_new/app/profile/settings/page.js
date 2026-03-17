@@ -4,8 +4,10 @@ import React, { useState } from 'react';
 import { Bell, Lock, Eye, EyeOff, Shield, Save, Check } from 'lucide-react';
 import { userApi } from '@/lib/customerApi';
 import logger from '@/lib/logger';
+import { useAlertToast } from '@/lib/useAlertToast';
 
 export default function SettingsPage() {
+  const { showAlert } = useAlertToast();
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
@@ -25,12 +27,12 @@ export default function SettingsPage() {
 
   const handlePasswordChange = async () => {
     if (passwordForm.new_password !== passwordForm.confirm_password) {
-      alert('Passwords do not match');
+      showAlert('Passwords do not match');
       return;
     }
 
     if (passwordForm.new_password.length < 8) {
-      alert('Password must be at least 8 characters');
+      showAlert('Password must be at least 8 characters');
       return;
     }
 

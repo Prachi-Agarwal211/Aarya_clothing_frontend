@@ -38,17 +38,17 @@ export default function ReturnRefundPolicyPage() {
               <div className="flex items-start gap-4 mb-4">
                 <AlertTriangle className="w-6 h-6 text-[#F2C29A] flex-shrink-0 mt-0.5" />
                 <h2 className="text-xl text-[#EAE0D5] font-medium" style={{ fontFamily: 'Cinzel, serif' }}>
-                  Important: Our Return Policy
+                  Easy Returns - We're Here to Help!
                 </h2>
               </div>
               <p className="text-[#EAE0D5]/80 leading-relaxed mb-4">
-                At Aarya Clothing, we take great pride in the quality of our products. Due to the premium nature 
-                of our items and hygiene considerations, <strong className="text-[#F2C29A]">we do not accept returns</strong> for 
-                change of mind, size issues, or color preferences.
+                At Aarya Clothing, we want you to love your purchase. If you're not completely satisfied, 
+                we make it easy to return or exchange your items. We accept returns within <strong className="text-[#F2C29A]">7 days 
+                of delivery</strong> for any reason.
               </p>
               <p className="text-[#EAE0D5]/80 leading-relaxed">
-                We only accept returns and exchanges for products that are <strong className="text-[#F2C29A]">damaged, defective, 
-                or incorrect</strong> upon delivery. Please read this policy carefully before making a purchase.
+                Simply submit a return request, and our team will guide you through the process. If we need any additional 
+                information, we'll reach out to you. Your satisfaction is our priority!
               </p>
             </div>
           </section>

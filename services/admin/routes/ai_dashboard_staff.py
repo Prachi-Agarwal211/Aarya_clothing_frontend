@@ -686,3 +686,64 @@ async def deactivate_staff_account(
     )
     
     return {"success": True, "message": "Account deactivated"}
+
+
+@router.delete(
+    "/api/v1/admin/staff/accounts/{user_id}",
+    tags=["Staff Accounts"],
+    summary="Delete staff account permanently",
+)
+async def delete_staff_account(
+    user_id: int,
+    db: Session = Depends(get_db),
+    user: dict = Depends(require_super_admin)
+):
+    """Permanently delete a staff account and all associated data."""
+    if not has_permission(db, user["sub"], "staff", "delete"):
+        raise HTTPException(status_code=403, detail="Insufficient permissions")
+    
+    # Prevent self-deletion
+    if user["sub"] == user_id:
+        raise HTTPException(status_code=400, detail="Cannot delete your own account")
+    
+    # Check if user exists and is a staff member
+    result = db.execute(
+        text("SELECT id, email, role FROM users WHERE id = :user_id AND role IN ('staff', 'admin', 'super_admin')"),
+        {"user_id": user_id}
+    ).fetchone()
+    
+    if not result:
+        raise HTTPException(status_code=404, detail="Staff account not found")
+    
+    # Prevent deletion of super_admin by non-super_admin
+    if result[2] == "super_admin" and user.get("role") != "super_admin":
+        raise HTTPException(status_code=403, detail="Only super admins can delete super admin accounts")
+    
+    # Delete related data first (foreign key constraints)
+    # Delete staff tasks assigned to this user
+    db.execute(text("DELETE FROM staff_tasks WHERE assigned_to = :user_id"), {"user_id": user_id})
+    
+    # Delete user sessions
+    db.execute(text("DELETE FROM user_sessions WHERE user_id = :user_id"), {"user_id": user_id})
+    
+    # Delete user profile
+    db.execute(text("DELETE FROM user_profiles WHERE user_id = :user_id"), {"user_id": user_id})
+    
+    # Delete user auth
+    db.execute(text("DELETE FROM user_auth WHERE user_id = :user_id"), {"user_id": user_id})
+    
+    # Finally delete the user
+    db.execute(text("DELETE FROM users WHERE id = :user_id"), {"user_id": user_id})
+    
+    db.commit()
+    
+    log_audit_action(
+        db=db,
+        staff_id=user["sub"],
+        action_type="DELETE",
+        module="staff",
+        description=f"Permanently deleted staff account: {result[1]} (ID: {user_id})",
+        ip_address=user.get("ip")
+    )
+    
+    return {"success": True, "message": "Account permanently deleted"}

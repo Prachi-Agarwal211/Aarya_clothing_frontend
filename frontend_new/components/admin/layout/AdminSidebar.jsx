@@ -57,6 +57,7 @@ export default function AdminSidebar({ collapsed, onToggle }) {
       { name: 'Inventory', href: '/admin/inventory', icon: Warehouse },
       { name: 'Collections', href: '/admin/collections', icon: Layers },
       { name: 'Customers', href: '/admin/customers', icon: Users },
+      { name: 'Staff Accounts', href: '/admin/staff', icon: Key },
       { name: 'Analytics', href: '/admin/analytics', icon: BarChart3 },
       { name: 'Aria AI Assistant', href: '/admin/ai-assistant', icon: Sparkles, highlight: true },
       { name: 'Chat Support', href: '/admin/chat', icon: MessageCircle },

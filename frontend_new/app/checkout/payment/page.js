@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { CreditCard, ChevronRight, Lock, Shield, Check, AlertCircle, ShoppingBag, X } from 'lucide-react';
+import { CreditCard, ChevronRight, Lock, Shield, Check, AlertCircle, ShoppingBag, X, RotateCcw } from 'lucide-react';
 import { paymentApi, cartApi } from '@/lib/customerApi';
 import { useCart } from '@/lib/cartContext';
 import { useAuth } from '@/lib/authContext';
@@ -286,6 +287,17 @@ export default function CheckoutPaymentPage() {
           <div>
             <p className="text-sm text-[#F2C29A]">100% Secure Payments</p>
             <p className="text-xs text-[#EAE0D5]/50">Your payment information is encrypted and secure</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Return Policy Info */}
+      <div className="p-4 bg-[#F2C29A]/5 border border-[#F2C29A]/10 rounded-xl">
+        <div className="flex items-center gap-3">
+          <RotateCcw className="w-5 h-5 text-[#F2C29A]" />
+          <div className="flex-1">
+            <p className="text-sm text-[#F2C29A]">Easy Returns Available</p>
+            <p className="text-xs text-[#EAE0D5]/50">Not satisfied? Return within 7 days. <Link href="/returns" className="underline hover:text-[#F2C29A]">Learn more</Link></p>
           </div>
         </div>
       </div>

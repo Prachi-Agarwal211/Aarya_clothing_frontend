@@ -1943,7 +1943,7 @@ async def export_orders_excel(
     db: Session = Depends(get_db),
     current_user: dict = Depends(require_staff),
 ):
-    """Export orders as Excel file. Filters: status, from_date (YYYY-MM-DD), to_date (YYYY-MM-DD)."""
+    """Export orders as Excel file with separate sheets per day. Filters: status, from_date (YYYY-MM-DD), to_date (YYYY-MM-DD)."""
     try:
         import io
         import openpyxl
@@ -1983,9 +1983,20 @@ async def export_orders_excel(
         params,
     ).fetchall()
 
+    # Group orders by date
+    from collections import defaultdict
+    orders_by_date = defaultdict(list)
+    for r in rows:
+        order_date = r[8]
+        if order_date:
+            date_key = order_date.strftime('%Y-%m-%d') if hasattr(order_date, 'strftime') else str(order_date)[:10]
+            orders_by_date[date_key].append(r)
+
     wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "Orders"
+    
+    # Remove default sheet
+    default_sheet = wb.active
+    wb.remove(default_sheet)
 
     headers = [
         "Order ID",
@@ -2004,27 +2015,50 @@ async def export_orders_excel(
     )
     header_font = Font(bold=True, color="F2C29A")
 
-    for col_idx, header in enumerate(headers, 1):
-        cell = ws.cell(row=1, column=col_idx, value=header)
-        cell.font = header_font
-        cell.fill = header_fill
-        cell.alignment = Alignment(horizontal="center")
+    # Create a sheet for each date, sorted by date
+    for date_key in sorted(orders_by_date.keys()):
+        date_orders = orders_by_date[date_key]
+        
+        # Create sheet with date as name (truncate if too long)
+        sheet_name = date_key[:10]  # YYYY-MM-DD
+        # Handle sheet name length limit (31 chars max)
+        if len(sheet_name) > 31:
+            sheet_name = sheet_name[:31]
+        ws = wb.create_sheet(title=sheet_name)
+        
+        # Write headers
+        for col_idx, header in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col_idx, value=header)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = Alignment(horizontal="center")
+        
+        # Write data
+        for row_idx, r in enumerate(date_orders, 2):
+            order_id = r[0]
+            ws.cell(row=row_idx, column=1, value=order_id)
+            ws.cell(row=row_idx, column=2, value=f"ORD-{order_id:06d}")
+            ws.cell(row=row_idx, column=3, value=r[1])   # email
+            ws.cell(row=row_idx, column=4, value=r[2])   # customer_name
+            ws.cell(row=row_idx, column=5, value=float(r[3] or 0))  # total
+            ws.cell(row=row_idx, column=6, value=r[4])   # payment_method
+            ws.cell(row=row_idx, column=7, value=r[6])   # tracking_number / POD
+            ws.cell(row=row_idx, column=8, value=r[7])   # shipping_address
+            ws.cell(row=row_idx, column=9, value=str(r[8])[:19] if r[8] else "")  # created_at
+        
+        # Auto-adjust column widths
+        for col in ws.columns:
+            max_len = max((len(str(cell.value or "")) for cell in col), default=10)
+            ws.column_dimensions[col[0].column_letter].width = min(max_len + 4, 50)
 
-    for row_idx, r in enumerate(rows, 2):
-        order_id = r[0]
-        ws.cell(row=row_idx, column=1, value=order_id)
-        ws.cell(row=row_idx, column=2, value=f"ORD-{order_id:06d}")
-        ws.cell(row=row_idx, column=3, value=r[1])   # email
-        ws.cell(row=row_idx, column=4, value=r[2])   # customer_name
-        ws.cell(row=row_idx, column=5, value=float(r[3] or 0))  # total
-        ws.cell(row=row_idx, column=6, value=r[4])   # payment_method
-        ws.cell(row=row_idx, column=7, value=r[6])   # tracking_number / POD
-        ws.cell(row=row_idx, column=8, value=r[7])   # shipping_address
-        ws.cell(row=row_idx, column=9, value=str(r[8])[:19] if r[8] else "")  # created_at
-
-    for col in ws.columns:
-        max_len = max((len(str(cell.value or "")) for cell in col), default=10)
-        ws.column_dimensions[col[0].column_letter].width = min(max_len + 4, 50)
+    # If no orders, create empty sheet
+    if not orders_by_date:
+        ws = wb.create_sheet(title="No Orders")
+        for col_idx, header in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col_idx, value=header)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = Alignment(horizontal="center")
 
     output = io.BytesIO()
     wb.save(output)

@@ -135,13 +135,13 @@ export default function StaffManagementPage() {
     }
   };
 
-  const handleDeactivateAccount = async (userId) => {
-    if (!confirm('Are you sure you want to deactivate this account?')) return;
+  const handleDeleteAccount = async (userId, userName) => {
+    if (!confirm(`Are you sure you want to permanently delete the account "${userName}"? This action cannot be undone.`)) return;
     try {
-      await staffManagementApi.deactivateAccount(userId);
+      await staffManagementApi.deleteAccount(userId);
       loadData();
     } catch (error) {
-      alert('Failed to deactivate account: ' + (error.message || 'Unknown error'));
+      alert('Failed to delete account: ' + (error.message || 'Unknown error'));
     }
   };
 

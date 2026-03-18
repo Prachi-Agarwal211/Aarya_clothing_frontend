@@ -124,10 +124,7 @@ function CreateReturnContent() {
       setError('Please provide a description of the issue');
       return;
     }
-    if (!video) {
-      setError('A video of the product unboxing is required for all return requests. Please record and upload the video.');
-      return;
-    }
+    // Video is now optional - admin may ask for it if needed for verification
 
     try {
       setSubmitting(true);
@@ -204,18 +201,18 @@ function CreateReturnContent() {
         </p>
       </div>
 
-      {/* Return Policy Notice */}
+      {/* Return Policy Notice - Simplified */}
       <div className="p-4 bg-[#7A2F57]/10 border border-[#B76E79]/20 rounded-xl">
         <div className="flex gap-3">
           <AlertCircle className="w-5 h-5 text-[#B76E79] flex-shrink-0 mt-0.5" />
           <div className="text-sm text-[#EAE0D5]/70">
             <p className="font-medium text-[#EAE0D5] mb-1">Return Policy</p>
             <ul className="list-disc list-inside space-y-1">
-              <li>Returns are accepted <strong className="text-[#EAE0D5]">only for defective or damaged items</strong></li>
-              <li>A video of unboxing the product is <strong className="text-[#EAE0D5]">mandatory</strong> for all return requests</li>
-              <li>In the video, clearly show the defect or damage</li>
+              <li>Returns are accepted for <strong className="text-[#EAE0D5]">defective, damaged, or wrong items</strong></li>
+              <li>Please describe the issue in detail - our team will review your request</li>
+              <li>If needed, we may request a video for verification</li>
               <li>Returns must be submitted within 7 days of delivery</li>
-              <li>Refunds processed within 5-7 business days after admin approval</li>
+              <li>Refunds processed within 5-7 business days after approval</li>
             </ul>
           </div>
         </div>
@@ -391,11 +388,11 @@ function CreateReturnContent() {
               />
             </div>
 
-            {/* Video Upload - Required */}
+            {/* Video Upload - Optional */}
             <div className="p-6 bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl">
-              <h3 className="text-lg font-medium text-[#F2C29A] mb-1">Upload Unboxing Video <span className="text-red-400 text-sm">*Required</span></h3>
+              <h3 className="text-lg font-medium text-[#F2C29A] mb-1">Upload Unboxing Video <span className="text-[#EAE0D5]/50 text-sm">(Optional - Optional but helpful for faster verification)</span></h3>
               <p className="text-sm text-[#EAE0D5]/50 mb-4">
-                Record a video while opening the package. Clearly show the product and any defect/damage in the video.
+                If you have a video of the unboxing, please upload it. This helps us verify the issue quickly.
               </p>
 
               {videoPreview ? (
@@ -430,7 +427,7 @@ function CreateReturnContent() {
 
               <div className="mt-3 p-3 bg-[#7A2F57]/10 rounded-lg">
                 <p className="text-xs text-[#EAE0D5]/60">
-                  <strong className="text-[#F2C29A]">How to record:</strong> Start recording before opening the package. Show the sealed package, then open it on camera. Display the product clearly and show any defect/damage. Keep the video under 3 minutes.
+                  <strong className="text-[#F2C29A]">Tip:</strong> If uploading a video, start recording before opening the package. Show the sealed package, then open it on camera. Display the product clearly and show any defect/damage. Keep the video under 3 minutes.
                 </p>
               </div>
             </div>

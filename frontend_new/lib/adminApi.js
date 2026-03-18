@@ -184,6 +184,12 @@ export const usersApi = {
   get: (id) => 
     adminClient.get(`/api/v1/admin/users/${id}`),
 
+  create: (data) =>
+    adminClient.post('/api/v1/admin/users', data),
+
+  update: (id, data) =>
+    adminClient.patch(`/api/v1/admin/users/${id}`, data),
+
   updateStatus: (id, isActive) => 
     adminClient.put(`/api/v1/admin/users/${id}/status`, { is_active: isActive }),
 
@@ -593,6 +599,9 @@ export const staffManagementApi = {
 
   deactivateAccount: (userId) =>
     adminClient.post(`/api/v1/admin/staff/accounts/${userId}/deactivate`),
+
+  deleteAccount: (userId) =>
+    adminClient.delete(`/api/v1/admin/staff/accounts/${userId}`),
 
   // Access Control
   createIPRestriction: (restrictionData) =>

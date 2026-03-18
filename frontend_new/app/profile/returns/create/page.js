@@ -2,11 +2,10 @@
 
 import React, { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
-  RotateCcw, Package, ChevronLeft, AlertCircle, Camera, Upload,
-  CheckCircle, X, Trash2, ChevronRight, Loader2
+  RotateCcw, Package, ChevronLeft, AlertCircle, Upload,
+  CheckCircle, X, ChevronRight, Loader2
 } from 'lucide-react';
 import { returnsApi, ordersApi } from '@/lib/customerApi';
 import { useAuth } from '@/lib/authContext';
@@ -16,10 +15,6 @@ const RETURN_REASONS = [
   { value: 'defective', label: 'Defective Product', description: 'Product has manufacturing defects or quality issues' },
   { value: 'damaged', label: 'Damaged During Shipping', description: 'Product arrived damaged due to shipping' },
   { value: 'wrong_item', label: 'Wrong Item Received', description: 'Received a different product than ordered' },
-  { value: 'size_issue', label: 'Size Issue', description: 'Product size doesn\'t fit as expected' },
-  { value: 'quality_issue', label: 'Quality Issue', description: 'Product quality not as described' },
-  { value: 'changed_mind', label: 'Changed Mind', description: 'No longer want the product' },
-  { value: 'other', label: 'Other Reason', description: 'Please specify in description' },
 ];
 
 const RETURN_TYPES = [
@@ -54,7 +49,8 @@ function CreateReturnContent() {
   const [returnType, setReturnType] = useState('return');
   const [reason, setReason] = useState('');
   const [description, setDescription] = useState('');
-  const [images, setImages] = useState([]);
+  const [video, setVideo] = useState(null);
+  const [videoPreview, setVideoPreview] = useState(null);
   const [exchangePreference, setExchangePreference] = useState('');
 
   useEffect(() => {
@@ -97,22 +93,18 @@ function CreateReturnContent() {
     });
   };
 
-  const handleImageUpload = (e) => {
-    const files = Array.from(e.target.files || []);
-    const newImages = files.map(file => ({
-      file,
-      preview: URL.createObjectURL(file),
-    }));
-    setImages(prev => [...prev, ...newImages].slice(0, 5)); // Max 5 images
+  const handleVideoUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (videoPreview) URL.revokeObjectURL(videoPreview);
+    setVideo(file);
+    setVideoPreview(URL.createObjectURL(file));
   };
 
-  const handleRemoveImage = (index) => {
-    setImages(prev => {
-      const newImages = [...prev];
-      URL.revokeObjectURL(newImages[index].preview);
-      newImages.splice(index, 1);
-      return newImages;
-    });
+  const handleRemoveVideo = () => {
+    if (videoPreview) URL.revokeObjectURL(videoPreview);
+    setVideo(null);
+    setVideoPreview(null);
   };
 
   const handleSubmit = async (e) => {
@@ -132,11 +124,9 @@ function CreateReturnContent() {
       setError('Please provide a description of the issue');
       return;
     }
-    if (reason === 'defective' || reason === 'damaged') {
-      if (images.length === 0) {
-        setError('Please upload at least one photo showing the defect/damage');
-        return;
-      }
+    if (!video) {
+      setError('A video of the product unboxing is required for all return requests. Please record and upload the video.');
+      return;
     }
 
     try {
@@ -153,7 +143,7 @@ function CreateReturnContent() {
           quantity: item.quantity,
           price: item.price,
         })),
-        images: images.map(img => img.preview), // In real app, upload first
+        video_url: videoPreview || null, // In real app, upload first
         exchange_preference: returnType === 'exchange' ? exchangePreference : null,
       };
 
@@ -210,7 +200,7 @@ function CreateReturnContent() {
       <div>
         <h2 className="text-xl font-semibold text-[#F2C29A]">Create Return/Exchange Request</h2>
         <p className="text-sm text-[#EAE0D5]/50 mt-1">
-          Submit a return or exchange request for defective, damaged, or unwanted items
+          Submit a return or exchange request for defective or damaged items
         </p>
       </div>
 
@@ -221,10 +211,11 @@ function CreateReturnContent() {
           <div className="text-sm text-[#EAE0D5]/70">
             <p className="font-medium text-[#EAE0D5] mb-1">Return Policy</p>
             <ul className="list-disc list-inside space-y-1">
-              <li>Returns accepted within 7 days of delivery</li>
-              <li>Items must be unused with original tags attached</li>
-              <li>Defective/damaged items require photo evidence</li>
-              <li>Refunds processed within 5-7 business days after approval</li>
+              <li>Returns are accepted <strong className="text-[#EAE0D5]">only for defective or damaged items</strong></li>
+              <li>A video of unboxing the product is <strong className="text-[#EAE0D5]">mandatory</strong> for all return requests</li>
+              <li>In the video, clearly show the defect or damage</li>
+              <li>Returns must be submitted within 7 days of delivery</li>
+              <li>Refunds processed within 5-7 business days after admin approval</li>
             </ul>
           </div>
         </div>
@@ -400,49 +391,47 @@ function CreateReturnContent() {
               />
             </div>
 
-            {/* Image Upload */}
+            {/* Video Upload - Required */}
             <div className="p-6 bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl">
-              <h3 className="text-lg font-medium text-[#F2C29A] mb-2">Upload Photos</h3>
+              <h3 className="text-lg font-medium text-[#F2C29A] mb-1">Upload Unboxing Video <span className="text-red-400 text-sm">*Required</span></h3>
               <p className="text-sm text-[#EAE0D5]/50 mb-4">
-                {(reason === 'defective' || reason === 'damaged') && (
-                  <span className="text-yellow-400">* Required for defective/damaged items. </span>
-                )}
-                Upload up to 5 photos showing the issue
+                Record a video while opening the package. Clearly show the product and any defect/damage in the video.
               </p>
-              
-              <div className="flex flex-wrap gap-4">
-                {images.map((img, index) => (
-                  <div key={index} className="relative w-24 h-24 rounded-xl overflow-hidden bg-[#7A2F57]/20">
-                    <Image
-                      src={img.preview}
-                      alt={`Upload preview ${index + 1}`}
-                      fill
-                      className="object-cover"
-                      sizes="96px"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveImage(index)}
-                      className="absolute top-1 right-1 w-6 h-6 bg-red-500/80 rounded-full flex items-center justify-center hover:bg-red-500 transition-colors"
-                    >
-                      <X className="w-4 h-4 text-white" />
-                    </button>
-                  </div>
-                ))}
-                
-                {images.length < 5 && (
-                  <label className="w-24 h-24 rounded-xl border-2 border-dashed border-[#B76E79]/30 flex flex-col items-center justify-center cursor-pointer hover:border-[#B76E79]/50 transition-colors">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      multiple
-                      onChange={handleImageUpload}
-                      className="sr-only"
-                    />
-                    <Camera className="w-6 h-6 text-[#B76E79]/50" />
-                    <span className="text-xs text-[#EAE0D5]/50 mt-1">Add Photo</span>
-                  </label>
-                )}
+
+              {videoPreview ? (
+                <div className="relative rounded-xl overflow-hidden bg-[#0B0608]/60 border border-[#B76E79]/20">
+                  <video
+                    src={videoPreview}
+                    controls
+                    className="w-full max-h-64 object-contain"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleRemoveVideo}
+                    className="absolute top-2 right-2 w-8 h-8 bg-red-500/80 rounded-full flex items-center justify-center hover:bg-red-500 transition-colors"
+                  >
+                    <X className="w-4 h-4 text-white" />
+                  </button>
+                  <p className="p-2 text-xs text-green-400 text-center">{video?.name}</p>
+                </div>
+              ) : (
+                <label className="flex flex-col items-center justify-center w-full h-40 rounded-xl border-2 border-dashed border-[#B76E79]/30 cursor-pointer hover:border-[#B76E79]/60 transition-colors bg-[#0B0608]/40">
+                  <input
+                    type="file"
+                    accept="video/*"
+                    onChange={handleVideoUpload}
+                    className="sr-only"
+                  />
+                  <Upload className="w-8 h-8 text-[#B76E79]/50 mb-2" />
+                  <span className="text-sm text-[#EAE0D5]/60">Click to upload video</span>
+                  <span className="text-xs text-[#EAE0D5]/30 mt-1">MP4, MOV, AVI up to 200MB</span>
+                </label>
+              )}
+
+              <div className="mt-3 p-3 bg-[#7A2F57]/10 rounded-lg">
+                <p className="text-xs text-[#EAE0D5]/60">
+                  <strong className="text-[#F2C29A]">How to record:</strong> Start recording before opening the package. Show the sealed package, then open it on camera. Display the product clearly and show any defect/damage. Keep the video under 3 minutes.
+                </p>
               </div>
             </div>
           </div>

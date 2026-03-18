@@ -6,7 +6,6 @@ import { useRouter } from 'next/navigation';
 import {
   RotateCcw, Eye, CheckCircle, XCircle, RefreshCw, Download, Square, CheckSquare
 } from 'lucide-react';
-import AdminLayout from '@/components/admin/layout/AdminLayout';
 import DataTable from '@/components/admin/shared/DataTable';
 import { ReturnStatusBadge } from '@/components/admin/shared/StatusBadge';
 import { returnsApi } from '@/lib/adminApi';
@@ -262,8 +261,7 @@ export default function AdminReturnsPage() {
   ];
 
   return (
-    <AdminLayout>
-      <div className="space-y-6">
+    <div className="space-y-6">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
@@ -373,7 +371,6 @@ export default function AdminReturnsPage() {
           emptyMessage="No return requests found"
           emptyIcon={RotateCcw}
         />
-      </div>
-    </AdminLayout>
+    </div>
   );
 }

@@ -260,6 +260,53 @@ export default function Home() {
             />
           </LazyLoad>
 
+          {/* Pricing Promise / No Hidden Charges Section */}
+          <section className="py-16 sm:py-20 relative z-10">
+            <div className="container mx-auto px-4 sm:px-6">
+              <div className="max-w-4xl mx-auto">
+                <div className="text-center mb-10">
+                  <h2 className="text-2xl sm:text-3xl font-semibold text-[#F2C29A] mb-3" style={{ fontFamily: 'Cinzel, serif' }}>
+                    Our Promise to You
+                  </h2>
+                  <p className="text-[#EAE0D5]/60 text-sm sm:text-base">
+                    Shopping should be simple, honest, and stress-free.
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  {[
+                    {
+                      icon: '✓',
+                      title: 'No Hidden Charges',
+                      desc: 'The price you see is the price you pay. All taxes and shipping are already included — always.',
+                      color: 'border-green-500/20 bg-green-500/5',
+                      textColor: 'text-green-400',
+                    },
+                    {
+                      icon: '✓',
+                      title: 'Free Shipping',
+                      desc: 'All orders ship free across India. No minimum order value, no surprise fees at checkout.',
+                      color: 'border-[#B76E79]/20 bg-[#7A2F57]/10',
+                      textColor: 'text-[#F2C29A]',
+                    },
+                    {
+                      icon: '✓',
+                      title: 'Secure Online Payment',
+                      desc: 'Pay safely via UPI, cards, or net banking through Razorpay. No COD — your security is our priority.',
+                      color: 'border-blue-500/20 bg-blue-500/5',
+                      textColor: 'text-blue-400',
+                    },
+                  ].map((item) => (
+                    <div key={item.title} className={`p-6 rounded-2xl border ${item.color} text-center`}>
+                      <span className={`text-2xl font-bold ${item.textColor} mb-3 block`}>{item.icon}</span>
+                      <h3 className="text-[#EAE0D5] font-semibold mb-2">{item.title}</h3>
+                      <p className="text-[#EAE0D5]/50 text-sm leading-relaxed">{item.desc}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </section>
+
           <LazyLoad skeletonHeight="300px">
             <Footer
               id="footer"

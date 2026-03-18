@@ -88,15 +88,15 @@ function ReturnsContent() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold text-[#F2C29A]">My Returns & Exchanges</h2>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <h2 className="text-xl font-semibold text-[#F2C29A]">My Returns &amp; Exchanges</h2>
         
         <div className="flex items-center gap-3">
           {/* Filter */}
           <select
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
-            className="px-3 py-2 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-lg text-[#EAE0D5] focus:outline-none focus:border-[#B76E79]/40 text-sm"
+            className="flex-1 sm:flex-none px-3 py-2 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-lg text-[#EAE0D5] focus:outline-none focus:border-[#B76E79]/40 text-sm"
           >
             <option value="all">All Requests</option>
             <option value="pending">Pending</option>
@@ -112,8 +112,7 @@ function ReturnsContent() {
       <div className="p-4 bg-[#7A2F57]/10 border border-[#B76E79]/20 rounded-xl">
         <p className="text-sm text-[#EAE0D5]/70">
           <AlertCircle className="w-4 h-4 inline mr-2 text-[#B76E79]" />
-          Return requests can be made within 7 days of delivery. For defective or damaged items, 
-          please include photos showing the issue.
+          Return requests must be made within <strong className="text-[#EAE0D5]">7 days of delivery</strong>. An unboxing video is <strong className="text-[#EAE0D5]">mandatory</strong> for all return requests — no video, no return.
         </p>
       </div>
 

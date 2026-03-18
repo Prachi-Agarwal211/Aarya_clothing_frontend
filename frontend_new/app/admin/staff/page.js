@@ -1,73 +1,10 @@
 'use client';
 
-/**
- * Staff Account Management Page
- * Create and manage staff accounts with granular permissions
- */
-
 import { useState, useEffect } from 'react';
 import { staffManagementApi } from '@/lib/adminApi';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from '@/components/ui/tabs';
-import {
-  Checkbox
-} from '@/components/ui/checkbox';
-import {
-  Users,
-  UserPlus,
-  Shield,
-  Key,
-  Clock,
-  Monitor,
-  FileText,
-  Search,
-  Edit,
-  Trash2,
-  MoreHorizontal,
-  CheckCircle,
-  XCircle,
-  AlertCircle,
-  RefreshCw,
-  Download,
-  Eye,
-  LogOut,
-  Smartphone,
-  MapPin,
-  Calendar,
+  Users, UserPlus, Shield, FileText, CheckCircle, XCircle,
+  RefreshCw, Download, Eye, Edit, Trash2, LogOut, X,
 } from 'lucide-react';
 
 const PERMISSION_MODULES = [
@@ -264,443 +201,275 @@ export default function StaffManagementPage() {
     }
   };
 
+  const inputCls = "w-full px-3 py-2.5 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-xl text-[#EAE0D5] placeholder-[#EAE0D5]/30 focus:outline-none focus:border-[#B76E79]/40 text-sm";
+  const labelCls = "block text-xs text-[#EAE0D5]/60 mb-1.5 uppercase tracking-wider";
+  const roleBadge = (role) => {
+    const map = { super_admin: 'bg-red-500/20 text-red-300', admin: 'bg-[#7A2F57]/30 text-[#F2C29A]', staff: 'bg-[#B76E79]/15 text-[#EAE0D5]/70' };
+    return map[role] || map.staff;
+  };
+
   return (
-    <div className="flex-1 space-y-6 p-6">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Staff Management</h1>
-          <p className="text-muted-foreground">
-            Manage staff accounts, roles, and permissions
-          </p>
+          <h1 className="text-2xl md:text-3xl font-bold text-[#F2C29A]" style={{ fontFamily: 'Cinzel, serif' }}>Staff Management</h1>
+          <p className="text-[#EAE0D5]/60 mt-1">Manage staff accounts, roles, and permissions</p>
         </div>
-        <div className="flex gap-2">
-          <Dialog open={isRoleDialogOpen} onOpenChange={setIsRoleDialogOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline">
-                <Shield className="h-4 w-4 mr-2" />
-                Create Custom Role
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-4xl">
-              <DialogHeader>
-                <DialogTitle>Create Custom Role</DialogTitle>
-                <DialogDescription>
-                  Define granular permissions for this role
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="role-name">Role Name</Label>
-                    <Input
-                      id="role-name"
-                      value={roleFormData.name}
-                      onChange={(e) =>
-                        setRoleFormData({ ...roleFormData, name: e.target.value })
-                      }
-                      placeholder="e.g., Inventory Manager"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="role-description">Description</Label>
-                    <Input
-                      id="role-description"
-                      value={roleFormData.description}
-                      onChange={(e) =>
-                        setRoleFormData({ ...roleFormData, description: e.target.value })
-                      }
-                      placeholder="Role description"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <Label>Load Preset</Label>
-                  <div className="flex gap-2 mt-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => loadRolePreset('staff')}
-                    >
-                      Staff Preset
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => loadRolePreset('admin')}
-                    >
-                      Admin Preset
-                    </Button>
-                  </div>
-                </div>
-
-                <div>
-                  <Label>Permissions</Label>
-                  <div className="mt-2 border rounded-lg">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-48">Module</TableHead>
-                          {PERMISSION_ACTIONS.map((action) => (
-                            <TableHead key={action.value} className="text-center">
-                              {action.label}
-                            </TableHead>
-                          ))}
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {PERMISSION_MODULES.map((module) => (
-                          <TableRow key={module.value}>
-                            <TableCell className="font-medium">
-                              {module.label}
-                            </TableCell>
-                            {PERMISSION_ACTIONS.map((action) => (
-                              <TableCell key={action.value} className="text-center">
-                                <Checkbox
-                                  checked={hasPermission(module.value, action.value)}
-                                  onCheckedChange={() =>
-                                    togglePermission(module.value, action.value)
-                                  }
-                                />
-                              </TableCell>
-                            ))}
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </div>
-
-                <div className="text-sm text-muted-foreground">
-                  Selected permissions:{' '}
-                  {roleFormData.permissions.reduce(
-                    (acc, p) => acc + p.actions.length,
-                    0
-                  )}{' '}
-                  across {roleFormData.permissions.length} modules
-                </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsRoleDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button onClick={handleCreateRole}>Create Role</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-
-          <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <UserPlus className="h-4 w-4 mr-2" />
-                Add Staff Account
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Create Staff Account</DialogTitle>
-                <DialogDescription>
-                  Add a new staff member with specific role and permissions
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) =>
-                      setFormData({ ...formData, email: e.target.value })
-                    }
-                    placeholder="staff@aaryaclothing.com"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="username">Username</Label>
-                  <Input
-                    id="username"
-                    value={formData.username}
-                    onChange={(e) =>
-                      setFormData({ ...formData, username: e.target.value })
-                    }
-                    placeholder="username"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="full_name">Full Name</Label>
-                  <Input
-                    id="full_name"
-                    value={formData.full_name}
-                    onChange={(e) =>
-                      setFormData({ ...formData, full_name: e.target.value })
-                    }
-                    placeholder="Full Name"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="password">Password</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    value={formData.password}
-                    onChange={(e) =>
-                      setFormData({ ...formData, password: e.target.value })
-                    }
-                    placeholder="Minimum 8 characters"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="role">Role</Label>
-                    <Select
-                      value={formData.role}
-                      onValueChange={(value) =>
-                        setFormData({ ...formData, role: value })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="staff">Staff</SelectItem>
-                        <SelectItem value="admin">Admin</SelectItem>
-                        <SelectItem value="super_admin">Super Admin</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="department">Department</Label>
-                    <Input
-                      id="department"
-                      value={formData.department}
-                      onChange={(e) =>
-                        setFormData({ ...formData, department: e.target.value })
-                      }
-                      placeholder="e.g., Sales, Inventory"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <Label htmlFor="phone">Phone</Label>
-                  <Input
-                    id="phone"
-                    value={formData.phone}
-                    onChange={(e) =>
-                      setFormData({ ...formData, phone: e.target.value })
-                    }
-                    placeholder="+91 98765 43210"
-                  />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button onClick={handleCreateAccount}>Create Account</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+        <div className="flex gap-3">
+          <button
+            onClick={() => setIsRoleDialogOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl border border-[#B76E79]/20 text-[#EAE0D5]/70 hover:bg-[#B76E79]/10 transition-colors text-sm"
+          >
+            <Shield className="w-4 h-4" /> Create Role
+          </button>
+          <button
+            onClick={() => setIsCreateDialogOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-[#7A2F57] to-[#B76E79] text-white font-medium hover:opacity-90 transition-opacity text-sm"
+          >
+            <UserPlus className="w-4 h-4" /> Add Staff
+          </button>
         </div>
       </div>
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
-          <TabsTrigger value="accounts">
-            <Users className="h-4 w-4 mr-2" />
-            Accounts ({accounts.length})
-          </TabsTrigger>
-          <TabsTrigger value="roles">
-            <Shield className="h-4 w-4 mr-2" />
-            Custom Roles ({roles.length})
-          </TabsTrigger>
-          <TabsTrigger value="audit">
-            <FileText className="h-4 w-4 mr-2" />
-            Audit Logs
-          </TabsTrigger>
-        </TabsList>
+      <div className="flex gap-1 p-1 bg-[#0B0608]/60 border border-[#B76E79]/15 rounded-2xl w-fit">
+        {[{ id: 'accounts', label: `Accounts (${accounts.length})`, icon: Users }, { id: 'roles', label: `Roles (${roles.length})`, icon: Shield }, { id: 'audit', label: 'Audit Logs', icon: FileText }].map(tab => (
+          <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm transition-all ${
+              activeTab === tab.id ? 'bg-[#7A2F57]/40 text-[#F2C29A] font-medium' : 'text-[#EAE0D5]/50 hover:text-[#EAE0D5]/80'
+            }`}>
+            <tab.icon className="w-4 h-4" />{tab.label}
+          </button>
+        ))}
+      </div>
 
-        <TabsContent value="accounts" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Staff Accounts</CardTitle>
-              <CardDescription>
-                Manage all staff, admin, and super admin accounts
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>User</TableHead>
-                    <TableHead>Role</TableHead>
-                    <TableHead>Department</TableHead>
-                    <TableHead>2FA</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Last Login</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+      {/* Accounts Tab */}
+      {activeTab === 'accounts' && (
+        <div className="bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl overflow-hidden">
+          <div className="p-4 border-b border-[#B76E79]/10">
+            <h3 className="text-[#F2C29A] font-medium">Staff Accounts</h3>
+            <p className="text-xs text-[#EAE0D5]/50 mt-0.5">Manage all staff, admin, and super admin accounts</p>
+          </div>
+          {isLoading ? (
+            <div className="p-8 text-center"><RefreshCw className="w-6 h-6 animate-spin text-[#B76E79] mx-auto" /></div>
+          ) : accounts.length === 0 ? (
+            <div className="p-12 text-center"><Users className="w-10 h-10 text-[#B76E79]/30 mx-auto mb-3" /><p className="text-[#EAE0D5]/40">No staff accounts found</p></div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-[#B76E79]/10">
+                    {['User', 'Role', 'Department', '2FA', 'Status', 'Last Login', 'Actions'].map(h => (
+                      <th key={h} className="px-4 py-3 text-left text-xs text-[#EAE0D5]/40 uppercase tracking-wider font-medium">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
                   {accounts.map((account) => (
-                    <TableRow key={account.id}>
-                      <TableCell>
-                        <div>
-                          <div className="font-medium">{account.full_name}</div>
-                          <div className="text-sm text-muted-foreground">
-                            {account.email}
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={
-                            account.role === 'super_admin'
-                              ? 'destructive'
-                              : account.role === 'admin'
-                              ? 'default'
-                              : 'secondary'
-                          }
-                        >
+                    <tr key={account.id} className="border-b border-[#B76E79]/5 hover:bg-[#B76E79]/5 transition-colors">
+                      <td className="px-4 py-3">
+                        <p className="font-medium text-[#EAE0D5]">{account.full_name || account.username}</p>
+                        <p className="text-xs text-[#EAE0D5]/50">{account.email}</p>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${roleBadge(account.role)}`}>
                           {account.role.replace('_', ' ')}
-                        </Badge>
-                        {account.custom_role_name && (
-                          <div className="text-xs text-muted-foreground mt-1">
-                            {account.custom_role_name}
-                          </div>
-                        )}
-                      </TableCell>
-                      <TableCell>{account.department || '-'}</TableCell>
-                      <TableCell>
-                        {account.two_factor_enabled ? (
-                          <CheckCircle className="h-4 w-4 text-green-600" />
-                        ) : (
-                          <XCircle className="h-4 w-4 text-muted-foreground" />
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={account.is_active ? 'default' : 'secondary'}>
-                          {account.is_active ? 'Active' : 'Inactive'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {account.last_login
-                          ? new Date(account.last_login).toLocaleString()
-                          : 'Never'}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button variant="ghost" size="icon">
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="icon">
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
+                        </span>
+                        {account.custom_role_name && <p className="text-xs text-[#EAE0D5]/40 mt-0.5">{account.custom_role_name}</p>}
+                      </td>
+                      <td className="px-4 py-3 text-[#EAE0D5]/60">{account.department || '—'}</td>
+                      <td className="px-4 py-3">
+                        {account.two_factor_enabled
+                          ? <CheckCircle className="w-4 h-4 text-green-400" />
+                          : <XCircle className="w-4 h-4 text-[#EAE0D5]/20" />}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
+                          account.is_active ? 'bg-green-500/15 text-green-400' : 'bg-[#EAE0D5]/5 text-[#EAE0D5]/30'
+                        }`}>{account.is_active ? 'Active' : 'Inactive'}</span>
+                      </td>
+                      <td className="px-4 py-3 text-xs text-[#EAE0D5]/50">
+                        {account.last_login ? new Date(account.last_login).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Never'}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex gap-1">
+                          <button className="p-1.5 rounded-lg hover:bg-[#B76E79]/10 text-[#EAE0D5]/50 hover:text-[#EAE0D5] transition-colors" title="View"><Eye className="w-4 h-4" /></button>
+                          <button
                             onClick={() => handleDeactivateAccount(account.id)}
+                            className="p-1.5 rounded-lg hover:bg-[#B76E79]/10 text-[#EAE0D5]/50 hover:text-orange-400 transition-colors"
+                            title={account.is_active ? 'Deactivate' : 'Activate'}
                           >
-                            {account.is_active ? (
-                              <LogOut className="h-4 w-4" />
-                            ) : (
-                              <CheckCircle className="h-4 w-4" />
-                            )}
-                          </Button>
+                            {account.is_active ? <LogOut className="w-4 h-4" /> : <CheckCircle className="w-4 h-4" />}
+                          </button>
                         </div>
-                      </TableCell>
-                    </TableRow>
+                      </td>
+                    </tr>
                   ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </TabsContent>
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
 
-        <TabsContent value="roles" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Custom Roles</CardTitle>
-              <CardDescription>
-                Define custom permission sets for specific use cases
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Role Name</TableHead>
-                    <TableHead>Description</TableHead>
-                    <TableHead>Modules</TableHead>
-                    <TableHead>Permissions</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Created</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+      {/* Roles Tab */}
+      {activeTab === 'roles' && (
+        <div className="bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl overflow-hidden">
+          <div className="p-4 border-b border-[#B76E79]/10">
+            <h3 className="text-[#F2C29A] font-medium">Custom Roles</h3>
+            <p className="text-xs text-[#EAE0D5]/50 mt-0.5">Define custom permission sets for specific use cases</p>
+          </div>
+          {roles.length === 0 ? (
+            <div className="p-12 text-center"><Shield className="w-10 h-10 text-[#B76E79]/30 mx-auto mb-3" /><p className="text-[#EAE0D5]/40">No custom roles defined</p></div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-[#B76E79]/10">
+                    {['Role Name', 'Description', 'Modules', 'Permissions', 'Status', 'Created', 'Actions'].map(h => (
+                      <th key={h} className="px-4 py-3 text-left text-xs text-[#EAE0D5]/40 uppercase tracking-wider font-medium">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
                   {roles.map((role) => (
-                    <TableRow key={role.id}>
-                      <TableCell className="font-medium">{role.name}</TableCell>
-                      <TableCell>{role.description || '-'}</TableCell>
-                      <TableCell>
+                    <tr key={role.id} className="border-b border-[#B76E79]/5 hover:bg-[#B76E79]/5 transition-colors">
+                      <td className="px-4 py-3 font-medium text-[#F2C29A]">{role.name}</td>
+                      <td className="px-4 py-3 text-[#EAE0D5]/60 max-w-xs truncate">{role.description || '—'}</td>
+                      <td className="px-4 py-3">
                         <div className="flex flex-wrap gap-1">
-                          {role.permissions?.slice(0, 5).map((p, idx) => (
-                            <Badge key={idx} variant="outline" className="text-xs">
-                              {p.module}
-                            </Badge>
+                          {role.permissions?.slice(0, 4).map((p, idx) => (
+                            <span key={idx} className="px-1.5 py-0.5 bg-[#7A2F57]/20 text-[#EAE0D5]/60 text-xs rounded">{p.module}</span>
                           ))}
-                          {role.permissions?.length > 5 && (
-                            <Badge variant="outline" className="text-xs">
-                              +{role.permissions.length - 5}
-                            </Badge>
-                          )}
+                          {role.permissions?.length > 4 && <span className="px-1.5 py-0.5 bg-[#7A2F57]/20 text-[#EAE0D5]/40 text-xs rounded">+{role.permissions.length - 4}</span>}
                         </div>
-                      </TableCell>
-                      <TableCell>
-                        {role.permissions?.reduce((acc, p) => acc + p.actions.length, 0)}
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={role.is_active ? 'default' : 'secondary'}>
-                          {role.is_active ? 'Active' : 'Inactive'}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {role.created_at
-                          ? new Date(role.created_at).toLocaleDateString()
-                          : '-'}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button variant="ghost" size="icon">
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="icon">
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDeleteRole(role.id)}
-                          >
-                            <Trash2 className="h-4 w-4 text-red-600" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
+                      </td>
+                      <td className="px-4 py-3 text-[#EAE0D5]/60">{role.permissions?.reduce((acc, p) => acc + p.actions.length, 0) || 0}</td>
+                      <td className="px-4 py-3">
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
+                          role.is_active ? 'bg-green-500/15 text-green-400' : 'bg-[#EAE0D5]/5 text-[#EAE0D5]/30'
+                        }`}>{role.is_active ? 'Active' : 'Inactive'}</span>
+                      </td>
+                      <td className="px-4 py-3 text-xs text-[#EAE0D5]/50">{role.created_at ? new Date(role.created_at).toLocaleDateString('en-IN') : '—'}</td>
+                      <td className="px-4 py-3">
+                        <button onClick={() => handleDeleteRole(role.id)} className="p-1.5 rounded-lg hover:bg-red-500/10 text-[#EAE0D5]/40 hover:text-red-400 transition-colors" title="Delete">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </td>
+                    </tr>
                   ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </TabsContent>
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
 
-        <TabsContent value="audit" className="space-y-4">
-          <AuditLogsTab />
-        </TabsContent>
-      </Tabs>
+      {/* Audit Tab */}
+      {activeTab === 'audit' && <AuditLogsTab />}
+
+      {/* Create Account Modal */}
+      {isCreateDialogOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60" onClick={() => setIsCreateDialogOpen(false)} />
+          <div className="relative bg-[#0B0608]/95 backdrop-blur-xl border border-[#B76E79]/20 rounded-2xl p-6 w-full max-w-md">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-xl font-semibold text-[#F2C29A]" style={{ fontFamily: 'Cinzel, serif' }}>Add Staff Account</h3>
+              <button onClick={() => setIsCreateDialogOpen(false)} className="p-1 rounded-lg hover:bg-[#B76E79]/10"><X className="w-5 h-5 text-[#EAE0D5]/50" /></button>
+            </div>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div><label className={labelCls}>Email</label><input type="email" placeholder="staff@aaryaclothing.com" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className={inputCls} /></div>
+                <div><label className={labelCls}>Username</label><input placeholder="username" value={formData.username} onChange={e => setFormData({...formData, username: e.target.value})} className={inputCls} /></div>
+              </div>
+              <div><label className={labelCls}>Full Name</label><input placeholder="Full Name" value={formData.full_name} onChange={e => setFormData({...formData, full_name: e.target.value})} className={inputCls} /></div>
+              <div><label className={labelCls}>Password</label><input type="password" placeholder="Minimum 8 characters" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} className={inputCls} /></div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className={labelCls}>Role</label>
+                  <select value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})} className={inputCls}>
+                    <option value="staff">Staff</option>
+                    <option value="admin">Admin</option>
+                    <option value="super_admin">Super Admin</option>
+                  </select>
+                </div>
+                <div><label className={labelCls}>Department</label><input placeholder="e.g., Sales" value={formData.department} onChange={e => setFormData({...formData, department: e.target.value})} className={inputCls} /></div>
+              </div>
+              <div><label className={labelCls}>Phone</label><input placeholder="+91 98765 43210" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className={inputCls} /></div>
+            </div>
+            <div className="flex gap-3 mt-6">
+              <button onClick={() => setIsCreateDialogOpen(false)} className="flex-1 px-4 py-2.5 border border-[#B76E79]/20 rounded-xl text-[#EAE0D5]/70 hover:bg-[#B76E79]/10 transition-colors">Cancel</button>
+              <button onClick={handleCreateAccount} className="flex-1 px-4 py-2.5 bg-gradient-to-r from-[#7A2F57] to-[#B76E79] rounded-xl text-white font-semibold hover:opacity-90 transition-opacity">Create Account</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create Role Modal */}
+      {isRoleDialogOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60" onClick={() => setIsRoleDialogOpen(false)} />
+          <div className="relative bg-[#0B0608]/95 backdrop-blur-xl border border-[#B76E79]/20 rounded-2xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-xl font-semibold text-[#F2C29A]" style={{ fontFamily: 'Cinzel, serif' }}>Create Custom Role</h3>
+              <button onClick={() => setIsRoleDialogOpen(false)} className="p-1 rounded-lg hover:bg-[#B76E79]/10"><X className="w-5 h-5 text-[#EAE0D5]/50" /></button>
+            </div>
+            <div className="space-y-5">
+              <div className="grid grid-cols-2 gap-4">
+                <div><label className={labelCls}>Role Name</label><input placeholder="e.g., Inventory Manager" value={roleFormData.name} onChange={e => setRoleFormData({...roleFormData, name: e.target.value})} className={inputCls} /></div>
+                <div><label className={labelCls}>Description</label><input placeholder="Role description" value={roleFormData.description} onChange={e => setRoleFormData({...roleFormData, description: e.target.value})} className={inputCls} /></div>
+              </div>
+              <div>
+                <label className={labelCls}>Load Preset</label>
+                <div className="flex gap-2 mt-1">
+                  <button onClick={() => loadRolePreset('staff')} className="px-3 py-1.5 border border-[#B76E79]/20 rounded-lg text-xs text-[#EAE0D5]/70 hover:bg-[#B76E79]/10 transition-colors">Staff Preset</button>
+                  <button onClick={() => loadRolePreset('admin')} className="px-3 py-1.5 border border-[#B76E79]/20 rounded-lg text-xs text-[#EAE0D5]/70 hover:bg-[#B76E79]/10 transition-colors">Admin Preset</button>
+                </div>
+              </div>
+              <div>
+                <label className={labelCls}>Permissions</label>
+                <div className="mt-2 border border-[#B76E79]/15 rounded-xl overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-[#B76E79]/10">
+                        <th className="px-4 py-2.5 text-left text-xs text-[#EAE0D5]/50 font-medium w-40">Module</th>
+                        {PERMISSION_ACTIONS.map(a => (
+                          <th key={a.value} className="px-3 py-2.5 text-center text-xs text-[#EAE0D5]/50 font-medium">{a.label}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {PERMISSION_MODULES.map(module => (
+                        <tr key={module.value} className="border-b border-[#B76E79]/5 hover:bg-[#B76E79]/5">
+                          <td className="px-4 py-2.5 text-[#EAE0D5]/80 font-medium">{module.label}</td>
+                          {PERMISSION_ACTIONS.map(action => (
+                            <td key={action.value} className="px-3 py-2.5 text-center">
+                              <input
+                                type="checkbox"
+                                checked={hasPermission(module.value, action.value)}
+                                onChange={() => togglePermission(module.value, action.value)}
+                                className="w-4 h-4 rounded border-[#B76E79]/30 bg-[#0B0608]/60 accent-[#B76E79] cursor-pointer"
+                              />
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <p className="text-xs text-[#EAE0D5]/40 mt-2">
+                  {roleFormData.permissions.reduce((acc, p) => acc + p.actions.length, 0)} permissions across {roleFormData.permissions.length} modules selected
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-3 mt-6">
+              <button onClick={() => setIsRoleDialogOpen(false)} className="flex-1 px-4 py-2.5 border border-[#B76E79]/20 rounded-xl text-[#EAE0D5]/70 hover:bg-[#B76E79]/10 transition-colors">Cancel</button>
+              <button onClick={handleCreateRole} className="flex-1 px-4 py-2.5 bg-gradient-to-r from-[#7A2F57] to-[#B76E79] rounded-xl text-white font-semibold hover:opacity-90 transition-opacity">Create Role</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -708,17 +477,10 @@ export default function StaffManagementPage() {
 // Audit Logs Sub-Component
 function AuditLogsTab() {
   const [logs, setLogs] = useState([]);
-  const [filters, setFilters] = useState({
-    module: '',
-    action_type: '',
-    start_date: '',
-    end_date: '',
-  });
+  const [filters, setFilters] = useState({ module: '', action_type: '', start_date: '', end_date: '' });
   const [isLoading, setIsLoading] = useState(false);
 
-  useEffect(() => {
-    loadLogs();
-  }, []);
+  useEffect(() => { loadLogs(); }, []);
 
   const loadLogs = async () => {
     try {
@@ -728,7 +490,6 @@ function AuditLogsTab() {
       if (filters.action_type) params.action_type = filters.action_type;
       if (filters.start_date) params.start_date = filters.start_date;
       if (filters.end_date) params.end_date = filters.end_date;
-
       const res = await staffManagementApi.getAuditLogs(params);
       setLogs(res || []);
     } catch (error) {
@@ -743,159 +504,92 @@ function AuditLogsTab() {
     window.open(url, '_blank');
   };
 
+  const actionColor = (type) => {
+    const map = { CREATE: 'bg-green-500/15 text-green-400', UPDATE: 'bg-blue-500/15 text-blue-400', DELETE: 'bg-red-500/15 text-red-400', LOGIN: 'bg-[#7A2F57]/20 text-[#F2C29A]', LOGOUT: 'bg-[#EAE0D5]/5 text-[#EAE0D5]/40' };
+    return map[type] || 'bg-[#B76E79]/10 text-[#EAE0D5]/60';
+  };
+
+  const cls = "w-full px-3 py-2 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-xl text-[#EAE0D5] focus:outline-none focus:border-[#B76E79]/40 text-sm";
+
   return (
-    <div className="space-y-4">
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Audit Logs</CardTitle>
-              <CardDescription>
-                Track all staff actions across the platform
-              </CardDescription>
-            </div>
-            <Button variant="outline" onClick={exportLogs}>
-              <Download className="h-4 w-4 mr-2" />
-              Export CSV
-            </Button>
+    <div className="bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl overflow-hidden">
+      <div className="p-4 border-b border-[#B76E79]/10 flex items-center justify-between">
+        <div>
+          <h3 className="text-[#F2C29A] font-medium">Audit Logs</h3>
+          <p className="text-xs text-[#EAE0D5]/50 mt-0.5">Track all staff actions across the platform</p>
+        </div>
+        <div className="flex gap-2">
+          <button onClick={loadLogs} className="p-2 rounded-xl border border-[#B76E79]/20 text-[#EAE0D5]/60 hover:bg-[#B76E79]/10 transition-colors">
+            <RefreshCw className={isLoading ? 'w-4 h-4 animate-spin' : 'w-4 h-4'} />
+          </button>
+          <button onClick={exportLogs} className="flex items-center gap-2 px-3 py-1.5 border border-[#B76E79]/20 rounded-xl text-[#EAE0D5]/70 hover:bg-[#B76E79]/10 transition-colors text-sm">
+            <Download className="w-4 h-4" /> Export CSV
+          </button>
+        </div>
+      </div>
+      <div className="p-4 border-b border-[#B76E79]/10 grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div>
+          <p className="text-xs text-[#EAE0D5]/50 mb-1 uppercase tracking-wider">Module</p>
+          <select value={filters.module} onChange={e => setFilters({...filters, module: e.target.value})} className={cls}>
+            <option value="">All modules</option>
+            {['products','orders','customers','inventory','staff','settings'].map(m => <option key={m} value={m}>{m}</option>)}
+          </select>
+        </div>
+        <div>
+          <p className="text-xs text-[#EAE0D5]/50 mb-1 uppercase tracking-wider">Action Type</p>
+          <select value={filters.action_type} onChange={e => setFilters({...filters, action_type: e.target.value})} className={cls}>
+            <option value="">All actions</option>
+            {['CREATE','UPDATE','DELETE','VIEW','EXPORT','LOGIN','LOGOUT'].map(a => <option key={a} value={a}>{a}</option>)}
+          </select>
+        </div>
+        <div>
+          <p className="text-xs text-[#EAE0D5]/50 mb-1 uppercase tracking-wider">Start Date</p>
+          <input type="date" value={filters.start_date} onChange={e => setFilters({...filters, start_date: e.target.value})} className={cls} />
+        </div>
+        <div>
+          <p className="text-xs text-[#EAE0D5]/50 mb-1 uppercase tracking-wider">End Date</p>
+          <input type="date" value={filters.end_date} onChange={e => setFilters({...filters, end_date: e.target.value})} className={cls} />
+        </div>
+      </div>
+      <div className="overflow-x-auto">
+        {isLoading ? (
+          <div className="p-8 text-center"><RefreshCw className="w-6 h-6 animate-spin text-[#B76E79] mx-auto" /></div>
+        ) : logs.length === 0 ? (
+          <div className="p-12 text-center">
+            <FileText className="w-10 h-10 text-[#B76E79]/30 mx-auto mb-3" />
+            <p className="text-[#EAE0D5]/40">No audit logs found</p>
           </div>
-        </CardHeader>
-        <CardContent>
-          {/* Filters */}
-          <div className="grid grid-cols-4 gap-4 mb-4">
-            <div>
-              <Label>Module</Label>
-              <Select
-                value={filters.module}
-                onValueChange={(value) =>
-                  setFilters({ ...filters, module: value })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="All modules" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="products">Products</SelectItem>
-                  <SelectItem value="orders">Orders</SelectItem>
-                  <SelectItem value="customers">Customers</SelectItem>
-                  <SelectItem value="inventory">Inventory</SelectItem>
-                  <SelectItem value="staff">Staff</SelectItem>
-                  <SelectItem value="settings">Settings</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Action Type</Label>
-              <Select
-                value={filters.action_type}
-                onValueChange={(value) =>
-                  setFilters({ ...filters, action_type: value })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="All actions" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="CREATE">Create</SelectItem>
-                  <SelectItem value="UPDATE">Update</SelectItem>
-                  <SelectItem value="DELETE">Delete</SelectItem>
-                  <SelectItem value="VIEW">View</SelectItem>
-                  <SelectItem value="EXPORT">Export</SelectItem>
-                  <SelectItem value="LOGIN">Login</SelectItem>
-                  <SelectItem value="LOGOUT">Logout</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Start Date</Label>
-              <Input
-                type="date"
-                value={filters.start_date}
-                onChange={(e) =>
-                  setFilters({ ...filters, start_date: e.target.value })
-                }
-              />
-            </div>
-            <div>
-              <Label>End Date</Label>
-              <Input
-                type="date"
-                value={filters.end_date}
-                onChange={(e) =>
-                  setFilters({ ...filters, end_date: e.target.value })
-                }
-              />
-            </div>
-          </div>
-
-          <Button onClick={loadLogs} variant="outline" size="sm">
-            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
-
-          {/* Logs Table */}
-          <div className="mt-4 border rounded-lg">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Timestamp</TableHead>
-                  <TableHead>Staff</TableHead>
-                  <TableHead>Action</TableHead>
-                  <TableHead>Module</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead>IP Address</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {logs.map((log) => (
-                  <TableRow key={log.id}>
-                    <TableCell className="font-mono text-xs">
-                      {new Date(log.created_at).toLocaleString()}
-                    </TableCell>
-                    <TableCell>
-                      <div>
-                        <div className="font-medium">{log.staff_name || `ID: ${log.staff_id}`}</div>
-                        <div className="text-sm text-muted-foreground">{log.staff_email}</div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={
-                          log.action_type === 'CREATE'
-                            ? 'default'
-                            : log.action_type === 'UPDATE'
-                            ? 'secondary'
-                            : log.action_type === 'DELETE'
-                            ? 'destructive'
-                            : 'outline'
-                        }
-                      >
-                        {log.action_type}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{log.module}</Badge>
-                    </TableCell>
-                    <TableCell className="max-w-md truncate">
-                      {log.description}
-                    </TableCell>
-                    <TableCell className="font-mono text-xs">
-                      {log.ip_address || '-'}
-                    </TableCell>
-                  </TableRow>
+        ) : (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-[#B76E79]/10">
+                {['Timestamp','Staff','Action','Module','Description','IP Address'].map(h => (
+                  <th key={h} className="px-4 py-3 text-left text-xs text-[#EAE0D5]/40 uppercase tracking-wider font-medium">{h}</th>
                 ))}
-              </TableBody>
-            </Table>
-          </div>
-
-          {logs.length === 0 && !isLoading && (
-            <div className="text-center py-8 text-muted-foreground">
-              <FileText className="h-12 w-12 mx-auto mb-2 opacity-50" />
-              <p>No audit logs found</p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+              </tr>
+            </thead>
+            <tbody>
+              {logs.map((log) => (
+                <tr key={log.id} className="border-b border-[#B76E79]/5 hover:bg-[#B76E79]/5 transition-colors">
+                  <td className="px-4 py-3 font-mono text-xs text-[#EAE0D5]/60">{new Date(log.created_at).toLocaleString('en-IN')}</td>
+                  <td className="px-4 py-3">
+                    <p className="font-medium text-[#EAE0D5] text-xs">{log.staff_name || `ID: ${log.staff_id}`}</p>
+                    <p className="text-xs text-[#EAE0D5]/40">{log.staff_email}</p>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className={'px-2 py-0.5 rounded-full text-xs font-medium ' + actionColor(log.action_type)}>{log.action_type}</span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className="px-2 py-0.5 bg-[#B76E79]/10 text-[#EAE0D5]/60 text-xs rounded">{log.module}</span>
+                  </td>
+                  <td className="px-4 py-3 text-xs text-[#EAE0D5]/70 max-w-xs truncate">{log.description}</td>
+                  <td className="px-4 py-3 font-mono text-xs text-[#EAE0D5]/40">{log.ip_address || '-'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
     </div>
   );
 }

@@ -18,6 +18,8 @@ import {
   Hash,
   Upload,
   AlertCircle,
+  Calendar,
+  X,
 } from 'lucide-react';
 import DataTable from '@/components/admin/shared/DataTable';
 import { OrderStatusBadge } from '@/components/admin/shared/StatusBadge';
@@ -48,6 +50,7 @@ function OrdersContent() {
   const [bulkLoading, setBulkLoading] = useState(false);
   const [shipModal, setShipModal] = useState({ open: false, orderId: null, podNumber: '', notes: '' });
   const [podUpload, setPodUpload] = useState({ open: false, uploading: false, result: null, error: null });
+  const [exportModal, setExportModal] = useState({ open: false, fromDate: '', toDate: '' });
 
   const [filters, setFilters] = useState({
     status: searchParams.get('status') || '',
@@ -203,8 +206,13 @@ function OrdersContent() {
   };
 
   const handleExcelExport = () => {
-    const url = ordersApi.exportExcel({ status: filters.status || undefined });
+    const url = ordersApi.exportExcel({
+      status: filters.status || undefined,
+      from_date: exportModal.fromDate || undefined,
+      to_date: exportModal.toDate || undefined,
+    });
     window.location.href = url;
+    setExportModal(prev => ({ ...prev, open: false }));
   };
 
   const handlePodTemplateDownload = () => {
@@ -343,7 +351,7 @@ function OrdersContent() {
             <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
           </button>
           <button
-            onClick={handleExcelExport}
+            onClick={() => setExportModal({ open: true, fromDate: '', toDate: '' })}
             className="flex items-center gap-2 px-4 py-2 rounded-xl border border-[#B76E79]/20 text-[#EAE0D5]/70 hover:bg-[#B76E79]/10 transition-colors"
             title="Export orders to Excel"
           >
@@ -389,7 +397,7 @@ function OrdersContent() {
               value={filters.status}
               onChange={(e) => handleFilterChange('status', e.target.value)}
               className="
-                pl-10 pr-8 py-2.5
+                w-full md:w-auto pl-10 pr-8 py-2.5
                 bg-[#0B0608]/60 border border-[#B76E79]/20
                 rounded-xl text-[#EAE0D5]
                 focus:outline-none focus:border-[#B76E79]/40
@@ -467,6 +475,70 @@ function OrdersContent() {
         onRowClick={(row) => router.push(`/admin/orders/${row.id}`)}
         emptyMessage="No orders found"
       />
+
+      {/* Export Modal with Date Range */}
+      {exportModal.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60" onClick={() => setExportModal({ open: false, fromDate: '', toDate: '' })} />
+          <div className="relative bg-[#0B0608]/95 backdrop-blur-xl border border-[#B76E79]/20 rounded-2xl p-6 w-full max-w-md">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-semibold text-[#F2C29A]" style={{ fontFamily: 'Cinzel, serif' }}>Export Orders</h3>
+              <button onClick={() => setExportModal({ open: false, fromDate: '', toDate: '' })} className="p-1 rounded-lg hover:bg-[#B76E79]/10">
+                <X className="w-5 h-5 text-[#EAE0D5]/50" />
+              </button>
+            </div>
+            <p className="text-sm text-[#EAE0D5]/50 mb-5">
+              Select a date range to export specific orders, or leave empty to export all{filters.status ? ` ${filters.status}` : ''} orders.
+            </p>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs text-[#EAE0D5]/60 mb-1.5 uppercase tracking-wider">From Date</label>
+                  <div className="flex items-center border border-[#B76E79]/20 rounded-xl overflow-hidden bg-[#0B0608]/60">
+                    <Calendar className="w-4 h-4 text-[#B76E79] ml-3 flex-shrink-0" />
+                    <input
+                      type="date"
+                      value={exportModal.fromDate}
+                      onChange={(e) => setExportModal(prev => ({ ...prev, fromDate: e.target.value }))}
+                      className="flex-1 px-3 py-2.5 bg-transparent text-[#EAE0D5] focus:outline-none text-sm"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs text-[#EAE0D5]/60 mb-1.5 uppercase tracking-wider">To Date</label>
+                  <div className="flex items-center border border-[#B76E79]/20 rounded-xl overflow-hidden bg-[#0B0608]/60">
+                    <Calendar className="w-4 h-4 text-[#B76E79] ml-3 flex-shrink-0" />
+                    <input
+                      type="date"
+                      value={exportModal.toDate}
+                      onChange={(e) => setExportModal(prev => ({ ...prev, toDate: e.target.value }))}
+                      className="flex-1 px-3 py-2.5 bg-transparent text-[#EAE0D5] focus:outline-none text-sm"
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className="p-3 bg-[#7A2F57]/10 rounded-xl text-xs text-[#EAE0D5]/50">
+                <p>Columns exported: Order ID, Order #, Customer Email, Customer Name, Total (₹), Payment Method, POD/Tracking No., Shipping Address, Order Date</p>
+              </div>
+            </div>
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setExportModal({ open: false, fromDate: '', toDate: '' })}
+                className="flex-1 px-4 py-2.5 border border-[#B76E79]/20 rounded-xl text-[#EAE0D5]/70 hover:bg-[#B76E79]/10 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleExcelExport}
+                className="flex-1 px-4 py-2.5 bg-gradient-to-r from-[#7A2F57] to-[#B76E79] rounded-xl text-white font-semibold hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
+              >
+                <FileSpreadsheet className="w-4 h-4" />
+                Download Excel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* POD Excel Upload Modal */}
       {podUpload.open && (

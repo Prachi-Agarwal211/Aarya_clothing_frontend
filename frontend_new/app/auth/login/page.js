@@ -89,10 +89,18 @@ function LoginForm() {
 
       setStatus('Signed in successfully.');
 
+      // CRITICAL: Validate role exists before redirect
+      if (!response.user?.role) {
+        logger.error('Login response missing role:', response);
+        throw new Error('Invalid login response: missing role');
+      }
+
       // Use centralized redirect logic with response.user (not context user which might be stale)
       const targetUrl = redirectUrl && redirectUrl.startsWith('/')
         ? redirectUrl
         : getRedirectForRole(response.user.role);
+
+      logger.info(`Login successful for user ${response.user.username} with role ${response.user.role}, redirecting to ${targetUrl}`);
 
       // Use soft navigation - backend sets HttpOnly cookies automatically
       // Browser will send cookies on next request

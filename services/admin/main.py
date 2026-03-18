@@ -244,7 +244,7 @@ async def get_dashboard_overview(
     stats = db.execute(
         text("""
         SELECT
-            (SELECT COALESCE(SUM(total_amount), 0) FROM orders WHERE status NOT IN ('cancelled', 'refunded')) AS total_revenue,
+            (SELECT COALESCE(SUM(total_amount), 0) FROM orders WHERE status != 'cancelled') AS total_revenue,
             (SELECT COUNT(*) FROM orders) AS total_orders,
             (SELECT COUNT(*) FROM users WHERE role = 'customer') AS total_customers,
             (SELECT COUNT(*) FROM products WHERE is_active = true) AS total_products,
@@ -306,7 +306,7 @@ async def get_revenue_analytics(
     rows = db.execute(
         text(
             "SELECT DATE(created_at) as day, COALESCE(SUM(total_amount),0), COUNT(*) "
-            "FROM orders WHERE created_at >= :since AND status NOT IN ('cancelled','refunded') "
+            "FROM orders WHERE created_at >= :since AND status != 'cancelled' "
             "GROUP BY DATE(created_at) ORDER BY day"
         ),
         {"since": since},
@@ -395,7 +395,7 @@ async def get_top_products(
             "LEFT JOIN inventory i ON i.id = oi.inventory_id "
             "LEFT JOIN products p ON p.id = i.product_id "
             "JOIN orders o ON o.id = oi.order_id "
-            "WHERE o.created_at >= :since AND o.status NOT IN ('cancelled','refunded') "
+            "WHERE o.created_at >= :since AND o.status != 'cancelled' "
             "GROUP BY i.product_id, p.name ORDER BY SUM(oi.quantity) DESC LIMIT :lim"
         ),
         {"since": since, "lim": limit},
@@ -1970,13 +1970,12 @@ async def export_orders_excel(
 
     rows = db.execute(
         text(f"""
-        SELECT o.id, u.email, u.username,
-               o.total_amount, o.subtotal, o.discount_applied, o.shipping_cost,
-               o.payment_method, o.status, o.tracking_number,
-               o.shipping_address, o.created_at, o.shipped_at, o.delivered_at,
-               o.cancellation_reason
+        SELECT o.id, u.email, COALESCE(up.full_name, u.username) as customer_name,
+               o.total_amount, o.payment_method, o.status, o.tracking_number,
+               o.shipping_address, o.created_at
         FROM orders o
         LEFT JOIN users u ON u.id = o.user_id
+        LEFT JOIN user_profiles up ON up.user_id = o.user_id
         {where_clause}
         ORDER BY o.created_at DESC
         LIMIT 5000
@@ -1994,17 +1993,10 @@ async def export_orders_excel(
         "Customer Email",
         "Customer Name",
         "Total (₹)",
-        "Subtotal (₹)",
-        "Discount (₹)",
-        "Shipping (₹)",
         "Payment Method",
-        "Status",
         "POD / Tracking No.",
         "Shipping Address",
         "Order Date",
-        "Shipped Date",
-        "Delivered Date",
-        "Cancellation Reason",
     ]
 
     header_fill = PatternFill(
@@ -2022,26 +2014,13 @@ async def export_orders_excel(
         order_id = r[0]
         ws.cell(row=row_idx, column=1, value=order_id)
         ws.cell(row=row_idx, column=2, value=f"ORD-{order_id:06d}")
-        ws.cell(row=row_idx, column=3, value=r[1])  # email
-        ws.cell(row=row_idx, column=4, value=r[2])  # username
+        ws.cell(row=row_idx, column=3, value=r[1])   # email
+        ws.cell(row=row_idx, column=4, value=r[2])   # customer_name
         ws.cell(row=row_idx, column=5, value=float(r[3] or 0))  # total
-        ws.cell(row=row_idx, column=6, value=float(r[4] or 0))  # subtotal
-        ws.cell(row=row_idx, column=7, value=float(r[5] or 0))  # discount
-        ws.cell(row=row_idx, column=8, value=float(r[6] or 0))  # shipping
-        ws.cell(row=row_idx, column=9, value=r[7])  # payment_method
-        ws.cell(row=row_idx, column=10, value=r[8])  # status
-        ws.cell(row=row_idx, column=11, value=r[9])  # tracking_number / POD
-        ws.cell(row=row_idx, column=12, value=r[10])  # shipping_address
-        ws.cell(
-            row=row_idx, column=13, value=str(r[11])[:19] if r[11] else ""
-        )  # created_at
-        ws.cell(
-            row=row_idx, column=14, value=str(r[12])[:19] if r[12] else ""
-        )  # shipped_at
-        ws.cell(
-            row=row_idx, column=15, value=str(r[13])[:19] if r[13] else ""
-        )  # delivered_at
-        ws.cell(row=row_idx, column=16, value=r[14])  # cancellation_reason
+        ws.cell(row=row_idx, column=6, value=r[4])   # payment_method
+        ws.cell(row=row_idx, column=7, value=r[6])   # tracking_number / POD
+        ws.cell(row=row_idx, column=8, value=r[7])   # shipping_address
+        ws.cell(row=row_idx, column=9, value=str(r[8])[:19] if r[8] else "")  # created_at
 
     for col in ws.columns:
         max_len = max((len(str(cell.value or "")) for cell in col), default=10)
@@ -3778,7 +3757,7 @@ async def get_product_performance(
             JOIN inventory inv ON inv.id = oi.inventory_id
             JOIN products p ON p.id = inv.product_id
             JOIN orders o ON o.id = oi.order_id
-            WHERE o.created_at >= :since AND o.status NOT IN ('cancelled','refunded')
+            WHERE o.created_at >= :since AND o.status != 'cancelled'
             GROUP BY p.id
         ) s ON s.product_id = p.id
         LEFT JOIN (
@@ -3836,7 +3815,7 @@ async def get_detailed_customer_analytics(
         text("""
         SELECT u.id, u.username, u.email, COUNT(o.id) as orders, SUM(o.total_amount) as total_spent
         FROM users u JOIN orders o ON o.user_id = u.id
-        WHERE o.status NOT IN ('cancelled','refunded') AND o.created_at >= :since
+        WHERE o.status != 'cancelled' AND o.created_at >= :since
         GROUP BY u.id, u.username, u.email
         ORDER BY total_spent DESC LIMIT 10
     """),
@@ -3849,7 +3828,7 @@ async def get_detailed_customer_analytics(
             text("""
         SELECT AVG(total) FROM (
             SELECT SUM(total_amount) as total FROM orders
-            WHERE status NOT IN ('cancelled','refunded')
+            WHERE status != 'cancelled'
             GROUP BY user_id
         ) sub
     """)
@@ -3861,7 +3840,7 @@ async def get_detailed_customer_analytics(
         db.execute(
             text("""
         SELECT COUNT(DISTINCT user_id) FROM orders
-        WHERE status NOT IN ('cancelled','refunded')
+        WHERE status != 'cancelled'
         GROUP BY user_id HAVING SUM(total_amount) > :threshold
     """),
             {"threshold": float(avg_ltv) * 2},
@@ -3955,7 +3934,7 @@ async def list_users(
                 COUNT(*) as order_count,
                 COALESCE(SUM(total_amount), 0) as total_spent
             FROM orders 
-            WHERE status NOT IN ('cancelled', 'refunded')
+            WHERE status != 'cancelled'
             GROUP BY user_id
         ) order_stats ON u.id = order_stats.user_id
         {where_clause}
@@ -4052,7 +4031,7 @@ async def get_user(
                 COUNT(*) as order_count,
                 COALESCE(SUM(total_amount), 0) as total_spent
             FROM orders 
-            WHERE status NOT IN ('cancelled', 'refunded')
+            WHERE status != 'cancelled'
             GROUP BY user_id
         ) order_stats ON u.id = order_stats.user_id
         WHERE u.id = :user_id

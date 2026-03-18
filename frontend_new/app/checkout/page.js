@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Plus, MapPin, Phone, ChevronRight, Check, Building2 } from 'lucide-react';
+import { Plus, MapPin, Phone, ChevronRight, Check } from 'lucide-react';
 import { addressesApi, cartApi } from '@/lib/customerApi';
 import { useCart } from '@/lib/cartContext';
 import { useAuth } from '@/lib/authContext';
@@ -30,8 +30,6 @@ function CheckoutAddressPage() {
   const [saving, setSaving] = useState(false);
   const [continuing, setContinuing] = useState(false);
   const [error, setError] = useState(null);
-  const [isBusinessCustomer, setIsBusinessCustomer] = useState(false);
-  const [gstin, setGstin] = useState('');
   const [newAddress, setNewAddress] = useState({
     name: '',
     full_name: '',
@@ -143,50 +141,14 @@ function CheckoutAddressPage() {
     }
   };
 
-  const handleContinue = async () => {
+  const handleContinue = () => {
     if (!selectedAddress) {
       setError('Please select a delivery address');
       return;
     }
-
-    // GSTIN validation: 15-char alphanumeric
-    if (isBusinessCustomer && gstin && !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/.test(gstin.trim().toUpperCase())) {
-      setError('Invalid GSTIN format. Please check and try again.');
-      return;
-    }
-
-    try {
-      setContinuing(true);
-      setError(null);
-
-      // Determine delivery state from selected address
-      const addr = addresses.find(a => a.id === selectedAddress);
-      const deliveryState = addr?.state || '';
-
-      // Update cart with delivery state for correct GST calculation
-      if (deliveryState) {
-        await cartApi.setDeliveryState(
-          deliveryState,
-          isBusinessCustomer && gstin ? gstin.trim().toUpperCase() : null
-        );
-        await refreshCart();
-      }
-
-      // Store in session for payment + confirm pages
-      sessionStorage.setItem('checkout_address_id', selectedAddress);
-      if (isBusinessCustomer && gstin) {
-        sessionStorage.setItem('checkout_gstin', gstin.trim().toUpperCase());
-      } else {
-        sessionStorage.removeItem('checkout_gstin');
-      }
-
-      router.push('/checkout/payment');
-    } catch (err) {
-      logger.error('Error during checkout continue:', err);
-      setError('Failed to proceed. Please try again.');
-    } finally {
-      setContinuing(false);
-    }
+    sessionStorage.setItem('checkout_address_id', selectedAddress);
+    sessionStorage.removeItem('checkout_gstin');
+    router.push('/checkout/payment');
   };
 
   return (
@@ -379,38 +341,6 @@ function CheckoutAddressPage() {
         )}
       </div>
 
-      {/* B2B GSTIN Section */}
-      <div className="p-6 bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl">
-        <label className="flex items-center gap-3 cursor-pointer group">
-          <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all ${
-            isBusinessCustomer ? 'bg-[#B76E79] border-[#B76E79]' : 'border-[#B76E79]/30 bg-transparent'
-          }`} onClick={() => setIsBusinessCustomer(p => !p)}>
-            {isBusinessCustomer && <Check className="w-3 h-3 text-white" />}
-          </div>
-          <div className="flex items-center gap-2">
-            <Building2 className="w-4 h-4 text-[#B76E79]" />
-            <span className="text-sm text-[#EAE0D5]/80 group-hover:text-[#EAE0D5] transition-colors">
-              I am purchasing for my business (GST Registered)
-            </span>
-          </div>
-        </label>
-
-        {isBusinessCustomer && (
-          <div className="mt-4 space-y-1">
-            <label className="block text-sm text-[#EAE0D5]/70">GSTIN (Optional)</label>
-            <input
-              type="text"
-              placeholder="e.g. 27AAAPL1234C1ZV"
-              value={gstin}
-              onChange={(e) => setGstin(e.target.value.toUpperCase())}
-              maxLength={15}
-              className="w-full px-3 py-2.5 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-lg text-[#EAE0D5] placeholder-[#EAE0D5]/30 focus:outline-none focus:border-[#B76E79]/50 font-mono text-sm uppercase"
-            />
-            <p className="text-xs text-[#EAE0D5]/40">Enter your 15-digit GSTIN for a tax invoice</p>
-          </div>
-        )}
-      </div>
-
       {/* Error */}
       {error && (
         <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-sm text-red-400">
@@ -425,7 +355,7 @@ function CheckoutAddressPage() {
           disabled={!selectedAddress || continuing}
           className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-[#7A2F57] to-[#B76E79] text-white font-semibold rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {continuing ? 'Calculating taxes...' : 'Continue to Payment'}
+          {continuing ? 'Processing...' : 'Continue to Payment'}
           <ChevronRight className="w-4 h-4" />
         </button>
       </div>

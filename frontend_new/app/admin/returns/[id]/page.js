@@ -9,7 +9,6 @@ import {
   AlertCircle, Mail, Phone, MapPin, MessageSquare, CreditCard, ShoppingBag,
   ArrowRight, Upload, FileText, Send, Ban, RefreshCw, DollarSign
 } from 'lucide-react';
-import AdminLayout from '@/components/admin/layout/AdminLayout';
 import { returnsApi } from '@/lib/adminApi';
 import logger from '@/lib/logger';
 
@@ -141,29 +140,25 @@ export default function AdminReturnDetailsPage() {
 
   if (loading) {
     return (
-      <AdminLayout>
-        <div className="space-y-6">
-          <div className="animate-pulse h-8 w-48 bg-[#B76E79]/10 rounded" />
-          <div className="animate-pulse h-96 bg-[#B76E79]/10 rounded-2xl" />
-        </div>
-      </AdminLayout>
+      <div className="space-y-6">
+        <div className="animate-pulse h-8 w-48 bg-[#B76E79]/10 rounded" />
+        <div className="animate-pulse h-96 bg-[#B76E79]/10 rounded-2xl" />
+      </div>
     );
   }
 
   if (!returnData) {
     return (
-      <AdminLayout>
-        <div className="text-center py-12">
-          <AlertCircle className="w-16 h-16 text-[#B76E79]/30 mx-auto mb-4" />
-          <p className="text-[#EAE0D5]/50">Return request not found</p>
-          <Link
-            href="/admin/returns"
-            className="inline-block mt-4 px-6 py-2 bg-gradient-to-r from-[#7A2F57] to-[#B76E79] text-white rounded-xl"
-          >
-            Back to Returns
-          </Link>
-        </div>
-      </AdminLayout>
+      <div className="text-center py-12">
+        <AlertCircle className="w-16 h-16 text-[#B76E79]/30 mx-auto mb-4" />
+        <p className="text-[#EAE0D5]/50">Return request not found</p>
+        <Link
+          href="/admin/returns"
+          className="inline-block mt-4 px-6 py-2 bg-gradient-to-r from-[#7A2F57] to-[#B76E79] text-white rounded-xl"
+        >
+          Back to Returns
+        </Link>
+      </div>
     );
   }
 
@@ -172,8 +167,7 @@ export default function AdminReturnDetailsPage() {
   const StatusIcon = statusConfig.icon;
 
   return (
-    <AdminLayout>
-      <div className="space-y-6">
+    <div className="space-y-6">
         {/* Back Button */}
         <Link
           href="/admin/returns"
@@ -547,7 +541,6 @@ export default function AdminReturnDetailsPage() {
             </div>
           </div>
         )}
-      </div>
-    </AdminLayout>
+    </div>
   );
 }

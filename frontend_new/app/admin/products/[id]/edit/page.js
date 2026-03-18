@@ -239,7 +239,8 @@ export default function EditProductPage() {
       
       const productData = {
         ...form,
-        price: parseFloat(form.price),
+        base_price: parseFloat(form.price),
+        price: undefined,
         mrp: form.mrp ? parseFloat(form.mrp) : null,
         category_id: form.category_id ? parseInt(form.category_id) : null,
         collection_id: form.category_id ? parseInt(form.category_id) : null,

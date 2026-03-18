@@ -90,14 +90,14 @@ export default function CheckoutLayout({ children }) {
             </div>
 
             {/* Content */}
-            <div className="grid lg:grid-cols-3 gap-8">
-              <div className="lg:col-span-2">
+            <div className="grid lg:grid-cols-3 gap-6 lg:gap-8">
+              <div className="lg:col-span-2 order-2 lg:order-1">
                 {children}
               </div>
 
               {/* Order Summary Sidebar */}
-              <div className="lg:col-span-1">
-                <div className="sticky top-28 p-6 bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl space-y-4">
+              <div className="lg:col-span-1 order-1 lg:order-2">
+                <div className="sticky top-28 p-4 sm:p-6 bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl space-y-4">
                   <h2 className="text-lg font-semibold text-[#F2C29A]">Order Summary</h2>
 
                   {/* Items Preview */}
@@ -136,56 +136,21 @@ export default function CheckoutLayout({ children }) {
 
                   {/* Totals */}
                   <div className="space-y-2.5 pt-6 border-t border-[#B76E79]/20">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-[#EAE0D5]/60 italic">Subtotal ({itemCount} items)</span>
-                      <span className="text-[#EAE0D5] font-medium">{formatCurrency(cart?.subtotal)}</span>
-                    </div>
                     {cart?.discount > 0 && (
                       <div className="flex justify-between text-sm">
                         <span className="text-[#EAE0D5]/60 italic">Discount</span>
                         <span className="text-green-400">-{formatCurrency(cart.discount)}</span>
                       </div>
                     )}
-                    <div className="flex justify-between text-sm">
-                      <span className="text-[#EAE0D5]/60 italic">Shipping</span>
-                      <span className="text-[#EAE0D5] font-medium">
-                        {cart?.shipping > 0 ? formatCurrency(cart.shipping) : 'Free'}
-                      </span>
-                    </div>
-                    {/* GST Breakdown */}
-                    {cart?.igst_amount > 0 ? (
-                      <div className="flex justify-between text-sm">
-                        <span className="text-[#EAE0D5]/60 italic">IGST</span>
-                        <span className="text-[#EAE0D5] font-medium">{formatCurrency(cart.igst_amount)}</span>
-                      </div>
-                    ) : (cart?.cgst_amount > 0 || cart?.sgst_amount > 0) ? (
-                      <>
-                        <div className="flex justify-between text-sm">
-                          <span className="text-[#EAE0D5]/60 italic">CGST</span>
-                          <span className="text-[#EAE0D5] font-medium">{formatCurrency(cart?.cgst_amount)}</span>
-                        </div>
-                        <div className="flex justify-between text-sm">
-                          <span className="text-[#EAE0D5]/60 italic">SGST</span>
-                          <span className="text-[#EAE0D5] font-medium">{formatCurrency(cart?.sgst_amount)}</span>
-                        </div>
-                      </>
-                    ) : cart?.gst_amount > 0 ? (
-                      <div className="flex justify-between text-sm">
-                        <span className="text-[#EAE0D5]/60 italic">GST</span>
-                        <span className="text-[#EAE0D5] font-medium">{formatCurrency(cart.gst_amount)}</span>
-                      </div>
-                    ) : null}
                     <div className="flex justify-between pt-4 border-t border-[#B76E79]/20">
                       <span className="text-[#F2C29A] font-cinzel text-lg tracking-wider">Total</span>
                       <span className="text-[#F2C29A] font-bold text-2xl drop-shadow-[0_0_10px_rgba(242,194,154,0.3)]">
                         {formatCurrency(cart?.total)}
                       </span>
                     </div>
-                    {cart?.delivery_state && (
-                      <p className="text-xs text-[#EAE0D5]/40 text-center">
-                        Place of Supply: {cart.delivery_state}
-                      </p>
-                    )}
+                    <p className="text-xs text-[#EAE0D5]/40 text-center">
+                      Includes all taxes & free shipping
+                    </p>
                   </div>
 
                   {/* Trust Badge for Secure Checkout */}

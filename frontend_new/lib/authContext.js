@@ -103,8 +103,15 @@ export function AuthProvider({ children }) {
         throw new Error('Invalid login response: missing user data');
       }
 
+      // Validate role exists before storing
+      if (!response.user?.role) {
+        logger.error('Login response missing user role:', response);
+        throw new Error('Invalid login response: missing role');
+      }
+
       // Store tokens (cookies + localStorage fallback) and user data
-      setStoredTokens(response);
+      // FIX: Pass response.tokens (nested object), not response (full object)
+      setStoredTokens(response.tokens);
       localStorage.setItem('user', JSON.stringify(response.user));
 
       setUser(response.user);

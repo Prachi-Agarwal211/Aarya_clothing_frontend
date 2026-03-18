@@ -261,54 +261,22 @@ export default function CheckoutPaymentPage() {
 
       {/* Order Cost Breakdown */}
       <div className="p-5 bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl">
-        <h3 className="text-sm font-semibold text-[#F2C29A] mb-4 uppercase tracking-wider">Payment Breakdown</h3>
+        <h3 className="text-sm font-semibold text-[#F2C29A] mb-4 uppercase tracking-wider">Order Summary</h3>
         <div className="space-y-2 text-sm">
-          <div className="flex justify-between">
-            <span className="text-[#EAE0D5]/60">Subtotal</span>
-            <span className="text-[#EAE0D5]">{formatCurrency(cart?.subtotal)}</span>
-          </div>
           {cart?.discount > 0 && (
             <div className="flex justify-between">
-              <span className="text-[#EAE0D5]/60">Discount</span>
+              <span className="text-[#EAE0D5]/60">Discount Applied</span>
               <span className="text-green-400">-{formatCurrency(cart.discount)}</span>
             </div>
           )}
-          <div className="flex justify-between">
-            <span className="text-[#EAE0D5]/60">Shipping</span>
-            <span className="text-[#EAE0D5]">{cart?.shipping > 0 ? formatCurrency(cart.shipping) : 'FREE'}</span>
-          </div>
-          {cart?.igst_amount > 0 ? (
-            <div className="flex justify-between">
-              <span className="text-[#EAE0D5]/60">IGST (Inter-state GST)</span>
-              <span className="text-[#EAE0D5]">{formatCurrencyLocal(cart.igst_amount)}</span>
-            </div>
-          ) : (cart?.cgst_amount > 0 || cart?.sgst_amount > 0) ? (
-            <>
-              <div className="flex justify-between">
-                <span className="text-[#EAE0D5]/60">CGST</span>
-                <span className="text-[#EAE0D5]">{formatCurrencyLocal(cart?.cgst_amount)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-[#EAE0D5]/60">SGST</span>
-                <span className="text-[#EAE0D5]">{formatCurrencyLocal(cart?.sgst_amount)}</span>
-              </div>
-            </>
-          ) : cart?.gst_amount > 0 ? (
-            <div className="flex justify-between">
-              <span className="text-[#EAE0D5]/60">GST</span>
-              <span className="text-[#EAE0D5]">{formatCurrencyLocal(cart.gst_amount)}</span>
-            </div>
-          ) : null}
           <div className="flex justify-between pt-3 mt-1 border-t border-[#B76E79]/20 font-semibold text-base">
             <span className="text-[#F2C29A]">Total Payable</span>
             <span className="text-[#F2C29A]">{formatCurrency(cart?.total)}</span>
           </div>
-        </div>
-        {cart?.delivery_state && (
-          <p className="mt-3 text-xs text-[#EAE0D5]/40">
-            Place of Supply: {cart.delivery_state} — GST invoice will be generated on payment
+          <p className="text-xs text-[#EAE0D5]/40 pt-1">
+            Inclusive of all taxes &amp; free shipping
           </p>
-        )}
+        </div>
       </div>
 
       {/* Security Info */}
@@ -335,7 +303,7 @@ export default function CheckoutPaymentPage() {
         <button
           onClick={handlePayment}
           disabled={processing}
-          className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-[#7A2F57] to-[#B76E79] text-white font-semibold rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50"
+          className="w-full sm:w-auto flex items-center justify-center gap-2 px-8 py-3 bg-gradient-to-r from-[#7A2F57] to-[#B76E79] text-white font-semibold rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50"
         >
           {processing ? (
             'Processing...'

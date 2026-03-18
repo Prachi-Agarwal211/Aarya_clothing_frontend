@@ -97,22 +97,47 @@ export default function TermsOfServicePage() {
           <section className="mb-10">
             <h2 className="text-xl sm:text-2xl text-[#EAE0D5] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
               <span className="w-8 h-8 rounded-full bg-[#B76E79]/20 flex items-center justify-center text-sm text-[#F2C29A]">3</span>
-              Pricing and Availability
+              Pricing &amp; No Hidden Charges
             </h2>
             <div className="space-y-4 text-[#EAE0D5]/70 leading-relaxed pl-11">
+              <div className="flex items-start gap-3 p-4 rounded-xl bg-green-500/10 border border-green-500/20">
+                <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-[#EAE0D5] font-medium mb-1">Transparent Pricing — What You See Is What You Pay</p>
+                  <p className="text-sm text-[#EAE0D5]/70">
+                    All prices displayed on our website are in Indian Rupees (₹/INR) and are <strong className="text-[#EAE0D5]">fully inclusive of all taxes and shipping charges</strong>. There are no hidden fees, no surprise GST additions, and no shipping charges added at checkout.
+                  </p>
+                </div>
+              </div>
               <p>
-                All prices displayed on our website are in Indian Rupees (₹/INR) and include applicable taxes unless 
-                otherwise stated. We reserve the right to modify prices at any time without prior notice.
+                The price you see on the product page is the exact amount you will be charged. Applicable taxes are
+                already included in the displayed price.
               </p>
               <p>
                 In the event of a pricing error, we reserve the right to cancel any orders placed at the incorrect 
-                price. We will notify you if such a situation occurs and provide you with the option to reconfirm 
-                your order at the correct price or cancel it.
+                price. We will notify you and provide the option to reconfirm at the correct price or cancel.
               </p>
+            </div>
+          </section>
+
+          {/* Section 3b — Payment Policy */}
+          <section className="mb-10">
+            <h2 className="text-xl sm:text-2xl text-[#EAE0D5] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
+              <span className="w-8 h-8 rounded-full bg-[#B76E79]/20 flex items-center justify-center text-sm text-[#F2C29A]">4</span>
+              Payment Policy — Online Payments Only
+            </h2>
+            <div className="space-y-4 text-[#EAE0D5]/70 leading-relaxed pl-11">
+              <div className="flex items-start gap-3 p-4 rounded-xl bg-[#F2C29A]/10 border border-[#F2C29A]/20">
+                <AlertCircle className="w-5 h-5 text-[#F2C29A] flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-[#EAE0D5] font-medium mb-1">No Cash on Delivery (COD)</p>
+                  <p className="text-sm text-[#EAE0D5]/70">
+                    We do <strong className="text-[#EAE0D5]">not offer Cash on Delivery</strong>. All orders must be paid for in full at the time of checkout using our secure online payment gateway (Razorpay). We accept UPI, credit/debit cards, net banking, and digital wallets.
+                  </p>
+                </div>
+              </div>
               <p>
-                Promotional offers, discounts, and coupon codes are subject to specific terms and conditions which 
-                will be displayed at the time of the offer. We reserve the right to modify or cancel promotional 
-                offers at our discretion.
+                Payments are processed securely via Razorpay. Your payment information is encrypted and never stored on our servers.
               </p>
             </div>
           </section>
@@ -120,7 +145,7 @@ export default function TermsOfServicePage() {
           {/* Section 4 */}
           <section className="mb-10">
             <h2 className="text-xl sm:text-2xl text-[#EAE0D5] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
-              <span className="w-8 h-8 rounded-full bg-[#B76E79]/20 flex items-center justify-center text-sm text-[#F2C29A]">4</span>
+              <span className="w-8 h-8 rounded-full bg-[#B76E79]/20 flex items-center justify-center text-sm text-[#F2C29A]">5</span>
               Order Acceptance
             </h2>
             <div className="space-y-4 text-[#EAE0D5]/70 leading-relaxed pl-11">
@@ -143,10 +168,35 @@ export default function TermsOfServicePage() {
             </div>
           </section>
 
+          {/* Return Policy Section */}
+          <section className="mb-10">
+            <h2 className="text-xl sm:text-2xl text-[#EAE0D5] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
+              <span className="w-8 h-8 rounded-full bg-[#B76E79]/20 flex items-center justify-center text-sm text-[#F2C29A]">6</span>
+              Returns &amp; Refund Policy
+            </h2>
+            <div className="space-y-4 text-[#EAE0D5]/70 leading-relaxed pl-11">
+              <p>We accept returns <strong className="text-[#EAE0D5]">only for defective or damaged items</strong>. We do not accept returns for change of mind, size issues, or any reason other than a manufacturing defect or damage during shipping.</p>
+              <div className="p-4 rounded-xl bg-[#B76E79]/10 border border-[#B76E79]/20 space-y-2">
+                <p className="text-[#EAE0D5] font-medium">Mandatory Video Proof Requirement</p>
+                <ul className="list-disc list-inside space-y-1 text-sm">
+                  <li>A video recording of the <strong className="text-[#EAE0D5]">unboxing of the package</strong> is mandatory for all return requests</li>
+                  <li>The video must be recorded continuously from before opening the sealed package to revealing the product</li>
+                  <li>The defect or damage must be clearly visible in the video</li>
+                  <li>Returns submitted without a valid unboxing video will be automatically rejected</li>
+                </ul>
+              </div>
+              <ul className="list-disc list-inside space-y-2 ml-4">
+                <li>Return requests must be submitted within <strong className="text-[#EAE0D5]">7 days</strong> of delivery</li>
+                <li>Approved refunds are processed within 5–7 business days to the original payment method</li>
+                <li>Items must be unused and in their original packaging</li>
+              </ul>
+            </div>
+          </section>
+
           {/* Section 5 */}
           <section className="mb-10">
             <h2 className="text-xl sm:text-2xl text-[#EAE0D5] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
-              <span className="w-8 h-8 rounded-full bg-[#B76E79]/20 flex items-center justify-center text-sm text-[#F2C29A]">5</span>
+              <span className="w-8 h-8 rounded-full bg-[#B76E79]/20 flex items-center justify-center text-sm text-[#F2C29A]">7</span>
               User Account Responsibilities
             </h2>
             <div className="space-y-4 text-[#EAE0D5]/70 leading-relaxed pl-11">

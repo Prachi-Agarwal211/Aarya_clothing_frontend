@@ -50,9 +50,21 @@ function parseJwt(token) {
         .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
         .join('')
     );
-    return JSON.parse(jsonPayload);
+    const parsed = JSON.parse(jsonPayload);
+    
+    // DEBUG: Log role extraction for troubleshooting
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[Middleware] JWT parsed successfully:', { 
+        sub: parsed.sub, 
+        role: parsed.role, 
+        exp: parsed.exp,
+        hasRole: !!parsed.role 
+      });
+    }
+    
+    return parsed;
   } catch (e) {
-    console.warn('Failed to parse JWT token:', e.message);
+    console.error('[Middleware] CRITICAL: Failed to parse JWT token:', e.message, 'Token starts with:', token?.substring(0, 30) + '...');
     return null;
   }
 }

@@ -36,14 +36,9 @@ export default function AdminSidebar({ collapsed, onToggle }) {
 
   if (user?.role === 'super_admin') {
     navigation = [
-      { name: 'System Overview', href: '/admin/super', icon: Activity },
+      { name: 'AI Overview', href: '/admin/super', icon: Activity },
       { name: 'AI Key Management', href: '/admin/super/ai-settings', icon: Key },
       { name: 'AI Monitoring', href: '/admin/super/ai-monitoring', icon: MonitorCheck },
-      { name: 'User Management', href: '/admin/super/users', icon: Users },
-      { name: 'System Settings', href: '/admin/super/settings', icon: Cpu },
-      { name: 'Admin Dashboard', href: '/admin', icon: LayoutDashboard },
-      { name: 'Products & Stock', href: '/admin/products', icon: ShoppingBag },
-      { name: 'Orders', href: '/admin/orders', icon: Package },
     ];
   } else if (user?.role === 'staff') {
     navigation = [
@@ -51,7 +46,6 @@ export default function AdminSidebar({ collapsed, onToggle }) {
       { name: 'Orders', href: '/admin/orders', icon: Package },
       { name: 'Returns', href: '/admin/returns', icon: RotateCcw },
       { name: 'Products & Stock', href: '/admin/products', icon: ShoppingBag },
-      { name: 'Inventory', href: '/admin/inventory', icon: Warehouse },
     ];
   } else {
     // Regular Admin

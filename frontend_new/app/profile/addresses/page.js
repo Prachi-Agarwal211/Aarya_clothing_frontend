@@ -91,6 +91,47 @@ export default function AddressesPage() {
   };
 
   const handleSave = async () => {
+    // Validate required fields
+    const validationErrors = [];
+    
+    if (!formData.full_name?.trim()) {
+      validationErrors.push('Full name is required');
+    }
+    if (!formData.phone?.trim()) {
+      validationErrors.push('Phone number is required');
+    }
+    if (!formData.address_line1?.trim()) {
+      validationErrors.push('Address is required');
+    }
+    if (!formData.city?.trim()) {
+      validationErrors.push('City is required');
+    }
+    if (!formData.state?.trim()) {
+      validationErrors.push('State is required');
+    }
+    if (!formData.postal_code?.trim()) {
+      validationErrors.push('Pincode is required');
+    }
+
+    if (validationErrors.length > 0) {
+      setError(validationErrors.join('. '));
+      return;
+    }
+
+    // Phone validation - basic format check
+    const phoneRegex = /^[6-9]\d{9}$/;
+    if (!phoneRegex.test(formData.phone?.replace(/\s/g, ''))) {
+      setError('Please enter a valid 10-digit phone number');
+      return;
+    }
+
+    // Pincode validation - should be 6 digits
+    const pincodeRegex = /^\d{6}$/;
+    if (!pincodeRegex.test(formData.postal_code?.replace(/\s/g, ''))) {
+      setError('Please enter a valid 6-digit pincode');
+      return;
+    }
+
     try {
       setSaving(true);
       setError(null);
@@ -168,38 +209,52 @@ export default function AddressesPage() {
 
           <div className="grid md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm text-[#EAE0D5]/70 mb-1">Full Name</label>
+              <label className="block text-sm text-[#EAE0D5]/70 mb-1">
+                Full Name <span className="text-red-400">*</span>
+              </label>
               <input
                 type="text"
                 value={formData.full_name}
                 onChange={(e) => setFormData(prev => ({ ...prev, full_name: e.target.value }))}
+                required
                 className="w-full px-3 py-2.5 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-lg text-[#EAE0D5] placeholder-[#EAE0D5]/40 focus:outline-none focus:border-[#B76E79]/40"
               />
             </div>
             <div>
-              <label className="block text-sm text-[#EAE0D5]/70 mb-1">Phone</label>
+              <label className="block text-sm text-[#EAE0D5]/70 mb-1">
+                Phone <span className="text-red-400">*</span>
+              </label>
               <input
                 type="tel"
                 value={formData.phone}
                 onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+                required
+                placeholder="10-digit mobile number"
                 className="w-full px-3 py-2.5 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-lg text-[#EAE0D5] placeholder-[#EAE0D5]/40 focus:outline-none focus:border-[#B76E79]/40"
               />
             </div>
             <div>
-              <label className="block text-sm text-[#EAE0D5]/70 mb-1">Pincode</label>
+              <label className="block text-sm text-[#EAE0D5]/70 mb-1">
+                Pincode <span className="text-red-400">*</span>
+              </label>
               <input
                 type="text"
                 value={formData.postal_code}
                 onChange={(e) => setFormData(prev => ({ ...prev, postal_code: e.target.value }))}
+                required
+                maxLength={6}
                 className="w-full px-3 py-2.5 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-lg text-[#EAE0D5] placeholder-[#EAE0D5]/40 focus:outline-none focus:border-[#B76E79]/40"
               />
             </div>
             <div className="md:col-span-2">
-              <label className="block text-sm text-[#EAE0D5]/70 mb-1">Address Line 1</label>
+              <label className="block text-sm text-[#EAE0D5]/70 mb-1">
+                Address Line 1 <span className="text-red-400">*</span>
+              </label>
               <input
                 type="text"
                 value={formData.address_line1}
                 onChange={(e) => setFormData(prev => ({ ...prev, address_line1: e.target.value }))}
+                required
                 className="w-full px-3 py-2.5 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-lg text-[#EAE0D5] placeholder-[#EAE0D5]/40 focus:outline-none focus:border-[#B76E79]/40"
               />
             </div>
@@ -213,20 +268,26 @@ export default function AddressesPage() {
               />
             </div>
             <div>
-              <label className="block text-sm text-[#EAE0D5]/70 mb-1">City</label>
+              <label className="block text-sm text-[#EAE0D5]/70 mb-1">
+                City <span className="text-red-400">*</span>
+              </label>
               <input
                 type="text"
                 value={formData.city}
                 onChange={(e) => setFormData(prev => ({ ...prev, city: e.target.value }))}
+                required
                 className="w-full px-3 py-2.5 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-lg text-[#EAE0D5] placeholder-[#EAE0D5]/40 focus:outline-none focus:border-[#B76E79]/40"
               />
             </div>
             <div>
-              <label className="block text-sm text-[#EAE0D5]/70 mb-1">State</label>
+              <label className="block text-sm text-[#EAE0D5]/70 mb-1">
+                State <span className="text-red-400">*</span>
+              </label>
               <input
                 type="text"
                 value={formData.state}
                 onChange={(e) => setFormData(prev => ({ ...prev, state: e.target.value }))}
+                required
                 className="w-full px-3 py-2.5 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-lg text-[#EAE0D5] placeholder-[#EAE0D5]/40 focus:outline-none focus:border-[#B76E79]/40"
               />
             </div>

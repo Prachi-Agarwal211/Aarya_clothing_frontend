@@ -142,24 +142,25 @@ export default function DataTable({
                   key={col.key}
                   onClick={() => col.sortable !== false && handleSort(col.key)}
                   className={`
-                    px-4 py-3 text-left text-sm font-medium text-[#F2C29A]
+                    px-2 sm:px-4 py-2 sm:py-3 text-left text-xs sm:text-sm font-medium text-[#F2C29A]
                     ${col.sortable !== false && sortable ? 'cursor-pointer hover:bg-[#B76E79]/5' : ''}
                     transition-colors
+                    whitespace-nowrap
                   `}
                   style={{ minWidth: col.width }}
                 >
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1 sm:gap-2">
                     <span style={{ fontFamily: 'Cinzel, serif' }}>{col.label}</span>
                     {sortable && col.sortable !== false && sortColumn === col.key && (
                       sortDirection === 'asc'
-                        ? <ChevronUp className="w-4 h-4" />
-                        : <ChevronDown className="w-4 h-4" />
+                        ? <ChevronUp className="w-3 h-3 sm:w-4 sm:h-4" />
+                        : <ChevronDown className="w-3 h-3 sm:w-4 sm:h-4" />
                     )}
                   </div>
                 </th>
               ))}
               {(actions || getActions) && (
-                <th className="px-4 py-3 text-right text-sm font-medium text-[#F2C29A]" style={{ fontFamily: 'Cinzel, serif' }}>
+                <th className="px-2 sm:px-4 py-2 sm:py-3 text-right text-xs sm:text-sm font-medium text-[#F2C29A] whitespace-nowrap" style={{ fontFamily: 'Cinzel, serif' }}>
                   Actions
                 </th>
               )}
@@ -180,12 +181,12 @@ export default function DataTable({
                   `}
                 >
                   {columns.map((col) => (
-                    <td key={col.key} className="px-4 py-3 text-sm text-[#EAE0D5]">
+                    <td key={col.key} className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-[#EAE0D5] whitespace-nowrap">
                       {col.render ? col.render(row[col.key], row) : row[col.key]}
                     </td>
                   ))}
                   {rowActions && (
-                    <td className="px-4 py-3 text-right">
+                    <td className="px-2 sm:px-4 py-2 sm:py-3 text-right">
                       <ActionMenu actions={rowActions} row={row} />
                     </td>
                   )}

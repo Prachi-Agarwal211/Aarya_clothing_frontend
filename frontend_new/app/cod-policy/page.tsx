@@ -51,6 +51,51 @@ export default function CODPolicyPage() {
           <section className="mb-10">
             <h2 className="text-xl sm:text-2xl text-[#EAE0D5] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
               <span className="w-8 h-8 rounded-full bg-[#B76E79]/20 flex items-center justify-center text-sm text-[#F2C29A]">1</span>
+              Our Pricing Promise
+            </h2>
+            <div className="space-y-4 text-[#EAE0D5]/70 leading-relaxed pl-11">
+              <p>At Aarya Clothing, we believe in <strong className="text-[#EAE0D5]">transparent and fair pricing</strong>. Here's what makes us different:</p>
+              
+              <div className="grid sm:grid-cols-1 gap-3 mt-4">
+                <div className="flex items-start gap-3 p-4 rounded-xl bg-green-500/10 border border-green-500/20">
+                  <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-[#EAE0D5] font-medium mb-1">No Hidden Charges</p>
+                    <p className="text-sm">The price you see is the price you pay. No additional processing fees, no convenience charges, no surprises at checkout.</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-start gap-3 p-4 rounded-xl bg-green-500/10 border border-green-500/20">
+                  <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-[#EAE0D5] font-medium mb-1">All Taxes Included</p>
+                    <p className="text-sm">Every listed price is <strong>inclusive of all taxes</strong> (GST included). What you see is what you pay — nothing more.</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-start gap-3 p-4 rounded-xl bg-green-500/10 border border-green-500/20">
+                  <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-[#EAE0D5] font-medium mb-1">Free Shipping</p>
+                    <p className="text-sm">We offer <strong>free shipping</strong> on all orders across India. No minimum order value required.</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-start gap-3 p-4 rounded-xl bg-green-500/10 border border-green-500/20">
+                  <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-[#EAE0D5] font-medium mb-1">Reasonable Prices</p>
+                    <p className="text-sm">We source directly from manufacturers and artisans to bring you <strong>premium ethnic wear at reasonable prices</strong>. No middlemen, no markups.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Section 2 */}
+          <section className="mb-10">
+            <h2 className="text-xl sm:text-2xl text-[#EAE0D5] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
+              <span className="w-8 h-8 rounded-full bg-[#B76E79]/20 flex items-center justify-center text-sm text-[#F2C29A]">2</span>
               Accepted Payment Methods
             </h2>
             <div className="space-y-4 text-[#EAE0D5]/70 leading-relaxed pl-11">
@@ -70,23 +115,6 @@ export default function CODPolicyPage() {
                     </div>
                   </div>
                 ))}
-              </div>
-            </div>
-          </section>
-
-          {/* Section 2 */}
-          <section className="mb-10">
-            <h2 className="text-xl sm:text-2xl text-[#EAE0D5] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
-              <span className="w-8 h-8 rounded-full bg-[#B76E79]/20 flex items-center justify-center text-sm text-[#F2C29A]">2</span>
-              No Hidden Charges
-            </h2>
-            <div className="space-y-4 text-[#EAE0D5]/70 leading-relaxed pl-11">
-              <div className="flex items-start gap-3 p-4 rounded-xl bg-green-500/10 border border-green-500/20">
-                <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-[#EAE0D5] font-medium mb-1">What You See Is What You Pay</p>
-                  <p className="text-sm">The price displayed on the product page is the <strong className="text-[#EAE0D5]">final amount</strong> — inclusive of all taxes and free shipping. No processing fees, no convenience charges, no surprises at checkout.</p>
-                </div>
               </div>
             </div>
           </section>

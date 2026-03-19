@@ -14,6 +14,10 @@ logger = logging.getLogger(__name__)
 ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 
+# Video upload settings
+ALLOWED_VIDEO_TYPES = ['video/mp4', 'video/quicktime', 'video/webm']
+MAX_VIDEO_FILE_SIZE = 50 * 1024 * 1024  # 50 MB
+
 # Magic bytes for image file type verification
 IMAGE_SIGNATURES = {
     b'\xff\xd8\xff': 'image/jpeg',
@@ -163,6 +167,104 @@ class R2StorageService:
         except Exception as e:
             logger.warning(f"Warning: Failed to delete image {image_url}: {str(e)}")
             return False
+    
+    def _generate_video_filename(self, original_filename: str, folder: str = "returns") -> str:
+        """Generate a unique filename for video uploads."""
+        ext = original_filename.rsplit('.', 1)[-1].lower() if '.' in original_filename else 'mp4'
+        # Only allow safe video extensions
+        safe_extensions = {'mp4', 'mov', 'webm'}
+        if ext not in safe_extensions:
+            ext = 'mp4'
+        unique_id = uuid.uuid4().hex[:12]
+        return f"{folder}/{unique_id}.{ext}"
+    
+    def _validate_video_magic_bytes(self, content: bytes) -> bool:
+        """Verify file content is a valid video format via magic bytes."""
+        if len(content) < 12:
+            return False
+        
+        # Check for MP4/MOV - 'ftyp' box at offset 4
+        if b'ftyp' in content[4:12]:
+            return True
+        
+        # Check for MP4 alternative - 'moov' at beginning (less common)
+        if content[:4] == b'moov':
+            return True
+            
+        # Check for WebM - EBML header
+        if content[:4] == b'\x1aE\xdf\xa3':
+            return True
+        
+        # Check for AVI - RIFF header
+        if content[:4] == b'RIFF':
+            # Verify it's AVI (RIFF....AVI)
+            if len(content) > 12 and content[8:12] == b'AVI ':
+                return True
+        
+        return False
+    
+    async def upload_video(
+        self,
+        file: UploadFile,
+        folder: str = "returns"
+    ) -> str:
+        """
+        Upload a video to R2 storage.
+        
+        Args:
+            file: The uploaded video file
+            folder: Subfolder in bucket (default: returns)
+            
+        Returns:
+            The public URL of the uploaded video
+        """
+        # Validate MIME type
+        if file.content_type not in ALLOWED_VIDEO_TYPES:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid video type '{file.content_type}'. Allowed: {', '.join(ALLOWED_VIDEO_TYPES)}"
+            )
+        
+        # Read file content
+        content = await file.read()
+        
+        # Validate file size
+        if len(content) > MAX_VIDEO_FILE_SIZE:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Video too large. Maximum size is {MAX_VIDEO_FILE_SIZE // (1024*1024)} MB."
+            )
+        
+        # Validate magic bytes (actual file content)
+        if not self._validate_video_magic_bytes(content):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="File content does not match an allowed video format."
+            )
+        
+        # Generate unique filename
+        key = self._generate_video_filename(file.filename, folder)
+        
+        try:
+            # Upload to R2
+            self.client.put_object(
+                Bucket=settings.R2_BUCKET_NAME,
+                Key=key,
+                Body=content,
+                ContentType=file.content_type
+            )
+            
+            # Return public URL
+            if settings.R2_PUBLIC_URL:
+                return f"{settings.R2_PUBLIC_URL.rstrip('/')}/{key}"
+            else:
+                return f"https://{settings.R2_BUCKET_NAME}.{settings.R2_ACCOUNT_ID}.r2.cloudflarestorage.com/{key}"
+                
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to upload video: {str(e)}"
+            )
     
     def generate_presigned_url(
         self, 

@@ -2107,6 +2107,38 @@ async def create_return_request(
     return return_service.create_return(current_user["user_id"], return_data)
 
 
+@app.post("/api/v1/returns/upload-video",
+          status_code=status.HTTP_201_CREATED,
+          tags=["Returns"])
+async def upload_return_video(
+    file: UploadFile = File(..., description="Video file for return evidence"),
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Upload a video for return request evidence.
+    
+    - Accepts: mp4, mov, webm formats
+    - Max file size: 50MB
+    - Returns the video URL after successful upload
+    """
+    # Import the r2 service
+    from service.r2_service import r2_service
+    
+    try:
+        video_url = await r2_service.upload_video(file, folder="returns")
+        return {
+            "video_url": video_url,
+            "message": "Video uploaded successfully"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to upload video: {str(e)}"
+        )
+
+
 @app.get("/api/v1/returns", response_model=List[ReturnRequestResponse],
          tags=["Returns"])
 async def list_returns(

@@ -104,8 +104,32 @@ export default function StaffManagementPage() {
   };
 
   const handleCreateAccount = async () => {
+    // Validate required fields
+    if (!formData.email || !formData.username || !formData.password) {
+      alert('Please fill in all required fields (email, username, password)');
+      return;
+    }
+    
+    if (formData.password.length < 8) {
+      alert('Password must be at least 8 characters long');
+      return;
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      alert('Please enter a valid email address');
+      return;
+    }
+
     try {
-      await staffManagementApi.createAccount(formData);
+      // Ensure role is always set to 'staff' for simple staff creation
+      const accountData = {
+        ...formData,
+        role: 'staff', // Force staff role for simple creation
+      };
+      
+      await staffManagementApi.createAccount(accountData);
       setIsCreateDialogOpen(false);
       setFormData({
         email: '',
@@ -145,13 +169,12 @@ export default function StaffManagementPage() {
     }
   };
 
-  const handleDeleteRole = async (roleId) => {
-    if (!confirm('Are you sure you want to delete this role?')) return;
+  const handleDeactivateAccount = async (userId) => {
     try {
-      await staffManagementApi.deleteRole(roleId);
+      await staffManagementApi.deactivateAccount(userId);
       loadData();
     } catch (error) {
-      alert('Failed to delete role: ' + (error.message || 'Unknown error'));
+      alert('Failed to update account status: ' + (error.message || 'Unknown error'));
     }
   };
 
@@ -294,13 +317,19 @@ export default function StaffManagementPage() {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex gap-1">
-                          <button className="p-1.5 rounded-lg hover:bg-[#B76E79]/10 text-[#EAE0D5]/50 hover:text-[#EAE0D5] transition-colors" title="View"><Eye className="w-4 h-4" /></button>
                           <button
                             onClick={() => handleDeactivateAccount(account.id)}
                             className="p-1.5 rounded-lg hover:bg-[#B76E79]/10 text-[#EAE0D5]/50 hover:text-orange-400 transition-colors"
                             title={account.is_active ? 'Deactivate' : 'Activate'}
                           >
                             {account.is_active ? <LogOut className="w-4 h-4" /> : <CheckCircle className="w-4 h-4" />}
+                          </button>
+                          <button
+                            onClick={() => handleDeleteAccount(account.id, account.full_name || account.username)}
+                            className="p-1.5 rounded-lg hover:bg-red-500/10 text-[#EAE0D5]/50 hover:text-red-400 transition-colors"
+                            title="Delete Account"
+                          >
+                            <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
                       </td>
@@ -380,23 +409,16 @@ export default function StaffManagementPage() {
             </div>
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                <div><label className={labelCls}>Email</label><input type="email" placeholder="staff@aaryaclothing.com" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className={inputCls} /></div>
-                <div><label className={labelCls}>Username</label><input placeholder="username" value={formData.username} onChange={e => setFormData({...formData, username: e.target.value})} className={inputCls} /></div>
+                <div><label className={labelCls}>Email *</label><input type="email" placeholder="staff@aaryaclothing.com" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className={inputCls} required /></div>
+                <div><label className={labelCls}>Username *</label><input placeholder="username" value={formData.username} onChange={e => setFormData({...formData, username: e.target.value})} className={inputCls} required /></div>
               </div>
               <div><label className={labelCls}>Full Name</label><input placeholder="Full Name" value={formData.full_name} onChange={e => setFormData({...formData, full_name: e.target.value})} className={inputCls} /></div>
-              <div><label className={labelCls}>Password</label><input type="password" placeholder="Minimum 8 characters" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} className={inputCls} /></div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className={labelCls}>Role</label>
-                  <select value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})} className={inputCls}>
-                    <option value="staff">Staff</option>
-                    <option value="admin">Admin</option>
-                    <option value="super_admin">Super Admin</option>
-                  </select>
-                </div>
-                <div><label className={labelCls}>Department</label><input placeholder="e.g., Sales" value={formData.department} onChange={e => setFormData({...formData, department: e.target.value})} className={inputCls} /></div>
+              <div><label className={labelCls}>Password *</label><input type="password" placeholder="Minimum 8 characters" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} className={inputCls} required minLength={8} /></div>
+              <div className="p-3 bg-[#7A2F57]/10 border border-[#7A2F57]/20 rounded-xl">
+                <p className="text-xs text-[#EAE0D5]/60">
+                  <span className="text-[#F2C29A] font-medium">Note:</span> New staff will be automatically assigned the "staff" role with access to orders, products, inventory, and collections only.
+                </p>
               </div>
-              <div><label className={labelCls}>Phone</label><input placeholder="+91 98765 43210" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className={inputCls} /></div>
             </div>
             <div className="flex gap-3 mt-6">
               <button onClick={() => setIsCreateDialogOpen(false)} className="flex-1 px-4 py-2.5 border border-[#B76E79]/20 rounded-xl text-[#EAE0D5]/70 hover:bg-[#B76E79]/10 transition-colors">Cancel</button>

@@ -241,13 +241,14 @@ export default function InventoryPage() {
         }
         setItems(data.items || []);
 
-        // Always fetch overall stats from the full list
-        if (activeTab === 'All') {
-          const total = data.total || (data.items?.length ?? 0);
-          const low = (data.items || []).filter(i => i.quantity > 0 && i.quantity <= i.low_stock_threshold).length;
-          const oos = (data.items || []).filter(i => i.quantity === 0).length;
-          setStats({ total, lowStock: low, outOfStock: oos });
-        }
+        // Always fetch overall stats from the full inventory list to ensure stats are accurate
+        // regardless of which tab is currently active
+        const allData = await inventoryApi.list({ limit: 500 });
+        const allItems = allData.items || [];
+        const total = allItems.length;
+        const low = allItems.filter(i => i.quantity > 0 && i.quantity <= (i.low_stock_threshold || 5)).length;
+        const oos = allItems.filter(i => i.quantity === 0).length;
+        setStats({ total, lowStock: low, outOfStock: oos });
       }
     } catch (err) {
       logger.error('Inventory fetch error:', err);

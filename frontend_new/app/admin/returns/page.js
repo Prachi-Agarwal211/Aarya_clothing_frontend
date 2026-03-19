@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
-  RotateCcw, Eye, CheckCircle, XCircle, RefreshCw, Download, Square, CheckSquare
+  RotateCcw, Eye, CheckCircle, XCircle, RefreshCw, Download, Square, CheckSquare, Video
 } from 'lucide-react';
 import DataTable from '@/components/admin/shared/DataTable';
 import { ReturnStatusBadge } from '@/components/admin/shared/StatusBadge';
@@ -206,10 +206,21 @@ export default function AdminReturnsPage() {
     {
       key: 'reason',
       label: 'Reason',
-      render: (value) => (
-        <span className="text-[#EAE0D5]/70 text-sm">
-          {getReasonLabel(value)}
-        </span>
+      render: (value, row) => (
+        <div className="flex items-center gap-2">
+          <span className="text-[#EAE0D5]/70 text-sm">
+            {getReasonLabel(value)}
+          </span>
+          {row.video_url ? (
+            <span title="Video evidence submitted" className="flex items-center">
+              <Video className="w-3.5 h-3.5 text-green-400" />
+            </span>
+          ) : (
+            <span title="No video evidence" className="flex items-center">
+              <Video className="w-3.5 h-3.5 text-red-400/50" />
+            </span>
+          )}
+        </div>
       ),
     },
     {
@@ -276,6 +287,12 @@ export default function AdminReturnsPage() {
               <RefreshCw className="w-4 h-4" />
               Refresh
             </button>
+            <div className="flex items-center gap-1 text-xs text-[#EAE0D5]/50">
+              <Video className="w-3 h-3 text-green-400" />
+              <span>Has Video</span>
+              <Video className="w-3 h-3 text-red-400/50 ml-2" />
+              <span>No Video</span>
+            </div>
             <button className="flex items-center gap-2 px-4 py-2 bg-[#7A2F57]/20 text-[#EAE0D5] rounded-2xl hover:bg-[#7A2F57]/30 transition-colors">
               <Download className="w-4 h-4" />
               Export

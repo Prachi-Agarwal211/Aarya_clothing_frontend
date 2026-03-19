@@ -11,6 +11,7 @@ import { Send, Sparkles, ShoppingBag, Tag, Star,
 import { aiApi } from '@/lib/adminApi';
 import { useCart } from '@/lib/cartContext';
 import { useAuth } from '@/lib/authContext';
+import logger from '@/lib/logger';
 
 // ── Colour palette for swatches ──────────────────────────────────────────────
 const COLOR_HEX = {
@@ -70,7 +71,10 @@ function parseToolResults(toolResults) {
       if (data?.collections?.length) collections = data.collections;
       if (data?.promotions?.length) promos = data.promotions;
     }
-  } catch {}
+  } catch (err) {
+    // Silently continue with empty arrays if parsing fails
+    logger.debug('Could not parse tool results for search:', err?.message);
+  }
   return { products, collections, promos };
 }
 

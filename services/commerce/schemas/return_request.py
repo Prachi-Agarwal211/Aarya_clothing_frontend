@@ -1,10 +1,10 @@
 """Return request schemas for commerce service."""
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List, Any
 from datetime import datetime
 from decimal import Decimal
 
-from models.return_request import ReturnReason, ReturnStatus
+from models.return_request import ReturnReason, ReturnStatus, ReturnType
 
 
 class ReturnRequestCreate(BaseModel):
@@ -12,6 +12,11 @@ class ReturnRequestCreate(BaseModel):
     order_id: int
     reason: ReturnReason
     description: Optional[str] = None
+    # Enhanced return fields - aligned with migration
+    type: str = "return"  # "return" or "exchange"
+    items: List[dict] = []  # Array of items to return: [{item_id, quantity, reason}, ...]
+    exchange_preference: Optional[str] = None  # e.g., "exchange", "refund", "store_credit"
+    video_url: Optional[str] = None  # URL of uploaded video evidence
 
 
 class ReturnRequestUpdate(BaseModel):
@@ -29,7 +34,13 @@ class ReturnRequestResponse(BaseModel):
     order_id: int
     user_id: int
     reason: ReturnReason
+    type: str  # "return" or "exchange"
+    items: Optional[str] = None  # JSON string of items array
     description: Optional[str]
+    # Enhanced return fields
+    exchange_preference: Optional[str] = None
+    video_url: Optional[str] = None
+    # Existing fields
     status: ReturnStatus
     refund_amount: Optional[Decimal]
     refund_transaction_id: Optional[str]

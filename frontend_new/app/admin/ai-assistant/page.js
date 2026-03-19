@@ -8,7 +8,7 @@ import {
   X, TrendingUp, Package, Users, ShoppingCart,
   BarChart2, AlertTriangle, ChevronRight, Copy, Check,
   Image as ImageIcon, DollarSign, LayoutDashboard, ShieldAlert, CheckCircle2,
-  XCircle, Zap
+  XCircle, Zap, Brain, Gauge, Clock, CreditCard, Settings, Activity
 } from 'lucide-react';
 import { aiApi } from '@/lib/adminApi';
 import logger from '@/lib/logger';
@@ -22,11 +22,11 @@ const QUICK_PROMPTS = [
   { Icon: ShieldAlert,     label: 'Ship order',        prompt: 'I want to ship order #' },
   { Icon: DollarSign,      label: 'Update price',      prompt: 'Update the price of product #' },
   { Icon: ShoppingCart,    label: 'Adjust stock',      prompt: 'Adjust stock for SKU ' },
-  { Icon: BarChart2,    label: 'Top products',     prompt: 'What are the top selling products this month?' },
-  { Icon: DollarSign,   label: 'AI costs',         prompt: 'Show me AI usage and cost summary for this month' },
+  { Icon: BarChart2,       label: 'Top products',      prompt: 'What are the top selling products this month?' },
+  { Icon: DollarSign,      label: 'AI costs',          prompt: 'Show me AI usage and cost summary for this month' },
 ];
 
-// ── Markdown renderer for admin responses ────────────────────────────────────
+// ── Markdown renderer for admin responses ───────────────────────────────────
 function AdminMarkdown({ text }) {
   if (!text) return null;
   const lines = text.split('\n');
@@ -71,20 +71,22 @@ function renderInline(text) {
   });
 }
 
-// ── Tool call badges ─────────────────────────────────────────────────────────
+// ── Tool call badges with better visualization ─────────────────────────────────
 function ToolBadges({ toolCalls }) {
   if (!toolCalls?.length) return null;
   const labels = {
     get_orders: 'Orders', get_order_details: 'Order Detail',
     get_revenue_summary: 'Revenue', get_inventory_alerts: 'Inventory',
     get_customer_stats: 'Customers', search_orders: 'Search',
-    get_ai_cost_summary: 'AI Costs',
+    get_ai_cost_summary: 'AI Costs', get_products: 'Products',
+    update_order_status: 'Update Order', create_shipment: 'Ship Order',
+    adjust_inventory: 'Adjust Stock', update_price: 'Update Price',
   };
   return (
     <div className="flex flex-wrap gap-1.5 mt-2">
       {toolCalls.map((t, i) => (
         <span key={i} className="flex items-center gap-1 px-2 py-0.5 bg-[#7A2F57]/20 border border-[#B76E79]/20 rounded-full text-xs text-[#B76E79]">
-          <span className="w-1 h-1 rounded-full bg-[#B76E79]" />
+          <Zap className="w-2.5 h-2.5" />
           {labels[t] || t}
         </span>
       ))}
@@ -177,44 +179,179 @@ function ConfirmActionModal({ actions, onConfirm, onDismiss, confirming }) {
   );
 }
 
-// ── Analytics panel ───────────────────────────────────────────────────────────
-function AiAnalyticsPanel({ onClose }) {
+// ── Enhanced Analytics Panel ─────────────────────────────────────────────────
+function AiAnalyticsPanel({ onClose, isSuperAdmin = false }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [timeRange, setTimeRange] = useState('30');
 
   useEffect(() => {
-    aiApi.getAnalytics(30).then(r => { setData(r); setLoading(false); }).catch(() => setLoading(false));
-  }, []);
+    loadAnalytics();
+  }, [timeRange]);
+
+  const loadAnalytics = async () => {
+    setLoading(true);
+    try {
+      const result = await aiApi.getAnalytics(parseInt(timeRange));
+      setData(result);
+    } catch (err) {
+      logger.error('AI analytics error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Calculate tool usage percentage
+  const getToolUsagePercent = (role) => {
+    const roleData = data?.by_role?.find(r => r.role === role);
+    if (!roleData) return 0;
+    const totalOps = (roleData.tool_calls || 0) + (roleData.tokens_in || 0);
+    if (totalOps === 0) return 0;
+    return Math.round((roleData.tool_calls || 0) / totalOps * 100);
+  };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="relative bg-[#0B0608]/95 backdrop-blur-xl border border-[#B76E79]/20 rounded-2xl p-6 w-full max-w-md">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-[#F2C29A]" style={{ fontFamily: 'Cinzel, serif' }}>AI Usage & Cost (30 days)</h3>
+      <div className="relative bg-[#0B0608]/95 backdrop-blur-xl border border-[#B76E79]/20 rounded-2xl p-6 w-full max-w-2xl my-8">
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-lg font-semibold text-[#F2C29A]" style={{ fontFamily: 'Cinzel, serif' }}>
+            AI Usage & Cost Analytics
+          </h3>
           <button onClick={onClose}><X className="w-5 h-5 text-[#EAE0D5]/50 hover:text-[#EAE0D5]" /></button>
         </div>
+
+        {/* Time Range Selector */}
+        <div className="flex gap-2 mb-6">
+          {['7', '30', '90'].map(days => (
+            <button
+              key={days}
+              onClick={() => setTimeRange(days)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                timeRange === days 
+                  ? 'bg-[#B76E79] text-white' 
+                  : 'bg-[#180F14] text-[#EAE0D5]/60 hover:text-[#EAE0D5]'
+              }`}
+            >
+              {days} days
+            </button>
+          ))}
+        </div>
+
         {loading ? (
-          <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-[#B76E79]" /></div>
+          <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-[#B76E79]" /></div>
         ) : data ? (
-          <div className="space-y-4">
-            <div className="p-3 bg-[#F2C29A]/5 border border-[#F2C29A]/20 rounded-xl text-center">
-              <p className="text-xs text-[#EAE0D5]/50 uppercase tracking-widest">Total Cost</p>
-              <p className="text-2xl font-bold text-[#F2C29A]">${(data.total_cost_usd || 0).toFixed(4)}</p>
-              <p className="text-xs text-[#EAE0D5]/40">Gemini Flash pricing</p>
+          <div className="space-y-6">
+            {/* Summary Cards */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="p-3 bg-[#F2C29A]/5 border border-[#F2C29A]/20 rounded-xl text-center">
+                <p className="text-xs text-[#EAE0D5]/50 uppercase tracking-widest">Total Cost</p>
+                <p className="text-xl font-bold text-[#F2C29A]">${(data.total_cost_usd || 0).toFixed(4)}</p>
+              </div>
+              <div className="p-3 bg-[#7A2F57]/20 border border-[#B76E79]/20 rounded-xl text-center">
+                <p className="text-xs text-[#EAE0D5]/50 uppercase tracking-widest">Sessions</p>
+                <p className="text-xl font-bold text-[#EAE0D5]">{data.total_sessions || 0}</p>
+              </div>
+              <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-xl text-center">
+                <p className="text-xs text-[#EAE0D5]/50 uppercase tracking-widest">Messages</p>
+                <p className="text-xl font-bold text-blue-400">{data.total_messages || 0}</p>
+              </div>
+              <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-xl text-center">
+                <p className="text-xs text-[#EAE0D5]/50 uppercase tracking-widest">Tool Calls</p>
+                <p className="text-xl font-bold text-green-400">{data.total_tool_calls || 0}</p>
+              </div>
             </div>
-            {data.by_role?.map((r, i) => (
-              <div key={i} className="p-3 bg-[#180F14] border border-[#B76E79]/15 rounded-xl">
-                <p className="text-sm font-semibold text-[#EAE0D5] capitalize mb-2">{r.role} AI</p>
-                <div className="grid grid-cols-2 gap-2 text-xs text-[#EAE0D5]/60">
-                  <div><span className="text-[#EAE0D5]/40">Sessions:</span> {r.sessions}</div>
-                  <div><span className="text-[#EAE0D5]/40">Messages:</span> {r.messages}</div>
-                  <div><span className="text-[#EAE0D5]/40">Tokens in:</span> {(r.tokens_in || 0).toLocaleString()}</div>
-                  <div><span className="text-[#EAE0D5]/40">Tokens out:</span> {(r.tokens_out || 0).toLocaleString()}</div>
-                  <div className="col-span-2"><span className="text-[#EAE0D5]/40">Cost:</span> <span className="text-green-400">${(r.cost_usd || 0).toFixed(6)}</span></div>
+
+            {/* Role-based breakdown */}
+            <div className="space-y-4">
+              <h4 className="text-sm font-semibold text-[#EAE0D5] flex items-center gap-2">
+                <BarChart2 className="w-4 h-4 text-[#B76E79]" />
+                Usage by Role
+              </h4>
+              
+              {data.by_role?.map((r, i) => (
+                <div key={i} className="p-4 bg-[#180F14] border border-[#B76E79]/15 rounded-xl">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold text-[#EAE0D5] capitalize">{r.role} AI</span>
+                      {r.role === 'customer' && (
+                        <span className="px-2 py-0.5 bg-amber-500/20 text-amber-400 text-[10px] rounded-full">
+                          Rate Limited
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3 text-xs">
+                      <span className="text-[#EAE0D5]/50">
+                        <Gauge className="w-3 h-3 inline mr-1" />
+                        {getToolUsagePercent(r.role)}% tools
+                      </span>
+                      <span className="text-green-400 font-medium">${(r.cost_usd || 0).toFixed(4)}</span>
+                    </div>
+                  </div>
+                  
+                  {/* Tool vs Token Usage Bar */}
+                  <div className="mb-3">
+                    <div className="flex h-2 rounded-full overflow-hidden bg-[#0B0608]">
+                      <div 
+                        className="bg-green-500" 
+                        style={{ width: `${getToolUsagePercent(r.role)}%` }}
+                        title="Tool calls (low cost)"
+                      />
+                      <div 
+                        className="bg-[#B76E79]" 
+                        style={{ width: `${100 - getToolUsagePercent(r.role)}%` }}
+                        title="Token usage (higher cost)"
+                      />
+                    </div>
+                    <div className="flex justify-between mt-1 text-[10px] text-[#EAE0D5]/40">
+                      <span className="flex items-center gap-1">
+                        <Zap className="w-2 h-2" /> Tools: {r.tool_calls || 0}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Brain className="w-2 h-2" /> Tokens: {(r.tokens_in || 0).toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs text-[#EAE0D5]/60">
+                    <div className="flex items-center gap-1.5">
+                      <Clock className="w-3 h-3 text-[#EAE0D5]/40" />
+                      <span>{r.sessions} sessions</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <MessageCircle className="w-3 h-3 text-[#EAE0D5]/40" />
+                      <span>{r.messages} msgs</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <TrendingUp className="w-3 h-3 text-[#EAE0D5]/40" />
+                      <span>{(r.tokens_in || 0).toLocaleString()} in</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <TrendingUp className="w-3 h-3 text-[#EAE0D5]/40" />
+                      <span>{(r.tokens_out || 0).toLocaleString()} out</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Provider Info */}
+            <div className="p-4 bg-[#180F14] border border-[#B76E79]/15 rounded-xl">
+              <h4 className="text-sm font-semibold text-[#EAE0D5] mb-3 flex items-center gap-2">
+                <Settings className="w-4 h-4 text-[#B76E79]" />
+                Active AI Providers
+              </h4>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex items-center justify-between p-2 bg-[#0B0608] rounded-lg">
+                  <span className="text-xs text-[#EAE0D5]">Gemini Flash</span>
+                  <span className="w-2 h-2 rounded-full bg-green-400" />
+                </div>
+                <div className="flex items-center justify-between p-2 bg-[#0B0608] rounded-lg">
+                  <span className="text-xs text-[#EAE0D5]">OpenRouter</span>
+                  <span className="w-2 h-2 rounded-full bg-[#EAE0D5]/30" />
                 </div>
               </div>
-            ))}
+            </div>
           </div>
         ) : (
           <p className="text-sm text-[#EAE0D5]/50 text-center py-6">No data available yet.</p>
@@ -224,10 +361,19 @@ function AiAnalyticsPanel({ onClose }) {
   );
 }
 
+// Simple MessageCircle icon fallback
+function MessageCircle({ className }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+    </svg>
+  );
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 const WELCOME = {
   id: 'welcome', role: 'assistant',
-  text: "Hello! I'm **Aria**, your Aarya Clothing AI assistant.\n\nI can help you with **orders**, **inventory**, **analytics**, **customer insights**, and more. Just ask me anything — or use a quick action below.",
+  text: "Hello! I'm **Aria**, your Aarya Clothing AI assistant.\n\nI can help you with **orders**, **inventory**, **analytics**, **customer insights**, and more. Just ask me anything — or use a quick action below.\n\n💡 **Tip:** I use tools to get real data, which keeps costs low!",
   toolCalls: [], timestamp: new Date(),
 };
 
@@ -282,7 +428,6 @@ export default function AdminAiAssistantPage() {
     if (!msg || loading) return;
     setInput('');
     setError(null);
-    // Reset textarea height
     if (inputRef.current) { inputRef.current.style.height = 'auto'; }
 
     const userMsg = {
@@ -304,7 +449,6 @@ export default function AdminAiAssistantPage() {
 
       if (res.session_id) setSessionId(res.session_id);
 
-      // Handle pending actions from write tool calls
       if (res.pending_actions?.length) {
         setPendingActions(res.pending_actions);
       }
@@ -378,7 +522,6 @@ export default function AdminAiAssistantPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {/* Mode toggle */}
           <button
             onClick={() => router.push('/admin/dashboard')}
             title="Switch to Dashboard"
@@ -390,7 +533,7 @@ export default function AdminAiAssistantPage() {
             onClick={() => setShowAnalytics(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-[#EAE0D5]/60 border border-[#B76E79]/20 rounded-xl hover:bg-[#B76E79]/10 transition-colors"
           >
-            <BarChart2 className="w-3.5 h-3.5" /> <span className="hidden sm:inline">AI Cost</span>
+            <BarChart2 className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Analytics</span>
           </button>
           <button
             onClick={clearSession}
@@ -452,7 +595,7 @@ export default function AdminAiAssistantPage() {
               <button
                 onClick={() => setShowConfirmModal(true)}
                 className="text-xs bg-amber-500 hover:bg-amber-400 text-black font-bold px-3 py-1 rounded-lg transition-colors"
-              >Review &amp; Confirm</button>
+              >Review & Confirm</button>
             </div>
           </div>
         </div>
@@ -498,44 +641,39 @@ export default function AdminAiAssistantPage() {
               <div className={`rounded-2xl w-full ${
                 msg.role === 'user'
                   ? 'bg-gradient-to-br from-[#7A2F57] to-[#B76E79] text-white px-4 py-3 rounded-tr-sm shadow-md'
-                  : 'bg-[#180F14] border border-[#B76E79]/15 px-4 py-3 rounded-tl-sm'
+                  : 'bg-[#0B0608]/60 border border-[#B76E79]/15 px-4 py-3 rounded-tl-sm'
               }`}>
-                {msg.role === 'user'
-                  ? <p className="text-sm break-words">{msg.text}</p>
-                  : <AdminMarkdown text={msg.text} />
-                }
-              </div>
-
-              {/* Tool badges + pending action indicator + copy + cost */}
-              {msg.role === 'assistant' && (
-                <div className="flex flex-wrap items-center gap-2 mt-1.5 w-full">
-                  <ToolBadges toolCalls={msg.toolCalls} />
-                  {msg.pendingActions?.length > 0 && (
-                    <span className="flex items-center gap-1 px-2 py-0.5 bg-amber-500/20 border border-amber-500/30 rounded-full text-xs text-amber-400">
-                      <ShieldAlert className="w-3 h-3" /> {msg.pendingActions.length} action{msg.pendingActions.length > 1 ? 's' : ''} pending
-                    </span>
-                  )}
-                  <div className="ml-auto flex items-center gap-1 flex-shrink-0">
-                    {msg.provider && msg.provider !== 'gemini' && (
-                      <span className="flex items-center gap-0.5 text-[9px] text-[#EAE0D5]/20 border border-[#B76E79]/10 rounded px-1 py-0.5">
-                        <Zap className="w-2.5 h-2.5" />{msg.provider}
-                      </span>
-                    )}
-                    {msg.tokenCost > 0 && (
-                      <span className="text-[10px] text-[#EAE0D5]/20">${msg.tokenCost.toFixed(6)}</span>
-                    )}
+                {msg.role === 'assistant' && (
+                  <div className="flex items-start justify-between gap-2 mb-1">
+                    <span className="text-[10px] text-[#EAE0D5]/30">Aria</span>
                     <CopyButton text={msg.text} />
-                    <span className="text-[10px] text-[#EAE0D5]/20">
-                      {msg.timestamp.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                  </div>
+                )}
+                {msg.role === 'user' ? (
+                  <p className="text-sm whitespace-pre-wrap">{msg.text}</p>
+                ) : (
+                  <AdminMarkdown text={msg.text} />
+                )}
+                
+                {/* Tool calls */}
+                <ToolBadges toolCalls={msg.toolCalls} />
+                
+                {/* Cost indicator */}
+                {msg.tokenCost !== undefined && (
+                  <div className="mt-2 pt-2 border-t border-[#B76E79]/10 flex items-center justify-between">
+                    <span className="text-[10px] text-[#EAE0D5]/30">
+                      {msg.provider || 'Gemini Flash'}
+                    </span>
+                    <span className="text-[10px] text-green-400/70">
+                      ${msg.tokenCost.toFixed(4)}
                     </span>
                   </div>
-                </div>
-              )}
-              {msg.role === 'user' && (
-                <p className="text-[10px] text-[#EAE0D5]/20 mt-1 px-1">
-                  {msg.timestamp.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
-                </p>
-              )}
+                )}
+              </div>
+              
+              <span className="text-[10px] text-[#EAE0D5]/20 mt-1">
+                {msg.timestamp?.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+              </span>
             </div>
           </div>
         ))}
@@ -543,15 +681,14 @@ export default function AdminAiAssistantPage() {
         {/* Typing indicator */}
         {loading && (
           <div className="flex items-start gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#7A2F57] to-[#B76E79] flex items-center justify-center flex-shrink-0">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#7A2F57] to-[#B76E79] flex items-center justify-center flex-shrink-0 mt-0.5">
               <Sparkles className="w-4 h-4 text-white" />
             </div>
-            <div className="bg-[#180F14] border border-[#B76E79]/15 rounded-2xl rounded-tl-sm px-4 py-3">
-              <div className="flex items-center gap-1.5 py-0.5">
-                {[0, 1, 2].map(i => (
-                  <span key={i} className="w-2 h-2 rounded-full bg-[#B76E79] animate-bounce"
-                    style={{ animationDelay: `${i * 150}ms` }} />
-                ))}
+            <div className="bg-[#0B0608]/60 border border-[#B76E79]/15 px-4 py-3 rounded-2xl rounded-tl-sm">
+              <div className="flex gap-1">
+                <span className="w-2 h-2 rounded-full bg-[#B76E79] animate-bounce" style={{ animationDelay: '0ms' }} />
+                <span className="w-2 h-2 rounded-full bg-[#B76E79] animate-bounce" style={{ animationDelay: '150ms' }} />
+                <span className="w-2 h-2 rounded-full bg-[#B76E79] animate-bounce" style={{ animationDelay: '300ms' }} />
               </div>
             </div>
           </div>
@@ -559,91 +696,81 @@ export default function AdminAiAssistantPage() {
         <div ref={bottomRef} />
       </div>
 
-      {/* Image previews */}
-      {images.length > 0 && (
-        <div className="flex gap-2 px-6 py-2 border-t border-[#B76E79]/10">
-          {images.map((img, i) => (
-            <div key={i} className="relative w-16 h-16 flex-shrink-0">
-              <Image
-                src={img.preview}
-                alt={`Image attachment ${i + 1}`}
-                fill
-                className="rounded-xl object-cover border border-[#B76E79]/20"
-                sizes="64px"
-              />
-              <button
-                onClick={() => setImages(prev => prev.filter((_, j) => j !== i))}
-                className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 flex items-center justify-center"
-              >
-                <X className="w-3 h-3 text-white" />
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-
       {/* Input area */}
-      <div className="flex-shrink-0 px-4 sm:px-6 py-4 border-t border-[#B76E79]/15">
-        <div className="flex items-end gap-2 sm:gap-3">
-          <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleImageAttach} />
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="p-2.5 text-[#EAE0D5]/40 hover:text-[#B76E79] border border-[#B76E79]/20 rounded-xl hover:bg-[#B76E79]/10 transition-colors flex-shrink-0"
-            title="Attach image"
-          >
-            <Paperclip className="w-4 h-4" />
-          </button>
-
-          <div className="flex-1 bg-[#180F14] border border-[#B76E79]/20 rounded-2xl px-4 py-3 focus-within:border-[#B76E79]/40 transition-colors">
+      <div className="px-4 sm:px-6 py-4 border-t border-[#B76E79]/15 bg-[#0B0608]/40">
+        <div className="flex items-end gap-3">
+          <div className="flex-1 relative">
             <textarea
               ref={inputRef}
               value={input}
-              onChange={(e) => {
-                setInput(e.target.value);
-                e.target.style.height = 'auto';
-                e.target.style.height = Math.min(e.target.scrollHeight, 160) + 'px';
-              }}
+              onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Ask about orders, revenue, inventory... (Shift+Enter for new line)"
+              placeholder="Ask me anything about your store..."
               rows={1}
-              disabled={loading}
-              className="w-full bg-transparent text-sm text-[#EAE0D5] placeholder-[#EAE0D5]/30 resize-none focus:outline-none disabled:opacity-60"
-              style={{ lineHeight: '1.6', maxHeight: '160px', overflow: 'auto' }}
+              className="w-full px-4 py-3 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-xl text-[#EAE0D5] placeholder-[#EAE0D5]/40 focus:outline-none focus:border-[#B76E79]/40 resize-none pr-12"
+              style={{ minHeight: '48px', maxHeight: '120px' }}
+            />
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={handleImageAttach}
             />
           </div>
-
+          
+          {/* Attachment button */}
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="p-3 text-[#EAE0D5]/40 hover:text-[#EAE0D5]/70 transition-colors"
+            title="Attach image"
+          >
+            <Paperclip className="w-5 h-5" />
+          </button>
+          
+          {/* Send button */}
           <button
             onClick={() => sendMessage()}
             disabled={!input.trim() || loading}
-            className="p-2.5 bg-gradient-to-br from-[#7A2F57] to-[#B76E79] rounded-xl flex items-center justify-center hover:opacity-90 transition-opacity disabled:opacity-40 flex-shrink-0"
+            className="p-3 bg-gradient-to-br from-[#7A2F57] to-[#B76E79] rounded-xl text-white hover:opacity-90 transition-opacity disabled:opacity-40"
           >
-            {loading
-              ? <Loader2 className="w-5 h-5 text-white animate-spin" />
-              : <Send className="w-5 h-5 text-white" />
-            }
+            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
           </button>
         </div>
-
-        <div className="flex items-center justify-between mt-2">
-          <p className="text-xs text-[#EAE0D5]/20">Aria has access to orders, inventory, analytics & customers</p>
-          {sessionId && (
-            <p className="text-xs text-[#EAE0D5]/15 font-mono">{sessionId.slice(0, 8)}...</p>
-          )}
-        </div>
+        
+        {/* Attached images preview */}
+        {images.length > 0 && (
+          <div className="flex gap-2 mt-3">
+            {images.map((img, i) => (
+              <div key={i} className="relative w-16 h-16">
+                <Image
+                  src={img.preview}
+                  alt={img.name}
+                  fill
+                  className="rounded-lg object-cover"
+                  sizes="64px"
+                />
+                <button
+                  onClick={() => setImages(prev => prev.filter((_, idx) => idx !== i))}
+                  className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center"
+                >
+                  <X className="w-3 h-3 text-white" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Analytics modal */}
-      {showAnalytics && <AiAnalyticsPanel onClose={() => setShowAnalytics(false)} />}
-
-      {/* Pending Action Confirmation Modal */}
-      {showConfirmModal && pendingActions.length > 0 && (
-        <ConfirmActionModal
-          actions={pendingActions}
-          onConfirm={handleConfirmActions}
-          onDismiss={() => setShowConfirmModal(false)}
-          confirming={confirming}
-        />
-      )}
+      {/* Modals */}
+      <ConfirmActionModal
+        actions={pendingActions}
+        onConfirm={handleConfirmActions}
+        onDismiss={() => setShowConfirmModal(false)}
+        confirming={confirming}
+      />
+      <AiAnalyticsPanel onClose={() => setShowAnalytics(false)} />
     </div>
   );
 }

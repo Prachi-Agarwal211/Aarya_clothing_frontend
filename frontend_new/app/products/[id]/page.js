@@ -365,6 +365,9 @@ export default function ProductDetailPage() {
                   </>
                 )}
               </div>
+              <p className="text-xs text-green-400 mt-1">
+                ✓ Final price - includes all taxes and shipping
+              </p>
 
               {/* Color Selection */}
               {product.colors && product.colors.length > 0 && (

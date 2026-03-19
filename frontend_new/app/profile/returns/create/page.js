@@ -4,17 +4,17 @@ import React, { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
-  RotateCcw, Package, ChevronLeft, AlertCircle, Upload,
-  CheckCircle, X, ChevronRight, Loader2
+  RotateCcw, Package, ChevronLeft, AlertCircle, Upload, Video,
+  CheckCircle, X, ChevronRight, Loader2, PlayCircle
 } from 'lucide-react';
 import { returnsApi, ordersApi } from '@/lib/customerApi';
 import { useAuth } from '@/lib/authContext';
 import logger from '@/lib/logger';
 
 const RETURN_REASONS = [
-  { value: 'defective', label: 'Defective Product', description: 'Product has manufacturing defects or quality issues' },
-  { value: 'damaged', label: 'Damaged During Shipping', description: 'Product arrived damaged due to shipping' },
-  { value: 'wrong_item', label: 'Wrong Item Received', description: 'Received a different product than ordered' },
+  { value: 'defective', label: 'Defective Product', description: 'Product has manufacturing defects or quality issues', requiresVideo: true },
+  { value: 'damaged', label: 'Damaged During Shipping', description: 'Product arrived damaged due to shipping', requiresVideo: true },
+  { value: 'wrong_item', label: 'Wrong Item Received', description: 'Received a different product than ordered', requiresVideo: true },
 ];
 
 const RETURN_TYPES = [
@@ -51,7 +51,9 @@ function CreateReturnContent() {
   const [description, setDescription] = useState('');
   const [video, setVideo] = useState(null);
   const [videoPreview, setVideoPreview] = useState(null);
+  const [videoUploadProgress, setVideoUploadProgress] = useState(0);
   const [exchangePreference, setExchangePreference] = useState('');
+  const [videoError, setVideoError] = useState('');
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -110,6 +112,7 @@ function CreateReturnContent() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setVideoError('');
 
     // Validation
     if (selectedItems.length === 0) {
@@ -124,11 +127,31 @@ function CreateReturnContent() {
       setError('Please provide a description of the issue');
       return;
     }
-    // Video is now optional - admin may ask for it if needed for verification
+    // Video is optional - but adding a video helps process return faster
+    if (!video && !videoPreview) {
+      setVideoError('Note: Adding a video helps us process your return faster.');
+      // Don't return - allow submission without video
+    }
 
     try {
       setSubmitting(true);
       
+      let videoUrl = null;
+      
+      // Upload video if present
+      if (video) {
+        try {
+          const uploadResult = await returnsApi.uploadVideo(video, (progress) => {
+            setVideoUploadProgress(progress);
+          });
+          videoUrl = uploadResult.video_url || uploadResult.url;
+        } catch (uploadErr) {
+          logger.error('Video upload error:', uploadErr);
+          // If video upload fails, still allow submission with note
+          setVideoError('Note: Video upload encountered an issue. Your return will be reviewed.');
+        }
+      }
+
       const returnData = {
         order_id: order.id,
         type: returnType,
@@ -140,7 +163,7 @@ function CreateReturnContent() {
           quantity: item.quantity,
           price: item.price,
         })),
-        video_url: videoPreview || null, // In real app, upload first
+        video_url: videoUrl || videoPreview, // Use uploaded URL or preview blob
         exchange_preference: returnType === 'exchange' ? exchangePreference : null,
       };
 
@@ -156,6 +179,7 @@ function CreateReturnContent() {
       setError('Failed to submit return request. Please try again.');
     } finally {
       setSubmitting(false);
+      setVideoUploadProgress(0);
     }
   };
 
@@ -201,18 +225,17 @@ function CreateReturnContent() {
         </p>
       </div>
 
-      {/* Return Policy Notice - Simplified */}
-      <div className="p-4 bg-[#7A2F57]/10 border border-[#B76E79]/20 rounded-xl">
+      {/* Return Policy Notice - Video Recommended */}
+      <div className="p-4 bg-[#7A2F57]/10 border border-[#B76E79]/30 rounded-xl">
         <div className="flex gap-3">
-          <AlertCircle className="w-5 h-5 text-[#B76E79] flex-shrink-0 mt-0.5" />
+          <Video className="w-5 h-5 text-[#B76E79] flex-shrink-0 mt-0.5" />
           <div className="text-sm text-[#EAE0D5]/70">
-            <p className="font-medium text-[#EAE0D5] mb-1">Return Policy</p>
+            <p className="font-medium text-[#F2C29A] mb-1">📹 Video Proof Recommended for Faster Processing</p>
             <ul className="list-disc list-inside space-y-1">
-              <li>Returns are accepted for <strong className="text-[#EAE0D5]">defective, damaged, or wrong items</strong></li>
-              <li>Please describe the issue in detail - our team will review your request</li>
-              <li>If needed, we may request a video for verification</li>
-              <li>Returns must be submitted within 7 days of delivery</li>
-              <li>Refunds processed within 5-7 business days after approval</li>
+              <li>Adding a video of the unboxing helps us process your return faster</li>
+              <li>The video should show the <strong className="text-[#EAE0D5]">product defect or damage</strong> clearly</li>
+              <li>Returns with clear video proof are typically approved faster</li>
+              <li>Video must be under 3 minutes and clearly show the issue</li>
             </ul>
           </div>
         </div>
@@ -388,12 +411,36 @@ function CreateReturnContent() {
               />
             </div>
 
-            {/* Video Upload - Optional */}
+            {/* Video Upload - Optional but recommended */}
             <div className="p-6 bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl">
-              <h3 className="text-lg font-medium text-[#F2C29A] mb-1">Upload Unboxing Video <span className="text-[#EAE0D5]/50 text-sm">(Optional - Optional but helpful for faster verification)</span></h3>
+              <h3 className="text-lg font-medium text-[#F2C29A] mb-1">
+                Upload Unboxing Video (Recommended)
+              </h3>
               <p className="text-sm text-[#EAE0D5]/50 mb-4">
-                If you have a video of the unboxing, please upload it. This helps us verify the issue quickly.
+                Adding a video showing the product defect or damage helps us process your return faster.
               </p>
+
+              {/* Video Recording Instructions */}
+              <div className="mb-4 p-4 bg-[#7A2F57]/20 border border-[#B76E79]/30 rounded-xl">
+                <p className="text-sm font-medium text-[#F2C29A] mb-2">📹 How to Record Your Video:</p>
+                <ol className="text-xs text-[#EAE0D5]/70 space-y-1 list-decimal list-inside">
+                  <li>Start recording before opening the package</li>
+                  <li>Show the sealed package clearly on camera</li>
+                  <li>Open the package while recording - show the packaging</li>
+                  <li>Take out the product and show it clearly</li>
+                  <li>Zoom in on any defects, damage, or issues</li>
+                  <li>For wrong items, show both the received item and what you ordered</li>
+                  <li>Keep the video under 3 minutes</li>
+                </ol>
+              </div>
+
+              {/* Non-defective notice */}
+              <div className="mb-4 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+                <p className="text-xs text-amber-400">
+                  <strong>Note:</strong> Returns are only approved if the video shows a genuine defect, damage, or wrong item. 
+                  Returns for size issues, color preferences, or changed mind without valid issues will be declined.
+                </p>
+              </div>
 
               {videoPreview ? (
                 <div className="relative rounded-xl overflow-hidden bg-[#0B0608]/60 border border-[#B76E79]/20">
@@ -409,27 +456,57 @@ function CreateReturnContent() {
                   >
                     <X className="w-4 h-4 text-white" />
                   </button>
-                  <p className="p-2 text-xs text-green-400 text-center">{video?.name}</p>
+                  <div className="p-2 flex items-center justify-between">
+                    <p className="text-xs text-green-400 flex items-center gap-1">
+                      <PlayCircle className="w-3 h-3" /> Video attached - ready to upload
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => document.getElementById('video-replace').click()}
+                      className="text-xs text-[#B76E79] hover:underline"
+                    >
+                      Replace Video
+                    </button>
+                    <input
+                      id="video-replace"
+                      type="file"
+                      accept="video/*"
+                      onChange={handleVideoUpload}
+                      className="sr-only"
+                    />
+                  </div>
+                  {videoUploadProgress > 0 && videoUploadProgress < 100 && (
+                    <div className="p-2">
+                      <div className="h-1 bg-[#7A2F57]/30 rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-green-500 transition-all duration-300"
+                          style={{ width: `${videoUploadProgress}%` }}
+                        />
+                      </div>
+                      <p className="text-xs text-center text-[#EAE0D5]/50 mt-1">Uploading... {videoUploadProgress}%</p>
+                    </div>
+                  )}
                 </div>
               ) : (
-                <label className="flex flex-col items-center justify-center w-full h-40 rounded-xl border-2 border-dashed border-[#B76E79]/30 cursor-pointer hover:border-[#B76E79]/60 transition-colors bg-[#0B0608]/40">
+                <label className="flex flex-col items-center justify-center w-full h-40 rounded-xl border-2 border-dashed border-[#B76E79]/30 cursor-pointer hover:border-[#B76E79]/50 transition-colors bg-[#0B0608]/40">
                   <input
                     type="file"
                     accept="video/*"
                     onChange={handleVideoUpload}
                     className="sr-only"
                   />
-                  <Upload className="w-8 h-8 text-[#B76E79]/50 mb-2" />
-                  <span className="text-sm text-[#EAE0D5]/60">Click to upload video</span>
-                  <span className="text-xs text-[#EAE0D5]/30 mt-1">MP4, MOV, AVI up to 200MB</span>
+                  <Video className="w-10 h-10 text-[#B76E79]/50 mb-2" />
+                  <span className="text-sm text-[#EAE0D5]">Click to upload your unboxing video</span>
+                  <span className="text-xs text-red-400 mt-1">⚠️ Video is required for return approval</span>
+                  <span className="text-xs text-[#EAE0D5]/30 mt-1">MP4, MOV, AVI up to 200MB • Under 3 minutes</span>
                 </label>
               )}
 
-              <div className="mt-3 p-3 bg-[#7A2F57]/10 rounded-lg">
-                <p className="text-xs text-[#EAE0D5]/60">
-                  <strong className="text-[#F2C29A]">Tip:</strong> If uploading a video, start recording before opening the package. Show the sealed package, then open it on camera. Display the product clearly and show any defect/damage. Keep the video under 3 minutes.
-                </p>
-              </div>
+              {videoError && (
+                <div className="mt-3 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+                  <p className="text-xs text-amber-400">{videoError}</p>
+                </div>
+              )}
             </div>
           </div>
 

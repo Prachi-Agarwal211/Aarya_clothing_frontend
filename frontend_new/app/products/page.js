@@ -52,16 +52,48 @@ function ProductsContent() {
       setLoading(true);
       setError(null);
 
+      logger.info('Fetching products and categories...');
+      
       const [productsData, categoriesData] = await Promise.all([
         productsApi.list({ limit: 50 }),
         categoriesApi.list(),
       ]);
 
-      setProducts(productsData.products || productsData || []);
-      setCategories(categoriesData.categories || categoriesData || []);
+      logger.info('Products API response:', { productsData, categoriesData });
+
+      // Handle different response formats
+      let products = [];
+      if (Array.isArray(productsData)) {
+        products = productsData;
+      } else if (productsData && Array.isArray(productsData.products)) {
+        products = productsData.products;
+      } else if (productsData && Array.isArray(productsData.data)) {
+        products = productsData.data;
+      } else {
+        logger.warn('Unexpected products data format:', productsData);
+      }
+
+      // Handle different category response formats
+      let categories = [];
+      if (Array.isArray(categoriesData)) {
+        categories = categoriesData;
+      } else if (categoriesData && Array.isArray(categoriesData.categories)) {
+        categories = categoriesData.categories;
+      } else if (categoriesData && Array.isArray(categoriesData.collections)) {
+        categories = categoriesData.collections;
+      } else if (categoriesData && Array.isArray(categoriesData.data)) {
+        categories = categoriesData.data;
+      } else {
+        logger.warn('Unexpected categories data format:', categoriesData);
+      }
+
+      logger.info(`Loaded ${products.length} products and ${categories.length} categories`);
+      
+      setProducts(products);
+      setCategories(categories);
     } catch (err) {
       logger.error('Error fetching data:', err);
-      setError('Failed to load products. Please try again.');
+      setError(err?.message || 'Failed to load products. Please try again.');
       setProducts([]);
       setCategories([]);
     } finally {
@@ -78,24 +110,27 @@ function ProductsContent() {
     }).format(amount);
   };
 
-  // Filter and sort products
+  // Filter and sort products - handle various field names
   const filteredProducts = products.filter(product => {
-    if (filters.category && product.category?.toLowerCase() !== filters.category.toLowerCase()) return false;
-    if (filters.minPrice && product.price < parseInt(filters.minPrice)) return false;
-    if (filters.maxPrice && product.price > parseInt(filters.maxPrice)) return false;
+    // Support different field names for category
+    const productCategory = product.category || product.collection_name || product.category_name || '';
+    
+    if (filters.category && productCategory?.toLowerCase() !== filters.category.toLowerCase()) return false;
+    if (filters.minPrice && (product.price || 0) < parseInt(filters.minPrice)) return false;
+    if (filters.maxPrice && (product.price || 0) > parseInt(filters.maxPrice)) return false;
     if (filters.search) {
       const search = filters.search.toLowerCase();
-      return product.name.toLowerCase().includes(search) ||
-        product.category?.toLowerCase().includes(search);
+      const productName = product.name || '';
+      return productName.toLowerCase().includes(search) || productCategory.toLowerCase().includes(search);
     }
     return true;
   }).sort((a, b) => {
     switch (filters.sort) {
-      case 'price-low': return a.price - b.price;
-      case 'price-high': return b.price - a.price;
+      case 'price-low': return (a.price || 0) - (b.price || 0);
+      case 'price-high': return (b.price || 0) - (a.price || 0);
       case 'rating': return (b.rating || 0) - (a.rating || 0);
       case 'popular': return (b.reviews || 0) - (a.reviews || 0);
-      default: return b.id - a.id;
+      default: return (b.id || 0) - (a.id || 0);
     }
   });
 

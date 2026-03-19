@@ -19,28 +19,29 @@ export default function AdminHeader({ onMenuClick, user }) {
   };
 
   return (
-    <header className="h-16 bg-[#0B0608]/80 backdrop-blur-xl border-b border-[#B76E79]/15 sticky top-0 z-30">
-      <div className="h-full px-4 flex items-center justify-between">
+    <header className="h-16 bg-[#0B0608]/80 backdrop-blur-xl border-b border-[#B76E79]/15 sticky top-0 z-30 overflow-hidden">
+      <div className="h-full px-2 sm:px-4 flex items-center justify-between gap-2 sm:gap-4">
         {/* Left Section - Mobile Menu & Search */}
         <div className="flex items-center gap-4">
           {/* Mobile Menu Button */}
           <button
             onClick={onMenuClick}
+            data-mobile-menu-button
             className="lg:hidden p-2 rounded-lg hover:bg-[#B76E79]/10 transition-colors"
           >
             <Menu className="w-5 h-5 text-[#EAE0D5]/70" />
           </button>
 
           {/* Search Bar */}
-          <div className="relative hidden sm:block">
+          <div className="relative w-full max-w-[200px] sm:max-w-xs md:max-w-sm lg:max-w-md xl:max-w-lg">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#EAE0D5]/40" />
             <input
               type="text"
-              placeholder="Search orders, products, customers..."
+              placeholder="Search..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="
-                w-64 lg:w-96 pl-10 pr-4 py-2
+                w-full pl-10 pr-4 py-2
                 bg-[#0B0608]/60 border border-[#B76E79]/20
                 rounded-xl text-[#EAE0D5] placeholder-[#EAE0D5]/40
                 focus:outline-none focus:border-[#B76E79]/40

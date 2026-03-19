@@ -281,26 +281,15 @@ export default function OrderDetailPage({ params }) {
               ))}
             </div>
 
-            {/* Order Summary */}
-            <div className="mt-6 pt-6 border-t border-[#B76E79]/15 space-y-2">
-              <div className="flex justify-between text-[#EAE0D5]/70">
-                <span>Subtotal</span>
-                <span>{formatCurrency(order.order.subtotal)}</span>
-              </div>
-              {order.order.discount_applied > 0 && (
-                <div className="flex justify-between text-green-400">
-                  <span>Discount</span>
-                  <span>-{formatCurrency(order.order.discount_applied)}</span>
-                </div>
-              )}
-              <div className="flex justify-between text-[#EAE0D5]/70">
-                <span>Shipping</span>
-                <span>{order.order.shipping_cost === 0 ? 'Free' : formatCurrency(order.order.shipping_cost)}</span>
-              </div>
-              <div className="flex justify-between text-lg font-semibold text-[#F2C29A] pt-2 border-t border-[#B76E79]/15">
+            {/* Order Summary - Simplified: Total Only */}
+            <div className="mt-6 pt-6 border-t border-[#B76E79]/15">
+              <div className="flex justify-between text-lg font-semibold text-[#F2C29A]">
                 <span>Total</span>
                 <span>{formatCurrency(order.order.total_amount)}</span>
               </div>
+              <p className="text-xs text-[#EAE0D5]/40 mt-2">
+                Price shown is final - includes all taxes and shipping
+              </p>
             </div>
           </div>
 

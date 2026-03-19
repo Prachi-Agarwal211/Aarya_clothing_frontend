@@ -237,14 +237,25 @@ export default function EditProductPage() {
     try {
       setLoading(true);
       
+      // Build update payload with correct field names
       const productData = {
-        ...form,
-        base_price: parseFloat(form.price),
-        price: undefined,
+        name: form.name,
+        slug: form.slug,
+        description: form.description,
+        short_description: form.short_description,
+        price: parseFloat(form.price),  // Use 'price' directly
         mrp: form.mrp ? parseFloat(form.mrp) : null,
-        category_id: form.category_id ? parseInt(form.category_id) : null,
+        // Use collection_id (not category_id) since backend uses collections
         collection_id: form.category_id ? parseInt(form.category_id) : null,
+        brand: form.brand || null,
+        is_active: form.is_active,
+        is_featured: form.is_featured,
+        is_new_arrival: form.is_new_arrival,
+        meta_title: form.meta_title || null,
+        meta_description: form.meta_description || null,
       };
+      
+      logger.info('Updating product with data:', { productId, productData });
       
       // 1. Update Product
       await productsApi.update(productId, productData);

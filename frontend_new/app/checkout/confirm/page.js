@@ -158,14 +158,14 @@ export default function CheckoutConfirmPage() {
         )}
       </div>
 
-      {/* Tax Invoice */}
+      {/* Order Invoice */}
       {order && (
         <div className="p-6 bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl">
           {/* Invoice Header */}
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-2">
               <Receipt className="w-5 h-5 text-[#B76E79]" />
-              <h3 className="text-lg font-semibold text-[#F2C29A]">Tax Invoice</h3>
+              <h3 className="text-lg font-semibold text-[#F2C29A]">Order Invoice</h3>
             </div>
             <button
               onClick={() => window.print()}
@@ -194,18 +194,6 @@ export default function CheckoutConfirmPage() {
               <p className="text-[#EAE0D5]/50 text-xs mb-0.5">Payment Method</p>
               <p className="text-[#EAE0D5] capitalize">{order.payment_method || 'Razorpay'}</p>
             </div>
-            {order.place_of_supply && (
-              <div>
-                <p className="text-[#EAE0D5]/50 text-xs mb-0.5">Place of Supply</p>
-                <p className="text-[#EAE0D5]">{order.place_of_supply}</p>
-              </div>
-            )}
-            {order.customer_gstin && (
-              <div>
-                <p className="text-[#EAE0D5]/50 text-xs mb-0.5">Your GSTIN</p>
-                <p className="text-[#EAE0D5] font-mono text-xs">{order.customer_gstin}</p>
-              </div>
-            )}
           </div>
 
           {/* Items */}
@@ -218,13 +206,10 @@ export default function CheckoutConfirmPage() {
                 <div className="flex-1 min-w-0">
                   <p className="text-[#EAE0D5] text-sm font-medium truncate">{item.product_name}</p>
                   <div className="flex items-center gap-3 mt-0.5 text-xs text-[#EAE0D5]/50">
-                    {item.sku && <span>SKU: {item.sku}</span>}
                     {item.size && <span>Size: {item.size}</span>}
-                    {item.hsn_code && <span>HSN: {item.hsn_code}</span>}
                   </div>
                   <p className="text-xs text-[#EAE0D5]/50 mt-0.5">
                     {formatCurrency(item.unit_price || item.price)} × {item.quantity}
-                    {item.gst_rate && <span className="ml-2 text-[#B76E79]/70">GST {item.gst_rate}%</span>}
                   </p>
                 </div>
                 <p className="text-[#F2C29A] text-sm font-semibold">{formatCurrency(item.price)}</p>
@@ -232,55 +217,15 @@ export default function CheckoutConfirmPage() {
             ))}
           </div>
 
-          {/* Cost Breakdown */}
+          {/* Cost Breakdown - Simplified */}
           <div className="space-y-2 pt-4 border-t border-[#B76E79]/10 text-sm">
-            {order.subtotal != null && (
-              <div className="flex justify-between">
-                <span className="text-[#EAE0D5]/60">Subtotal</span>
-                <span className="text-[#EAE0D5]">{formatCurrency(order.subtotal)}</span>
-              </div>
-            )}
-            {order.discount_applied > 0 && (
-              <div className="flex justify-between">
-                <span className="text-[#EAE0D5]/60">Discount</span>
-                <span className="text-green-400">-{formatCurrency(order.discount_applied)}</span>
-              </div>
-            )}
-            {order.shipping_cost >= 0 && (
-              <div className="flex justify-between">
-                <span className="text-[#EAE0D5]/60">Shipping</span>
-                <span className="text-[#EAE0D5]">
-                  {parseFloat(order.shipping_cost) > 0 ? formatCurrency(order.shipping_cost) : 'FREE'}
-                </span>
-              </div>
-            )}
-            {/* GST breakdown */}
-            {parseFloat(order.igst_amount) > 0 ? (
-              <div className="flex justify-between">
-                <span className="text-[#EAE0D5]/60">IGST</span>
-                <span className="text-[#EAE0D5]">{formatCurrency(order.igst_amount)}</span>
-              </div>
-            ) : (parseFloat(order.cgst_amount) > 0 || parseFloat(order.sgst_amount) > 0) ? (
-              <>
-                <div className="flex justify-between">
-                  <span className="text-[#EAE0D5]/60">CGST</span>
-                  <span className="text-[#EAE0D5]">{formatCurrency(order.cgst_amount)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-[#EAE0D5]/60">SGST</span>
-                  <span className="text-[#EAE0D5]">{formatCurrency(order.sgst_amount)}</span>
-                </div>
-              </>
-            ) : parseFloat(order.gst_amount) > 0 ? (
-              <div className="flex justify-between">
-                <span className="text-[#EAE0D5]/60">GST</span>
-                <span className="text-[#EAE0D5]">{formatCurrency(order.gst_amount)}</span>
-              </div>
-            ) : null}
             <div className="flex justify-between pt-3 border-t border-[#B76E79]/10 text-base font-bold">
               <span className="text-[#F2C29A]">Total Paid</span>
               <span className="text-[#F2C29A]">{formatCurrency(order.total)}</span>
             </div>
+            <p className="text-xs text-[#EAE0D5]/40 pt-1">
+              Price shown is final - includes all taxes and shipping. No hidden charges.
+            </p>
           </div>
 
           {/* Delivery Address */}

@@ -1,6 +1,6 @@
 import { Metadata } from 'next';
 import Link from 'next/link';
-import { Lock, Eye, Shield, UserCheck, Cookie, Mail, Database, Globe } from 'lucide-react';
+import { Lock, Eye, Shield, UserCheck, Cookie, Mail, Database, Globe, RotateCcw, Video } from 'lucide-react';
 
 export const metadata: Metadata = {
   title: 'Privacy Policy | Aarya Clothing',
@@ -220,6 +220,82 @@ export default function PrivacyPolicyPage() {
                 <span className="text-[#F2C29A]">privacy@aaryaclothing.com</span>. We will respond to your request 
                 within 30 days.
               </p>
+            </div>
+          </section>
+
+          {/* Return Policy Section */}
+          <section className="mb-10">
+            <h2 className="text-xl sm:text-2xl text-[#EAE0D5] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
+              <RotateCcw className="w-6 h-6 text-[#F2C29A]" />
+              Return & Refund Policy
+            </h2>
+            <div className="space-y-6 text-[#EAE0D5]/70 leading-relaxed pl-4">
+              <p>
+                We want you to be completely satisfied with your purchase. If you're not happy with your order, 
+                we offer a hassle-free return policy as outlined below.
+              </p>
+
+              <div className="space-y-4">
+                <h3 className="text-[#EAE0D5] font-medium text-lg">Eligibility for Returns</h3>
+                <ul className="list-disc list-inside space-y-2 ml-4">
+                  <li>Returns are accepted for orders that have been delivered and show delivery confirmation</li>
+                  <li>Returns must be initiated within 7 days of delivery</li>
+                  <li>Items must be unused, unworn, and in original packaging with all tags attached</li>
+                  <li>Personalized or custom-made items cannot be returned unless defective</li>
+                </ul>
+              </div>
+
+              <div className="p-4 rounded-xl bg-[#F2C29A]/10 border border-[#F2C29A]/20">
+                <div className="flex items-start gap-3">
+                  <Video className="w-5 h-5 text-[#F2C29A] flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-[#EAE0D5] font-medium mb-1">Video Proof Required for All Returns</p>
+                    <p className="text-sm">
+                      To process your return, you must record a video while unboxing the product. This video must clearly show:
+                    </p>
+                    <ul className="list-disc list-inside space-y-1 mt-2 text-sm ml-2">
+                      <li>The sealed package before opening</li>
+                      <li>The unboxing process from start to finish</li>
+                      <li>All sides of the product once removed from packaging</li>
+                      <li>Any defects or issues if present</li>
+                    </ul>
+                    <p className="text-sm mt-2">
+                      Upload this video along with your return request. Returns without video proof will not be processed.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <h3 className="text-[#EAE0D5] font-medium text-lg">How to Submit a Return</h3>
+                <ol className="list-decimal list-inside space-y-2 ml-4">
+                  <li>Log into your account and go to "My Orders"</li>
+                  <li>Select the order containing the item(s) you wish to return</li>
+                  <li>Click "Request Return" and select the reason for return</li>
+                  <li>Upload the required unboxing video (must be under 50MB)</li>
+                  <li>Submit the return request</li>
+                  <li>Our team will review your request within 2-3 business days</li>
+                  <li>Once approved, we'll provide return shipping instructions</li>
+                </ol>
+              </div>
+
+              <div className="space-y-4">
+                <h3 className="text-[#EAE0D5] font-medium text-lg">Refund Process</h3>
+                <ul className="list-disc list-inside space-y-2 ml-4">
+                  <li>Refunds are processed within 5-7 business days after return is received and verified</li>
+                  <li>Refunds are credited to your original payment method</li>
+                  <li>Shipping charges are non-refundable unless the return is due to our error</li>
+                  <li>Exchange orders will be shipped once the return is processed</li>
+                </ul>
+              </div>
+
+              <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20">
+                <p className="text-sm text-red-300">
+                  <strong>Note:</strong> Video proof is mandatory for ALL returns. This policy helps us ensure 
+                  product quality and resolve any shipping-related issues promptly. Please record your unboxing 
+                  video carefully before disposing of any packaging.
+                </p>
+              </div>
             </div>
           </section>
 

@@ -7,7 +7,7 @@ import { useParams, useRouter } from 'next/navigation';
 import {
   RotateCcw, Package, ChevronLeft, Clock, CheckCircle, XCircle, Truck,
   AlertCircle, Mail, Phone, MapPin, MessageSquare, CreditCard, ShoppingBag,
-  ArrowRight, Upload, FileText, Send, Ban, RefreshCw, DollarSign
+  ArrowRight, Upload, FileText, Send, Ban, RefreshCw, DollarSign, Video, Play
 } from 'lucide-react';
 import { returnsApi } from '@/lib/adminApi';
 import logger from '@/lib/logger';
@@ -266,9 +266,9 @@ export default function AdminReturnDetailsPage() {
               </div>
             </div>
 
-            {/* Reason & Description */}
+            {/* Reason & Description & Video */}
             <div className="p-6 bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl">
-              <h3 className="text-lg font-medium text-[#F2C29A] mb-4">Return Reason</h3>
+              <h3 className="text-lg font-medium text-[#F2C29A] mb-4">Return Reason & Evidence</h3>
               <div className="space-y-4">
                 <div>
                   <p className="text-sm text-[#EAE0D5]/50">Reason</p>
@@ -278,10 +278,45 @@ export default function AdminReturnDetailsPage() {
                   <p className="text-sm text-[#EAE0D5]/50">Description</p>
                   <p className="text-[#EAE0D5]">{returnData.description}</p>
                 </div>
+                
+                {/* Video Evidence - CRITICAL for approval */}
+                {returnData.video_url ? (
+                  <div className="mt-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Video className="w-5 h-5 text-red-400" />
+                      <p className="text-sm font-medium text-red-400">Video Evidence Submitted</p>
+                    </div>
+                    <div className="relative rounded-xl overflow-hidden bg-[#0B0608]/80 border border-red-500/30">
+                      <video
+                        src={returnData.video_url}
+                        controls
+                        className="w-full max-h-80 object-contain"
+                        preload="metadata"
+                      />
+                    </div>
+                    <div className="mt-2 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                      <p className="text-xs text-blue-400">
+                        <strong>Review the video carefully:</strong> Check if the video clearly shows the defect/damage mentioned in the reason. 
+                        Approve only if the video evidence proves a legitimate issue. Decline if no clear defect is visible.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mt-4 p-4 bg-red-500/10 border border-red-500/30 rounded-xl">
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="w-5 h-5 text-red-400" />
+                      <p className="text-sm font-medium text-red-400">No Video Evidence</p>
+                    </div>
+                    <p className="text-xs text-[#EAE0D5]/70 mt-1">
+                      No video was submitted with this return request. Consider declining this request unless there is other strong evidence of a legitimate issue.
+                    </p>
+                  </div>
+                )}
+                
                 {returnData.images?.length > 0 && (
                   <div>
                     <p className="text-sm text-[#EAE0D5]/50 mb-2">Attached Images</p>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 flex-wrap">
                       {returnData.images.map((img, idx) => (
                         <div key={idx} className="relative w-24 h-24 bg-[#7A2F57]/20 rounded-lg overflow-hidden flex-shrink-0">
                           <Image

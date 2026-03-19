@@ -21,6 +21,7 @@ import {
   Calendar,
   X,
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import DataTable from '@/components/admin/shared/DataTable';
 import { OrderStatusBadge } from '@/components/admin/shared/StatusBadge';
 import { ordersApi } from '@/lib/adminApi';
@@ -50,7 +51,7 @@ function OrdersContent() {
   const [bulkLoading, setBulkLoading] = useState(false);
   const [shipModal, setShipModal] = useState({ open: false, orderId: null, podNumber: '', notes: '' });
   const [podUpload, setPodUpload] = useState({ open: false, uploading: false, result: null, error: null });
-  const [exportModal, setExportModal] = useState({ open: false, fromDate: '', toDate: '' });
+  const [exportModal, setExportModal] = useState({ open: false, fromDate: '', toDate: '', loading: false });
 
   const [filters, setFilters] = useState({
     status: searchParams.get('status') || '',
@@ -101,6 +102,22 @@ function OrdersContent() {
       hour: '2-digit',
       minute: '2-digit',
     });
+  };
+
+  // Format date for Excel (YYYY-MM-DD)
+  const formatDateForExcel = (dateStr) => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('en-IN', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    });
+  };
+
+  // Format date only (without time) for grouping
+  const formatDateOnly = (dateStr) => {
+    const date = new Date(dateStr);
+    return date.toISOString().split('T')[0];
   };
 
   // Handle filter change
@@ -205,14 +222,166 @@ function OrdersContent() {
     }
   };
 
-  const handleExcelExport = () => {
-    const url = ordersApi.exportExcel({
-      status: filters.status || undefined,
-      from_date: exportModal.fromDate || undefined,
-      to_date: exportModal.toDate || undefined,
-    });
-    window.location.href = url;
-    setExportModal(prev => ({ ...prev, open: false }));
+  // Fetch all orders for export (with optional date filter)
+  const fetchOrdersForExport = async (fromDate, toDate, status) => {
+    const allOrders = [];
+    let currentPage = 1;
+    const pageSize = 100;
+    let hasMore = true;
+
+    while (hasMore) {
+      const data = await ordersApi.list({
+        page: currentPage,
+        limit: pageSize,
+        status: status || undefined,
+      });
+      
+      const ordersBatch = data.orders || data || [];
+      allOrders.push(...ordersBatch);
+      
+      if (ordersBatch.length < pageSize) {
+        hasMore = false;
+      } else {
+        currentPage++;
+      }
+    }
+
+    // Filter by date range if provided
+    let filteredOrders = allOrders;
+    if (fromDate || toDate) {
+      filteredOrders = allOrders.filter(order => {
+        const orderDate = new Date(order.created_at);
+        orderDate.setHours(0, 0, 0, 0);
+        
+        let fromFilter = fromDate ? new Date(fromDate) : null;
+        let toFilter = toDate ? new Date(toDate) : null;
+        
+        if (fromFilter) fromFilter.setHours(0, 0, 0, 0);
+        if (toFilter) toFilter.setHours(23, 59, 59, 999);
+        
+        if (fromFilter && orderDate < fromFilter) return false;
+        if (toFilter && orderDate > toFilter) return false;
+        
+        return true;
+      });
+    }
+
+    return filteredOrders;
+  };
+
+  // Client-side Excel export with xlsx library
+  const handleExcelExport = async () => {
+    try {
+      setExportModal(prev => ({ ...prev, loading: true }));
+
+      const { fromDate, toDate } = exportModal;
+      
+      // Fetch all orders (unlimited for export)
+      const allOrders = await fetchOrdersForExport(fromDate, toDate, filters.status);
+
+      if (allOrders.length === 0) {
+        showAlert('No orders found to export.');
+        setExportModal(prev => ({ ...prev, loading: false, open: false }));
+        return;
+      }
+
+      // Group orders by date
+      const ordersByDate = {};
+      allOrders.forEach(order => {
+        const dateKey = formatDateOnly(order.created_at);
+        if (!ordersByDate[dateKey]) {
+          ordersByDate[dateKey] = [];
+        }
+        ordersByDate[dateKey].push(order);
+      });
+
+      // Create workbook
+      const workbook = XLSX.utils.book_new();
+
+      // Create a summary sheet with all orders first
+      const summaryData = allOrders.map(order => ({
+        'Order ID': order.id,
+        'Order #': order.order_number || order.id,
+        'Customer Email': order.customer_email || '',
+        'Customer Name': order.customer_name || '',
+        'Total (₹)': order.total_amount || 0,
+        'Payment Method': order.payment_method || '',
+        'POD/Tracking No.': order.tracking_number || order.pod_number || '',
+        'Shipping Address': order.shipping_address ? 
+          `${order.shipping_address.street || ''}, ${order.shipping_address.city || ''}, ${order.shipping_address.state || ''} - ${order.shipping_address.pincode || ''}` : '',
+        'Order Date': formatDateForExcel(order.created_at),
+      }));
+
+      const summarySheet = XLSX.utils.json_to_sheet(summaryData);
+      
+      // Set column widths for summary
+      summarySheet['!cols'] = [
+        { wch: 10 }, // Order ID
+        { wch: 15 }, // Order #
+        { wch: 30 }, // Customer Email
+        { wch: 25 }, // Customer Name
+        { wch: 12 }, // Total
+        { wch: 15 }, // Payment Method
+        { wch: 20 }, // POD/Tracking No.
+        { wch: 50 }, // Shipping Address
+        { wch: 15 }, // Order Date
+      ];
+      
+      XLSX.utils.book_append_sheet(workbook, summarySheet, 'All Orders');
+
+      // Create one sheet per day
+      Object.keys(ordersByDate).sort().forEach(dateKey => {
+        const dayOrders = ordersByDate[dateKey];
+        
+        const dayData = dayOrders.map(order => ({
+          'Order ID': order.id,
+          'Order #': order.order_number || order.id,
+          'Customer Email': order.customer_email || '',
+          'Customer Name': order.customer_name || '',
+          'Total (₹)': order.total_amount || 0,
+          'Payment Method': order.payment_method || '',
+          'POD/Tracking No.': order.tracking_number || order.pod_number || '',
+          'Shipping Address': order.shipping_address ? 
+            `${order.shipping_address.street || ''}, ${order.shipping_address.city || ''}, ${order.shipping_address.state || ''} - ${order.shipping_address.pincode || ''}` : '',
+          'Order Date': formatDateForExcel(order.created_at),
+        }));
+
+        const daySheet = XLSX.utils.json_to_sheet(dayData);
+        
+        // Set column widths
+        daySheet['!cols'] = [
+          { wch: 10 }, // Order ID
+          { wch: 15 }, // Order #
+          { wch: 30 }, // Customer Email
+          { wch: 25 }, // Customer Name
+          { wch: 12 }, // Total
+          { wch: 15 }, // Payment Method
+          { wch: 20 }, // POD/Tracking No.
+          { wch: 50 }, // Shipping Address
+          { wch: 15 }, // Order Date
+        ];
+
+        // Format date for sheet name (YYYY-MM-DD)
+        const sheetName = dateKey;
+        XLSX.utils.book_append_sheet(workbook, daySheet, sheetName);
+      });
+
+      // Generate filename
+      const timestamp = new Date().toISOString().split('T')[0];
+      const filename = fromDate && toDate 
+        ? `orders_${fromDate}_to_${toDate}.xlsx`
+        : `all_orders_${timestamp}.xlsx`;
+
+      // Download the file
+      XLSX.writeFile(workbook, filename);
+
+      showAlert(`Exported ${allOrders.length} orders successfully!`);
+      setExportModal(prev => ({ ...prev, loading: false, open: false }));
+    } catch (err) {
+      logger.error('Error exporting orders:', err);
+      setError(err?.message || 'Failed to export orders.');
+      setExportModal(prev => ({ ...prev, loading: false }));
+    }
   };
 
   const handlePodTemplateDownload = () => {
@@ -230,7 +399,7 @@ function OrdersContent() {
     }
   };
 
-  // Table columns
+  // SIMPLIFIED Table columns - only keeping required ones
   const columns = [
     {
       key: 'select',
@@ -258,37 +427,68 @@ function OrdersContent() {
       ),
     },
     {
-      key: 'user_id',
-      label: 'Customer',
+      key: 'order_number',
+      label: 'Order #',
       sortable: true,
       render: (value, row) => (
-        <div>
-          <span className="text-[#EAE0D5]">{row.customer_name || `User #${value}`}</span>
-          <span className="block text-xs text-[#EAE0D5]/50">{row.customer_email || 'customer@email.com'}</span>
-        </div>
+        <span className="text-[#EAE0D5]">{value || row.id}</span>
+      ),
+    },
+    {
+      key: 'customer_email',
+      label: 'Customer Email',
+      sortable: true,
+      render: (value) => (
+        <span className="text-[#EAE0D5]/80 text-sm">{value || '-'}</span>
+      ),
+    },
+    {
+      key: 'customer_name',
+      label: 'Customer Name',
+      sortable: true,
+      render: (value) => (
+        <span className="text-[#EAE0D5]">{value || '-'}</span>
       ),
     },
     {
       key: 'total_amount',
-      label: 'Amount',
+      label: 'Total (₹)',
       sortable: true,
-      render: (value, row) => (
-        <div>
-          <span className="font-medium text-[#EAE0D5]">{formatCurrency(value)}</span>
-          {row.discount_applied > 0 && (
-            <span className="block text-xs text-green-400">-{formatCurrency(row.discount_applied)} off</span>
-          )}
-        </div>
+      render: (value) => (
+        <span className="font-medium text-[#EAE0D5]">₹{value?.toLocaleString('en-IN') || '0'}</span>
       ),
     },
     {
-      key: 'status',
-      label: 'Status',
-      render: (value) => <OrderStatusBadge status={value} />,
+      key: 'payment_method',
+      label: 'Payment Method',
+      render: (value) => (
+        <span className="text-[#EAE0D5]/80 text-sm capitalize">{value || '-'}</span>
+      ),
+    },
+    {
+      key: 'tracking_number',
+      label: 'POD/Tracking No.',
+      render: (value, row) => (
+        <span className="text-[#EAE0D5]/80 text-sm">{value || row.pod_number || '-'}</span>
+      ),
+    },
+    {
+      key: 'shipping_address',
+      label: 'Shipping Address',
+      render: (value, row) => {
+        const addr = row.shipping_address;
+        if (!addr) return <span className="text-[#EAE0D5]/50 text-sm">-</span>;
+        const addressStr = `${addr.street || ''}, ${addr.city || ''}, ${addr.state || ''} - ${addr.pincode || ''}`;
+        return (
+          <span className="text-[#EAE0D5]/70 text-xs block max-w-[200px] truncate" title={addressStr}>
+            {addressStr}
+          </span>
+        );
+      },
     },
     {
       key: 'created_at',
-      label: 'Date',
+      label: 'Order Date',
       sortable: true,
       render: (value) => (
         <span className="text-[#EAE0D5]/70 text-sm">{formatDate(value)}</span>
@@ -351,7 +551,7 @@ function OrdersContent() {
             <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
           </button>
           <button
-            onClick={() => setExportModal({ open: true, fromDate: '', toDate: '' })}
+            onClick={() => setExportModal({ open: true, fromDate: '', toDate: '', loading: false })}
             className="flex items-center gap-2 px-4 py-2 rounded-xl border border-[#B76E79]/20 text-[#EAE0D5]/70 hover:bg-[#B76E79]/10 transition-colors"
             title="Export orders to Excel"
           >
@@ -479,16 +679,20 @@ function OrdersContent() {
       {/* Export Modal with Date Range */}
       {exportModal.open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60" onClick={() => setExportModal({ open: false, fromDate: '', toDate: '' })} />
+          <div className="absolute inset-0 bg-black/60" onClick={() => !exportModal.loading && setExportModal({ open: false, fromDate: '', toDate: '', loading: false })} />
           <div className="relative bg-[#0B0608]/95 backdrop-blur-xl border border-[#B76E79]/20 rounded-2xl p-6 w-full max-w-md">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-semibold text-[#F2C29A]" style={{ fontFamily: 'Cinzel, serif' }}>Export Orders</h3>
-              <button onClick={() => setExportModal({ open: false, fromDate: '', toDate: '' })} className="p-1 rounded-lg hover:bg-[#B76E79]/10">
+              <h3 className="text-xl font-semibold text-[#F2C29A]" style={{ fontFamily: 'Cinzel, serif' }}>Export Orders to Excel</h3>
+              <button 
+                onClick={() => !exportModal.loading && setExportModal({ open: false, fromDate: '', toDate: '', loading: false })} 
+                className="p-1 rounded-lg hover:bg-[#B76E79]/10 disabled:opacity-50"
+                disabled={exportModal.loading}
+              >
                 <X className="w-5 h-5 text-[#EAE0D5]/50" />
               </button>
             </div>
             <p className="text-sm text-[#EAE0D5]/50 mb-5">
-              Select a date range to export specific orders, or leave empty to export all{filters.status ? ` ${filters.status}` : ''} orders.
+              Select a date range to export specific orders, or leave empty to export ALL {filters.status ? ` ${filters.status}` : ''} orders. Excel will have one sheet per day.
             </p>
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
@@ -500,7 +704,8 @@ function OrdersContent() {
                       type="date"
                       value={exportModal.fromDate}
                       onChange={(e) => setExportModal(prev => ({ ...prev, fromDate: e.target.value }))}
-                      className="flex-1 px-3 py-2.5 bg-transparent text-[#EAE0D5] focus:outline-none text-sm"
+                      disabled={exportModal.loading}
+                      className="flex-1 px-3 py-2.5 bg-transparent text-[#EAE0D5] focus:outline-none text-sm disabled:opacity-50"
                     />
                   </div>
                 </div>
@@ -512,28 +717,37 @@ function OrdersContent() {
                       type="date"
                       value={exportModal.toDate}
                       onChange={(e) => setExportModal(prev => ({ ...prev, toDate: e.target.value }))}
-                      className="flex-1 px-3 py-2.5 bg-transparent text-[#EAE0D5] focus:outline-none text-sm"
+                      disabled={exportModal.loading}
+                      className="flex-1 px-3 py-2.5 bg-transparent text-[#EAE0D5] focus:outline-none text-sm disabled:opacity-50"
                     />
                   </div>
                 </div>
               </div>
               <div className="p-3 bg-[#7A2F57]/10 rounded-xl text-xs text-[#EAE0D5]/50">
-                <p>Columns exported: Order ID, Order #, Customer Email, Customer Name, Total (₹), Payment Method, POD/Tracking No., Shipping Address, Order Date</p>
+                <p className="font-medium mb-1">Columns exported:</p>
+                <p>Order ID, Order #, Customer Email, Customer Name, Total (₹), Payment Method, POD/Tracking No., Shipping Address, Order Date</p>
+                <p className="mt-2 text-[#B76E79]">Excel will be organized with one sheet per day!</p>
               </div>
             </div>
             <div className="flex gap-3 mt-6">
               <button
-                onClick={() => setExportModal({ open: false, fromDate: '', toDate: '' })}
-                className="flex-1 px-4 py-2.5 border border-[#B76E79]/20 rounded-xl text-[#EAE0D5]/70 hover:bg-[#B76E79]/10 transition-colors"
+                onClick={() => setExportModal({ open: false, fromDate: '', toDate: '', loading: false })}
+                disabled={exportModal.loading}
+                className="flex-1 px-4 py-2.5 border border-[#B76E79]/20 rounded-xl text-[#EAE0D5]/70 hover:bg-[#B76E79]/10 transition-colors disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 onClick={handleExcelExport}
-                className="flex-1 px-4 py-2.5 bg-gradient-to-r from-[#7A2F57] to-[#B76E79] rounded-xl text-white font-semibold hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
+                disabled={exportModal.loading}
+                className="flex-1 px-4 py-2.5 bg-gradient-to-r from-[#7A2F57] to-[#B76E79] rounded-xl text-white font-semibold hover:opacity-90 transition-opacity flex items-center justify-center gap-2 disabled:opacity-50"
               >
-                <FileSpreadsheet className="w-4 h-4" />
-                Download Excel
+                {exportModal.loading ? (
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                ) : (
+                  <FileSpreadsheet className="w-4 h-4" />
+                )}
+                {exportModal.loading ? 'Exporting...' : 'Download Excel'}
               </button>
             </div>
           </div>

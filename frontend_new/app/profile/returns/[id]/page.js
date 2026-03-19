@@ -7,7 +7,7 @@ import { useParams, useRouter } from 'next/navigation';
 import {
   RotateCcw, Package, ChevronLeft, Clock, CheckCircle, XCircle, Truck,
   AlertCircle, MapPin, Phone, Mail, Camera, Upload, MessageSquare,
-  ArrowRight, CreditCard, ShoppingBag
+  ArrowRight, CreditCard, ShoppingBag, Video
 } from 'lucide-react';
 import { returnsApi } from '@/lib/customerApi';
 import logger from '@/lib/logger';
@@ -219,7 +219,7 @@ export default function ReturnDetailsPage() {
 
           {/* Reason & Description */}
           <div className="p-6 bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl">
-            <h3 className="text-lg font-medium text-[#F2C29A] mb-4">Return Reason</h3>
+            <h3 className="text-lg font-medium text-[#F2C29A] mb-4">Return Reason & Evidence</h3>
             <div className="space-y-3">
               <div>
                 <p className="text-sm text-[#EAE0D5]/50">Reason</p>
@@ -229,10 +229,39 @@ export default function ReturnDetailsPage() {
                 <p className="text-sm text-[#EAE0D5]/50">Description</p>
                 <p className="text-[#EAE0D5]">{returnData.description}</p>
               </div>
+              
+              {/* Video Evidence Status */}
+              {returnData.video_url ? (
+                <div className="mt-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Video className="w-5 h-5 text-green-400" />
+                    <p className="text-sm font-medium text-green-400">Video Evidence Submitted</p>
+                  </div>
+                  <div className="relative rounded-xl overflow-hidden bg-[#0B0608]/80 border border-[#B76E79]/30">
+                    <video
+                      src={returnData.video_url}
+                      controls
+                      className="w-full max-h-64 object-contain"
+                      preload="metadata"
+                    />
+                  </div>
+                  <p className="text-xs text-[#EAE0D5]/50 mt-2">
+                    Your video has been submitted and is being reviewed by our team.
+                  </p>
+                </div>
+              ) : (
+                <div className="mt-4 p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 text-amber-400" />
+                    <p className="text-xs text-amber-400">No video was submitted with this request</p>
+                  </div>
+                </div>
+              )}
+              
               {returnData.images?.length > 0 && (
                 <div>
                   <p className="text-sm text-[#EAE0D5]/50 mb-2">Attached Images</p>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 flex-wrap">
                     {returnData.images.map((img, idx) => (
                       <div key={idx} className="relative w-20 h-20 bg-[#7A2F57]/20 rounded-lg overflow-hidden flex-shrink-0">
                         <Image

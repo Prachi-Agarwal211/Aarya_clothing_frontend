@@ -26,8 +26,14 @@ class ReturnStatus(str, enum.Enum):
     REFUNDED = "refunded"
 
 
+class ReturnType(str, enum.Enum):
+    """Return type enumeration."""
+    RETURN = "return"
+    EXCHANGE = "exchange"
+
+
 class ReturnRequest(Base):
-    """Return/refund request model."""
+    """Return/refchange request model."""
     __tablename__ = "return_requests"
     
     id = Column(Integer, primary_key=True, index=True)
@@ -36,8 +42,14 @@ class ReturnRequest(Base):
     
     # Return details
     reason = Column(Enum(ReturnReason, native_enum=False, length=20), nullable=False)
+    type = Column(Enum(ReturnType, native_enum=False, length=20), default=ReturnType.RETURN, nullable=False)
+    items = Column('items', Text, nullable=True)  # JSONB array stored as text, nullable=True
     description = Column(Text, nullable=True)
     status = Column(Enum(ReturnStatus, native_enum=False, length=20), default=ReturnStatus.REQUESTED, nullable=False)
+    
+    # Enhanced return fields
+    exchange_preference = Column(String(255), nullable=True)  # exchange, refund, store_credit
+    video_url = Column(Text, nullable=True)  # URL of uploaded video
     
     # Financial
     refund_amount = Column(Numeric(10, 2), nullable=True)

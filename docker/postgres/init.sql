@@ -36,12 +36,17 @@ DO $$ BEGIN
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
-DO $$ BEGIN
+DO $ BEGIN
     CREATE TYPE return_status AS ENUM ('requested', 'approved', 'rejected', 'received', 'refunded', 'completed');
 EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
+END $;
 
-DO $$ BEGIN
+DO $ BEGIN
+    CREATE TYPE return_type AS ENUM ('return', 'exchange');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $;
+
+DO $ BEGIN
     CREATE TYPE chat_status AS ENUM ('open', 'assigned', 'resolved', 'closed');
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
@@ -505,8 +510,14 @@ CREATE TABLE IF NOT EXISTS return_requests (
     
     -- Return details
     reason return_reason NOT NULL,
+    type return_type DEFAULT 'return',
+    items JSONB DEFAULT '[]'::jsonb,
     description TEXT,
     status return_status DEFAULT 'requested',
+    
+    -- Enhanced return fields
+    exchange_preference VARCHAR(255),
+    video_url TEXT,
     
     -- Financial
     refund_amount DECIMAL(10, 2),
@@ -531,6 +542,8 @@ CREATE TABLE IF NOT EXISTS return_requests (
 CREATE INDEX IF NOT EXISTS idx_return_requests_order ON return_requests(order_id);
 CREATE INDEX IF NOT EXISTS idx_return_requests_user ON return_requests(user_id);
 CREATE INDEX IF NOT EXISTS idx_return_requests_status ON return_requests(status);
+CREATE INDEX IF NOT EXISTS idx_return_requests_type ON return_requests(type);
+CREATE INDEX IF NOT EXISTS idx_return_requests_video ON return_requests(video_url) WHERE video_url IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_return_requests_requested_at ON return_requests(requested_at);
 
 

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import AdminSidebar from './AdminSidebar';
 import AdminHeader from './AdminHeader';
@@ -11,9 +11,36 @@ export default function AdminLayout({ children }) {
   const pathname = usePathname();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const sidebarRef = useRef(null);
   
   // Use auth context for authentication
   const { user, loading, isAuthenticated, isAdmin } = useAuth();
+
+  // Handle click outside to close mobile menu
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (!mobileMenuOpen || !sidebarRef.current) return;
+      
+      // Check if click is on the menu button - if so, don't close (button will toggle)
+      const headerMenuButton = document.querySelector('[data-mobile-menu-button]');
+      if (headerMenuButton?.contains(event.target)) {
+        return;
+      }
+      
+      // Close menu if click is outside sidebar
+      if (!sidebarRef.current.contains(event.target)) {
+        setMobileMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [mobileMenuOpen]);
+
+  // Close mobile menu on route change
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [pathname]);
 
   // Handle authentication and authorization
   useEffect(() => {
@@ -77,6 +104,10 @@ export default function AdminLayout({ children }) {
     );
   }
 
+  const handleMobileMenuClose = () => {
+    setMobileMenuOpen(false);
+  };
+
   return (
     <div className="min-h-screen bg-[#050203]">
       {/* Background Pattern */}
@@ -95,28 +126,32 @@ export default function AdminLayout({ children }) {
         <AdminSidebar
           collapsed={sidebarCollapsed}
           onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
+          isMobile={false}
         />
       </div>
 
       {/* Mobile Sidebar Overlay */}
       {mobileMenuOpen && (
         <div
-          className="lg:hidden fixed inset-0 z-40 bg-black/50"
-          onClick={() => setMobileMenuOpen(false)}
+          className="lg:hidden fixed inset-0 z-40 bg-black/60 backdrop-blur-sm"
+          onClick={handleMobileMenuClose}
         />
       )}
 
       {/* Sidebar - Mobile */}
       <div
+        ref={sidebarRef}
         className={`
           lg:hidden fixed inset-y-0 left-0 z-50
-          transform transition-transform duration-300
+          transform transition-transform duration-300 ease-in-out
           ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
         `}
       >
         <AdminSidebar
           collapsed={false}
-          onToggle={() => setMobileMenuOpen(false)}
+          onToggle={() => {}}
+          isMobile={true}
+          onClose={handleMobileMenuClose}
         />
       </div>
 
@@ -125,6 +160,7 @@ export default function AdminLayout({ children }) {
         className={`
           transition-all duration-300
           ${sidebarCollapsed ? 'lg:ml-20' : 'lg:ml-64'}
+          ${mobileMenuOpen ? 'lg:ml-64' : ''}
         `}
       >
         {/* Header */}
@@ -133,9 +169,11 @@ export default function AdminLayout({ children }) {
           user={user}
         />
 
-        {/* Page Content */}
-        <main className="p-4 md:p-6 lg:p-8 relative z-10">
-          {children}
+        {/* Page Content - Mobile optimized padding */}
+        <main className="p-3 sm:p-4 md:p-5 lg:p-6 xl:p-8 relative z-10 overflow-x-hidden">
+          <div className="min-w-0">
+            {children}
+          </div>
         </main>
       </div>
     </div>

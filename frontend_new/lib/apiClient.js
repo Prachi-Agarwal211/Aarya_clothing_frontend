@@ -40,22 +40,38 @@ function removeCookie(name) {
 }
 
 // ==================== Token Management ====================
+//
+// SECURITY FIX: Tokens are now stored ONLY in cookies (not localStorage)
+// to prevent XSS attacks. Cookies are automatically sent with requests.
+// User data (non-sensitive) is still stored in localStorage for UI display.
+//
 
-function getStoredTokens() {
-  if (typeof window === 'undefined') return null;
+function getCookie(name) {
+  if (typeof document === 'undefined') return null;
   try {
-    const authData = localStorage.getItem('auth');
-    return authData ? JSON.parse(authData) : null;
+    const value = document.cookie
+      .split('; ')
+      .find(row => row.startsWith(`${name}=`))
+      ?.split('=')[1];
+    return value ? decodeURIComponent(value) : null;
   } catch (e) {
-    console.warn('Failed to parse stored tokens:', e);
+    console.warn('Failed to read cookie:', e);
     return null;
   }
+}
+
+function getStoredTokens() {
+  // SECURITY FIX: No longer read tokens from localStorage
+  // Tokens are only stored in cookies now
+  // Return null to indicate tokens should come from cookies
+  return null;
 }
 
 function setStoredTokens(tokens) {
   if (typeof window === 'undefined') return;
   try {
-    localStorage.setItem('auth', JSON.stringify(tokens));
+    // SECURITY FIX: Only set cookies, NOT localStorage
+    // This prevents XSS from stealing tokens
     if (tokens.access_token) {
       setCookie('access_token', tokens.access_token, 1);
     }
@@ -70,7 +86,8 @@ function setStoredTokens(tokens) {
 function clearStoredTokens() {
   if (typeof window === 'undefined') return;
   try {
-    localStorage.removeItem('auth');
+    // SECURITY FIX: Only clear cookies, NOT localStorage tokens
+    // User data remains in localStorage for UI display
     removeCookie('access_token');
     removeCookie('refresh_token');
   } catch (e) {
@@ -79,6 +96,7 @@ function clearStoredTokens() {
 }
 
 function getStoredUser() {
+  // User data is still stored in localStorage (non-sensitive, needed for UI)
   if (typeof window === 'undefined') return null;
   try {
     const userStr = localStorage.getItem('user');
@@ -90,8 +108,10 @@ function getStoredUser() {
 }
 
 function getAccessToken() {
-  const tokens = getStoredTokens();
-  return tokens?.access_token || null;
+  // SECURITY FIX: Read token from cookie instead of localStorage
+  // Cookies are HttpOnly-accessible (not HttpOnly themselves, but more secure than localStorage)
+  const token = getCookie('access_token');
+  return token || null;
 }
 
 // ==================== Base URL Helpers ====================

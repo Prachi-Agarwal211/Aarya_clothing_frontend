@@ -199,20 +199,25 @@ export const usersApi = {
 
 // ==================== Products API ====================
 export const productsApi = {
-  list: (params = {}) =>
-    adminClient.get('/api/v1/admin/products', params),
+  list: (params = {}) => {
+    return adminClient.get('/api/v1/admin/products', params);
+  },
 
-  get: (id) =>
-    adminClient.get(`/api/v1/admin/products/${id}`),
+  get: (id) => {
+    return adminClient.get(`/api/v1/admin/products/${id}`);
+  },
 
-  create: (data) =>
-    adminClient.post('/api/v1/admin/products', data),
+  create: (data) => {
+    return adminClient.post('/api/v1/admin/products', data);
+  },
 
-  update: (id, data) =>
-    adminClient.patch(`/api/v1/admin/products/${id}`, data),
+  update: (id, data) => {
+    return adminClient.patch(`/api/v1/admin/products/${id}`, data);
+  },
 
-  delete: (id) =>
-    adminClient.delete(`/api/v1/admin/products/${id}`),
+  delete: (id) => {
+    return adminClient.delete(`/api/v1/admin/products/${id}`);
+  },
 
   // Image management
   uploadImage: (productId, file, isPrimary = false, altText = '') => {

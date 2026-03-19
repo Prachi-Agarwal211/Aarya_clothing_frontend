@@ -1,12 +1,13 @@
 """Return request service for managing returns and refunds."""
 from typing import List, Optional
+import json
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
 from fastapi import HTTPException, status
 from datetime import datetime, timezone
 from decimal import Decimal
 
-from models.return_request import ReturnRequest, ReturnStatus, ReturnReason
+from models.return_request import ReturnRequest, ReturnStatus, ReturnReason, ReturnType
 from models.order import Order, OrderStatus
 from schemas.return_request import ReturnRequestCreate, ReturnRequestUpdate
 
@@ -90,9 +91,14 @@ class ReturnService:
             order_id=return_data.order_id,
             user_id=user_id,
             reason=return_data.reason,
+            type=return_data.type if return_data.type else ReturnType.RETURN,
+            items=json.dumps(return_data.items) if return_data.items else None,
             description=return_data.description,
             status=ReturnStatus.REQUESTED,
-            refund_amount=order.total_amount  # Default to full refund
+            refund_amount=order.total_amount,  # Default to full refund
+            # Enhanced fields
+            exchange_preference=return_data.exchange_preference,
+            video_url=return_data.video_url,
         )
         
         self.db.add(return_request)

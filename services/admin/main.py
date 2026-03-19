@@ -3539,7 +3539,7 @@ async def get_public_landing_all(db: Session = Depends(get_db)):
         result["newArrivals"]["title"] = na_config.get("title", "New Arrivals")
         result["newArrivals"]["subtitle"] = na_config.get("subtitle", "")
 
-    # Fetch actual new arrival products from the products table directly
+    # Fetch new arrival products from landing_products table (admin-curated)
     try:
         na_limit = (sections.get("newArrivals", {}).get("config") or {}).get(
             "max_display", 8
@@ -3550,11 +3550,14 @@ async def get_public_landing_all(db: Session = Depends(get_db)):
                    p.is_new_arrival, p.is_featured, p.is_active,
                    c.name AS collection_name, c.slug AS collection_slug,
                    pi.image_url AS primary_image
-            FROM products p
+            FROM landing_products lp
+            JOIN products p ON p.id = lp.product_id
             LEFT JOIN collections c ON p.category_id = c.id
             LEFT JOIN product_images pi ON p.id = pi.product_id AND pi.is_primary = true
-            WHERE p.is_new_arrival = true AND p.is_active = true
-            ORDER BY p.updated_at DESC
+            WHERE lp.section = 'newArrivals' 
+              AND lp.is_active = true 
+              AND p.is_active = true
+            ORDER BY lp.display_order
             LIMIT :limit
         """),
             {"limit": na_limit},

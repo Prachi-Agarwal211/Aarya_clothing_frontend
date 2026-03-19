@@ -408,6 +408,38 @@ export default function LandingPageConfig() {
                   <p className="text-sm text-[#EAE0D5]">Collections are automatically pulled from the database.</p>
                   <p className="text-xs text-[#EAE0D5]/60 mt-1">To manage featured collections, use the Collections page.</p>
                 </div>
+              ) : activeSection === 'video' ? (
+                <div className="space-y-4">
+                  {siteConfig.intro_video_url ? (
+                    <>
+                      <div className="p-3 bg-[#0B0608]/60 border border-[#B76E79]/10 rounded-xl">
+                        <p className="text-xs text-[#EAE0D5]/40 mb-2">Video Preview:</p>
+                        <div className="relative aspect-video bg-black/40 rounded-lg overflow-hidden">
+                          <video 
+                            src={siteConfig.intro_video_url} 
+                            className="w-full h-full object-contain"
+                            controls
+                            playsInline
+                          />
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className={`px-2 py-1 rounded-lg text-xs font-medium ${siteConfig.intro_video_enabled !== 'false' ? 'bg-green-500/20 text-green-400' : 'bg-[#EAE0D5]/10 text-[#EAE0D5]/40'}`}>
+                          {siteConfig.intro_video_enabled !== 'false' ? '✓ Enabled' : '✗ Disabled'}
+                        </span>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-center py-6">
+                      <Info className="w-8 h-8 text-[#B76E79]/30 mx-auto mb-2" />
+                      <p className="text-sm text-[#EAE0D5]/40">No video configured yet.</p>
+                      <button onClick={() => handleEditSection(activeSection)}
+                        className="mt-2 text-sm text-[#B76E79] hover:text-[#F2C29A] underline transition-colors">
+                        Click to add video
+                      </button>
+                    </div>
+                  )}
+                </div>
               ) : Object.keys(activeSectionConfig).filter(k => k !== 'is_active').length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {Object.entries(activeSectionConfig).filter(([k]) => k !== 'is_active').map(([key, value]) => (
@@ -814,6 +846,22 @@ export default function LandingPageConfig() {
                     <input type="text" value={editForm.intro_video_url || ''}
                       onChange={(e) => setEditForm(prev => ({ ...prev, intro_video_url: e.target.value }))}
                       className={inputCls} placeholder="https://..." />
+                    {editForm.intro_video_url && (
+                      <div className="mt-3 p-3 bg-[#0B0608]/60 border border-[#B76E79]/15 rounded-xl">
+                        <p className="text-xs text-[#EAE0D5]/40 mb-2">Video Preview:</p>
+                        <div className="relative aspect-video bg-black/40 rounded-lg overflow-hidden">
+                          <video 
+                            src={editForm.intro_video_url} 
+                            className="w-full h-full object-contain"
+                            controls
+                            playsInline
+                          />
+                        </div>
+                        <p className="text-xs text-[#EAE0D5]/40 mt-2 truncate">
+                          URL: {editForm.intro_video_url}
+                        </p>
+                      </div>
+                    )}
                   </div>
                   <div className="flex items-center justify-between p-3 bg-[#0B0608]/60 border border-[#B76E79]/15 rounded-xl">
                     <div>

@@ -32,6 +32,19 @@ export default function AdminDashboard() {
   const [lowStockItems, setLowStockItems] = useState([]);
   const [error, setError] = useState(null);
 
+  // Fallback data for when API is unavailable
+  const fallbackData = {
+    total_revenue: 0,
+    total_orders: 0,
+    total_customers: 0,
+    total_products: 0,
+    pending_orders: 0,
+    today_revenue: 0,
+    today_orders: 0,
+    inventory_alerts: { low_stock: 0, out_of_stock: 0 },
+    recent_orders: []
+  };
+
   // Role guard - redirect non-admin users away
   useEffect(() => {
     if (user && !isAdmin(user.role)) {
@@ -54,16 +67,37 @@ export default function AdminDashboard() {
       setLowStockItems(lowStock.items || []);
     } catch (err) {
       logger.error('Failed to load dashboard:', err);
-      setError(err.message || 'Failed to load dashboard data. Please try again.');
-      // Don't set mock data - show error state instead
+      
+      // Check for authentication errors - redirect to login
+      const errorMessage = err.message || '';
+      if (errorMessage.includes('401') || errorMessage.includes('Not authenticated') || errorMessage.includes('Unauthorized')) {
+        setError('Please log in to access the admin dashboard');
+        // Optionally redirect to login after a delay
+        setTimeout(() => router.push('/auth/login'), 2000);
+        return;
+      }
+      
+      // For other errors, provide fallback data so dashboard is usable
+      setDashboardData(fallbackData);
+      setLowStockItems([]);
+      setError('Showing cached/empty data. Some real-time data may be unavailable.');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [router, fallbackData]);
 
+  // Fetch data when user is available
   useEffect(() => {
+    // Wait for auth to initialize before fetching
+    if (user === undefined) return;
+    
+    // If user is not admin, they will be redirected by the role guard
+    if (user && !isAdmin(user.role)) {
+      return; // Will be redirected
+    }
+    
     fetchDashboardData();
-  }, [fetchDashboardData]);
+  }, [user, fetchDashboardData]);
 
   // Format currency
   const formatCurrency = (amount) => {
@@ -134,7 +168,23 @@ export default function AdminDashboard() {
     },
   ];
 
-  if (error) {
+  // Show loading skeleton while fetching
+  if (loading && !dashboardData) {
+    return (
+      <div className="p-6 space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl p-6 animate-pulse">
+              <div className="h-4 bg-[#B76E79]/20 rounded w-1/2 mb-4"></div>
+              <div className="h-8 bg-[#B76E79]/20 rounded w-3/4"></div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (error && !dashboardData) {
     return (
       <div className="bg-red-500/10 border border-red-500/30 rounded-2xl p-6 text-center">
         <p className="text-red-400">Error loading dashboard: {error}</p>
@@ -150,6 +200,20 @@ export default function AdminDashboard() {
 
   return (
     <div className="space-y-6">
+      {/* Warning banner when using fallback data */}
+      {error && dashboardData && (
+        <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl p-4 flex items-center gap-3">
+          <AlertTriangle className="w-5 h-5 text-yellow-400 flex-shrink-0" />
+          <p className="text-yellow-400 text-sm">{error}</p>
+          <button
+            onClick={fetchDashboardData}
+            className="ml-auto px-3 py-1 bg-yellow-500/20 text-yellow-400 rounded-lg hover:bg-yellow-500/30 text-sm transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>

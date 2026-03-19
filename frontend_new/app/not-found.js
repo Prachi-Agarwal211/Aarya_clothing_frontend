@@ -6,6 +6,7 @@ import { Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
+import { sanitizeSearch } from '@/lib/sanitize';
 
 export default function NotFound() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -20,7 +21,9 @@ export default function NotFound() {
   const handleSearch = (e) => {
     e.preventDefault();
     if (searchQuery.trim()) {
-      window.location.href = `/products?search=${encodeURIComponent(searchQuery)}`;
+      // Sanitize search input to prevent XSS
+      const safeQuery = sanitizeSearch(searchQuery);
+      window.location.href = `/products?search=${encodeURIComponent(safeQuery)}`;
     }
   };
 

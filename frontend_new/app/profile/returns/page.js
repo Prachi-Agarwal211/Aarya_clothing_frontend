@@ -3,7 +3,7 @@
 import React, { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { RotateCcw, Package, ChevronRight, Eye, Clock, CheckCircle, XCircle, Truck, AlertCircle, Plus } from 'lucide-react';
+import { RotateCcw, Package, ChevronRight, Eye, Clock, CheckCircle, XCircle, Truck, AlertCircle, Plus, Video } from 'lucide-react';
 import { returnsApi } from '@/lib/customerApi';
 import { useAuth } from '@/lib/authContext';
 import logger from '@/lib/logger';
@@ -108,11 +108,13 @@ function ReturnsContent() {
         </div>
       </div>
 
-      {/* Return Policy Notice - Simplified */}
-      <div className="p-4 bg-[#7A2F57]/10 border border-[#B76E79]/20 rounded-xl">
+      {/* Return Policy Notice - Updated for Video Requirement */}
+      <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl">
         <p className="text-sm text-[#EAE0D5]/70">
-          <AlertCircle className="w-4 h-4 inline mr-2 text-[#B76E79]" />
-          Returns can be requested within <strong className="text-[#EAE0D5]">7 days of delivery</strong>. Our team will review your request and may ask for a video if needed to verify the issue.
+          <Video className="w-4 h-4 inline mr-2 text-red-400" />
+          Returns require <strong className="text-red-400">video proof</strong> of the defect/damage. 
+          Requests without video or for non-defective items will be <strong className="text-red-400">declined</strong>.
+          Submit within <strong className="text-[#EAE0D5]">7 days of delivery</strong>.
         </p>
       </div>
 

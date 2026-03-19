@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { ChevronRight } from 'lucide-react';
 import EnhancedHeader from '@/components/landing/EnhancedHeader';
 import Footer from '@/components/landing/Footer';
-import { categoriesApi } from '@/lib/customerApi';
+import { collectionsApi } from '@/lib/customerApi';
 import logger from '@/lib/logger';
 
 export default function CollectionsPage() {
@@ -17,8 +17,8 @@ export default function CollectionsPage() {
     const fetchCategories = async () => {
       try {
         setLoading(true);
-        const data = await categoriesApi.list();
-        setCategories(data?.categories || data || []);
+        const data = await collectionsApi.list();
+        setCategories(data?.collections || data?.items || data || []);
       } catch (error) {
         logger.error('Failed to load collections:', error);
       } finally {

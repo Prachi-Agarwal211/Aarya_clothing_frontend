@@ -11,6 +11,7 @@ import {
   getCommerceBaseUrl,
   getPaymentBaseUrl,
 } from './baseApi';
+import { sanitizeSearch } from './sanitize';
 
 // Create client instances for different services
 const coreClient = new BaseApiClient(getCoreBaseUrl());
@@ -19,14 +20,17 @@ const paymentClient = new BaseApiClient(getPaymentBaseUrl());
 
 // ==================== Products API ====================
 export const productsApi = {
-  list: (params = {}) =>
-    commerceClient.get('/api/v1/products', params),
+  list: (params = {}) => {
+    return commerceClient.get('/api/v1/products', params);
+  },
 
-  get: (id) =>
-    commerceClient.get(`/api/v1/products/${id}`),
+  get: (id) => {
+    return commerceClient.get(`/api/v1/products/${id}`);
+  },
 
-  getBySlug: (slug) =>
-    commerceClient.get(`/api/v1/products/slug/${slug}`),
+  getBySlug: (slug) => {
+    return commerceClient.get(`/api/v1/products/slug/${slug}`);
+  },
 
   getFeatured: (limit = 8) =>
     commerceClient.get('/api/v1/products/featured', { limit }),
@@ -38,7 +42,8 @@ export const productsApi = {
     ),
 
   search: (query, params = {}) =>
-    commerceClient.get('/api/v1/products/search', { q: query, ...params }),
+    // Sanitize search query to prevent XSS attacks
+    commerceClient.get('/api/v1/products/search', { q: sanitizeSearch(query), ...params }),
 };
 
 // ==================== Categories API ====================
@@ -54,6 +59,19 @@ export const categoriesApi = {
 
   getTree: () =>
     commerceClient.get('/api/v1/categories/tree'),
+};
+
+// ==================== Collections API ====================
+// Using the public endpoint /api/v1/collections (no auth required)
+export const collectionsApi = {
+  list: () =>
+    commerceClient.get('/api/v1/collections'),
+
+  get: (id) =>
+    commerceClient.get(`/api/v1/collections/${id}`),
+
+  getBySlug: (slug) =>
+    commerceClient.get(`/api/v1/collections/slug/${slug}`),
 };
 
 // ==================== Cart API ====================
@@ -236,6 +254,10 @@ export const returnsApi = {
       order_id: orderId,
       reason: data.reason,
       description: data.description,
+      type: data.type || 'return',
+      items: data.items || [],
+      video_url: data.video_url || null,
+      exchange_preference: data.exchange_preference || null,
     }),
 
   // List user's return requests
@@ -258,12 +280,68 @@ export const returnsApi = {
   uploadImages: async (returnId, files) => {
     return commerceClient.uploadFile(`/api/v1/returns/${returnId}/images`, files);
   },
+
+  // Upload return video
+  uploadVideo: async (file, onProgress, signal) => {
+    // For video uploads, we need to handle large files
+    // Using XMLHttpRequest to track progress with abort support
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      const formData = new FormData();
+      formData.append('video', file);
+
+      // Handle abort signal
+      if (signal) {
+        signal.addEventListener('abort', () => {
+          xhr.abort();
+          reject(new Error('Upload cancelled'));
+        });
+      }
+
+      xhr.upload.addEventListener('progress', (e) => {
+        if (e.lengthComputable && onProgress) {
+          const percentComplete = Math.round((e.loaded / e.total) * 100);
+          onProgress(percentComplete);
+        }
+      });
+
+      xhr.addEventListener('load', () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            resolve(JSON.parse(xhr.responseText));
+          } catch (e) {
+            resolve({ url: xhr.responseText });
+          }
+        } else {
+          reject(new Error(`Upload failed with status ${xhr.status}`));
+        }
+      });
+
+      xhr.addEventListener('error', () => {
+        reject(new Error('Upload failed'));
+      });
+
+      // Get the base URL
+      const baseUrl = getCommerceBaseUrl();
+      xhr.open('POST', `${baseUrl}/api/v1/returns/upload-video`);
+      
+      // Add auth cookie
+      const cookies = document.cookie.split(';');
+      const sessionCookie = cookies.find(c => c.trim().startsWith('session='));
+      if (sessionCookie) {
+        xhr.setRequestHeader('Cookie', sessionCookie);
+      }
+      
+      xhr.send(formData);
+    });
+  },
 };
 
 // Export all APIs as a single object
 export const customerApi = {
   products: productsApi,
   categories: categoriesApi,
+  collections: collectionsApi,
   cart: cartApi,
   orders: ordersApi,
   addresses: addressesApi,

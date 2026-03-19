@@ -28,24 +28,24 @@ export default function NotFound() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-rose-50 via-white to-amber-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 px-4 py-12">
-      <div className="max-w-2xl w-full text-center space-y-8">
+    <div className="min-h-screen flex items-center justify-center bg-[#0B0608] px-4 py-12">
+      <div className="max-w-2xl w-full text-center space-y-8 relative z-10">
         {/* Decorative Element */}
         <div className="relative">
-          <div className="absolute inset-0 blur-3xl opacity-20 bg-gradient-to-r from-rose-200 to-amber-200 dark:from-rose-900 dark:to-amber-900 rounded-full"></div>
+          <div className="absolute inset-0 blur-3xl opacity-20 bg-gradient-to-r from-[#7A2F57] to-[#F2C29A] rounded-full"></div>
           
           {/* 404 Text */}
-          <h1 className="relative text-9xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-rose-600 via-purple-600 to-amber-600 dark:from-rose-400 dark:via-purple-400 dark:to-amber-400 animate-pulse">
+          <h1 className="relative text-9xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#F2C29A] via-[#B76E79] to-[#7A2F57] animate-pulse" style={{ fontFamily: 'Cinzel, serif' }}>
             404
           </h1>
         </div>
 
         {/* Message */}
         <div className="space-y-4">
-          <h2 className="text-3xl font-semibold text-gray-900 dark:text-white">
-            Page Not Found
+          <h2 className="text-3xl font-semibold text-[#F2C29A]" style={{ fontFamily: 'Cinzel, serif' }}>
+            PAGE NOT FOUND
           </h2>
-          <p className="text-gray-600 dark:text-gray-300 text-lg">
+          <p className="text-[#EAE0D5]/70 text-lg">
             The page you&apos;re looking for seems to have wandered off into the ether. 
             Don&apos;t worry, even the most beautiful fabrics sometimes get misplaced.
           </p>
@@ -54,61 +54,58 @@ export default function NotFound() {
         {/* Search Bar */}
         <form onSubmit={handleSearch} className="max-w-md mx-auto">
           <div className="relative">
-            <Input
+            <input
               type="text"
               placeholder="Search for products..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pr-12 h-12 text-lg border-2 border-rose-200 dark:border-rose-800 focus:border-rose-400 dark:focus:border-rose-600 rounded-full"
+              className="w-full h-12 px-6 pr-14 bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/25 rounded-full text-[#EAE0D5] placeholder:text-[#8A6A5C] focus:outline-none focus:border-[#F2C29A]/50 transition-colors"
             />
-            <Button
+            <button
               type="submit"
-              size="icon"
-              className="absolute right-2 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full bg-gradient-to-r from-rose-500 to-purple-500 hover:from-rose-600 hover:to-purple-600"
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 h-9 w-9 flex items-center justify-center rounded-full bg-gradient-to-r from-[#7A2F57] to-[#B76E79] text-white hover:opacity-90 transition-opacity"
             >
-              <Search className="h-5 w-5 text-white" />
-            </Button>
+              <Search className="h-4 w-4" />
+            </button>
           </div>
         </form>
 
         {/* Quick Links */}
-        <Card className="border-rose-100 dark:border-rose-900 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm">
-          <CardContent className="pt-6">
-            <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-4 uppercase tracking-wider">
-              Quick Links
-            </h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {quickLinks.map((link) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className="group flex flex-col items-center p-4 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-all duration-300"
-                >
-                  <span className="text-2xl mb-2 group-hover:scale-110 transition-transform">
-                    {link.href === '/products' && '🛍️'}
-                    {link.href === '/new-arrivals' && '✨'}
-                    {link.href === '/collections' && '👗'}
-                    {link.href === '/about' && 'ℹ️'}
-                  </span>
-                  <span className="text-sm text-gray-700 dark:text-gray-300 group-hover:text-rose-600 dark:group-hover:text-rose-400 font-medium">
-                    {link.label}
-                  </span>
-                </Link>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+        <div className="bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl p-6">
+          <h3 className="text-sm font-medium text-[#EAE0D5]/50 mb-6 uppercase tracking-wider" style={{ fontFamily: 'Cinzel, serif' }}>
+            Quick Links
+          </h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {quickLinks.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className="group flex flex-col items-center p-4 rounded-xl hover:bg-[#B76E79]/10 transition-all duration-300"
+              >
+                <span className="text-2xl mb-3 group-hover:scale-110 transition-transform">
+                  {link.href === '/products' && '🛍️'}
+                  {link.href === '/new-arrivals' && '✨'}
+                  {link.href === '/collections' && '👗'}
+                  {link.href === '/about' && 'ℹ️'}
+                </span>
+                <span className="text-xs text-[#EAE0D5]/70 group-hover:text-[#F2C29A] font-medium transition-colors">
+                  {link.label}
+                </span>
+              </Link>
+            ))}
+          </div>
+        </div>
 
         {/* Action Buttons */}
         <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
           <Link href="/">
-            <Button className="h-12 px-8 text-lg bg-gradient-to-r from-rose-500 to-purple-500 hover:from-rose-600 hover:to-purple-600 rounded-full">
+            <button className="h-12 px-8 text-sm font-medium bg-gradient-to-r from-[#7A2F57] to-[#B76E79] text-white rounded-full hover:opacity-90 transition-opacity w-full sm:w-auto">
               Return Home
-            </Button>
+            </button>
           </Link>
           <a
             href="mailto:support@aaryaclothing.com"
-            className="inline-flex items-center justify-center h-12 px-8 text-lg border-2 border-rose-300 dark:border-rose-700 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/20 rounded-full transition-colors font-medium"
+            className="inline-flex items-center justify-center h-12 px-8 text-sm font-medium border border-[#B76E79]/30 text-[#EAE0D5] hover:border-[#F2C29A] hover:text-[#F2C29A] rounded-full transition-all w-full sm:w-auto bg-[#0B0608]/40"
           >
             Report Issue
           </a>
@@ -116,9 +113,9 @@ export default function NotFound() {
 
         {/* Decorative Bottom */}
         <div className="pt-8">
-          <p className="text-sm text-gray-500 dark:text-gray-400">
+          <p className="text-sm text-[#EAE0D5]/50">
             Need help?{' '}
-            <Link href="/contact" className="text-rose-600 dark:text-rose-400 hover:underline font-medium">
+            <Link href="/contact" className="text-[#F2C29A] hover:text-[#B76E79] transition-colors font-medium">
               Contact Support
             </Link>
           </p>

@@ -538,18 +538,20 @@ export default function EditProductPage() {
                 </div>
               )}
               
-              <label 
+              <label
+                htmlFor="image-upload"
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
-                className={`w-full flex flex-col items-center justify-center p-8 rounded-xl border-2 border-dashed transition-colors cursor-pointer
-                  ${isDragging ? 'border-[#F2C29A] bg-[#B76E79]/20' : 'border-[#B76E79]/30 hover:border-[#B76E79]/60 hover:bg-[#B76E79]/5'}
-                `}
+                className={`w-full flex flex-col items-center justify-center p-8 rounded-xl border-2 border-dashed transition-colors cursor-pointer ${
+                  isDragging ? 'border-[#F2C29A] bg-[#B76E79]/20' : 'border-[#B76E79]/30 hover:border-[#B76E79]/60 hover:bg-[#B76E79]/5'
+                }`}
               >
                 <Upload className={`w-8 h-8 mb-3 ${isDragging ? 'text-[#F2C29A]' : 'text-[#B76E79]/60'}`} />
                 <span className="text-sm text-[#EAE0D5] font-medium mb-1">Click to upload or drag & drop</span>
                 <span className="text-xs text-[#EAE0D5]/50">JPG, PNG, WebP — multiple images allowed</span>
                 <input
+                  id="image-upload"
                   type="file"
                   accept="image/*"
                   multiple

@@ -57,6 +57,7 @@ export function AuthProvider({ children }) {
       // Pre-set from local storage to avoid flicker
       setUser(storedUser);
       setIsAuthenticated(true);
+      setLoading(false); // End loading state immediately to avoid UI flicker
 
       // Verify and get fresh data from backend
       try {

@@ -421,6 +421,7 @@ export default function CreateProductPage() {
               )}
 
               <label
+                htmlFor="image-upload"
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
@@ -431,7 +432,7 @@ export default function CreateProductPage() {
                 <Upload className={`w-8 h-8 mb-3 ${isDragging ? 'text-[#F2C29A]' : 'text-[#B76E79]/60'}`} />
                 <span className="text-sm text-[#EAE0D5] font-medium mb-1">Click to upload or drag & drop</span>
                 <span className="text-xs text-[#EAE0D5]/50">JPG, PNG, WebP — multiple images allowed</span>
-                <input type="file" accept="image/*" multiple onChange={handleImageUpload} className="hidden" />
+                <input id="image-upload" type="file" accept="image/*" multiple onChange={handleImageUpload} className="hidden" />
               </label>
             </div>
 

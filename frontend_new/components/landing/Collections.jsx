@@ -94,23 +94,23 @@ const Collections = ({
           {title}
         </h2>
 
-        {/* Dynamic Layout for Categories: Horizontal Scroll on Mobile, Grid on Tablet/Desktop */}
+        {/* Dynamic Layout for Categories: Responsive Grid */}
         <div
           ref={cardsContainerRef}
-          className="flex overflow-x-auto snap-x snap-mandatory sm:grid sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6 pb-6 sm:pb-0 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8"
         >
           {categories.map((category, index) => {
-            // Featured (first) item spans 2 cols only on md+ to prevent overflow on mobile
-            const isFeatured = index === 0;
+            // Make every 3rd item (or specific pattern) span wider if desired, or just keep it uniform
+            // A uniform grid with consistent aspect ratio handles dynamic adds/deletes best
             return (
               <div
-                key={category.id}
+                key={category.id || index}
                 ref={el => cardRefs.current[index] = el}
-                className={`shrink-0 w-[85vw] sm:w-auto snap-center ${isFeatured ? "sm:col-span-2 sm:row-span-2" : ""}`}
+                className="w-full h-full"
               >
                 <CollectionCard
                   category={category}
-                  size={isFeatured ? "large" : "medium"}
+                  size="medium"
                   index={index}
                 />
               </div>

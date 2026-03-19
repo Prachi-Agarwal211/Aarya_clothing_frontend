@@ -44,13 +44,13 @@ const Footer = ({ id }) => {
                 Timeless elegance for the modern soul. Designed with passion, crafted with care, and worn with confidence.
               </p>
               <div className="flex gap-4">
-                <a href="#" className="p-2 border border-[#F2C29A]/30 rounded-full hover:bg-[#F2C29A] hover:text-[#050203] transition-all duration-300 text-[#EAE0D5]">
+                <a href="#" className="w-10 h-10 flex items-center justify-center border border-[#F2C29A]/30 rounded-full hover:bg-[#F2C29A] hover:text-[#050203] transition-all duration-300 text-[#EAE0D5]">
                   <Instagram className="w-5 h-5" />
                 </a>
-                <a href="#" className="p-2 border border-[#F2C29A]/30 rounded-full hover:bg-[#F2C29A] hover:text-[#050203] transition-all duration-300 text-[#EAE0D5]">
+                <a href="#" className="w-10 h-10 flex items-center justify-center border border-[#F2C29A]/30 rounded-full hover:bg-[#F2C29A] hover:text-[#050203] transition-all duration-300 text-[#EAE0D5]">
                   <Facebook className="w-5 h-5" />
                 </a>
-                <a href="#" className="p-2 border border-[#F2C29A]/30 rounded-full hover:bg-[#F2C29A] hover:text-[#050203] transition-all duration-300 text-[#EAE0D5]">
+                <a href="#" className="w-10 h-10 flex items-center justify-center border border-[#F2C29A]/30 rounded-full hover:bg-[#F2C29A] hover:text-[#050203] transition-all duration-300 text-[#EAE0D5]">
                   <Twitter className="w-5 h-5" />
                 </a>
               </div>

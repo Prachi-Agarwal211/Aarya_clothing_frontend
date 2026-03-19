@@ -94,12 +94,10 @@ export default function AdminSidebar({ collapsed, onToggle, isMobile = false, on
   return (
     <aside
       className={`
-        fixed left-0 top-0 h-screen z-50
-        bg-[#0B0608]/95 backdrop-blur-xl
-        border-r border-[#B76E79]/15
-        transition-all duration-300 ease-in-out
-        ${sidebarWidth}
-        flex flex-col
+        fixed top-0 left-0 z-40 h-screen transition-all duration-300 ease-in-out
+        bg-[#0B0608]/60 backdrop-blur-xl border-r border-[#B76E79]/20
+        flex flex-col shadow-[4px_0_24px_rgba(0,0,0,0.4)]
+        ${collapsed && !isMobile ? 'w-20' : 'w-64'}
       `}
     >
       {/* Logo Section */}

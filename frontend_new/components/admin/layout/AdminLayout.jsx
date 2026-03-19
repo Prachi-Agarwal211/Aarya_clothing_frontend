@@ -14,7 +14,7 @@ export default function AdminLayout({ children }) {
   const sidebarRef = useRef(null);
   
   // Use auth context for authentication
-  const { user, loading, isAuthenticated, isAdmin } = useAuth();
+  const { user, loading, isAuthenticated, isAdmin, isStaff } = useAuth();
 
   // Handle click outside to close mobile menu
   useEffect(() => {
@@ -72,12 +72,12 @@ export default function AdminLayout({ children }) {
       }
 
       // 2. Customers or unknown roles should go to home
-      if (!isAdmin() && user?.role !== 'staff') {
+      if (!isStaff()) {
         router.push('/');
         return;
       }
     }
-  }, [loading, isAuthenticated, isAdmin, user, router, pathname]);
+  }, [loading, isAuthenticated, isStaff, isAdmin, user, router, pathname]);
 
   // Show loading state while checking auth
   if (loading) {
@@ -92,7 +92,7 @@ export default function AdminLayout({ children }) {
   }
 
   // Don't render anything if not authenticated or not authorized
-  const isAuthorized = isAuthenticated && (isAdmin() || user?.role === 'staff');
+  const isAuthorized = isAuthenticated && isStaff();
   if (!isAuthenticated || !isAuthorized) {
     return (
       <div className="min-h-screen bg-[#050203] flex items-center justify-center">
@@ -109,17 +109,20 @@ export default function AdminLayout({ children }) {
   };
 
   return (
-    <div className="min-h-screen bg-[#050203]">
-      {/* Background Pattern */}
+    <div className="min-h-screen bg-[#0B0608] relative">
+      {/* Background Pattern - Glassmorphism base */}
       <div 
         className="fixed inset-0 z-0 pointer-events-none"
         style={{
           background: `
-            radial-gradient(ellipse at 20% 20%, rgba(122, 47, 87, 0.1) 0%, transparent 50%),
-            radial-gradient(ellipse at 80% 80%, rgba(183, 110, 121, 0.08) 0%, transparent 50%)
+            radial-gradient(ellipse at 20% 20%, rgba(122, 47, 87, 0.15) 0%, transparent 60%),
+            radial-gradient(ellipse at 80% 80%, rgba(183, 110, 121, 0.1) 0%, transparent 60%),
+            radial-gradient(ellipse at 50% 50%, rgba(242, 194, 154, 0.05) 0%, transparent 70%)
           `
         }}
       />
+      {/* Glassmorphic backdrop blur layer */}
+      <div className="fixed inset-0 z-0 backdrop-blur-[100px] pointer-events-none opacity-50" />
 
       {/* Sidebar - Desktop */}
       <div className="hidden lg:block">

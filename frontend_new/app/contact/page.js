@@ -92,8 +92,10 @@ export default function ContactPage() {
                       <div>
                         <h3 className="text-[#EAE0D5] font-medium mb-1">Email Us</h3>
                         <p className="text-[#EAE0D5]/60 text-sm">
-                          support@aaryaclothing.com<br />
-                          info@aaryaclothing.com
+                          <a href="mailto:info@aaryaclothing.in" className="text-[#B76E79] hover:underline">info@aaryaclothing.in</a>
+                        </p>
+                        <p className="text-[#EAE0D5]/40 text-xs mt-1">
+                          For inquiries, support, or feedback
                         </p>
                       </div>
                     </div>

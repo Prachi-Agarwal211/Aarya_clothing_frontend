@@ -514,11 +514,11 @@ export default function LandingPageConfig() {
                         <div className="flex items-center gap-1.5">
                           <button onClick={() => handleToggleLandingProduct(lp)}
                             title={lp.is_active ? 'Hide from landing' : 'Show on landing'}
-                            className="p-1.5 rounded-lg hover:bg-[#B76E79]/10 transition-colors">
+                            className="p-1.5 rounded-lg hover:bg-[#B76E79]/10 transition-colors flex items-center justify-center">
                             {lp.is_active ? <Eye className="w-4 h-4 text-green-400" /> : <EyeOff className="w-4 h-4 text-[#EAE0D5]/30" />}
                           </button>
                           <button onClick={() => handleRemoveLandingProduct(lp.id)}
-                            className="p-1.5 rounded-lg hover:bg-red-500/10 transition-colors">
+                            className="p-1.5 rounded-lg hover:bg-red-500/10 transition-colors flex items-center justify-center">
                             <Trash2 className="w-4 h-4 text-red-400/70 hover:text-red-400" />
                           </button>
                         </div>
@@ -833,7 +833,7 @@ export default function LandingPageConfig() {
                 </h3>
               </div>
               <button onClick={() => setEditingSection(null)}
-                className="p-1.5 rounded-lg hover:bg-[#B76E79]/10 transition-colors">
+                className="p-1.5 rounded-lg hover:bg-[#B76E79]/10 transition-colors flex items-center justify-center">
                 <X className="w-5 h-5 text-[#EAE0D5]/60" />
               </button>
             </div>
@@ -931,7 +931,7 @@ export default function LandingPageConfig() {
                 Add Products to New Arrivals
               </h3>
               <button onClick={() => setShowProductPicker(false)}
-                className="p-1.5 rounded-lg hover:bg-[#B76E79]/10 transition-colors">
+                className="p-1.5 rounded-lg hover:bg-[#B76E79]/10 transition-colors flex items-center justify-center">
                 <X className="w-5 h-5 text-[#EAE0D5]/60" />
               </button>
             </div>
@@ -1013,7 +1013,7 @@ export default function LandingPageConfig() {
                 Edit Image
               </h3>
               <button onClick={() => setEditingImage(null)}
-                className="p-1.5 rounded-lg hover:bg-[#B76E79]/10 transition-colors">
+                className="p-1.5 rounded-lg hover:bg-[#B76E79]/10 transition-colors flex items-center justify-center">
                 <X className="w-5 h-5 text-[#EAE0D5]/60" />
               </button>
             </div>

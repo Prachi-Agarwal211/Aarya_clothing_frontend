@@ -121,32 +121,54 @@ export class BaseApiClient {
 
     this._refreshing = (async () => {
       try {
+        // FIX: Use credentials: 'include' to send refresh token cookie
+        // Backend expects refresh token from cookie, not request body
         const response = await fetch(buildUrl(this.baseUrl, '/api/v1/auth/refresh'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({}),
-          ...(this.includeCredentials && { credentials: 'include' }),
+          credentials: 'include',  // Always include cookies for token refresh
         });
 
-        if (!response.ok) return false;
+        if (!response.ok) {
+          console.warn('[TokenRefresh] Refresh token invalid or expired');
+          // Clear stale tokens on refresh failure
+          if (typeof window !== 'undefined') {
+            clearAuthData();
+            clearStoredTokens();
+          }
+          return false;
+        }
 
         const data = await response.json();
         if (data.access_token) {
+          console.log('[TokenRefresh] Successfully refreshed access token');
+          // Update tokens in cookies (backend sets them, but we ensure they're updated)
+          if (typeof window !== 'undefined' && data.tokens) {
+            setStoredTokens(data.tokens);
+          }
+          
           try {
             const userResponse = await fetch(buildUrl(this.baseUrl, '/api/v1/users/me'), {
-              ...(this.includeCredentials && { credentials: 'include' }),
+              credentials: 'include',  // Always include cookies
             });
             if (userResponse.ok) {
               const userData = await userResponse.json();
               localStorage.setItem('user', JSON.stringify(userData));
             }
           } catch (e) {
-            console.warn('Failed to refresh user data:', e);
+            console.warn('[TokenRefresh] Failed to refresh user data:', e);
           }
           return true;
         }
+        console.warn('[TokenRefresh] No access_token in refresh response');
         return false;
-      } catch {
+      } catch (e) {
+        console.error('[TokenRefresh] Refresh request failed:', e.message);
+        // Clear stale tokens on error
+        if (typeof window !== 'undefined') {
+          clearAuthData();
+          clearStoredTokens();
+        }
         return false;
       } finally {
         this._refreshing = null;

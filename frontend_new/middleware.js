@@ -38,33 +38,76 @@ const AUTH_ROUTE_SET = new Set(AUTH_ROUTES);
 
 /**
  * Parse JWT token safely in Edge runtime
+ * 
+ * FIX: Improved error handling, token structure validation, and expiration check
  */
 function parseJwt(token) {
-  if (!token) return null;
+  // Validate input
+  if (!token || typeof token !== 'string') {
+    return null;
+  }
+  
   try {
-    const base64Url = token.split('.')[1];
+    // Trim whitespace that might cause parsing issues
+    token = token.trim();
+    
+    // Validate JWT structure (must have 3 parts)
+    const parts = token.split('.');
+    if (parts.length !== 3) {
+      console.warn('[Middleware] Invalid JWT structure - expected 3 parts, got', parts.length);
+      return null;
+    }
+    
+    const [header, base64Url, signature] = parts;
+    
+    // Validate each part exists
+    if (!header || !base64Url || !signature) {
+      console.warn('[Middleware] Invalid JWT - empty part detected');
+      return null;
+    }
+    
+    // Convert base64url to base64
     const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    
+    // Handle padding issues (base64 should be multiple of 4)
+    const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, '=');
+    
+    // Decode base64 to string
     const jsonPayload = decodeURIComponent(
-      atob(base64)
+      atob(padded)
         .split('')
         .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
         .join('')
     );
+    
     const parsed = JSON.parse(jsonPayload);
     
-    // DEBUG: Log role extraction for troubleshooting
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[Middleware] JWT parsed successfully:', { 
-        sub: parsed.sub, 
-        role: parsed.role, 
-        exp: parsed.exp,
-        hasRole: !!parsed.role 
-      });
+    // Validate token has required fields
+    if (!parsed.sub || !parsed.exp) {
+      console.warn('[Middleware] Invalid JWT payload - missing sub or exp');
+      return null;
     }
     
+    // Check expiration (exp is in seconds, convert to milliseconds)
+    if (parsed.exp && parsed.exp * 1000 < Date.now()) {
+      // Token expired - this is normal, don't log as error
+      return null;
+    }
+
+    // DEBUG: Log role extraction for troubleshooting
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[Middleware] JWT parsed successfully:', {
+        sub: parsed.sub,
+        role: parsed.role,
+        exp: parsed.exp,
+        hasRole: !!parsed.role
+      });
+    }
+
     return parsed;
   } catch (e) {
-    console.error('[Middleware] CRITICAL: Failed to parse JWT token:', e.message, 'Token starts with:', token?.substring(0, 30) + '...');
+    // Log at warn level since expired/malformed tokens are expected sometimes
+    console.warn('[Middleware] JWT parse error:', e.message, 'Token starts with:', token?.substring(0, 30) + '...');
     return null;
   }
 }

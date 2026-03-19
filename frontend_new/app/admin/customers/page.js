@@ -356,7 +356,7 @@ export default function CustomersPage() {
           </a>
           <button
             onClick={() => handleCopy(value, `email-${row.id}`)}
-            className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-[#B76E79]/10 text-[#EAE0D5]/50 hover:text-[#EAE0D5] transition-all"
+            className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-[#B76E79]/10 text-[#EAE0D5]/50 hover:text-[#EAE0D5] transition-all flex items-center justify-center"
             title="Copy email"
           >
             {copiedId === `email-${row.id}` ? (
@@ -536,7 +536,7 @@ export default function CustomersPage() {
             {filters.search && (
               <button
                 onClick={() => setFilters((prev) => ({ ...prev, search: '' }))}
-                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-[#B76E79]/10 text-[#EAE0D5]/40 hover:text-[#EAE0D5]"
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-[#B76E79]/10 text-[#EAE0D5]/40 hover:text-[#EAE0D5] flex items-center justify-center"
               >
                 <X className="w-4 h-4" />
               </button>

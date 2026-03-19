@@ -319,14 +319,14 @@ export default function StaffManagementPage() {
                         <div className="flex gap-1">
                           <button
                             onClick={() => handleDeactivateAccount(account.id)}
-                            className="p-1.5 rounded-lg hover:bg-[#B76E79]/10 text-[#EAE0D5]/50 hover:text-orange-400 transition-colors"
+                            className="p-1.5 rounded-lg hover:bg-[#B76E79]/10 text-[#EAE0D5]/50 hover:text-orange-400 transition-colors flex items-center justify-center"
                             title={account.is_active ? 'Deactivate' : 'Activate'}
                           >
                             {account.is_active ? <LogOut className="w-4 h-4" /> : <CheckCircle className="w-4 h-4" />}
                           </button>
                           <button
                             onClick={() => handleDeleteAccount(account.id, account.full_name || account.username)}
-                            className="p-1.5 rounded-lg hover:bg-red-500/10 text-[#EAE0D5]/50 hover:text-red-400 transition-colors"
+                            className="p-1.5 rounded-lg hover:bg-red-500/10 text-[#EAE0D5]/50 hover:text-red-400 transition-colors flex items-center justify-center"
                             title="Delete Account"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -382,7 +382,7 @@ export default function StaffManagementPage() {
                       </td>
                       <td className="px-4 py-3 text-xs text-[#EAE0D5]/50">{role.created_at ? new Date(role.created_at).toLocaleDateString('en-IN') : '—'}</td>
                       <td className="px-4 py-3">
-                        <button onClick={() => handleDeleteRole(role.id)} className="p-1.5 rounded-lg hover:bg-red-500/10 text-[#EAE0D5]/40 hover:text-red-400 transition-colors" title="Delete">
+                        <button onClick={() => handleDeleteRole(role.id)} className="p-1.5 rounded-lg hover:bg-red-500/10 text-[#EAE0D5]/40 hover:text-red-400 transition-colors flex items-center justify-center" title="Delete">
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </td>

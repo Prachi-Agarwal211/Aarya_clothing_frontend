@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import {
   Plus, Search, RefreshCw, Package, Edit, Trash2, Image as ImageIcon,
-  AlertCircle, CheckSquare, Square, Tag, X, Save,
+  AlertCircle, CheckSquare, Square, X, Save,
   Eye, EyeOff, Star, Sparkles, IndianRupee, ChevronDown,
   ChevronRight, Minus, Warehouse, Upload, XCircle
 } from 'lucide-react';
@@ -345,10 +345,10 @@ function ProductRow({ product, collections, onRefresh, selected, onToggleSelect,
         <td className="p-4">
           <div className="flex items-center gap-1">
             <Link href={`/admin/products/${product.id}/edit`}
-              className="p-1.5 rounded-lg hover:bg-[#B76E79]/10 text-[#EAE0D5]/60 hover:text-[#EAE0D5] transition-colors" title="Edit Product">
+              className="p-1.5 rounded-lg hover:bg-[#B76E79]/10 text-[#EAE0D5]/60 hover:text-[#EAE0D5] transition-colors flex items-center justify-center" title="Edit Product">
               <Edit className="w-4 h-4" />
             </Link>
-            <button onClick={onToggleExpand} className="p-1.5 rounded-lg hover:bg-[#B76E79]/10 text-[#EAE0D5]/60 hover:text-[#EAE0D5] transition-colors" title="Manage Variants">
+            <button onClick={onToggleExpand} className="p-1.5 rounded-lg hover:bg-[#B76E79]/10 text-[#EAE0D5]/60 hover:text-[#EAE0D5] transition-colors flex items-center justify-center" title="Manage Variants">
               <Warehouse className="w-4 h-4" />
             </button>
           </div>
@@ -406,7 +406,7 @@ function ProductRow({ product, collections, onRefresh, selected, onToggleSelect,
                               <button
                                 onClick={() => handleQuickStockAdjust(v, -1)}
                                 disabled={adjustingStock === v.id}
-                                className="p-1 rounded hover:bg-red-500/10 text-red-400 disabled:opacity-50"
+                                className="p-1 rounded hover:bg-red-500/10 text-red-400 disabled:opacity-50 flex items-center justify-center"
                                 title="Decrease by 1"
                               >
                                 <Minus className="w-3.5 h-3.5" />
@@ -414,21 +414,21 @@ function ProductRow({ product, collections, onRefresh, selected, onToggleSelect,
                               <button
                                 onClick={() => handleQuickStockAdjust(v, 1)}
                                 disabled={adjustingStock === v.id}
-                                className="p-1 rounded hover:bg-green-500/10 text-green-400 disabled:opacity-50"
+                                className="p-1 rounded hover:bg-green-500/10 text-green-400 disabled:opacity-50 flex items-center justify-center"
                                 title="Increase by 1"
                               >
                                 <Plus className="w-3.5 h-3.5" />
                               </button>
                               <button
                                 onClick={() => { setEditVariant(v); setShowVariantModal(true); }}
-                                className="p-1 rounded hover:bg-[#B76E79]/10 text-[#EAE0D5]/60 hover:text-[#EAE0D5]"
+                                className="p-1 rounded hover:bg-[#B76E79]/10 text-[#EAE0D5]/60 hover:text-[#EAE0D5] flex items-center justify-center"
                                 title="Edit Variant"
                               >
                                 <Edit className="w-3.5 h-3.5" />
                               </button>
                               <button
                                 onClick={() => handleDeleteVariant(v)}
-                                className="p-1 rounded hover:bg-red-500/10 text-red-400/60 hover:text-red-400"
+                                className="p-1 rounded hover:bg-red-500/10 text-red-400/60 hover:text-red-400 flex items-center justify-center"
                                 title="Delete Variant"
                               >
                                 <Trash2 className="w-3.5 h-3.5" />
@@ -459,101 +459,6 @@ function ProductRow({ product, collections, onRefresh, selected, onToggleSelect,
   );
 }
 
-// ─── Modal: Collection/Category Management ───────────────────────────────────────────────
-function CollectionModal({ collection, onClose, onSaved }) {
-  const isEdit = !!collection;
-  const [form, setForm] = useState({
-    name: collection?.name || '',
-    description: collection?.description || '',
-    is_active: collection?.is_active ?? true,
-    is_featured: collection?.is_featured ?? false,
-  });
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
-  const [imageFile, setImageFile] = useState(null);
-  const fileRef = useRef();
-
-  const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setForm(f => ({ ...f, [name]: type === 'checkbox' ? checked : value }));
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setSaving(true);
-    setError('');
-    try {
-      let saved;
-      if (isEdit) {
-        saved = await collectionsApi.update(collection.id, form);
-      } else {
-        saved = await collectionsApi.create(form);
-      }
-      if (imageFile && (saved?.id || collection?.id)) {
-        await collectionsApi.uploadImage(saved?.id || collection.id, imageFile);
-      }
-      onSaved();
-    } catch (err) {
-      setError(err?.message || 'Failed to save collection');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-      <div className="bg-[#0B0608] border border-[#B76E79]/30 rounded-2xl w-full max-w-md">
-        <div className="flex items-center justify-between p-6 border-b border-[#B76E79]/20">
-          <h2 className="text-lg font-bold text-[#F2C29A]">{isEdit ? 'Edit Category' : 'Add Category'}</h2>
-          <button onClick={onClose} className="p-2 rounded-lg hover:bg-[#B76E79]/10 text-[#EAE0D5]/60"><X className="w-5 h-5" /></button>
-        </div>
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          {error && <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">{error}</div>}
-          <div>
-            <label className="block text-sm text-[#EAE0D5]/70 mb-1">Category Name *</label>
-            <input name="name" value={form.name} onChange={handleChange} required className="w-full px-3 py-2 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-xl text-[#EAE0D5] focus:outline-none focus:border-[#B76E79]/50 text-sm" />
-          </div>
-          <div>
-            <label className="block text-sm text-[#EAE0D5]/70 mb-1">Description</label>
-            <textarea name="description" value={form.description} onChange={handleChange} rows={2} className="w-full px-3 py-2 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-xl text-[#EAE0D5] focus:outline-none focus:border-[#B76E79]/50 text-sm resize-none" />
-          </div>
-          <div className="flex gap-4">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" name="is_active" checked={form.is_active} onChange={handleChange} className="sr-only" />
-              <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${form.is_active ? 'bg-[#B76E79] border-[#B76E79]' : 'border-[#B76E79]/30 bg-transparent'}`}>
-                {form.is_active && <Eye className="w-3 h-3 text-white" />}
-              </div>
-              <span className="text-sm text-[#EAE0D5]/80">Visible in Store</span>
-            </label>
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" name="is_featured" checked={form.is_featured} onChange={handleChange} className="sr-only" />
-              <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${form.is_featured ? 'bg-[#B76E79] border-[#B76E79]' : 'border-[#B76E79]/30 bg-transparent'}`}>
-                {form.is_featured && <Star className="w-3 h-3 text-white" />}
-              </div>
-              <span className="text-sm text-[#EAE0D5]/80">Featured on Homepage</span>
-            </label>
-          </div>
-          <div>
-            <label className="block text-sm text-[#EAE0D5]/70 mb-2">Category Image</label>
-            <div onClick={() => fileRef.current?.click()} className="border-2 border-dashed border-[#B76E79]/30 rounded-xl p-4 text-center cursor-pointer hover:border-[#B76E79]/60 transition-colors">
-              <Upload className="w-6 h-6 text-[#B76E79]/50 mx-auto mb-1" />
-              <p className="text-sm text-[#EAE0D5]/50">{imageFile ? imageFile.name : 'Click to select image'}</p>
-            </div>
-            <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => setImageFile(e.target.files[0])} />
-          </div>
-          <div className="flex gap-3 pt-2">
-            <button type="button" onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-[#B76E79]/30 text-[#EAE0D5]/70 hover:bg-[#B76E79]/10 text-sm">Cancel</button>
-            <button type="submit" disabled={saving} className="flex-1 py-2.5 rounded-xl bg-[#7A2F57]/40 border border-[#B76E79]/40 text-[#F2C29A] hover:bg-[#7A2F57]/60 text-sm font-medium disabled:opacity-50 flex items-center justify-center gap-2">
-              {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-              {saving ? 'Saving...' : (isEdit ? 'Update Category' : 'Create Category')}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-}
-
 // ─── Main Page ───────────────────────────────────────────────────────────────
 export default function ProductsPage() {
   const [products, setProducts] = useState([]);
@@ -567,9 +472,6 @@ export default function ProductsPage() {
   const [showBulkPrice, setShowBulkPrice] = useState(false);
   const [bulkLoading, setBulkLoading] = useState(false);
   const [expandedRows, setExpandedRows] = useState(new Set());
-  const [showCollections, setShowCollections] = useState(false);
-  const [showCollectionModal, setShowCollectionModal] = useState(false);
-  const [editCollection, setEditCollection] = useState(null);
 
   useEffect(() => { fetchData(); }, []);
 
@@ -642,23 +544,14 @@ export default function ProductsPage() {
           onClose={() => setShowBulkPrice(false)}
           onDone={() => { setShowBulkPrice(false); setSelected(new Set()); fetchData(); }} />
       )}
-      {(showCollectionModal || editCollection) && (
-        <CollectionModal collection={editCollection}
-          onClose={() => { setShowCollectionModal(false); setEditCollection(null); }}
-          onSaved={() => { setShowCollectionModal(false); setEditCollection(null); fetchData(); }} />
-      )}
 
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold text-[#F2C29A]" style={{ fontFamily: 'Cinzel, serif' }}>Products & Inventory</h1>
-          <p className="text-[#EAE0D5]/60 mt-1">Manage products, categories, and stock levels</p>
+          <p className="text-[#EAE0D5]/60 mt-1">Manage products and stock levels</p>
         </div>
         <div className="flex gap-2">
-          <button onClick={() => setShowCollections(!showCollections)}
-            className={`flex items-center gap-2 px-4 py-2.5 border rounded-xl transition-colors text-sm ${showCollections ? 'bg-[#7A2F57]/30 border-[#B76E79]/50 text-[#F2C29A]' : 'border-[#B76E79]/30 text-[#EAE0D5]/70 hover:bg-[#B76E79]/10'}`}>
-            <Tag className="w-4 h-4" /> {showCollections ? 'Hide Categories' : 'Manage Categories'}
-          </button>
           <Link
             href="/admin/products/create"
             className="flex items-center gap-2 px-4 py-2.5 bg-[#7A2F57]/30 border border-[#B76E79]/30 rounded-xl text-[#F2C29A] hover:bg-[#7A2F57]/50 transition-colors text-sm"
@@ -667,67 +560,6 @@ export default function ProductsPage() {
           </Link>
         </div>
       </div>
-
-      {/* Categories Management Section */}
-      {showCollections && (
-        <div className="bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/30 rounded-2xl p-6 mb-6">
-          <div className="flex items-center justify-between mb-4 border-b border-[#B76E79]/10 pb-4">
-            <h2 className="text-lg font-bold text-[#F2C29A]">Product Categories</h2>
-            <button onClick={() => { setEditCollection(null); setShowCollectionModal(true); }}
-              className="flex items-center gap-2 px-3 py-1.5 bg-[#7A2F57]/20 border border-[#B76E79]/30 rounded-lg text-[#F2C29A] hover:bg-[#7A2F57]/40 text-xs transition-colors">
-              <Plus className="w-3.5 h-3.5" /> Add Category
-            </button>
-          </div>
-          {collections.length === 0 ? (
-            <p className="text-[#EAE0D5]/40 text-sm py-4 text-center">No categories found. Create your first category.</p>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {collections.map(c => (
-                <div key={c.id} className="border border-[#B76E79]/20 rounded-xl p-4 flex items-center gap-4 bg-[#0B0608]/60 hover:border-[#B76E79]/40 transition-colors">
-                  {c.image_url ? (
-                    <div className="relative w-12 h-12 flex-shrink-0">
-                      <Image
-                        src={c.image_url}
-                        alt={c.name}
-                        fill
-                        className="object-cover rounded-lg border border-[#B76E79]/20"
-                        sizes="48px"
-                        loading="lazy"
-                        decoding="async"
-                      />
-                    </div>
-                  ) : (
-                    <div className="w-12 h-12 rounded-lg bg-[#7A2F57]/20 flex items-center justify-center">
-                      <ImageIcon className="w-5 h-5 text-[#B76E79]/40" />
-                    </div>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-medium text-[#EAE0D5] text-sm truncate">{c.name}</h3>
-                    <p className="text-xs text-[#EAE0D5]/50 mt-0.5">{c.product_count || 0} products</p>
-                  </div>
-                  <div className="flex flex-col items-end gap-2">
-                     <span className={`px-2 py-0.5 rounded text-[10px] ${c.is_active ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-gray-500/10 text-gray-400 border border-gray-500/20'}`}>
-                       {c.is_active ? 'Visible' : 'Hidden'}
-                     </span>
-                    <div className="flex gap-1">
-                      <button onClick={() => { setEditCollection(c); setShowCollectionModal(true); }} className="p-1 rounded hover:bg-[#B76E79]/10 text-[#EAE0D5]/60 hover:text-[#EAE0D5]"><Edit className="w-3 h-3" /></button>
-                      <button onClick={async () => {
-                        if (!confirm(`Delete collection "${c.name}"?`)) return;
-                        try {
-                          await collectionsApi.delete(c.id);
-                          fetchData();
-                        } catch (err) {
-                          setError(err?.message || 'Failed to delete category');
-                        }
-                      }} className="p-1 rounded hover:bg-red-500/10 text-red-400/60 hover:text-red-400"><Trash2 className="w-3 h-3" /></button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

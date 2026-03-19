@@ -360,7 +360,7 @@ export default function ChatPage() {
             </h2>
             <button
               onClick={() => fetchRooms(false)}
-              className="p-1.5 rounded-lg hover:bg-[#B76E79]/10 transition-colors"
+              className="p-1.5 rounded-lg hover:bg-[#B76E79]/10 transition-colors flex items-center justify-center"
               title="Refresh"
             >
               <RefreshCw className={`w-4 h-4 text-[#EAE0D5]/70 ${loading ? 'animate-spin' : ''}`} />
@@ -501,7 +501,7 @@ export default function ChatPage() {
                         <span className="text-xs text-red-400">Failed to send</span>
                         <button 
                           onClick={() => retryMessage(msg)}
-                          className="p-1 bg-red-500/20 rounded hover:bg-red-500/30"
+                          className="p-1 bg-red-500/20 rounded hover:bg-red-500/30 flex items-center justify-center"
                           title="Retry"
                         >
                           <RefreshCw className="w-3 h-3 text-red-400" />

@@ -20,7 +20,7 @@ import asyncio
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from fastapi import FastAPI, Depends, HTTPException, status, Request, UploadFile, File, Query, Header, WebSocket, WebSocketDisconnect
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy import text
@@ -2819,7 +2819,12 @@ async def get_landing_all(db: Session = Depends(get_db)):
     # Try cache first
     cached = redis_client.get_cache("public:landing:all")
     if cached:
-        return cached
+        # Return cached data with headers to prevent browser caching
+        response = JSONResponse(content=cached)
+        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        return response
         
     result = {
         "hero": {"config": {}, "images": []},
@@ -2890,9 +2895,15 @@ async def get_landing_all(db: Session = Depends(get_db)):
             "brand_name": config_dict.get("brand_name", "Aarya Clothing")
         }
         
-        # Cache for 5 minutes
-        redis_client.set_cache("public:landing:all", result, ttl=300)
-        return result
+        # Cache for 60 seconds (reduced from 300 for faster updates)
+        redis_client.set_cache("public:landing:all", result, ttl=60)
+        
+        # Return with cache-control headers to prevent browser caching
+        response = JSONResponse(content=result)
+        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        return response
         
     except Exception as e:
         logger.error(f"Error fetching landing data: {str(e)}")

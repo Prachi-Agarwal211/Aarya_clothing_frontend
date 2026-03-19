@@ -685,7 +685,7 @@ function OrdersContent() {
               <h3 className="text-xl font-semibold text-[#F2C29A]" style={{ fontFamily: 'Cinzel, serif' }}>Export Orders to Excel</h3>
               <button 
                 onClick={() => !exportModal.loading && setExportModal({ open: false, fromDate: '', toDate: '', loading: false })} 
-                className="p-1 rounded-lg hover:bg-[#B76E79]/10 disabled:opacity-50"
+                className="p-1 rounded-lg hover:bg-[#B76E79]/10 disabled:opacity-50 flex items-center justify-center"
                 disabled={exportModal.loading}
               >
                 <X className="w-5 h-5 text-[#EAE0D5]/50" />
@@ -705,7 +705,7 @@ function OrdersContent() {
                       value={exportModal.fromDate}
                       onChange={(e) => setExportModal(prev => ({ ...prev, fromDate: e.target.value }))}
                       disabled={exportModal.loading}
-                      className="flex-1 px-3 py-2.5 bg-transparent text-[#EAE0D5] focus:outline-none text-sm disabled:opacity-50"
+                      className="flex-1 px-3 py-2.5 bg-[#0B0608] text-[#EAE0D5] focus:outline-none text-sm disabled:opacity-50 [-webkit-calendar-picker-indicator:filter(invert(1))]"
                     />
                   </div>
                 </div>
@@ -718,7 +718,7 @@ function OrdersContent() {
                       value={exportModal.toDate}
                       onChange={(e) => setExportModal(prev => ({ ...prev, toDate: e.target.value }))}
                       disabled={exportModal.loading}
-                      className="flex-1 px-3 py-2.5 bg-transparent text-[#EAE0D5] focus:outline-none text-sm disabled:opacity-50"
+                      className="flex-1 px-3 py-2.5 bg-[#0B0608] text-[#EAE0D5] focus:outline-none text-sm disabled:opacity-50 [-webkit-calendar-picker-indicator:filter(invert(1))]"
                     />
                   </div>
                 </div>

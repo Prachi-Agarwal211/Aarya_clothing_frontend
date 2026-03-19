@@ -478,7 +478,7 @@ export default function InventoryPage() {
               {search && (
                 <button
                   onClick={() => setSearch('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-[#B76E79]/10 text-[#EAE0D5]/40 hover:text-[#EAE0D5]"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-[#B76E79]/10 text-[#EAE0D5]/40 hover:text-[#EAE0D5] flex items-center justify-center"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -546,7 +546,7 @@ export default function InventoryPage() {
                             <span className="text-sm text-[#EAE0D5]/60">{item.low_stock_threshold || 5}</span>
                             <button
                               onClick={() => setEditThresholdItem(item)}
-                              className="p-1 rounded hover:bg-[#B76E79]/10 text-[#EAE0D5]/30 hover:text-[#EAE0D5]/70 transition-colors"
+                              className="p-1 rounded hover:bg-[#B76E79]/10 text-[#EAE0D5]/30 hover:text-[#EAE0D5]/70 transition-colors flex items-center justify-center"
                               title="Edit threshold"
                             >
                               <Edit2 className="w-3 h-3" />

@@ -106,7 +106,7 @@ function CollectionModal({ collection, onClose, onSaved }) {
                   <span className="text-white text-sm ml-2">Change Image</span>
                 </div>
               )}
-              <input type="file" accept="image/*" className="hidden" onChange={handleImageSelect} />
+              <input type="file" accept="image/*" multiple className="hidden" onChange={handleImageSelect} />
             </label>
           </div>
 

@@ -130,23 +130,36 @@ def _should_bypass_local_rate_limit(request: Request) -> bool:
 # ==================== Cookie Helper ====================
 
 def set_auth_cookies(response: Response, auth_data: dict, remember_me: bool = False):
-    """Set authentication cookies on response."""
+    """Set authentication cookies on response.
+    
+    FIX: Added domain parameter for production to support both www and non-www domains.
+    Cookies set with domain=".aaryaclothing.in" will be sent to both:
+    - aaryaclothing.in
+    - www.aaryaclothing.in
+    """
     tokens = auth_data["tokens"]
     session_id = auth_data.get("session_id")
-    
+
     # Access token cookie (30 minutes)
     access_max_age = settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
-    
+
     # Refresh token cookie (24 hours if remember_me)
     refresh_max_age = (
-        settings.REFRESH_TOKEN_EXPIRE_MINUTES * 60 
-        if remember_me 
+        settings.REFRESH_TOKEN_EXPIRE_MINUTES * 60
+        if remember_me
         else settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
     )
-    
+
     # Session cookie (24 hours)
     session_max_age = settings.SESSION_EXPIRE_MINUTES * 60
-    
+
+    # FIX: Set cookie domain for production to support both www and non-www
+    # In development, domain=None (host-only cookies)
+    # Use ENVIRONMENT env var - if it contains 'production' or 'prod', use production domain
+    env = getattr(settings, 'ENVIRONMENT', '').lower() if hasattr(settings, 'ENVIRONMENT') else ''
+    is_prod = 'production' in env or 'prod' in env or env == 'prod'
+    cookie_domain = ".aaryaclothing.in" if is_prod else None
+
     # Set cookies
     response.set_cookie(
         key="access_token",
@@ -155,9 +168,10 @@ def set_auth_cookies(response: Response, auth_data: dict, remember_me: bool = Fa
         secure=settings.COOKIE_SECURE,
         samesite=settings.COOKIE_SAMESITE,
         max_age=access_max_age,
-        path="/"
+        path="/",
+        domain=cookie_domain  # FIX: Added for cross-subdomain session support
     )
-    
+
     response.set_cookie(
         key="refresh_token",
         value=tokens["refresh_token"],
@@ -165,9 +179,10 @@ def set_auth_cookies(response: Response, auth_data: dict, remember_me: bool = Fa
         secure=settings.COOKIE_SECURE,
         samesite=settings.COOKIE_SAMESITE,
         max_age=refresh_max_age,
-        path="/api/v1/auth/refresh"
+        path="/api/v1/auth/refresh",
+        domain=cookie_domain  # FIX: Added for cross-subdomain session support
     )
-    
+
     response.set_cookie(
         key="session_id",
         value=session_id,
@@ -175,15 +190,22 @@ def set_auth_cookies(response: Response, auth_data: dict, remember_me: bool = Fa
         secure=settings.COOKIE_SECURE,
         samesite=settings.COOKIE_SAMESITE,
         max_age=session_max_age,
-        path="/"
+        path="/",
+        domain=cookie_domain  # FIX: Added for cross-subdomain session support
     )
 
 
 def clear_auth_cookies(response: Response):
     """Clear all authentication cookies."""
-    response.delete_cookie("access_token", path="/")
-    response.delete_cookie("refresh_token", path="/api/v1/auth/refresh")
-    response.delete_cookie("session_id", path="/")
+    # Get environment to determine cookie domain
+    env = getattr(settings, 'ENVIRONMENT', '').lower() if hasattr(settings, 'ENVIRONMENT') else ''
+    is_prod = 'production' in env or 'prod' in env or env == 'prod'
+    cookie_domain = ".aaryaclothing.in" if is_prod else None
+    
+    # Delete cookies with domain to ensure they're cleared across subdomains
+    response.delete_cookie("access_token", path="/", domain=cookie_domain)
+    response.delete_cookie("refresh_token", path="/api/v1/auth/refresh", domain=cookie_domain)
+    response.delete_cookie("session_id", path="/", domain=cookie_domain)
 
 
 # ==================== Email Helper ====================
@@ -646,6 +668,11 @@ async def refresh_token(
     
     tokens = auth_service.refresh_access_token(refresh_token)
     
+    # FIX: Add domain for cross-subdomain session support
+    env = getattr(settings, 'ENVIRONMENT', '').lower() if hasattr(settings, 'ENVIRONMENT') else ''
+    is_prod = 'production' in env or 'prod' in env or env == 'prod'
+    cookie_domain = ".aaryaclothing.in" if is_prod else None
+    
     # Set new access token cookie
     response.set_cookie(
         key="access_token",
@@ -654,7 +681,8 @@ async def refresh_token(
         secure=settings.COOKIE_SECURE,
         samesite=settings.COOKIE_SAMESITE,
         max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-        path="/"
+        path="/",
+        domain=cookie_domain  # FIX: Added for cross-subdomain session support
     )
     
     return Token(**tokens)

@@ -26,8 +26,8 @@ const nextConfig = {
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
 
-    // Cache optimized images for 30 days (in seconds)
-    minimumCacheTTL: 2592000,
+    // Cache optimized images for 1 hour (reduced from 30 days for faster updates)
+    minimumCacheTTL: 3600,
 
     // Allow images from Cloudflare R2 storage
     remotePatterns: [
@@ -79,11 +79,12 @@ const nextConfig = {
     // Reduce bundle size with tree shaking via modularizeImports
     // Tree shaking is handled by modularizeImports and webpack
     // Enable memory-based caching for faster builds
+    // Reduced cache times for development - changes reflect faster
     cacheLife: {
       default: {
-        stale: 300, // 5 minutes
-        revalidate: 60, // 1 minute
-        expire: 600, // 10 minutes
+        stale: 30, // 30 seconds
+        revalidate: 10, // 10 seconds
+        expire: 60, // 60 seconds
       },
     },
   },
@@ -198,23 +199,43 @@ const nextConfig = {
           }
         ]
       },
-      // Cache images for 30 days
+      // Cache images for 7 days with revalidation
       {
         source: '/_next/image/:path*',
         headers: [
           {
             key: 'Cache-Control',
-            value: 'public, max-age=2592000, immutable'
+            value: 'public, max-age=604800, stale-while-revalidate=86400'
           }
         ]
       },
-      // Cache static JS/CSS for 1 year
+      // Cache static JS/CSS - use shorter cache with revalidation for faster updates
       {
         source: '/_next/static/:path*',
         headers: [
           {
             key: 'Cache-Control',
-            value: 'public, max-age=31536000, immutable'
+            value: 'public, max-age=31536000, stale-while-revalidate=86400'
+          }
+        ]
+      },
+      // HTML pages - shorter cache for faster updates
+      {
+        source: '/:path*.html',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=0, stale-while-revalidate=3600'
+          }
+        ]
+      },
+      // API routes - no cache
+      {
+        source: '/api/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'no-cache, no-store, must-revalidate'
           }
         ]
       },

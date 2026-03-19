@@ -32,19 +32,6 @@ export default function AdminDashboard() {
   const [lowStockItems, setLowStockItems] = useState([]);
   const [error, setError] = useState(null);
 
-  // Fallback data for when API is unavailable
-  const fallbackData = {
-    total_revenue: 0,
-    total_orders: 0,
-    total_customers: 0,
-    total_products: 0,
-    pending_orders: 0,
-    today_revenue: 0,
-    today_orders: 0,
-    inventory_alerts: { low_stock: 0, out_of_stock: 0 },
-    recent_orders: []
-  };
-
   // Role guard - redirect non-admin users away
   useEffect(() => {
     if (user && !isAdmin(user.role)) {
@@ -54,6 +41,19 @@ export default function AdminDashboard() {
   }, [user, router]);
 
   const fetchDashboardData = useCallback(async () => {
+    // Fallback data for when API is unavailable - moved inside callback to prevent infinite loops
+    const fallbackData = {
+      total_revenue: 0,
+      total_orders: 0,
+      total_customers: 0,
+      total_products: 0,
+      pending_orders: 0,
+      today_revenue: 0,
+      today_orders: 0,
+      inventory_alerts: { low_stock: 0, out_of_stock: 0 },
+      recent_orders: []
+    };
+
     try {
       setLoading(true);
       setError(null);
@@ -67,7 +67,7 @@ export default function AdminDashboard() {
       setLowStockItems(lowStock.items || []);
     } catch (err) {
       logger.error('Failed to load dashboard:', err);
-      
+
       // Check for authentication errors - redirect to login
       const errorMessage = err.message || '';
       if (errorMessage.includes('401') || errorMessage.includes('Not authenticated') || errorMessage.includes('Unauthorized')) {
@@ -76,7 +76,7 @@ export default function AdminDashboard() {
         setTimeout(() => router.push('/auth/login'), 2000);
         return;
       }
-      
+
       // For other errors, provide fallback data so dashboard is usable
       setDashboardData(fallbackData);
       setLowStockItems([]);
@@ -84,7 +84,7 @@ export default function AdminDashboard() {
     } finally {
       setLoading(false);
     }
-  }, [router, fallbackData]);
+  }, [router]);
 
   // Fetch data when user is available
   useEffect(() => {

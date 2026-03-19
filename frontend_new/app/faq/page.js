@@ -3,8 +3,6 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { ChevronDown, ChevronUp, MessageCircle, Phone, Mail } from 'lucide-react';
-import SilkBackground from '@/components/landing/SilkBackground';
-import Navigation from '@/components/landing/Navigation';
 
 export default function FAQPage() {
   const [openCategory, setOpenCategory] = useState('orders');
@@ -116,8 +114,12 @@ export default function FAQPage() {
 
   return (
     <div className="min-h-screen bg-[#0B0608] text-[#EAE0D5] relative overflow-hidden">
-      <SilkBackground />
-      <Navigation />
+      {/* Background Pattern */}
+      <div className="fixed inset-0 z-0 pointer-events-none">
+        <div className="absolute inset-0 bg-gradient-to-br from-[#0B0608] via-[#0B0608] to-[#1a0f12]" />
+        <div className="absolute top-0 left-1/4 w-96 h-96 bg-[#7A2F57]/10 rounded-full blur-3xl" />
+        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-[#B76E79]/10 rounded-full blur-3xl" />
+      </div>
 
       {/* Hero Section */}
       <section className="relative pt-32 pb-20 lg:pt-40 lg:pb-28 z-10">

@@ -1,0 +1,434 @@
+/**
+ * Customer API Client - Unified API calls for customer-facing pages
+ * Integrates with Commerce Service (8010), Core Service (8001), and Payment Service (8020)
+ * 
+ * Refactored to use the shared BaseApiClient from baseApi.js
+ */
+
+import {
+  BaseApiClient,
+  getCoreBaseUrl,
+  getCommerceBaseUrl,
+  getPaymentBaseUrl,
+} from './baseApi';
+import { sanitizeSearch } from './sanitize';
+
+// Create client instances for different services
+const coreClient = new BaseApiClient(getCoreBaseUrl());
+const commerceClient = new BaseApiClient(getCommerceBaseUrl());
+const paymentClient = new BaseApiClient(getPaymentBaseUrl());
+
+// ==================== Products API ====================
+export const productsApi = {
+  list: (params = {}) => {
+    return commerceClient.get('/api/v1/products', params);
+  },
+
+  get: (id) => {
+    return commerceClient.get(`/api/v1/products/${id}`);
+  },
+
+  getBySlug: (slug) => {
+    return commerceClient.get(`/api/v1/products/slug/${slug}`);
+  },
+
+  getFeatured: (limit = 8) =>
+    commerceClient.get('/api/v1/products/featured', { limit }),
+
+  getNewArrivals: (params = 8) =>
+    commerceClient.get(
+      '/api/v1/products/new-arrivals',
+      typeof params === 'number' ? { limit: params } : params,
+    ),
+
+  search: (query, params = {}) =>
+    // Sanitize search query to prevent XSS attacks
+    commerceClient.get('/api/v1/products/search', { q: sanitizeSearch(query), ...params }),
+
+  getRelated: (productId, limit = 4) =>
+    commerceClient.get(`/api/v1/products/${productId}/related`, { limit }).catch(() =>
+      commerceClient.get('/api/v1/products/featured', { limit })
+    ),
+};
+
+// ==================== Collections API ====================
+// Single canonical API — backend exposes /api/v1/collections
+export const collectionsApi = {
+  list: (params = {}) =>
+    commerceClient.get('/api/v1/collections', params),
+
+  get: (id) =>
+    commerceClient.get(`/api/v1/collections/${id}`),
+
+  getBySlug: (slug) =>
+    commerceClient.get(`/api/v1/collections/slug/${slug}`),
+};
+
+// Backward-compat alias — new code should use collectionsApi
+export const categoriesApi = collectionsApi;
+
+// ==================== Cart API ====================
+export const cartApi = {
+  get: () =>
+    commerceClient.get('/api/v1/cart'),
+
+  addItem: (productId, quantity = 1, variantId = null) =>
+    commerceClient.post('/api/v1/cart/items', {
+      product_id: productId,
+      quantity,
+      variant_id: variantId,
+    }),
+
+  updateItem: (productId, quantity, variantId = null) =>
+    commerceClient.put(`/api/v1/cart/items/${productId}`, { quantity, variant_id: variantId }),
+
+  removeItem: (productId, variantId = null) =>
+    commerceClient.delete(`/api/v1/cart/items/${productId}`, { params: { variant_id: variantId } }),
+
+  clear: () =>
+    commerceClient.delete('/api/v1/cart'),
+
+  // Set delivery state for GST calculation (CGST+SGST vs IGST)
+  setDeliveryState: (deliveryState, customerGstin = null) =>
+    commerceClient.post('/api/v1/cart/delivery-state', {
+      delivery_state: deliveryState,
+      customer_gstin: customerGstin,
+    }),
+
+  // Apply coupon/promo code to cart
+  applyCoupon: (code) =>
+    commerceClient.post(`/api/v1/cart/coupon`, null, { params: { code } }),
+
+  // Validate stock for all cart items before checkout
+  validateStock: () =>
+    commerceClient.post('/api/v1/checkout/validate'),
+};
+
+// ==================== Invoices API ====================
+export const invoicesApi = {
+  getForOrder: (orderId) =>
+    commerceClient.get(`/api/v1/orders/${orderId}`),
+};
+
+// ==================== Orders API ====================
+export const ordersApi = {
+  create: (data) =>
+    commerceClient.post('/api/v1/orders', data),
+
+  list: (params = {}) =>
+    commerceClient.get('/api/v1/orders', params),
+
+  get: (id) =>
+    commerceClient.get(`/api/v1/orders/${id}`),
+
+  // Alias for get — used in checkout confirm page refresh guard
+  getById: (id) =>
+    commerceClient.get(`/api/v1/orders/${id}`),
+
+  cancel: (id) =>
+    commerceClient.post(`/api/v1/orders/${id}/cancel`),
+
+  track: (id) =>
+    commerceClient.get(`/api/v1/orders/${id}/tracking`),
+};
+
+// ==================== Addresses API ====================
+export const addressesApi = {
+  list: () =>
+    commerceClient.get('/api/v1/addresses'),
+
+  get: (id) =>
+    commerceClient.get(`/api/v1/addresses/${id}`),
+
+  create: (data) =>
+    commerceClient.post('/api/v1/addresses', data),
+
+  update: (id, data) =>
+    commerceClient.patch(`/api/v1/addresses/${id}`, data),
+
+  delete: (id) =>
+    commerceClient.delete(`/api/v1/addresses/${id}`),
+
+  setDefault: (id) =>
+    commerceClient.patch(`/api/v1/addresses/${id}`, { is_default: true }),
+};
+
+// ==================== Wishlist API ====================
+export const wishlistApi = {
+  get: () =>
+    commerceClient.get('/api/v1/wishlist'),
+
+  list: () =>
+    commerceClient.get('/api/v1/wishlist'),
+
+  add: (productId) =>
+    commerceClient.post('/api/v1/wishlist/items', { product_id: productId }),
+
+  remove: (productId) =>
+    commerceClient.delete(`/api/v1/wishlist/items/${productId}`),
+
+  check: (productId) =>
+    commerceClient.get(`/api/v1/wishlist/check/${productId}`),
+};
+
+// ==================== Reviews API ====================
+export const reviewsApi = {
+  list: (productId, params = {}) =>
+    commerceClient.get(`/api/v1/products/${productId}/reviews`, params),
+
+  create: (productId, data) =>
+    commerceClient.post('/api/v1/reviews', { ...data, product_id: productId }),
+
+  update: (reviewId, data) =>
+    Promise.reject(new Error(`Review updates are not supported for review ${reviewId}`)),
+
+  delete: (reviewId) =>
+    commerceClient.delete(`/api/v1/reviews/${reviewId}`),
+};
+
+// ==================== User Profile API ====================
+export const userApi = {
+  getProfile: () =>
+    coreClient.get('/api/v1/users/me'),
+
+  updateProfile: (data) =>
+    coreClient.patch('/api/v1/users/me', data),
+
+  changePassword: (data) =>
+    coreClient.post('/api/v1/auth/change-password', data),
+};
+
+// ==================== Payment API ====================
+export const paymentApi = {
+  // Get public payment configuration (includes Razorpay + Cashfree)
+  getConfig: () =>
+    paymentClient.get('/api/v1/payment/config'),
+
+  // Razorpay: create order → returns { id, amount, currency, ... }
+  createRazorpayOrder: (data) =>
+    paymentClient.post('/api/v1/payments/razorpay/create-order', data),
+
+  // Razorpay: verify HMAC signature after checkout completes
+  verifyRazorpaySignature: (data) =>
+    paymentClient.post('/api/v1/payments/razorpay/verify-signature', data),
+
+  // Cashfree: create order → returns { order_id, session_id, ... }
+  createCashfreeOrder: (data) =>
+    paymentClient.post('/api/v1/payments/cashfree/create-order', data),
+
+  // Cashfree: verify payment signature
+  verifyCashfreePayment: (data) =>
+    paymentClient.post('/api/v1/payments/cashfree/verify', data),
+
+  getMethods: () =>
+    paymentClient.get('/api/v1/payment/methods'),
+};
+
+// ==================== Promotions API ====================
+export const promotionsApi = {
+  validate: (code, orderTotal, userId = null) =>
+    commerceClient.post('/api/v1/promotions/validate', {
+      code,
+      order_total: orderTotal,
+      user_id: userId
+    }),
+};
+
+// ==================== Chat API ====================
+export const chatApi = {
+  createRoom: (subject = null, orderId = null) =>
+    commerceClient.post('/api/v1/chat/rooms', { subject, order_id: orderId }),
+
+  getRooms: () =>
+    commerceClient.get('/api/v1/chat/rooms/mine'),
+
+  getMessages: (roomId) =>
+    commerceClient.get(`/api/v1/chat/rooms/${roomId}/messages`),
+
+  sendMessage: (roomId, message) =>
+    commerceClient.post(`/api/v1/chat/rooms/${roomId}/messages`, { message }),
+};
+
+// ==================== Returns API ====================
+export const returnsApi = {
+  // Create a new return/exchange request
+  create: (orderId, data) =>
+    commerceClient.post('/api/v1/returns', {
+      order_id: orderId,
+      reason: data.reason,
+      description: data.description,
+      type: data.type || 'return',
+      items: data.items || [],
+      video_url: data.video_url || null,
+      exchange_preference: data.exchange_preference || null,
+    }),
+
+  // List user's return requests
+  list: (params = {}) =>
+    commerceClient.get('/api/v1/returns', params),
+
+  // Get return request details
+  get: (id) =>
+    commerceClient.get(`/api/v1/returns/${id}`),
+
+  // Cancel a return request
+  cancel: (id) =>
+    commerceClient.post(`/api/v1/returns/${id}/cancel`),
+
+  // Get return eligibility for an order
+  getEligibility: (orderId) =>
+    commerceClient.get(`/api/v1/returns/eligibility/${orderId}`),
+
+  // Upload return images
+  uploadImages: async (returnId, files) => {
+    return commerceClient.uploadFile(`/api/v1/returns/${returnId}/images`, files);
+  },
+
+  // Upload return video
+  uploadVideo: async (file, onProgress, signal) => {
+    // For video uploads, we need to handle large files
+    // Using XMLHttpRequest to track progress with abort support
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      const formData = new FormData();
+      formData.append('video', file);
+
+      // Handle abort signal
+      if (signal) {
+        signal.addEventListener('abort', () => {
+          xhr.abort();
+          reject(new Error('Upload cancelled'));
+        });
+      }
+
+      xhr.upload.addEventListener('progress', (e) => {
+        if (e.lengthComputable && onProgress) {
+          const percentComplete = Math.round((e.loaded / e.total) * 100);
+          onProgress(percentComplete);
+        }
+      });
+
+      xhr.addEventListener('load', () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            resolve(JSON.parse(xhr.responseText));
+          } catch (e) {
+            resolve({ url: xhr.responseText });
+          }
+        } else {
+          reject(new Error(`Upload failed with status ${xhr.status}`));
+        }
+      });
+
+      xhr.addEventListener('error', () => {
+        reject(new Error('Upload failed'));
+      });
+
+      // Get the base URL
+      const baseUrl = getCommerceBaseUrl();
+      xhr.open('POST', `${baseUrl}/api/v1/returns/upload-video`);
+      xhr.withCredentials = true;
+      
+      xhr.send(formData);
+    });
+  },
+};
+
+// ==================== Landing / Site Config API ====================
+export const landingApi = {
+  getAll: () =>
+    coreClient.get('/api/v1/landing/all'),
+
+  getConfig: () =>
+    coreClient.get('/api/v1/landing/config'),
+
+  getImages: (section = null) =>
+    coreClient.get('/api/v1/landing/images', section ? { section } : {}),
+
+  getSiteConfig: () =>
+    coreClient.get('/api/v1/site/config'),
+};
+
+// ==================== Auth API ====================
+export const authApi = {
+  login: (credentials) =>
+    coreClient.post('/api/v1/auth/login', credentials),
+
+  register: (data) =>
+    coreClient.post('/api/v1/auth/register', data),
+
+  logout: () =>
+    coreClient.post('/api/v1/auth/logout'),
+
+  forgotPassword: (identifier, otpType = 'WHATSAPP') =>
+    coreClient.post('/api/v1/auth/forgot-password-otp', { identifier, otp_type: otpType }),
+
+  verifyResetOtp: (identifier, otpCode, otpType = 'WHATSAPP') =>
+    coreClient.post('/api/v1/auth/verify-reset-otp', { identifier, otp_code: otpCode, otp_type: otpType }),
+
+  resetPassword: (token, password) =>
+    coreClient.post('/api/v1/auth/reset-password', { token, password }),
+
+  resetPasswordWithOtp: (identifier, otpCode, newPassword, otpType = 'WHATSAPP') =>
+    coreClient.post('/api/v1/auth/reset-password-with-otp', {
+      identifier,
+      otp_code: otpCode,
+      new_password: newPassword,
+      otp_type: otpType,
+    }),
+
+  changePassword: (data) =>
+    coreClient.post('/api/v1/auth/change-password', data),
+
+  verifyEmail: (token) =>
+    coreClient.post('/api/v1/auth/verify-email', { token }),
+
+  resendVerification: (email) =>
+    coreClient.post('/api/v1/auth/resend-verification', { email }),
+
+  getCurrentUser: () =>
+    coreClient.get('/api/v1/users/me'),
+
+  verifyOtpRegistration: (params) => {
+    const q = new URLSearchParams();
+    q.append('otp_code', params.otp_code);
+    if (params.phone) q.append('phone', params.phone);
+    if (params.email) q.append('email', params.email);
+    q.append('otp_type', params.otp_type);
+    return coreClient.post(`/api/v1/auth/verify-otp-registration?${q.toString()}`);
+  },
+
+  resendVerificationOtp: (params) => {
+    const q = new URLSearchParams();
+    if (params.phone) q.append('phone', params.phone);
+    if (params.email) q.append('email', params.email);
+    q.append('otp_type', params.otp_type);
+    return coreClient.post(`/api/v1/auth/send-verification-otp?${q.toString()}`);
+  },
+};
+
+// Low-level fetch bound to coreClient — for one-off requests that don't fit a namespace
+export const apiFetch = coreClient.fetch.bind(coreClient);
+
+// Export all APIs as a single object
+export const customerApi = {
+  products: productsApi,
+  categories: categoriesApi,
+  collections: collectionsApi,
+  cart: cartApi,
+  orders: ordersApi,
+  addresses: addressesApi,
+  wishlist: wishlistApi,
+  reviews: reviewsApi,
+  user: userApi,
+  payment: paymentApi,
+  promotions: promotionsApi,
+  chat: chatApi,
+  returns: returnsApi,
+  landing: landingApi,
+  auth: authApi,
+};
+
+export { coreClient, commerceClient, paymentClient };
+
+export default customerApi;

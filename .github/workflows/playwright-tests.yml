@@ -1,0 +1,301 @@
+name: Playwright E2E Tests
+
+on:
+  push:
+    branches: [ main, develop, staging ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to test against'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+
+env:
+  NODE_VERSION: '18'
+  PLAYWRIGHT_BROWSERS_PATH: /opt/hostedtoolcache/browsers
+
+jobs:
+  test:
+    name: 🎭 Playwright Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1/3, 2/3, 3/3]
+        project: [chromium]
+    
+    steps:
+      - name: ⬇️ Checkout code
+        uses: actions/checkout@v4
+      
+      - name: ⬢ Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend_new/package-lock.json
+      
+      - name: 📦 Install dependencies
+        working-directory: ./frontend_new
+        run: |
+          npm ci
+      
+      - name: 🎭 Install Playwright
+        working-directory: ./frontend_new
+        run: |
+          npx playwright install --with-deps
+          npx playwright install-deps
+      
+      - name: 🏗️ Build application
+        working-directory: ./frontend_new
+        run: |
+          npm run build
+        continue-on-error: true
+      
+      - name: 🌱 Seed test data
+        working-directory: ./frontend_new
+        run: |
+          node tests/utils/seed-test-data.js
+      
+      - name: ▶️ Run Playwright tests
+        working-directory: ./frontend_new
+        run: |
+          npx playwright test --project=${{ matrix.project }} --shard=${{ matrix.shard }}
+        env:
+          CI: true
+          BASE_URL: ${{ inputs.environment == 'production' && 'https://aaryaclothing.com' || 'http://localhost:6004' }}
+      
+      - name: 📊 Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report-${{ matrix.project }}-${{ matrix.shard }}
+          path: frontend_new/playwright-report/
+          retention-days: 30
+      
+      - name: 📸 Upload screenshots
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: screenshots-${{ matrix.project }}-${{ matrix.shard }}
+          path: frontend_new/test-results/
+          retention-days: 14
+      
+      - name: 📋 Upload test results JSON
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-${{ matrix.project }}-${{ matrix.shard }}
+          path: frontend_new/test-results/results.json
+          retention-days: 30
+
+  test-mobile:
+    name: 📱 Mobile Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    
+    needs: test
+    if: always() && (needs.test.result == 'success' || needs.test.result == 'failure')
+    
+    steps:
+      - name: ⬇️ Checkout code
+        uses: actions/checkout@v4
+      
+      - name: ⬢ Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend_new/package-lock.json
+      
+      - name: 📦 Install dependencies
+        working-directory: ./frontend_new
+        run: npm ci
+      
+      - name: 🎭 Install Playwright
+        working-directory: ./frontend_new
+        run: |
+          npx playwright install --with-deps
+          npx playwright install-deps
+      
+      - name: 🌱 Seed test data
+        working-directory: ./frontend_new
+        run: node tests/utils/seed-test-data.js
+      
+      - name: ▶️ Run mobile tests
+        working-directory: ./frontend_new
+        run: |
+          npx playwright test --project="Mobile Chrome" --project="Mobile Safari"
+        env:
+          CI: true
+          BASE_URL: ${{ inputs.environment == 'production' && 'https://aaryaclothing.com' || 'http://localhost:6004' }}
+      
+      - name: 📊 Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report-mobile
+          path: frontend_new/playwright-report/
+          retention-days: 30
+
+  test-admin:
+    name: 👨‍💼 Admin Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    
+    needs: test
+    if: always() && (needs.test.result == 'success' || needs.test.result == 'failure')
+    
+    steps:
+      - name: ⬇️ Checkout code
+        uses: actions/checkout@v4
+      
+      - name: ⬢ Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend_new/package-lock.json
+      
+      - name: 📦 Install dependencies
+        working-directory: ./frontend_new
+        run: npm ci
+      
+      - name: 🎭 Install Playwright
+        working-directory: ./frontend_new
+        run: |
+          npx playwright install --with-deps
+          npx playwright install-deps
+      
+      - name: 🌱 Seed test data
+        working-directory: ./frontend_new
+        run: node tests/utils/seed-test-data.js
+      
+      - name: ▶️ Run admin tests
+        working-directory: ./frontend_new
+        run: |
+          npx playwright test tests/e2e/admin/
+        env:
+          CI: true
+          BASE_URL: ${{ inputs.environment == 'production' && 'https://aaryaclothing.com/admin' || 'http://localhost:6004/admin' }}
+      
+      - name: 📊 Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report-admin
+          path: frontend_new/playwright-report/
+          retention-days: 30
+
+  merge-reports:
+    name: 📊 Merge Test Reports
+    runs-on: ubuntu-latest
+    needs: [test, test-mobile, test-admin]
+    if: always()
+    
+    steps:
+      - name: ⬇️ Checkout code
+        uses: actions/checkout@v4
+      
+      - name: ⬢ Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      
+      - name: 📦 Install dependencies
+        working-directory: ./frontend_new
+        run: npm ci
+      
+      - name: 🎭 Install Playwright
+        working-directory: ./frontend_new
+        run: npx playwright install
+      
+      - name: ⬇️ Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: all-artifacts
+          pattern: playwright-report-*
+          merge-multiple: true
+      
+      - name: 📊 Merge reports
+        working-directory: ./frontend_new
+        run: |
+          npx playwright merge-reports --reporter html ./all-artifacts
+      
+      - name: 📤 Upload merged report
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-merged
+          path: frontend_new/playwright-report/
+          retention-days: 30
+
+  notify:
+    name: 🔔 Notify Results
+    runs-on: ubuntu-latest
+    needs: [test, merge-reports]
+    if: always()
+    
+    steps:
+      - name: ⬇️ Download test results
+        uses: actions/download-artifact@v4
+        with:
+          name: test-results-chromium-1/3
+          path: ./test-results
+      
+      - name: 📋 Get test summary
+        id: summary
+        run: |
+          if [ -f test-results/results.json ]; then
+            TOTAL=$(cat test-results/results.json | jq '.stats.total')
+            PASSED=$(cat test-results/results.json | jq '.stats.expected')
+            FAILED=$(cat test-results/results.json | jq '.stats.unexpected')
+            echo "total=$TOTAL" >> $GITHUB_OUTPUT
+            echo "passed=$PASSED" >> $GITHUB_OUTPUT
+            echo "failed=$FAILED" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: 💬 Post to Slack (if configured)
+        if: ${{ env.SLACK_WEBHOOK_URL != '' }}
+        uses: slackapi/slack-github-action@v1.24.0
+        with:
+          payload: |
+            {
+              "text": "Playwright Tests Completed",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*Playwright E2E Tests*\nRepository: ${{ github.repository }}\nBranch: ${{ github.ref_name }}\nCommit: ${{ github.sha }}"
+                  }
+                },
+                {
+                  "type": "section",
+                  "fields": [
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Total:*\n${{ steps.summary.outputs.total || 'N/A' }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Passed:*\n${{ steps.summary.outputs.passed || 'N/A' }}"
+                    },
+                    {
+                      "type": "mrkdwn",
+                      "text": "*Failed:*\n${{ steps.summary.outputs.failed || 'N/A' }}"
+                    }
+                  ]
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK

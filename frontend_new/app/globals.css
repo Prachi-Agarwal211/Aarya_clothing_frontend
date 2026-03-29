@@ -1,0 +1,2311 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Mobile touch target utility - minimum 44px for accessibility */
+@layer utilities {
+  .touch-target {
+    min-width: 44px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  /* Enhanced touch target for icon buttons */
+  .touch-target-icon {
+    min-width: 44px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px;
+  }
+  
+  /* Mobile-safe minimum font size */
+  .text-mobile-safe {
+    font-size: clamp(0.875rem, 2vw, 1rem); /* Minimum 14px */
+  }
+  
+  /* Auth page container optimization */
+  .auth-container {
+    @apply w-full px-4 sm:px-6 md:px-8;
+    @apply max-w-[480px] sm:max-w-[520px] lg:max-w-[560px];
+    @apply mx-auto;
+  }
+  
+  /* Safe area inset wrapper for auth pages */
+  .auth-safe-area {
+    padding-top: max(1rem, env(safe-area-inset-top));
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+    padding-left: max(1rem, env(safe-area-inset-left));
+    padding-right: max(1rem, env(safe-area-inset-right));
+  }
+}
+
+/* Font loading is now handled by next/font/google in layout.js */
+/* CSS variables for fonts are set via the layout.js font configuration */
+
+@layer base {
+  :root {
+    /* Shadcn/UI CSS Variables (required for Tailwind theme) */
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 0 0% 9%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 222.2 84% 4.9%;
+    --radius: 0.5rem;
+
+    /* Premium Design System Variables */
+    --gold-primary: #F2C29A;
+    --gold-dark: #C27A4E;
+    --rose-gold: #B76E79;
+    --purple-accent: #7A2F57;
+    --bg-deep: #050203;
+    
+    /* Premium Transition Variables */
+    --transition-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+    --transition-elegant: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+
+  /* Dark theme overrides */
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
+  }
+  
+  /* Reset specific to this dark theme */
+  body {
+    background-color: var(--bg-deep);
+    color: #EAE0D5;
+    font-family: var(--font-playfair), serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  
+  /* Apply Cinzel font to headings with enhanced styling */
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-cinzel), serif;
+    letter-spacing: 0.02em;
+  }
+  
+  /* Enhanced selection styling */
+  ::selection {
+    background: rgba(242, 194, 154, 0.3);
+    color: #F2C29A;
+  }
+  
+  /* Smooth scroll behavior */
+  html {
+    scroll-behavior: smooth;
+  }
+  
+  /* Hide scrollbar but keep functionality */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  
+  /* Custom scrollbar for premium feel */
+  .scrollbar-premium::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .scrollbar-premium::-webkit-scrollbar-track {
+    background: rgba(183, 110, 121, 0.1);
+    border-radius: 3px;
+  }
+  .scrollbar-premium::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #B76E79, #7A2F57);
+    border-radius: 3px;
+  }
+  .scrollbar-premium::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, #F2C29A, #B76E79);
+  }
+}
+
+/* ============================================
+   UTILITY CLASSES
+   ============================================ */
+
+/* Font utility classes for consistent typography */
+.font-heading {
+  font-family: var(--font-cinzel), serif;
+  letter-spacing: 0.02em;
+}
+
+.font-body {
+  font-family: var(--font-playfair), serif;
+}
+
+/* Glass card utility - reusable card styling */
+.card-glass {
+  background: rgba(11, 6, 8, 0.4);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(183, 110, 121, 0.15);
+  border-radius: 1rem;
+}
+
+.card-glass:hover {
+  border-color: rgba(183, 110, 121, 0.3);
+}
+
+/* Skeleton loader utility */
+.skeleton {
+  background: linear-gradient(90deg, rgba(183, 110, 121, 0.1) 25%, rgba(183, 110, 121, 0.2) 50%, rgba(183, 110, 121, 0.1) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-loading 1.5s infinite;
+}
+
+@keyframes skeleton-loading {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ============================================
+   IMAGE LOADING ANIMATIONS
+   ============================================ */
+
+/* Shimmer animation for image loading */
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.shimmer-animation {
+  position: relative;
+  overflow: hidden;
+}
+
+.shimmer-animation::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(183, 110, 121, 0.1) 25%,
+    rgba(242, 194, 154, 0.15) 50%,
+    rgba(183, 110, 121, 0.1) 75%,
+    transparent 100%
+  );
+  animation: shimmer 2s infinite;
+}
+
+/* ============================================
+   PREMIUM BUTTON ENHANCEMENTS
+   ============================================ */
+
+/* Enhanced Sheen Animation */
+@keyframes sheen {
+  0% { transform: translateX(-150%) skewX(-15deg); }
+  100% { transform: translateX(150%) skewX(-15deg); }
+}
+
+.animate-sheen {
+  background: linear-gradient(
+    90deg, 
+    transparent, 
+    rgba(242, 194, 154, 0.0) 0%,
+    rgba(242, 194, 154, 0.15) 35%,
+    rgba(255, 255, 255, 0.5) 50%, 
+    rgba(242, 194, 154, 0.15) 65%,
+    rgba(242, 194, 154, 0.0) 100%,
+    transparent
+  );
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 200%;
+  height: 100%;
+  animation: sheen 6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+/* Premium Button Ripple Effect */
+@keyframes ripple {
+  0% {
+    transform: scale(0);
+    opacity: 0.6;
+  }
+  100% {
+    transform: scale(4);
+    opacity: 0;
+  }
+}
+
+.btn-ripple {
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-ripple::after {
+  content: '';
+  position: absolute;
+  width: 100px;
+  height: 100px;
+  background: radial-gradient(circle, rgba(242, 194, 154, 0.4) 0%, transparent 70%);
+  border-radius: 50%;
+  transform: scale(0);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.btn-ripple:active::after {
+  animation: ripple 0.6s ease-out;
+}
+
+/* Premium Button Glow */
+.btn-glow {
+  position: relative;
+}
+
+.btn-glow::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  background: linear-gradient(45deg, #7A2F57, #B76E79, #F2C29A, #B76E79, #7A2F57);
+  background-size: 400% 400%;
+  border-radius: inherit;
+  z-index: -1;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  filter: blur(8px);
+  animation: gradientShift 4s ease infinite;
+}
+
+.btn-glow:hover::before {
+  opacity: 0.7;
+}
+
+@keyframes gradientShift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+/* ============================================
+   PREMIUM TYPOGRAPHY ENHANCEMENTS
+   ============================================ */
+
+/* Enhanced Gold Text */
+.text-\[\#F2C29A\] {
+  text-shadow: 
+    0 1px 3px rgba(0, 0, 0, 0.9),
+    0 2px 6px rgba(0, 0, 0, 0.6),
+    0 0 20px rgba(242, 194, 154, 0.25),
+    0 0 40px rgba(242, 194, 154, 0.1);
+}
+
+/* Premium Heading Style */
+.heading-premium {
+  background: linear-gradient(135deg, #F2C29A 0%, #EAE0D5 50%, #F2C29A 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-shadow: none;
+  filter: drop-shadow(0 2px 8px rgba(242, 194, 154, 0.3));
+}
+
+/* Elegant Underline Animation */
+.text-underline-animated {
+  position: relative;
+  display: inline-block;
+}
+
+.text-underline-animated::after {
+  content: '';
+  position: absolute;
+  bottom: -4px;
+  left: 0;
+  width: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #F2C29A, #B76E79);
+  transition: width 0.4s var(--transition-smooth);
+}
+
+.text-underline-animated:hover::after {
+  width: 100%;
+}
+
+/* Light text (#EAE0D5) */
+.text-\[\#EAE0D5\] {
+  text-shadow: 
+    0 1px 2px rgba(0, 0, 0, 0.7),
+    0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+/* Rose gold text (#B76E79) */
+.text-\[\#B76E79\] {
+  text-shadow: 
+    0 1px 2px rgba(0, 0, 0, 0.7),
+    0 2px 4px rgba(0, 0, 0, 0.5),
+    0 0 12px rgba(183, 110, 121, 0.25);
+}
+
+/* Secondary text (#8A6A5C) */
+.text-\[\#8A6A5C\] {
+  text-shadow: 
+    0 1px 2px rgba(0, 0, 0, 0.6),
+    0 2px 3px rgba(0, 0, 0, 0.4);
+}
+
+/* Input text */
+.luxury-input-wrapper input {
+  text-shadow: 
+    0 1px 2px rgba(0, 0, 0, 0.8),
+    0 2px 3px rgba(0, 0, 0, 0.5);
+}
+
+/* Button text */
+button, .btn {
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+/* ============================================
+   PREMIUM INPUT ENHANCEMENTS
+   ============================================ */
+
+/* Fix Chrome/Webkit Autofill styling */
+input:-webkit-autofill,
+input:-webkit-autofill:hover, 
+input:-webkit-autofill:focus, 
+input:-webkit-autofill:active {
+  transition: background-color 5000s ease-in-out 0s !important;
+  -webkit-text-fill-color: #EAE0D5 !important;
+  caret-color: #EAE0D5 !important;
+}
+
+/* Enhanced Luxury Input */
+.luxury-input-wrapper {
+  background: rgba(25, 20, 30, 0.35);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(183, 110, 121, 0.25);
+  box-shadow: 
+    inset 0 2px 8px rgba(0, 0, 0, 0.4),
+    0 4px 20px rgba(0, 0, 0, 0.15);
+  transition: all 0.4s var(--transition-smooth);
+  position: relative;
+}
+
+/* Input Focus Glow Effect */
+.luxury-input-wrapper::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  background: linear-gradient(135deg, #B76E79, #F2C29A, #7A2F57);
+  border-radius: inherit;
+  z-index: -1;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  filter: blur(6px);
+}
+
+.luxury-input-wrapper:focus-within::before {
+  opacity: 0.5;
+}
+
+.luxury-input-wrapper:focus-within {
+  background: rgba(35, 25, 40, 0.45);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(242, 194, 154, 0.4);
+  box-shadow: 
+    inset 0 2px 12px rgba(0, 0, 0, 0.5),
+    0 4px 25px rgba(0, 0, 0, 0.2),
+    0 0 20px rgba(183, 110, 121, 0.15);
+  transform: translateY(-1px);
+}
+
+/* ============================================
+   PREMIUM ANIMATIONS
+   ============================================ */
+
+/* Custom animations for login page */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(2rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeInUpDelay {
+  from {
+    opacity: 0;
+    transform: translateY(1rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 1s var(--transition-elegant) forwards;
+}
+
+.animate-fade-in-up-delay {
+  animation: fadeInUpDelay 1s var(--transition-elegant) 0.3s forwards;
+}
+
+/* Premium Scale Animation */
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.5s var(--transition-bounce) forwards;
+}
+
+/* Custom Checkbox Styling for Luxury Theme */
+/* Note: The checkbox itself is visually small but wrapped in a 44px touch target */
+input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  min-height: 20px;
+  border: 2px solid rgba(183, 110, 121, 0.4);
+  border-radius: 4px;
+  background: rgba(20, 10, 10, 0.4);
+  cursor: pointer;
+  transition: all 0.3s var(--transition-smooth);
+  position: relative;
+  margin: 0;
+}
+
+input[type="checkbox"]:hover {
+  border-color: rgba(242, 194, 154, 0.5);
+  background: rgba(30, 15, 10, 0.5);
+  transform: scale(1.05);
+}
+
+input[type="checkbox"]:checked {
+  background: linear-gradient(135deg, rgba(122, 47, 87, 0.8), rgba(183, 110, 121, 0.8));
+  border-color: rgba(242, 194, 154, 0.6);
+  box-shadow: 0 0 10px rgba(242, 194, 154, 0.3);
+}
+
+input[type="checkbox"]:checked::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 12px;
+  height: 12px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23F2C29A' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='20 6 9 17 4 12'%3E%3C/polyline%3E%3C/svg%3E") no-repeat center;
+  background-size: contain;
+  animation: scaleIn 0.3s var(--transition-bounce);
+}
+
+input[type="checkbox"]:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(183, 110, 121, 0.3);
+}
+
+/* Checkbox wrapper for 44px touch target (WCAG 2.1 compliant) */
+.checkbox-wrapper {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 8px;
+  margin: -8px;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: background-color 0.2s ease;
+}
+
+.checkbox-wrapper:hover {
+  background: rgba(183, 110, 121, 0.1);
+}
+
+.checkbox-wrapper:active {
+  background: rgba(183, 110, 121, 0.15);
+}
+
+/* Mobile-optimized checkbox */
+@media (max-width: 640px) {
+  input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    min-width: 20px;
+    min-height: 20px;
+  }
+
+  input[type="checkbox"]:checked::after {
+    width: 10px;
+    height: 10px;
+  }
+  
+  /* Ensure touch target remains 44px on mobile */
+  .checkbox-wrapper {
+    min-height: 44px;
+    min-width: 44px;
+    padding: 10px;
+    margin: -10px;
+  }
+}
+
+/* Horizontal Carousel Styles */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Parallax Animation */
+@keyframes parallax {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(50px); }
+}
+
+/* Smooth reveal animation */
+@keyframes revealUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-reveal-up {
+  animation: revealUp 0.8s var(--transition-elegant) forwards;
+}
+
+/* ============================================
+   PREMIUM GLASS MORPHISM
+   ============================================ */
+
+.glass-card {
+  background: rgba(11, 6, 8, 0.3);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(183, 110, 121, 0.15);
+  border-radius: 1.5rem;
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Glass Card Shine Effect */
+.glass-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.03),
+    transparent
+  );
+  transition: left 0.6s ease;
+}
+
+.glass-card:hover::before {
+  left: 100%;
+}
+
+.glass-card-hover {
+  transition: all 0.4s var(--transition-smooth);
+}
+
+.glass-card-hover:hover {
+  background: rgba(11, 6, 8, 0.4);
+  border-color: rgba(183, 110, 121, 0.3);
+  box-shadow: 
+    0 16px 48px rgba(0, 0, 0, 0.4),
+    0 0 30px rgba(183, 110, 121, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  transform: translateY(-4px);
+}
+
+/* ============================================
+   PREMIUM MICRO-INTERACTIONS
+   ============================================ */
+
+/* Float Animation */
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+/* Glow Pulse Animation */
+@keyframes glowPulse {
+  0%, 100% { box-shadow: 0 0 20px rgba(183, 110, 121, 0.3); }
+  50% { box-shadow: 0 0 40px rgba(183, 110, 121, 0.5); }
+}
+
+.animate-glow-pulse {
+  animation: glowPulse 3s ease-in-out infinite;
+}
+
+/* Shimmer Effect for Cards */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(242, 194, 154, 0.05) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 3s ease-in-out infinite;
+}
+
+/* Scroll Indicator Animation */
+@keyframes scrollBounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(8px); }
+}
+
+.animate-scroll-bounce {
+  animation: scrollBounce 2s ease-in-out infinite;
+}
+
+/* ============================================
+   HERO BUTTON STYLES
+   ============================================ */
+
+/* Hero Button Glow Effect */
+.hero-btn-glow {
+  position: relative;
+}
+
+.hero-btn-glow::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  background: linear-gradient(135deg, #F2C29A, #B76E79, #F2C29A);
+  background-size: 300% 300%;
+  border-radius: inherit;
+  z-index: -1;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  filter: blur(4px);
+  animation: heroGradientShift 3s ease infinite;
+}
+
+.hero-btn-glow:hover::before {
+  opacity: 0.6;
+}
+
+@keyframes heroGradientShift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+/* Silk Text Shimmer Animation */
+.silk-text-animate {
+  background: linear-gradient(
+    90deg,
+    #1a0a10 0%,
+    #1a0a10 20%,
+    #7A2F57 35%,
+    #B76E79 50%,
+    #F2C29A 65%,
+    #B76E79 80%,
+    #1a0a10 100%
+  );
+  background-size: 200% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: silkShimmer 4s linear infinite;
+}
+
+@keyframes silkShimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Silk text for outline buttons (white text with subtle shimmer) */
+.silk-text-outline {
+  position: relative;
+}
+
+.silk-text-outline::after {
+  content: attr(data-text);
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(242, 194, 154, 0.3) 25%,
+    rgba(255, 255, 255, 0.6) 50%,
+    rgba(242, 194, 154, 0.3) 75%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: silkShimmerSubtle 3s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes silkShimmerSubtle {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* ============================================
+   PREMIUM GRADIENT TEXT
+   ============================================ */
+
+.gradient-text-gold {
+  background: linear-gradient(135deg, #F2C29A, #C27A4E, #F2C29A);
+  background-size: 200% 200%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: gradientShift 4s ease infinite;
+}
+
+.gradient-text-rose {
+  background: linear-gradient(135deg, #B76E79, #7A2F57, #B76E79);
+  background-size: 200% 200%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: gradientShift 4s ease infinite;
+}
+
+/* Premium Gradient Border */
+.gradient-border {
+  position: relative;
+  background: linear-gradient(var(--bg-deep), var(--bg-deep)) padding-box,
+              linear-gradient(135deg, #B76E79, #F2C29A, #7A2F57) border-box;
+  border: 1px solid transparent;
+}
+
+/* ============================================
+   PREMIUM CARD ENHANCEMENTS
+   ============================================ */
+
+/* Product Card Hover Effect */
+.product-card-enhanced {
+  transition: all 0.5s var(--transition-smooth);
+}
+
+.product-card-enhanced:hover {
+  transform: translateY(-8px) scale(1.02);
+}
+
+.product-card-enhanced::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #7A2F57, #B76E79, #F2C29A);
+  transform: scaleX(0);
+  transition: transform 0.4s var(--transition-smooth);
+}
+
+.product-card-enhanced:hover::after {
+  transform: scaleX(1);
+}
+
+/* ============================================
+   PRODUCT PAGE ENHANCEMENTS
+   ============================================ */
+
+/* Product image container with better border and shadow */
+.product-image-container {
+  background: rgba(11, 6, 8, 0.4);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(183, 110, 121, 0.15);
+  border-radius: 1.5rem;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  transition: all 0.3s var(--transition-smooth);
+}
+
+.product-image-container:hover {
+  border-color: rgba(183, 110, 121, 0.25);
+  box-shadow:
+    0 12px 40px rgba(0, 0, 0, 0.4),
+    0 0 30px rgba(183, 110, 121, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+/* Product thumbnail styling */
+.product-thumbnail {
+  background: rgba(11, 6, 8, 0.3);
+  backdrop-filter: blur(8px);
+  border: 2px solid rgba(183, 110, 121, 0.2);
+  border-radius: 0.75rem;
+  transition: all 0.3s var(--transition-smooth);
+  cursor: pointer;
+}
+
+.product-thumbnail:hover {
+  border-color: rgba(183, 110, 121, 0.4);
+  transform: scale(1.05);
+}
+
+.product-thumbnail.active {
+  border-color: #B76E79;
+  box-shadow: 0 0 20px rgba(183, 110, 121, 0.3);
+}
+
+/* Product info section styling */
+.product-info-section {
+  background: rgba(11, 6, 8, 0.2);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(183, 110, 121, 0.1);
+  border-radius: 1.5rem;
+  padding: 2rem;
+}
+
+@media (max-width: 768px) {
+  .product-info-section {
+    padding: 1.5rem;
+  }
+}
+
+/* Size button styling */
+.size-button {
+  background: rgba(11, 6, 8, 0.4);
+  border: 2px solid rgba(183, 110, 121, 0.2);
+  border-radius: 0.75rem;
+  padding: 0.5rem 1rem;
+  color: #EAE0D5;
+  transition: all 0.3s var(--transition-smooth);
+  cursor: pointer;
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.size-button:hover {
+  border-color: rgba(183, 110, 121, 0.4);
+  background: rgba(11, 6, 8, 0.5);
+}
+
+.size-button.selected {
+  background: rgba(122, 47, 87, 0.3);
+  border-color: #B76E79;
+  color: #F2C29A;
+  box-shadow: 0 0 20px rgba(183, 110, 121, 0.2);
+}
+
+/* Color swatch styling */
+.color-swatch {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 2px solid rgba(183, 110, 121, 0.2);
+  cursor: pointer;
+  transition: all 0.3s var(--transition-smooth);
+  min-width: 44px;
+  min-height: 44px;
+  padding: 2px;
+}
+
+.color-swatch:hover {
+  border-color: rgba(183, 110, 121, 0.4);
+  transform: scale(1.1);
+}
+
+.color-swatch.selected {
+  border-color: #F2C29A;
+  box-shadow: 0 0 15px rgba(242, 194, 154, 0.4);
+  transform: scale(1.15);
+}
+
+/* Trust badge styling */
+.trust-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1rem;
+  background: rgba(11, 6, 8, 0.3);
+  border-radius: 1rem;
+  transition: all 0.3s var(--transition-smooth);
+}
+
+.trust-badge:hover {
+  background: rgba(11, 6, 8, 0.4);
+  transform: translateY(-2px);
+}
+
+.trust-badge svg {
+  transition: transform 0.3s var(--transition-smooth);
+}
+
+.trust-badge:hover svg {
+  transform: scale(1.15);
+}
+
+/* ============================================
+   COLLECTION PAGE ENHANCEMENTS
+   ============================================ */
+
+/* Collection hero overlay */
+.collection-hero {
+  position: relative;
+  background: rgba(11, 6, 8, 0.6);
+  border-radius: 1.5rem;
+  overflow: hidden;
+}
+
+.collection-hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(5, 2, 3, 0.8) 0%,
+    rgba(5, 2, 3, 0.4) 50%,
+    rgba(5, 2, 3, 0.9) 100%
+  );
+  z-index: 1;
+}
+
+/* Filter sidebar styling */
+.filter-sidebar {
+  background: rgba(11, 6, 8, 0.3);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(183, 110, 121, 0.15);
+  border-radius: 1.5rem;
+  padding: 1.5rem;
+}
+
+@media (max-width: 768px) {
+  .filter-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 50;
+    border-radius: 0;
+  }
+}
+
+/* Product grid card */
+.product-grid-card {
+  background: rgba(11, 6, 8, 0.3);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(183, 110, 121, 0.15);
+  border-radius: 1.5rem;
+  overflow: hidden;
+  transition: all 0.4s var(--transition-smooth);
+}
+
+.product-grid-card:hover {
+  border-color: rgba(183, 110, 121, 0.3);
+  transform: translateY(-4px);
+  box-shadow:
+    0 12px 40px rgba(0, 0, 0, 0.4),
+    0 0 30px rgba(183, 110, 121, 0.1);
+}
+
+/* ============================================
+   PERFORMANCE OPTIMIZATION LAYER
+   ============================================ */
+
+/* GPU Layer Promotion for Animated Elements */
+.animated-on-scroll,
+.parallax-layer,
+.product-card,
+.collection-card {
+  transform: translateZ(0);
+  will-change: transform, opacity;
+  contain: layout style paint;
+}
+
+/* Skip rendering off-screen content */
+.content-visibility-auto {
+  content-visibility: auto;
+  contain-intrinsic-size: 0 500px;
+}
+
+/* Reduce paint complexity */
+.paint-contain {
+  contain: paint;
+}
+
+/* Layout isolation */
+.layout-isolate {
+  contain: layout;
+}
+
+/* Optimized transitions */
+.optimized-transition {
+  transition-property: transform, opacity;
+  transition-timing-function: var(--transition-smooth);
+  transition-duration: 300ms;
+}
+
+/* Disable animations for users who prefer reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ============================================
+   MOBILE OPTIMIZATIONS
+   ============================================ */
+
+/* Safe Area Insets for notched devices */
+@supports (padding: env(safe-area-inset-top)) {
+  .safe-top {
+    padding-top: env(safe-area-inset-top);
+  }
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .safe-left {
+    padding-left: env(safe-area-inset-left);
+  }
+  .safe-right {
+    padding-right: env(safe-area-inset-right);
+  }
+}
+
+/* Touch Optimizations */
+@media (hover: none) and (pointer: coarse) {
+  /* Increase touch targets */
+  button, 
+  .btn,
+  a,
+  input[type="checkbox"],
+  input[type="radio"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Remove hover effects on touch devices */
+  .glass-card-hover:hover {
+    transform: none;
+    background: rgba(11, 6, 8, 0.3);
+  }
+  
+  .product-card-enhanced:hover {
+    transform: none;
+  }
+  
+  .product-card-enhanced:hover::after {
+    transform: scaleX(0);
+  }
+  
+  /* Reduce backdrop blur on mobile for performance */
+  .glass-card,
+  .luxury-input-wrapper {
+    backdrop-filter: blur(8px);
+  }
+  
+  /* Disable complex animations on mobile */
+  .animate-sheen {
+    animation: none;
+  }
+  
+  .btn-glow::before {
+    display: none;
+  }
+  
+  /* Simpler hover states */
+  button:active,
+  .btn:active {
+    transform: scale(0.98);
+    opacity: 0.9;
+  }
+}
+
+/* Mobile-specific performance */
+@media (max-width: 640px) {
+  /* Reduce animation complexity */
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-5px); }
+  }
+  
+  .animate-float {
+    animation-duration: 8s;
+  }
+  
+  /* Reduce shadow complexity */
+  .glass-card {
+    box-shadow: 
+      0 4px 16px rgba(0, 0, 0, 0.2),
+      inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  }
+  
+  /* Simpler gradients */
+  .gradient-text-gold,
+  .gradient-text-rose {
+    background-size: 100% 100%;
+    animation: none;
+  }
+  
+  /* Reduce text shadow complexity */
+  .text-\[\#F2C29A\] {
+    text-shadow: 
+      0 1px 2px rgba(0, 0, 0, 0.8),
+      0 0 8px rgba(242, 194, 154, 0.2);
+  }
+}
+
+/* Touch feedback animation */
+@keyframes touchFeedback {
+  0% { transform: scale(1); }
+  50% { transform: scale(0.95); }
+  100% { transform: scale(1); }
+}
+
+.touch-feedback:active {
+  animation: touchFeedback 0.2s ease-out;
+}
+
+/* Prevent text selection on interactive elements */
+button, .btn, a, .no-select {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Smooth scrolling for touch */
+@media (hover: none) {
+  * {
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* ============================================
+   PREMIUM SCROLLBAR STYLING
+   ============================================ */
+
+/* Custom Scrollbar for Desktop */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(5, 2, 3, 0.5);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #7A2F57, #B76E79);
+  border-radius: 4px;
+  border: 2px solid rgba(5, 2, 3, 0.5);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #B76E79, #F2C29A);
+}
+
+/* Hide scrollbar on mobile */
+@media (max-width: 768px) {
+  ::-webkit-scrollbar {
+    display: none;
+  }
+  * {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+}
+
+/* ============================================
+   PREMIUM FOCUS STATES
+   ============================================ */
+
+/* Enhanced Focus Ring */
+.focus-ring:focus {
+  outline: none;
+  box-shadow: 
+    0 0 0 2px rgba(5, 2, 3, 0.8),
+    0 0 0 4px rgba(242, 194, 154, 0.5);
+}
+
+/* Focus Visible for Keyboard Navigation */
+.focus-visible:focus-visible {
+  outline: 2px solid #F2C29A;
+  outline-offset: 2px;
+}
+
+/* ============================================
+   HEADER SPACING UTILITY
+   ============================================ */
+
+/* 
+ * Fixed header height compensation for all pages
+ * Header height: ~80px desktop, ~60px mobile
+ * Adding padding-top to prevent content overlap
+ */
+.header-spacing {
+  padding-top: clamp(80px, 10vh, 120px); /* Responsive padding: 80px min, 10vh fluid, 120px max */
+}
+
+/* Mobile adjustment - smaller header on mobile */
+@media (max-width: 768px) {
+  .header-spacing {
+    padding-top: clamp(70px, 12vh, 100px);
+  }
+}
+
+/* Extra large screens - more generous spacing */
+@media (min-width: 1536px) {
+  .header-spacing {
+    padding-top: 140px;
+  }
+}
+
+/* ============================================
+   SCROLL ANCHOR OFFSET (Prevent header overlap on anchor links)
+   ============================================ */
+
+/* Ensure anchor links scroll to position below header */
+html {
+  scroll-padding-top: 100px;
+  scroll-behavior: smooth;
+}
+
+@media (max-width: 768px) {
+  html {
+    scroll-padding-top: 80px;
+  }
+}
+
+/* Apply scroll margin to common section IDs */
+section[id],
+[id] {
+  scroll-margin-top: 100px;
+}
+
+@media (max-width: 768px) {
+  section[id],
+  [id] {
+    scroll-margin-top: 80px;
+  }
+}
+
+/* ============================================
+   PAGE WRAPPER STRUCTURE
+   ============================================ */
+
+/* Main page wrapper for consistent layout */
+.page-wrapper {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* Page content area - expands to fill available space */
+.page-content {
+  flex: 1 0 auto;
+}
+
+/* ============================================
+   Z-INDEX HIERARCHY
+   ============================================ */
+
+/*
+ * Z-Index Scale (organized by layer):
+ * 
+ * Layer 0: Background elements
+ * Layer 10: Main content
+ * Layer 50: Header navigation
+ * Layer 60: Modal overlays
+ * Layer 70: Toast notifications
+ * Layer 80: Critical alerts
+ * Layer 90: Mobile menu overlay
+ * Layer 100: Header (fixed)
+ * Layer 1000+: System-level overlays
+ */
+
+/* Header - fixed position */
+header {
+  z-index: 100;
+}
+
+/* Mobile menu overlay */
+#mobile-menu {
+  z-index: 90;
+}
+
+/* Modal overlay */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  background: rgba(5, 2, 3, 0.8);
+  backdrop-filter: blur(4px);
+  animation: modal-backdrop-in 0.2s ease-out forwards;
+}
+
+.modal-content {
+  background: linear-gradient(135deg, #0B0608 0%, #1A0F0F 100%);
+  border: 1px solid rgba(242, 194, 154, 0.1);
+  border-radius: 1rem;
+  box-shadow:
+    0 25px 50px -12px rgba(0, 0, 0, 0.8),
+    0 0 0 1px rgba(242, 194, 154, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  width: 100%;
+  max-height: 90vh;
+  overflow: hidden;
+  position: relative;
+  animation: modal-content-in 0.3s ease-out forwards;
+}
+
+/* Cart drawer */
+.cart-drawer {
+  z-index: 55;
+}
+
+.cart-drawer-backdrop {
+  z-index: 54;
+}
+
+/* Toast container - highest z-index for visibility */
+.toast-container {
+  z-index: 70;
+}
+
+/* ============================================
+   FOOTER STICKY BOTTOM FIX
+   ============================================ */
+
+/* Ensure footer stays at bottom on short content pages */
+.page-wrapper {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.page-content {
+  flex: 1 0 auto;
+}
+
+.footer-sticky {
+  flex-shrink: 0;
+}
+
+/* ============================================
+   SKELETON LOADING ANIMATIONS
+   ============================================ */
+
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.8; }
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(183, 110, 121, 0.1) 0%,
+    rgba(242, 194, 154, 0.15) 50%,
+    rgba(183, 110, 121, 0.1) 100%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+}
+
+.skeleton-text {
+  border-radius: 4px;
+  height: 1em;
+  margin-bottom: 0.5em;
+}
+
+.skeleton-circle {
+  border-radius: 50%;
+}
+
+.skeleton-card {
+  border-radius: 1rem;
+  height: 300px;
+}
+
+/* ============================================
+   TOAST NOTIFICATION STYLES
+   ============================================ */
+
+@keyframes toast-slide-in {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes toast-slide-out {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
+.toast-enter {
+  animation: toast-slide-in 0.3s ease-out forwards;
+}
+
+.toast-exit {
+  animation: toast-slide-out 0.3s ease-in forwards;
+}
+
+.toast-container {
+  position: fixed;
+  top: env(safe-area-inset-top, 1rem);
+  right: 1rem;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  pointer-events: none;
+}
+
+.toast {
+  pointer-events: auto;
+  background: rgba(11, 6, 8, 0.95);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(183, 110, 121, 0.3);
+  border-radius: 12px;
+  padding: 1rem 1.5rem;
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    0 0 20px rgba(183, 110, 121, 0.1);
+}
+
+.toast-success {
+  border-color: rgba(34, 197, 94, 0.4);
+}
+
+.toast-error {
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+.toast-warning {
+  border-color: rgba(234, 179, 8, 0.4);
+}
+
+/* ============================================
+   MODAL STYLES
+   ============================================ */
+
+@keyframes modal-backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes modal-content-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.modal-backdrop {
+  animation: modal-backdrop-in 0.2s ease-out forwards;
+}
+
+.modal-content {
+  animation: modal-content-in 0.3s ease-out forwards;
+}
+
+/* Line clamp for description */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ============================================
+   CART ANIMATION STYLES
+   ============================================ */
+
+@keyframes cart-item-add {
+  0% {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes cart-item-remove {
+  0% {
+    transform: translateX(0);
+    opacity: 1;
+    max-height: 200px;
+  }
+  100% {
+    transform: translateX(100%);
+    opacity: 0;
+    max-height: 0;
+    padding: 0;
+    margin: 0;
+  }
+}
+
+.cart-item-enter {
+  animation: cart-item-add 0.4s ease-out forwards;
+}
+
+.cart-item-exit {
+  animation: cart-item-remove 0.3s ease-in forwards;
+}
+
+/* Fly to cart animation */
+@keyframes fly-to-cart {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(0.5) translateY(-50px);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(0) translateY(-100px);
+    opacity: 0;
+  }
+}
+
+.fly-to-cart {
+  animation: fly-to-cart 0.6s ease-in-out forwards;
+}
+
+/* ============================================
+   SEARCH ENHANCEMENT STYLES
+   ============================================ */
+
+@keyframes search-results-in {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.search-results-dropdown {
+  animation: search-results-in 0.2s ease-out forwards;
+  background: rgba(11, 6, 8, 0.98);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(183, 110, 121, 0.2);
+  border-radius: 16px;
+  box-shadow: 
+    0 16px 48px rgba(0, 0, 0, 0.5),
+    0 0 30px rgba(183, 110, 121, 0.1);
+}
+
+.search-highlight {
+  background: rgba(242, 194, 154, 0.2);
+  border-radius: 2px;
+  padding: 0 2px;
+}
+
+/* ============================================
+   PAGE TRANSITION STYLES
+   ============================================ */
+
+@keyframes page-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes page-fade-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+}
+
+.page-enter {
+  animation: page-fade-in 0.4s ease-out forwards;
+}
+
+.page-exit {
+  animation: page-fade-out 0.3s ease-in forwards;
+}
+
+/* ============================================
+   LOADING STATES
+   ============================================ */
+
+@keyframes spinner-rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid rgba(183, 110, 121, 0.2);
+  border-top-color: #F2C29A;
+  border-radius: 50%;
+  animation: spinner-rotate 0.8s linear infinite;
+}
+
+.spinner-lg {
+  width: 48px;
+  height: 48px;
+  border-width: 3px;
+}
+
+/* ============================================
+   PROGRESS BAR STYLES
+   ============================================ */
+
+@keyframes progress-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.progress-bar {
+  height: 4px;
+  background: rgba(183, 110, 121, 0.2);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    #7A2F57,
+    #B76E79,
+    #F2C29A,
+    #B76E79,
+    #7A2F57
+  );
+  background-size: 200% 100%;
+  animation: progress-shimmer 2s linear infinite;
+  border-radius: 2px;
+  transition: width 0.5s ease-out;
+}
+
+/* Free shipping progress */
+.free-shipping-progress {
+  background: rgba(11, 6, 8, 0.6);
+  border-radius: 8px;
+  padding: 12px 16px;
+  border: 1px solid rgba(183, 110, 121, 0.15);
+}
+
+/* ============================================
+   PREMIUM SCROLLBAR STYLING
+   ============================================ */
+
+/* Custom Scrollbar for Desktop */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(5, 2, 3, 0.5);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #7A2F57, #B76E79);
+  border-radius: 4px;
+  border: 2px solid rgba(5, 2, 3, 0.5);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #B76E79, #F2C29A);
+}
+
+/* ============================================
+   PREMIUM FOCUS STATES
+   ============================================ */
+
+/* Enhanced Focus Ring */
+.focus-ring:focus {
+  outline: none;
+  box-shadow: 
+    0 0 0 2px rgba(5, 2, 3, 0.8),
+    0 0 0 4px rgba(242, 194, 154, 0.5);
+}
+
+/* Focus Visible for Keyboard Navigation */
+.focus-visible:focus-visible {
+  outline: 2px solid #F2C29A;
+  outline-offset: 2px;
+}
+
+/* ============================================
+   ACCESSIBILITY ENHANCEMENTS (WCAG 2.1 AA)
+   ============================================ */
+
+/* Screen Reader Only Utility */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+.sr-only:focus,
+.sr-only:active {
+  position: static;
+  width: auto;
+  height: auto;
+  padding: inherit;
+  margin: inherit;
+  overflow: visible;
+  clip: auto;
+  white-space: normal;
+}
+
+/* Universal Focus Visible */
+*:focus-visible {
+  outline: 2px solid #F2C29A;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(242, 194, 154, 0.2);
+}
+
+/* Remove default focus for mouse users */
+*:focus:not(:focus-visible) {
+  outline: none;
+  box-shadow: none;
+}
+
+/* Enhanced focus for interactive elements */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid #F2C29A;
+  outline-offset: 2px;
+  box-shadow: 
+    0 0 0 2px rgba(5, 2, 3, 0.8),
+    0 0 0 4px rgba(242, 194, 154, 0.5);
+}
+
+/* Minimum touch target size (44x44px) */
+button,
+a,
+input[type="button"],
+input[type="submit"],
+input[type="checkbox"],
+input[type="radio"],
+[role="button"],
+[tabindex] {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* ==================== LINK & UNDERLINE STYLING ==================== */
+/* 
+ * ARCHITECTURE: Underlines for accessibility in CONTENT areas ONLY.
+ * Navigation, buttons, and interactive elements should NEVER have underlines.
+ */
+
+/* Content area links - underlined for accessibility */
+main a:not(.no-underline):not([role="button"]):not(.nav-link):not(.header-link),
+article a:not(.no-underline),
+p a:not(.no-underline),
+.prose a:not(.no-underline) {
+  text-decoration: underline;
+  text-decoration-color: rgba(242, 194, 154, 0.4);
+  text-underline-offset: 2px;
+  transition: text-decoration-color 0.2s ease;
+}
+
+main a:not(.no-underline):not([role="button"]):not(.nav-link):not(.header-link):hover,
+article a:not(.no-underline):hover,
+p a:not(.no-underline):hover,
+.prose a:not(.no-underline):hover {
+  text-decoration-color: #F2C29A;
+}
+
+/* ==================== NAVIGATION - NO UNDERLINES ==================== */
+/* Global rule: ALL navigation links should NEVER have underlines */
+nav a,
+nav a *,
+.header-link,
+.header-link *,
+.nav-link,
+.nav-link *,
+header a,
+header a *,
+[data-nav] a,
+[data-nav] a * {
+  text-decoration: none !important;
+}
+
+nav a:hover,
+nav a *:hover,
+.header-link:hover,
+.header-link *:hover,
+.nav-link:hover,
+.nav-link *:hover,
+header a:hover,
+header a *:hover,
+[data-nav] a:hover,
+[data-nav] a *:hover {
+  text-decoration: none !important;
+}
+
+/* ==================== BUTTONS - NO UNDERLINES ==================== */
+/* Global rule: ALL button elements and button-like links should NEVER have underlines */
+button,
+button *,
+a[role="button"],
+a[role="button"] *,
+.btn,
+.btn *,
+[class*="button"],
+[class*="button"] *,
+[class*="btn"],
+[class*="btn"] *,
+/* Anchor tags used as CTA buttons (common Next.js Link-as-button pattern) */
+main a.flex,
+main a.flex *,
+main a.inline-flex,
+main a.inline-flex *,
+main a.flex-1,
+main a.flex-1 * {
+  text-decoration: none !important;
+}
+
+button:hover,
+button *:hover,
+a[role="button"]:hover,
+a[role="button"] *:hover,
+.btn:hover,
+.btn *:hover,
+[class*="button"]:hover,
+[class*="button"] *:hover,
+[class*="btn"]:hover,
+[class*="btn"] *:hover {
+  text-decoration: none !important;
+}
+
+/* ==================== INTERACTIVE ELEMENTS - NO UNDERLINES ==================== */
+/* Cards, menus, dropdowns, and other interactive components */
+.card a,
+.card a *,
+[role="menu"] a,
+[role="menu"] a *,
+[role="menuitem"] a,
+[role="menuitem"] a *,
+.dropdown a,
+.dropdown a *,
+.menu a,
+.menu a * {
+  text-decoration: none !important;
+}
+
+.card a:hover,
+.card a *:hover,
+[role="menu"] a:hover,
+[role="menu"] a *:hover,
+[role="menuitem"] a:hover,
+[role="menuitem"] a *:hover,
+.dropdown a:hover,
+.dropdown a *:hover,
+.menu a:hover,
+.menu a *:hover {
+  text-decoration: none !important;
+}
+
+/* ==================== EXCEPTION: Explicit .underline class ==================== */
+/* If user explicitly wants underline, they can use Tailwind's .underline class */
+.underline {
+  text-decoration: underline !important;
+}
+
+/* ==================== REDUCED MOTION ==================== */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  
+  .parallax-layer,
+  .product-card-enhanced:hover,
+  .animate-shimmer,
+  .animate-sheen,
+  .animate-float {
+    animation: none !important;
+    transform: none !important;
+  }
+  
+  .gradient-text-gold,
+  .gradient-text-rose {
+    animation: none !important;
+    background-size: 100% 100% !important;
+  }
+}
+
+/* High Contrast Mode Support */
+@media (prefers-contrast: high) {
+  .border-\[\#B76E79\]\/10,
+  .border-\[\#B76E79\]\/15,
+  .border-\[\#B76E79\]\/20 {
+    border-color: #B76E79 !important;
+  }
+  
+  .text-\[\#EAE0D5\]\/50,
+  .text-\[\#EAE0D5\]\/60,
+  .text-\[\#EAE0D5\]\/70 {
+    color: #EAE0D5 !important;
+  }
+  
+  *:focus-visible {
+    outline-width: 3px !important;
+    outline-offset: 3px !important;
+  }
+}
+
+/* Forced Colors Mode (Windows High Contrast) */
+@media (forced-colors: active) {
+  button, a, input, select, textarea, [role="button"], [tabindex] {
+    border: 2px solid currentColor !important;
+  }
+  
+  *:focus-visible {
+    outline: 3px solid currentColor !important;
+    outline-offset: 2px !important;
+  }
+}
+
+/* Text Resizing - supports up to 200% zoom */
+.text-scalable {
+  font-size: clamp(0.875rem, 2vw, 1rem);
+}
+
+.heading-scalable {
+  font-size: clamp(1.5rem, 4vw, 3rem);
+}
+
+/* Prevent horizontal scroll on text resize */
+body {
+  overflow-x: hidden;
+  word-wrap: break-word;
+}
+
+/* Error state accessibility */
+.input-error {
+  border-color: #EF4444 !important;
+  border-width: 2px !important;
+}
+
+.error-message {
+  color: #FCA5A5;
+  font-size: 0.875rem;
+  margin-top: 0.25rem;
+}
+
+/* Required field indicator */
+.required::after {
+  content: ' *';
+  color: #EF4444;
+}
+
+/* Button disabled state */
+button:disabled,
+[aria-disabled="true"] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Loading state accessibility */
+[aria-busy="true"] {
+  cursor: wait;
+}
+
+/* Print styles */
+@media print {
+  header, footer, nav, button, a {
+    display: none !important;
+  }
+
+  body {
+    background: white !important;
+    color: black !important;
+    font-size: 12pt;
+  }
+
+  a[href]::after {
+    content: " (" attr(href) ")";
+  }
+
+  img::after {
+    content: " (" attr(alt) ")";
+  }
+}
+
+/* ============================================================
+   HEADER OVERLAP FIX - Page Layout Utilities
+   ============================================================ */
+
+/* Page wrapper to prevent header overlap */
+.page-wrapper {
+  position: relative;
+  z-index: 1;
+  min-height: 100vh;
+}
+
+/* Header spacing utility - adds top margin to compensate for fixed header */
+.header-spacing {
+  margin-top: 80px;
+}
+
+@media (max-width: 768px) {
+  .header-spacing {
+    margin-top: 60px;
+  }
+}
+
+@media (min-width: 1920px) {
+  .header-spacing {
+    margin-top: 100px;
+  }
+}
+
+/* Scroll anchor prevention - prevents header from covering anchor targets */
+html {
+  scroll-padding-top: 100px;
+}
+
+@media (max-width: 768px) {
+  html {
+    scroll-padding-top: 70px;
+  }
+}
+
+/* Section elements should have scroll margin */
+section[id],
+div[id] {
+  scroll-margin-top: 100px;
+}
+
+@media (max-width: 768px) {
+  section[id],
+  div[id] {
+    scroll-margin-top: 70px;
+  }
+}
+
+/* Smooth scroll */
+html {
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Keyboard focus ring — gold, only on keyboard navigation */
+:focus-visible {
+  outline: 2px solid rgba(242, 194, 154, 0.6);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Page fade-in on route change */
+@keyframes page-fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+main {
+  animation: page-fade-in 0.25s ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  main { animation: none; }
+}
+
+/* Scroll-reveal utility */
+.reveal-on-scroll {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+.reveal-on-scroll.revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
+@media (prefers-reduced-motion: reduce) {
+  .reveal-on-scroll {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
+/* iOS safe-area bottom padding utility */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Combined content padding: 1rem + safe area (for input areas, footers) */
+.pb-safe-4 {
+  padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+}
+
+/* Clear bottom nav on mobile (64px nav + safe area) */
+.pb-bottom-nav {
+  padding-bottom: calc(4rem + env(safe-area-inset-bottom, 0px));
+}
+
+/* Position element above bottom nav */
+.bottom-nav-offset {
+  bottom: calc(4rem + env(safe-area-inset-bottom, 0px));
+}
+
+/* Remove tap highlight on mobile interactive elements */
+.tap-none {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Touch-friendly swipe container */
+.swipe-x {
+  touch-action: pan-x;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Prevent text selection during swipe */
+.no-select {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Scrollbar hide utility (supplement Tailwind plugin) */
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}

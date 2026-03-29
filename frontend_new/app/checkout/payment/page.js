@@ -1,0 +1,612 @@
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { CreditCard, ChevronRight, Lock, Shield, Check, AlertCircle, ShoppingBag, X, RotateCcw, RefreshCw, ExternalLink } from 'lucide-react';
+import { paymentApi, cartApi, userApi } from '@/lib/customerApi';
+import { useCart } from '@/lib/cartContext';
+import { useAuth } from '@/lib/authContext';
+import logger from '@/lib/logger';
+import { initializeCashfree, loadCashfreeSDK } from '@/lib/cashfree';
+
+// Razorpay configuration
+const LOGO_URL = 'https://pub-7846c786f7154610b57735df47899fa0.r2.dev/logo.png';
+const RAZORPAY_BUTTON_TEXT = 'Pay Now';
+
+/**
+ * CheckoutPaymentPage — Razorpay integration.
+ * Flow:
+ *  1. Backend creates Razorpay order → returns { id, amount, currency }
+ *  2. Frontend loads Razorpay checkout.js → opens modal
+ *  3. On success handler receives { razorpay_payment_id, razorpay_order_id, razorpay_signature }
+ *  4. Backend verifies HMAC signature → redirect to /checkout/confirm
+ */
+export default function CheckoutPaymentPage() {
+  const router = useRouter();
+  const { cart } = useCart();
+  const { user, isAuthenticated } = useAuth();
+  const [processing, setProcessing] = useState(false);
+  const [error, setError] = useState(null);
+  const [stockError, setStockError] = useState(null);
+  const [razorpayReady, setRazorpayReady] = useState(false);
+  const [redirectProcessing, setRedirectProcessing] = useState(false);
+  const [selectedGateway, setSelectedGateway] = useState('razorpay'); // 'razorpay' or 'cashfree'
+  const [paymentConfig, setPaymentConfig] = useState(null);
+  const [cashfreeLoading, setCashfreeLoading] = useState(false);
+  const cachedKeyIdRef = React.useRef(null);
+  const cachedConfigIdRef = React.useRef(null);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      router.push('/auth/login?redirect_url=/checkout/payment');
+    }
+  }, [isAuthenticated, router]);
+
+  useEffect(() => {
+    const addressId = sessionStorage.getItem('checkout_address_id');
+    if (!addressId) {
+      router.push('/checkout');
+    }
+  }, [router]);
+
+  // Show error returned by redirect-callback (e.g. ?error=verification_failed)
+  useEffect(() => {
+    const params = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
+    const errParam = params.get('error');
+    if (errParam) {
+      const messages = {
+        verification_failed: 'Payment signature verification failed. Please try again.',
+        payment_failed: 'Payment was not completed. Please try again.',
+        payment_cancelled: 'Payment was cancelled. You can try again below.',
+        server_error: 'A server error occurred. Please try again.',
+      };
+      setError(messages[errParam] || 'Payment failed. Please try again.');
+    }
+  }, []);
+
+  const formatCurrency = (amount) =>
+    new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(amount || 0);
+
+  const formatCurrencyLocal = (amount) =>
+    new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 }).format(amount || 0);
+
+  // Pre-fetch payment config on mount to cache key_id and check gateway availability
+  useEffect(() => {
+    let cancelled = false;
+    const prefetchConfig = async () => {
+      try {
+        const config = await paymentApi.getConfig();
+        if (!cancelled) {
+          setPaymentConfig(config);
+          cachedKeyIdRef.current = config?.razorpay?.key_id || null;
+          cachedConfigIdRef.current = config?.razorpay?.checkout_config_id || null;
+          setRazorpayReady(true);
+        }
+      } catch {
+        // Silent fail — handleDirectPayment fetches config on demand
+      }
+    };
+    prefetchConfig();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /**
+   * DIRECT PAYMENT — the primary payment method.
+   *
+   * Submits a hidden HTML form directly to Razorpay's hosted checkout endpoint
+   * (https://api.razorpay.com/v1/checkout/embedded) WITHOUT loading checkout.js.
+   *
+   * Why this works when the modal/SDK-redirect does NOT:
+   * Razorpay's checkout.js always creates a hidden iframe to api.razorpay.com
+   * FIRST (even with redirect:true) to initialise the session. This iframe is
+   * blocked by Edge Enhanced Tracking Protection, uBlock Origin, Kaspersky Web
+   * Protection and similar tools, causing chrome-error:// and the
+   * "Unsafe attempt to load URL" console error that breaks BOTH modal AND SDK-
+   * redirect modes simultaneously.
+   *
+   * A plain HTML form POST is a top-level navigation — not an iframe, not a
+   * cross-origin script — so it is never intercepted by tracker blockers.
+   * This is Razorpay's officially supported "Checkout without JS SDK" approach.
+   *
+   * IMPORTANT: Uses standard checkout endpoint (NOT embedded) to ensure ALL
+   * payment methods including UPI, Cards, Net Banking, and Wallets are shown.
+   */
+  const handleDirectPayment = async () => {
+    try {
+      setRedirectProcessing(true);
+      setError(null);
+
+      // Generate idempotency key BEFORE payment to prevent duplicate orders
+      const idempotencyKey = `order_${user?.id || 'guest'}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      sessionStorage.setItem('checkout_idempotency_key', idempotencyKey);
+      logger.info('Generated idempotency key:', idempotencyKey);
+
+      // Validate stock
+      try {
+        const stockValidation = await cartApi.validateStock();
+        if (stockValidation?.out_of_stock?.length > 0) {
+          setStockError({ items: stockValidation.out_of_stock });
+          setRedirectProcessing(false);
+          return;
+        }
+      } catch (stockErr) {
+        setError(stockErr.message || 'Items in your cart are out of stock.');
+        setRedirectProcessing(false);
+        return;
+      }
+
+      const addressId = sessionStorage.getItem('checkout_address_id');
+      if (!addressId) {
+        setError('Please select a delivery address');
+        router.push('/checkout');
+        return;
+      }
+
+      // key_id + config_id cached from preload; fallback to fresh fetch
+      let keyId = cachedKeyIdRef.current;
+      if (!keyId) {
+        try {
+          const config = await paymentApi.getConfig();
+          keyId = config?.razorpay?.key_id;
+          cachedKeyIdRef.current = keyId;
+          cachedConfigIdRef.current = config?.razorpay?.checkout_config_id || null;
+        } catch { /* handled below */ }
+        if (!keyId) {
+          setError('Payment service unavailable. Please try again.');
+          setRedirectProcessing(false);
+          return;
+        }
+      }
+
+      // Create Razorpay order on our backend
+      let orderData;
+      try {
+        orderData = await paymentApi.createRazorpayOrder({
+          amount: Math.round((cart.total || 0) * 100),
+          currency: 'INR',
+          receipt: `cart_${Date.now()}`,
+        });
+      } catch {
+        setError('Failed to initialise payment. Please try again.');
+        setRedirectProcessing(false);
+        return;
+      }
+
+      if (!orderData?.id) {
+        setError('Payment initialisation failed. Please try again.');
+        setRedirectProcessing(false);
+        return;
+      }
+
+      const origin = typeof window !== 'undefined' ? window.location.origin : 'https://aaryaclothing.in';
+      const customerName  = user?.profile?.full_name || user?.full_name || user?.username || '';
+      const customerEmail = user?.email || '';
+      const customerPhone = user?.profile?.phone   || user?.phone        || '';
+
+      // Build a hidden form and submit it directly to Razorpay.
+      // No checkout.js, no iframe — pure top-level navigation.
+      const form = document.createElement('form');
+      form.method = 'POST';
+      // Official Razorpay hosted checkout endpoint (supports UPI, Cards, Net Banking, Wallets)
+      form.action = 'https://api.razorpay.com/v1/checkout/embedded';
+
+      const addField = (name, value) => {
+        const input  = document.createElement('input');
+        input.type   = 'hidden';
+        input.name   = name;
+        input.value  = String(value ?? '');
+        form.appendChild(input);
+      };
+
+      // Required fields for Razorpay checkout
+      addField('key_id',            keyId);
+      addField('order_id',          orderData.id);
+      addField('amount',            orderData.amount);
+      addField('currency',          orderData.currency || 'INR');
+      addField('name',              'Aarya Clothing');
+      addField('description',       'Premium Ethnic Wear');
+      addField('buttontext',        RAZORPAY_BUTTON_TEXT);
+      addField('image',             LOGO_URL);
+      addField('prefill[name]',     customerName);
+      addField('prefill[email]',    customerEmail);
+      addField('prefill[contact]',  customerPhone);
+      addField('theme[color]',      '#B76E79');
+      
+      // Callback URLs
+      addField('callback_url',      `${origin}/api/v1/payments/razorpay/redirect-callback`);
+      addField('cancel_url',        `${origin}/checkout/payment?error=payment_cancelled`);
+      
+      // Redirect mode - sends user to Razorpay hosted page
+      addField('redirect',          'true');
+      addField('redirect_behavior', 'redirect');
+
+      // Add idempotency key for duplicate order prevention
+      const storedIdempotencyKey = sessionStorage.getItem('checkout_idempotency_key');
+      if (storedIdempotencyKey) {
+        addField('idempotency_key', storedIdempotencyKey);
+      }
+
+      // NOTE: checkout_config_id is NOT passed as form field
+      // It's already included in the ORDER when created by backend
+      // Razorpay uses the config from the order itself
+
+      document.body.appendChild(form);
+      form.submit();
+      // Browser navigates away — redirectProcessing stays true intentionally
+
+    } catch (err) {
+      logger.error('Direct payment error:', err);
+      setError('Payment failed. Please try again.');
+      setRedirectProcessing(false);
+    }
+  };
+
+  /**
+   * CASHFREE PAYMENT — Alternative payment gateway using SDK.
+   *
+   * Creates a Cashfree order and opens Cashfree hosted checkout via SDK.
+   * Cashfree offers lower fees (1.9%) and faster settlement (T+1) than Razorpay.
+   * 
+   * Flow:
+   *  1. Backend creates Cashfree order → returns { order_id, session_id, ... }
+   *  2. Frontend loads Cashfree SDK v3 → initializes with mode
+   *  3. SDK opens Cashfree hosted checkout page
+   *  4. User completes payment → redirected to returnUrl
+   *  5. Backend verifies payment signature → redirect to /checkout/confirm
+   */
+  const handleCashfreePayment = async () => {
+    try {
+      setRedirectProcessing(true);
+      setCashfreeLoading(true);
+      setError(null);
+
+      // Validate stock
+      try {
+        const stockValidation = await cartApi.validateStock();
+        if (stockValidation?.out_of_stock?.length > 0) {
+          setStockError({ items: stockValidation.out_of_stock });
+          setRedirectProcessing(false);
+          setCashfreeLoading(false);
+          return;
+        }
+      } catch (stockErr) {
+        setError(stockErr.message || 'Items in your cart are out of stock.');
+        setRedirectProcessing(false);
+        setCashfreeLoading(false);
+        return;
+      }
+
+      const addressId = sessionStorage.getItem('checkout_address_id');
+      if (!addressId) {
+        setError('Please select a delivery address');
+        router.push('/checkout');
+        setCashfreeLoading(false);
+        return;
+      }
+
+      // Get Cashfree config
+      let config = paymentConfig;
+      if (!config) {
+        try {
+          config = await paymentApi.getConfig();
+          setPaymentConfig(config);
+        } catch {
+          setError('Payment service unavailable. Please try again.');
+          setRedirectProcessing(false);
+          setCashfreeLoading(false);
+          return;
+        }
+      }
+
+      if (!config.cashfree?.enabled) {
+        setError('Cashfree is not available. Please use Razorpay instead.');
+        setRedirectProcessing(false);
+        setCashfreeLoading(false);
+        return;
+      }
+
+      // Create Cashfree order
+      let orderData;
+      try {
+        orderData = await paymentApi.createCashfreeOrder({
+          amount: Math.round((cart.total || 0) * 100),
+          currency: 'INR',
+          receipt: `cart_${Date.now()}`,
+        });
+      } catch (createErr) {
+        logger.error('Cashfree order creation error:', createErr);
+        setError('Failed to initialise payment. Please try again.');
+        setRedirectProcessing(false);
+        setCashfreeLoading(false);
+        return;
+      }
+
+      if (!orderData?.session_id) {
+        logger.error('Cashfree order missing session_id:', orderData);
+        setError('Payment initialisation failed. Please try again.');
+        setRedirectProcessing(false);
+        setCashfreeLoading(false);
+        return;
+      }
+
+      // Load and initialize Cashfree SDK
+      try {
+        const mode = process.env.NEXT_PUBLIC_CASHFREE_ENV === 'production' ? 'production' : 'sandbox';
+        logger.info('Initializing Cashfree SDK in', mode, 'mode');
+        
+        const cashfree = await initializeCashfree(mode);
+        
+        if (!cashfree) {
+          throw new Error('Failed to initialize Cashfree SDK');
+        }
+
+        // Configure checkout options
+        const checkoutOptions = {
+          paymentSessionId: orderData.session_id,
+          returnUrl: `${window.location.origin}/checkout/confirm`,
+        };
+
+        logger.info('Opening Cashfree checkout with session:', orderData.session_id);
+
+        // Open Cashfree hosted checkout - this redirects user to Cashfree payment page
+        await cashfree.checkout(checkoutOptions);
+        
+        // Note: After successful checkout, user is redirected to returnUrl
+        // The returnUrl handler will verify the payment and redirect to /checkout/confirm
+        
+      } catch (sdkErr) {
+        logger.error('Cashfree SDK error:', sdkErr);
+        
+        // Fallback: Direct redirect to Cashfree checkout URL
+        logger.warn('SDK checkout failed, falling back to direct redirect');
+        const cashfreeUrl = `https://checkout.cashfree.com/v2?session_id=${orderData.session_id}`;
+        window.location.href = cashfreeUrl;
+        // Browser navigates away — keep redirectProcessing true
+        return;
+      }
+
+    } catch (err) {
+      logger.error('Cashfree payment error:', err);
+      setError(err.message || 'Payment failed. Please try again.');
+      setRedirectProcessing(false);
+      setCashfreeLoading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Out of Stock Modal */}
+      {stockError && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+          <div className="relative bg-[#0B0608] border border-[#B76E79]/30 rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl">
+            <button
+              onClick={() => setStockError(null)}
+              className="absolute top-4 right-4 text-[#EAE0D5]/50 hover:text-[#EAE0D5] transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <div className="text-center">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-500/10 flex items-center justify-center">
+                <AlertCircle className="w-8 h-8 text-red-400" />
+              </div>
+              <h3 className="text-xl font-semibold text-[#F2C29A] mb-2">Items Out of Stock</h3>
+              <p className="text-[#EAE0D5]/70 mb-6">
+                Sorry, the following items are no longer available:
+              </p>
+              <div className="space-y-3 mb-6">
+                {stockError.items.map((item, i) => (
+                  <div key={i} className="flex items-center gap-3 p-3 bg-red-500/5 border border-red-500/10 rounded-xl">
+                    <ShoppingBag className="w-5 h-5 text-red-400 shrink-0" />
+                    <span className="text-[#EAE0D5] text-sm truncate">
+                      {item.name || item.product_name || `Product #${item.product_id}`}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <button
+                onClick={() => { setStockError(null); router.push('/cart'); }}
+                className="w-full px-6 py-3 bg-gradient-to-r from-[#7A2F57] to-[#B76E79] text-white font-medium rounded-xl hover:opacity-90 transition-opacity"
+              >
+                Return to Cart
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Payment Gateway Selection */}
+      <div className="p-6 bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl">
+        <h2 className="text-xl font-semibold text-[#F2C29A] mb-4">Select Payment Method</h2>
+        <div className="space-y-3">
+          {/* Razorpay Option */}
+          <button
+            onClick={() => setSelectedGateway('razorpay')}
+            className={`w-full p-4 border-2 rounded-xl transition-all text-left ${
+              selectedGateway === 'razorpay'
+                ? 'border-[#F2C29A] bg-[#F2C29A]/10'
+                : 'border-[#B76E79]/30 hover:border-[#F2C29A]/40'
+            }`}
+          >
+            <div className="flex items-start gap-3">
+              <input
+                type="radio"
+                name="gateway"
+                checked={selectedGateway === 'razorpay'}
+                onChange={() => setSelectedGateway('razorpay')}
+                className="w-4 h-4 mt-1"
+              />
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <p className="font-semibold text-[#F2C29A]">Razorpay</p>
+                </div>
+                <p className="text-sm text-[#EAE0D5]/60 mt-1">UPI, Cards, Net Banking, Wallets</p>
+              </div>
+              {selectedGateway === 'razorpay' && (
+                <Check className="w-5 h-5 text-[#F2C29A]" />
+              )}
+            </div>
+          </button>
+
+          {/* Cashfree Option */}
+          {paymentConfig?.cashfree?.enabled && (
+            <button
+              onClick={() => setSelectedGateway('cashfree')}
+              className={`w-full p-4 border-2 rounded-xl transition-all text-left ${
+                selectedGateway === 'cashfree'
+                  ? 'border-[#F2C29A] bg-[#F2C29A]/10'
+                  : 'border-[#B76E79]/30 hover:border-[#F2C29A]/40'
+              }`}
+            >
+              <div className="flex items-start gap-3">
+                <input
+                  type="radio"
+                  name="gateway"
+                  checked={selectedGateway === 'cashfree'}
+                  onChange={() => setSelectedGateway('cashfree')}
+                  className="w-4 h-4 mt-1"
+                />
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <p className="font-semibold text-[#F2C29A]">Cashfree</p>
+                  </div>
+                  <p className="text-sm text-[#EAE0D5]/60 mt-1">UPI, Cards, Net Banking, Wallets</p>
+                </div>
+                {selectedGateway === 'cashfree' && (
+                  <Check className="w-5 h-5 text-[#F2C29A]" />
+                )}
+              </div>
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Payment Method Info */}
+      <div className="p-6 bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl">
+        <h2 className="text-xl font-semibold text-[#F2C29A] mb-4">Payment Details</h2>
+        <div className="relative p-4 border rounded-xl bg-[#7A2F57]/20 border-[#B76E79]">
+          <div className="absolute top-3 right-3">
+            <Check className="w-5 h-5 text-[#B76E79]" />
+          </div>
+          <div className="flex items-center gap-4">
+            <span className="text-2xl">💳</span>
+            <div>
+              <p className="font-medium text-[#F2C29A]">
+                {selectedGateway === 'razorpay' ? 'Razorpay' : 'Cashfree'}
+              </p>
+              <p className="text-sm text-[#EAE0D5]/70">UPI, Cards, Net Banking, Wallets & more</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Payment info */}
+      <div className="p-6 bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl">
+        <div className="flex items-center gap-2 mb-4">
+          <Lock className="w-4 h-4 text-[#B76E79]" />
+          <span className="text-sm text-[#EAE0D5]/70">Secure payment powered by {selectedGateway === 'razorpay' ? 'Razorpay' : 'Cashfree'}</span>
+        </div>
+        <p className="text-[#EAE0D5]/70 text-sm">
+          Click &quot;Pay Now&quot; to open the secure {selectedGateway === 'razorpay' ? 'Razorpay' : 'Cashfree'} checkout. You can pay using:
+        </p>
+        <div className="flex flex-wrap gap-2 mt-4">
+          {['UPI', 'Credit Card', 'Debit Card', 'Net Banking', 'Wallet'].map((m) => (
+            <span key={m} className="px-3 py-1 bg-[#7A2F57]/20 text-[#EAE0D5]/70 text-sm rounded-full">
+              {m}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {/* Order Cost Breakdown */}
+      <div className="p-5 bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl">
+        <h3 className="text-sm font-semibold text-[#F2C29A] mb-4 uppercase tracking-wider">Order Summary</h3>
+        <div className="space-y-2 text-sm">
+          {cart?.discount > 0 && (
+            <div className="flex justify-between">
+              <span className="text-[#EAE0D5]/60">Discount Applied</span>
+              <span className="text-green-400">-{formatCurrency(cart.discount)}</span>
+            </div>
+          )}
+          <div className="flex justify-between pt-3 mt-1 border-t border-[#B76E79]/20 font-semibold text-base">
+            <span className="text-[#F2C29A]">Total Payable</span>
+            <span className="text-[#F2C29A]">{formatCurrency(cart?.total)}</span>
+          </div>
+          <p className="text-xs text-[#EAE0D5]/40 pt-1">
+            Inclusive of all taxes &amp; free shipping
+          </p>
+        </div>
+      </div>
+
+      {/* Security Info */}
+      <div className="p-4 bg-[#7A2F57]/10 border border-[#B76E79]/10 rounded-xl">
+        <div className="flex items-center gap-3">
+          <Shield className="w-5 h-5 text-[#B76E79]" />
+          <div>
+            <p className="text-sm text-[#F2C29A]">100% Secure Payments</p>
+            <p className="text-xs text-[#EAE0D5]/50">Your payment information is encrypted and secure</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Return Policy Info */}
+      <div className="p-4 bg-[#F2C29A]/5 border border-[#F2C29A]/10 rounded-xl">
+        <div className="flex items-center gap-3">
+          <RotateCcw className="w-5 h-5 text-[#F2C29A]" />
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <RefreshCw className="w-5 h-5 text-green-400" />
+              <div>
+                <p className="text-sm text-[#F2C29A]">Easy Returns Available</p>
+                <p className="text-xs text-[#EAE0D5]/50">Defective items? Submit return with video proof within 7 days. <Link href="/returns" className="underline hover:text-[#F2C29A]">Learn more</Link></p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Error */}
+      {error && (
+        <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl flex items-start gap-3">
+          <AlertCircle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
+          <p className="text-sm text-red-300">{error}</p>
+        </div>
+      )}
+
+      {/* Pay Button - Direct Redirect to Selected Gateway */}
+      <div className="space-y-3">
+        <button
+          onClick={() => {
+            if (selectedGateway === 'cashfree') {
+              handleCashfreePayment();
+            } else {
+              handleDirectPayment();
+            }
+          }}
+          disabled={processing || redirectProcessing || cashfreeLoading}
+          className="w-full flex items-center justify-center gap-2 px-8 py-3.5 bg-gradient-to-r from-[#7A2F57] to-[#B76E79] text-white font-semibold rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50"
+        >
+          {redirectProcessing || cashfreeLoading ? (
+            <>
+              <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8h4z"/>
+              </svg>
+              {cashfreeLoading ? 'Loading Cashfree...' : 'Processing...'}
+            </>
+          ) : (
+            <>
+              <CreditCard className="w-4 h-4" />
+              {`Pay ${formatCurrency(cart?.total)} with ${selectedGateway === 'razorpay' ? 'Razorpay' : 'Cashfree'}`}
+              <ChevronRight className="w-4 h-4" />
+            </>
+          )}
+        </button>
+        <p className="text-center text-xs text-[#EAE0D5]/40">
+          Secure checkout powered by {selectedGateway === 'razorpay' ? 'Razorpay' : 'Cashfree'} • UPI, Cards, Net Banking, Wallets
+        </p>
+      </div>
+    </div>
+  );
+}

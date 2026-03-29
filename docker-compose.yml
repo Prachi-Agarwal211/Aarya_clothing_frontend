@@ -1,0 +1,457 @@
+# Aarya Clothing - Unified Docker Compose
+# Single configuration for local development and testing
+
+services:
+  # ============================================================
+  # DATABASE LAYER
+  # ============================================================
+
+  postgres:
+    image: pgvector/pgvector:pg15
+    container_name: aarya_postgres
+    # Tuned Postgres parameters for e-commerce workload
+    command: >
+      postgres
+      -c shared_buffers=128MB
+      -c work_mem=8MB
+      -c effective_cache_size=256MB
+      -c max_connections=100
+      -c random_page_cost=1.1
+      -c checkpoint_completion_target=0.9
+    environment:
+      POSTGRES_DB: aarya_clothing
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres123}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "6001:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d aarya_clothing"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1.0'
+    networks:
+      - backend_network
+    restart: unless-stopped
+
+  # ============================================================
+  # CACHE & MESSAGE QUEUE
+  # ============================================================
+
+  redis:
+    image: redis:7-alpine
+    container_name: aarya_redis
+    command: redis-server /etc/redis/redis.conf
+    ports:
+      - "6002:6379"
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-aarya_clothing_redis_password_2024}
+    volumes:
+      - redis_data:/data
+      - ./docker/redis/redis.conf:/etc/redis/redis.conf:ro
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-aarya_clothing_redis_password_2024}", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+    networks:
+      - backend_network
+    restart: unless-stopped
+
+  # ============================================================
+  # FULL-TEXT SEARCH ENGINE
+  # ============================================================
+
+  meilisearch:
+    image: getmeili/meilisearch:v1.6
+    container_name: aarya_meilisearch
+    environment:
+      - MEILI_MASTER_KEY=${MEILI_MASTER_KEY:-dev_master_key}
+      - MEILI_ENV=development
+      - MEILI_DB_PATH=/meili_data
+    ports:
+      - "6003:7700"
+    volumes:
+      - meilisearch_data:/meili_data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7700/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+    networks:
+      - backend_network
+    restart: unless-stopped
+
+  # ============================================================
+  # CORE PLATFORM SERVICE (Port 5001)
+  # User Management + Authentication + Sessions
+  # ============================================================
+
+  core:
+    build:
+      context: .
+      dockerfile: services/core/Dockerfile
+    container_name: aarya_core
+    environment:
+      - SERVICE_NAME=core
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:-postgres123}@postgres:5432/aarya_clothing
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-aarya_clothing_redis_password_2024}@redis:6379/0
+      - REDIS_DB=0
+      - SECRET_KEY=${SECRET_KEY:-dev_secret_key_change_in_production}
+      - ALGORITHM=HS256
+      - ACCESS_TOKEN_EXPIRE_MINUTES=30
+      - REFRESH_TOKEN_EXPIRE_MINUTES=1440
+      - SESSION_EXPIRE_MINUTES=1440
+      - ALLOWED_ORIGINS=["http://localhost:6004","http://localhost:6005","http://127.0.0.1:6004","http://127.0.0.1:6005","https://aaryaclothing.in","https://www.aaryaclothing.in"]
+      - DEBUG=${AARYA_DEBUG:-false}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      # Password Policy
+      - PASSWORD_MIN_LENGTH=8
+      - PASSWORD_REQUIRE_UPPERCASE=true
+      - PASSWORD_REQUIRE_LOWERCASE=true
+      - PASSWORD_REQUIRE_NUMBER=true
+      - PASSWORD_REQUIRE_SPECIAL=false
+      # Rate Limiting & Security
+      - LOGIN_RATE_LIMIT=5
+      - LOGIN_RATE_WINDOW=300
+      - MAX_LOGIN_ATTEMPTS=5
+      - ACCOUNT_LOCKOUT_MINUTES=30
+      # Cookie Settings
+      - COOKIE_SECURE=${COOKIE_SECURE:-false}
+      - COOKIE_HTTPONLY=true
+      - COOKIE_SAMESITE=lax
+      # WhatsApp Business API
+      - WHATSAPP_BUSINESS_ACCOUNT_ID=${WHATSAPP_BUSINESS_ACCOUNT_ID:-}
+      - WHATSAPP_PHONE_NUMBER_ID=${WHATSAPP_PHONE_NUMBER_ID:-}
+      - WHATSAPP_ACCESS_TOKEN=${WHATSAPP_ACCESS_TOKEN:-}
+      - WHATSAPP_API_VERSION=${WHATSAPP_API_VERSION:-v18.0}
+      # SMTP Configuration - Hostinger
+      - SMTP_HOST=smtp.hostinger.com
+      - SMTP_PORT=465
+      - SMTP_USER=noreply@aaryaclothing.in
+      - SMTP_PASSWORD=Aarya@2026
+      - SMTP_TLS=true
+      - EMAIL_FROM=noreply@aaryaclothing.in
+      - EMAIL_FROM_NAME=Aarya Clothing
+      # OTP Settings
+      - OTP_CODE_LENGTH=6
+      - OTP_EXPIRY_MINUTES=10
+      - OTP_MAX_ATTEMPTS=3
+      - OTP_RESEND_COOLDOWN_MINUTES=1
+      - OTP_MAX_RESEND_PER_HOUR=5
+    ports:
+      - "5001:5001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+    networks:
+      - backend_network
+    restart: unless-stopped
+    volumes:
+      - ./shared:/app/shared
+
+  # ============================================================
+  # COMMERCE SERVICE (Port 5002)
+  # Product + Inventory + Cart + Order
+  # ============================================================
+
+  commerce:
+    build:
+      context: .
+      dockerfile: services/commerce/Dockerfile
+    container_name: aarya_commerce
+    env_file:
+      - .env
+    environment:
+      - SERVICE_NAME=commerce
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:-postgres123}@postgres:5432/aarya_clothing
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-aarya_clothing_redis_password_2024}@redis:6379/1
+      - REDIS_DB=1
+      - CORE_SERVICE_URL=http://core:5001
+      - CART_TTL_HOURS=168
+      - ORDER_TIMEOUT_MINUTES=15
+      - ALLOWED_ORIGINS=["http://localhost:6004","http://localhost:6005","http://127.0.0.1:6004","http://127.0.0.1:6005","https://aaryaclothing.in","https://www.aaryaclothing.in"]
+      - DEBUG=${AARYA_DEBUG:-false}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      # JWT Verification
+      - SECRET_KEY=${SECRET_KEY:-dev_secret_key_change_in_production}
+      - ALGORITHM=HS256
+      # X_API_KEY for semantic search
+      - X_API_KEY=${X_API_KEY:-}
+      # Meilisearch
+      - MEILISEARCH_URL=http://meilisearch:7700
+      - MEILISEARCH_API_KEY=${MEILI_MASTER_KEY:-dev_master_key}
+      # R2 Storage (optional)
+      - R2_ACCOUNT_ID=${R2_ACCOUNT_ID:-}
+      - R2_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID:-}
+      - R2_SECRET_ACCESS_KEY=${R2_SECRET_ACCESS_KEY:-}
+      - R2_BUCKET_NAME=${R2_BUCKET_NAME:-aarya-clothing-images}
+      - R2_PUBLIC_URL=${R2_PUBLIC_URL:-}
+      - R2_REGION=${R2_REGION:-auto}
+      # AI / pgvector: embed products on create/update
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+    ports:
+      - "5002:5002"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      meilisearch:
+        condition: service_healthy
+      core:
+        condition: service_started
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+    networks:
+      - backend_network
+    restart: unless-stopped
+    volumes:
+      - ./shared:/app/shared
+
+  # ============================================================
+  # PAYMENT SERVICE (Port 5003)
+  # Payment Processing + Fraud Detection
+  # ============================================================
+
+  payment:
+    build:
+      context: .
+      dockerfile: services/payment/Dockerfile
+    container_name: aarya_payment
+    env_file:
+      - .env
+    environment:
+      - SERVICE_NAME=payment
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:-postgres123}@postgres:5432/aarya_clothing
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-aarya_clothing_redis_password_2024}@redis:6379/2
+      - REDIS_DB=2
+      - CORE_SERVICE_URL=http://core:5001
+      # JWT Verification
+      - SECRET_KEY=${SECRET_KEY:-dev_secret_key_change_in_production}
+      - ALGORITHM=HS256
+      # Razorpay (primary payment gateway)
+      - RAZORPAY_KEY_ID
+      - RAZORPAY_KEY_SECRET
+      - RAZORPAY_WEBHOOK_SECRET
+      - RAZORPAY_CHECKOUT_CONFIG_ID
+      # Cashfree (alternative payment gateway)
+      - CASHFREE_APP_ID=${CASHFREE_APP_ID:-}
+      - CASHFREE_SECRET_KEY=${CASHFREE_SECRET_KEY:-}
+      - CASHFREE_ENV=${CASHFREE_ENV:-production}
+      # Payment Settings
+      - PAYMENT_TIMEOUT_SECONDS=30
+      - MAX_RETRY_ATTEMPTS=3
+      - PAYMENT_SUCCESS_URL=${PAYMENT_SUCCESS_URL:-https://aaryaclothing.in/payment/success}
+      - PAYMENT_FAILURE_URL=${PAYMENT_FAILURE_URL:-https://aaryaclothing.in/payment/failure}
+      - PAYMENT_NOTIFY_URL=${PAYMENT_NOTIFY_URL:-https://aaryaclothing.in/api/v1/webhooks/razorpay}
+      - ALLOWED_ORIGINS=["http://localhost:6004","http://localhost:6005","http://127.0.0.1:6004","http://127.0.0.1:6005","https://aaryaclothing.in","https://www.aaryaclothing.in"]
+      - DEBUG=${AARYA_DEBUG:-false}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    ports:
+      - "5003:5003"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      core:
+        condition: service_started
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+    networks:
+      - backend_network
+    restart: unless-stopped
+    volumes:
+      - ./shared:/app/shared
+
+  # ============================================================
+  # ADMIN & STAFF SERVICE (Port 5004)
+  # Dashboard + Analytics + Inventory Ops + Chat + Landing Config
+  # ============================================================
+
+  admin:
+    build:
+      context: .
+      dockerfile: services/admin/Dockerfile
+    container_name: aarya_admin
+    env_file:
+      - .env
+    environment:
+      - SERVICE_NAME=admin
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:-postgres123}@postgres:5432/aarya_clothing
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-aarya_clothing_redis_password_2024}@redis:6379/3
+      - REDIS_DB=3
+      - SECRET_KEY=${SECRET_KEY:-dev_secret_key_change_in_production}
+      - ALGORITHM=HS256
+      - CORE_SERVICE_URL=http://core:5001
+      - COMMERCE_SERVICE_URL=http://commerce:5002
+      - PAYMENT_SERVICE_URL=http://payment:5003
+      - ALLOWED_ORIGINS=["http://localhost:6004","http://localhost:6005","http://127.0.0.1:6004","http://127.0.0.1:6005","https://aaryaclothing.in","https://www.aaryaclothing.in"]
+      - DEBUG=${AARYA_DEBUG:-false}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      # R2 Storage (optional)
+      - R2_ACCOUNT_ID=${R2_ACCOUNT_ID:-}
+      - R2_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID:-}
+      - R2_SECRET_ACCESS_KEY=${R2_SECRET_ACCESS_KEY:-}
+      - R2_BUCKET_NAME=${R2_BUCKET_NAME:-aarya-clothing-images}
+      - R2_PUBLIC_URL=${R2_PUBLIC_URL:-}
+      - R2_REGION=${R2_REGION:-auto}
+      # X_API_KEY for semantic search
+      - X_API_KEY=${X_API_KEY:-}
+      # AI Configuration
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - AI_MODEL=${AI_MODEL:-gemini-2.0-flash-lite}
+      - AI_MAX_HISTORY=${AI_MAX_HISTORY:-8}
+      - AI_CUSTOMER_MAX_TOKENS=${AI_CUSTOMER_MAX_TOKENS:-512}
+      - AI_ADMIN_MAX_TOKENS=${AI_ADMIN_MAX_TOKENS:-2048}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - GROQ_API_KEY=${GROQ_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - X_API_KEY=${X_API_KEY:-}
+    ports:
+      - "5004:5004"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      core:
+        condition: service_started
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+    networks:
+      - backend_network
+    restart: unless-stopped
+    volumes:
+      - ./shared:/app/shared
+
+  # ============================================================
+  # FRONTEND (Next.js - Port 6004)
+  # ============================================================
+
+  frontend:
+    build:
+      context: ./frontend_new
+      dockerfile: Dockerfile
+    container_name: aarya_frontend
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:6005}
+    ports:
+      - "6004:3000"
+    depends_on:
+      - core
+      - commerce
+    networks:
+      - frontend_network
+      - backend_network
+    restart: unless-stopped
+
+  # ============================================================
+  # NGINX REVERSE PROXY (Port 6005)
+  # Routes all API calls to appropriate backend services
+  # ============================================================
+
+  nginx:
+    image: nginx:alpine
+    container_name: aarya_nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./docker/nginx/snippets:/etc/nginx/snippets:ro
+      - ./docker/nginx/ssl:/etc/nginx/ssl:ro
+      - ./docker/certbot/www:/var/www/certbot:ro
+    depends_on:
+      - frontend
+      - core
+      - commerce
+      - payment
+      - admin
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.25'
+    networks:
+      - frontend_network
+      - backend_network
+    restart: unless-stopped
+
+  # ============================================================
+  # SSL CERTIFICATE MANAGEMENT (Certbot)
+  # ============================================================
+
+  certbot:
+    image: certbot/certbot
+    container_name: aarya_certbot
+    volumes:
+      - ./docker/certbot/conf:/etc/letsencrypt
+      - ./docker/certbot/www:/var/www/certbot
+    profiles:
+      - tools
+    networks:
+      - frontend_network
+
+# ============================================================
+# NETWORK DEFINITIONS
+# ============================================================
+
+networks:
+  frontend_network:
+    driver: bridge
+  backend_network:
+    driver: bridge
+
+# ============================================================
+# VOLUME DEFINITIONS
+# ============================================================
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  meilisearch_data:
+    driver: local

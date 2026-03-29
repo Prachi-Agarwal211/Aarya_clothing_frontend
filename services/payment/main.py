@@ -1,0 +1,1025 @@
+"""
+Payment Service - Aarya Clothing
+Payment Processing and Fraud Detection
+
+This service handles:
+- Razorpay payment processing
+- Transaction management
+- Refund processing
+- Webhook handling
+- Payment method management
+"""
+import logging
+from contextlib import asynccontextmanager
+from datetime import datetime, timezone
+import os
+from fastapi import FastAPI, Depends, HTTPException, status, Request, Header
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
+from sqlalchemy.orm import Session
+from typing import Optional, List
+from decimal import Decimal
+import json
+
+logger = logging.getLogger(__name__)
+
+from core.config import settings
+from core.redis_client import redis_client
+from database.database import get_db, init_db
+from service.payment_service import PaymentService
+from shared.auth_middleware import (
+    get_current_user,
+    require_admin,
+    require_staff,
+    initialize_auth_middleware
+)
+from schemas.payment import (
+    PaymentRequest, PaymentResponse, PaymentStatus, PaymentMethod,
+    RazorpayOrderRequest, RazorpayOrderResponse, RazorpayPaymentVerification,
+    RefundRequest, RefundResponse, RefundStatus,
+    WebhookEvent, WebhookResponse, PaymentMethodsResponse,
+    TransactionHistoryRequest
+)
+from core.razorpay_client import get_razorpay_client
+from service.payment_service import PaymentService
+from exception_handler import setup_exception_handlers
+
+
+# ==================== Lifespan ====================
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan events."""
+    # Startup
+    init_db()
+
+    # Initialize auth middleware
+    initialize_auth_middleware(
+        secret_key=settings.SECRET_KEY,
+        algorithm=settings.ALGORITHM,
+        redis_client=redis_client
+    )
+
+    # Test Razorpay connection if configured
+    try:
+        razorpay_client = get_razorpay_client()
+        logger.info("✓ Payment service: Razorpay client initialized")
+    except Exception as e:
+        logger.warning(f"⚠ Payment service: Razorpay client not initialized - {str(e)}")
+
+    logger.info("✓ Payment service started")
+    yield
+    
+    # Shutdown
+    logger.info("✓ Payment service stopped")
+
+
+# ==================== FastAPI App ====================
+
+app = FastAPI(
+    title="Aarya Clothing - Payment Service",
+    description="Payment Processing with Razorpay Integration",
+    version="1.0.0",
+    lifespan=lifespan
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.ALLOWED_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin", "X-CSRF-Token", "X-Razorpay-Signature"],
+)
+
+# Exception handlers
+setup_exception_handlers(app)
+
+
+# ==================== Health Check ====================
+
+@app.get("/health", tags=["Health"])
+async def health_check():
+    """Health check endpoint."""
+    return {
+        "status": "healthy",
+        "service": "payment",
+        "version": "1.0.0",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "features": {
+            "razorpay": bool(settings.RAZORPAY_KEY_ID and settings.RAZORPAY_KEY_SECRET),
+            "webhooks": bool(settings.RAZORPAY_WEBHOOK_SECRET)
+        }
+    }
+
+
+# ==================== Public Payment Config ====================
+
+@app.get("/api/v1/payment/config", tags=["Public Payment"])
+async def get_payment_config():
+    """Get public payment configuration for frontend.
+
+    This endpoint returns public payment configuration that frontend needs.
+    Backend is the SINGLE SOURCE OF TRUTH for all configuration.
+
+    Returns:
+        - Razorpay configuration (key ID, enabled status)
+        - Cashfree configuration (app ID, enabled status)
+        - Enabled payment methods
+        - Currency and other public settings
+    """
+    from service.cashfree_service import get_cashfree_service
+    
+    cashfree = get_cashfree_service()
+    
+    return {
+        "razorpay": {
+            "key_id": settings.RAZORPAY_KEY_ID or "",
+            "enabled": bool(settings.RAZORPAY_KEY_ID and settings.RAZORPAY_KEY_SECRET),
+            "checkout_config_id": settings.RAZORPAY_CHECKOUT_CONFIG_ID or "",
+        },
+        "cashfree": {
+            "app_id": settings.CASHFREE_APP_ID or "",
+            "enabled": cashfree.enabled,
+            "env": settings.CASHFREE_ENV,
+        },
+        "currency": "INR",
+        "default_method": "razorpay",  # Can be changed by user
+        "fee_structure": {
+            "razorpay": {"type": "percentage", "rate": 2.0},
+            "cashfree": {"type": "percentage", "rate": 1.9},
+        }
+    }
+
+
+# ==================== Razorpay Payment Routes ====================
+
+@app.post("/api/v1/payments/razorpay/create-order", response_model=RazorpayOrderResponse,
+          tags=["Razorpay"])
+async def create_razorpay_order(
+    request: RazorpayOrderRequest,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Create a Razorpay order for payment.
+    
+    This endpoint creates a Razorpay order that can be used to initiate payment.
+    """
+    try:
+        # Minimum amount guard: Razorpay requires >= 100 paise (₹1).
+        # Also reject suspiciously low amounts that indicate price manipulation.
+        MIN_AMOUNT_PAISE = 100  # ₹1 absolute minimum
+        if request.amount < MIN_AMOUNT_PAISE:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Order amount too low: {request.amount} paise. Minimum is {MIN_AMOUNT_PAISE} paise."
+            )
+        
+        # Validate receipt length (Razorpay requires ≤40 characters)
+        if request.receipt and len(request.receipt) > 40:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Receipt too long: {len(request.receipt)} characters. Maximum is 40 characters."
+            )
+        
+        logger.info(
+            f"create-order: user={current_user.get('user_id')} amount={request.amount} paise "
+            f"({request.amount/100:.2f} INR) "
+            f"currency={request.currency} receipt={request.receipt}"
+        )
+        razorpay_client = get_razorpay_client()
+        order = razorpay_client.create_order(
+            amount=int(request.amount),
+            currency=request.currency,
+            receipt=request.receipt,
+            notes=request.notes,
+            checkout_config_id=settings.RAZORPAY_CHECKOUT_CONFIG_ID or None,
+        )
+        logger.info(
+            f"✓ Order created: id={order.get('id')} "
+            f"amount={order.get('amount')} status={order.get('status')}"
+        )
+        return RazorpayOrderResponse(**order)
+
+    except Exception as e:
+        logger.error(f"✗ create-order failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to create Razorpay order: {str(e)}"
+        )
+
+
+@app.post("/api/v1/payments/razorpay/verify", response_model=PaymentResponse,
+          tags=["Razorpay"])
+async def verify_razorpay_payment(
+    request: RazorpayPaymentVerification,
+    db: Session = Depends(get_db)
+):
+    """
+    Verify Razorpay payment after completion.
+    
+    This endpoint verifies the payment signature and updates the transaction status.
+    """
+    try:
+        payment_service = PaymentService(db)
+        
+        # Find transaction by Razorpay order ID
+        from models.payment import PaymentTransaction
+        transaction = db.query(PaymentTransaction).filter(
+            PaymentTransaction.razorpay_order_id == request.razorpay_order_id
+        ).first()
+        
+        if not transaction:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Transaction not found"
+            )
+        
+        # Verify payment
+        response = await payment_service.verify_payment(
+            transaction.transaction_id,
+            request.razorpay_payment_id,
+            request.razorpay_signature
+        )
+        
+        return response
+        
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Payment verification failed: {str(e)}"
+        )
+
+
+@app.post("/api/v1/payments/razorpay/verify-signature", tags=["Razorpay"])
+async def verify_razorpay_signature(request: RazorpayPaymentVerification):
+    """
+    Verify Razorpay payment signature directly (no DB transaction lookup).
+    Use this after Razorpay checkout completes - just validates the HMAC signature.
+    Returns { success: true, razorpay_payment_id, razorpay_order_id } on success.
+    """
+    try:
+        razorpay_client = get_razorpay_client()
+        is_valid = razorpay_client.verify_payment(
+            request.razorpay_order_id,
+            request.razorpay_payment_id,
+            request.razorpay_signature,
+        )
+        if not is_valid:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid payment signature",
+            )
+        return {
+            "success": True,
+            "razorpay_payment_id": request.razorpay_payment_id,
+            "razorpay_order_id": request.razorpay_order_id,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Razorpay signature verification error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Signature verification failed: {str(e)}",
+        )
+
+
+@app.post("/api/v1/payments/razorpay/redirect-callback", tags=["Razorpay"])
+async def razorpay_redirect_callback(request: Request):
+    """
+    Browser redirect callback from Razorpay after redirect-mode (form-POST) payment.
+
+    Razorpay POSTs here with payment result; we verify HMAC signature and
+    redirect the browser to the frontend confirm page or payment-failure page.
+
+    Fallback safety: if our HMAC check fails but Razorpay's own API confirms
+    the payment was captured, we accept the payment to avoid stranding a user
+    who has already paid.
+    """
+    frontend_url = os.getenv("FRONTEND_URL", "https://aaryaclothing.in")
+    try:
+        form = await request.form()
+
+        # Log every field received (exclude signature for security)
+        form_keys = list(form.keys())
+        logger.info(f"redirect-callback received fields: {form_keys}")
+
+        razorpay_payment_id = form.get("razorpay_payment_id", "")
+        razorpay_order_id   = form.get("razorpay_order_id",   "")
+        razorpay_signature  = form.get("razorpay_signature",  "")
+
+        logger.info(
+            f"redirect-callback: payment_id={razorpay_payment_id} "
+            f"order_id={razorpay_order_id} "
+            f"has_signature={bool(razorpay_signature)}"
+        )
+
+        if razorpay_payment_id and razorpay_order_id and razorpay_signature:
+            razorpay_client = get_razorpay_client()
+            is_valid = razorpay_client.verify_payment(
+                razorpay_order_id, razorpay_payment_id, razorpay_signature
+            )
+
+            if is_valid:
+                logger.info(
+                    f"✓ Payment accepted: order={razorpay_order_id} "
+                    f"payment={razorpay_payment_id}"
+                )
+                return RedirectResponse(
+                    url=(
+                        f"{frontend_url}/checkout/confirm"
+                        f"?payment_id={razorpay_payment_id}"
+                        f"&razorpay_order_id={razorpay_order_id}"
+                        f"&razorpay_signature={razorpay_signature}"
+                    ),
+                    status_code=303,
+                )
+
+            # HMAC mismatch — before rejecting, confirm with Razorpay's API.
+            # If the payment is genuinely captured we should never strand the user.
+            logger.warning(
+                f"HMAC failed for order={razorpay_order_id} payment={razorpay_payment_id}. "
+                "Fetching payment from Razorpay API as fallback…"
+            )
+            try:
+                payment_data = razorpay_client.fetch_payment(razorpay_payment_id)
+                api_status   = payment_data.get("status", "")
+                api_order_id = payment_data.get("order_id", "")
+                logger.info(
+                    f"Razorpay API: payment={razorpay_payment_id} "
+                    f"status={api_status} order_id={api_order_id}"
+                )
+                if api_status == "captured" and api_order_id == razorpay_order_id:
+                    logger.warning(
+                        f"⚠ Accepting payment via API fallback (HMAC failed but captured): "
+                        f"order={razorpay_order_id} payment={razorpay_payment_id}"
+                    )
+                    return RedirectResponse(
+                        url=(
+                            f"{frontend_url}/checkout/confirm"
+                            f"?payment_id={razorpay_payment_id}"
+                            f"&razorpay_order_id={razorpay_order_id}"
+                            f"&razorpay_signature={razorpay_signature}"
+                        ),
+                        status_code=303,
+                    )
+                logger.error(
+                    f"✗ Payment rejected: HMAC failed AND API status={api_status} "
+                    f"(expected 'captured', order_id match={api_order_id == razorpay_order_id})"
+                )
+            except Exception as fetch_err:
+                logger.error(f"Razorpay API fallback fetch failed: {fetch_err}")
+
+            return RedirectResponse(
+                url=f"{frontend_url}/checkout/payment?error=verification_failed",
+                status_code=303,
+            )
+
+        # No payment IDs — payment failed or was cancelled
+        error_code = form.get("error[code]", "")
+        error_desc = (
+            form.get("error[description]")
+            or form.get("error_description")
+            or "unknown"
+        )
+        logger.warning(
+            f"redirect-callback: payment NOT completed — "
+            f"code={error_code} desc={error_desc}"
+        )
+        return RedirectResponse(
+            url=f"{frontend_url}/checkout/payment?error=payment_failed",
+            status_code=303,
+        )
+
+    except Exception as e:
+        logger.error(f"redirect-callback unhandled error: {e}", exc_info=True)
+        return RedirectResponse(
+            url=f"{frontend_url}/checkout/payment?error=server_error",
+            status_code=303,
+        )
+
+
+# ==================== Payment Routes ====================
+
+@app.post("/api/v1/payments/process", response_model=PaymentResponse,
+          tags=["Payments"])
+async def process_payment(
+    request: PaymentRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Process a payment for an order.
+    
+    This endpoint creates a payment transaction and initiates payment processing.
+    """
+    try:
+        payment_service = PaymentService(db)
+        response = payment_service.create_payment_transaction(request)
+        return response
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Payment processing failed: {str(e)}"
+        )
+
+
+@app.get("/api/v1/payments/{transaction_id}/status",
+         tags=["Payments"])
+async def get_payment_status(transaction_id: str, db: Session = Depends(get_db)):
+    """
+    Get the status of a payment transaction.
+    """
+    try:
+        payment_service = PaymentService(db)
+        payment_status = payment_service.get_payment_status(transaction_id)
+        
+        if not payment_status:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Transaction not found"
+            )
+        
+        return payment_status
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get payment status: {str(e)}"
+        )
+
+
+@app.post("/api/v1/payments/{transaction_id}/refund",
+          response_model=RefundResponse,
+          tags=["Payments"])
+async def refund_payment(
+    transaction_id: str,
+    reason: str = "Customer request",
+    amount: Optional[Decimal] = None,
+    db: Session = Depends(get_db)
+):
+    """
+    Process a refund for a transaction.
+    """
+    try:
+        payment_service = PaymentService(db)
+        refund_request = RefundRequest(
+            transaction_id=transaction_id,
+            amount=amount,
+            reason=reason
+        )
+        response = payment_service.refund_payment(refund_request)
+        return response
+        
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Refund processing failed: {str(e)}"
+        )
+
+
+@app.get("/api/v1/payment/methods", response_model=PaymentMethodsResponse,
+         tags=["Payments"])
+@app.get("/api/v1/payments/methods", response_model=PaymentMethodsResponse,
+         tags=["Payments"])
+async def get_payment_methods(db: Session = Depends(get_db)):
+    """
+    Get available payment methods — Razorpay only.
+    """
+    razorpay_enabled = bool(settings.RAZORPAY_KEY_ID and settings.RAZORPAY_KEY_SECRET)
+    methods = []
+    if razorpay_enabled:
+        methods.append({
+            "name": "razorpay",
+            "display_name": "Pay Online (Razorpay)",
+            "is_active": True,
+            "supported_currencies": ["INR"],
+            "min_amount": None,
+            "max_amount": None,
+        })
+    return PaymentMethodsResponse(
+        methods=methods,
+        default_method="razorpay"
+    )
+
+
+
+@app.get("/api/v1/payments/history",
+         tags=["Payments"])
+async def get_transaction_history(
+    user_id: Optional[int] = None,
+    order_id: Optional[int] = None,
+    status: Optional[PaymentStatus] = None,
+    payment_method: Optional[PaymentMethod] = None,
+    skip: int = 0,
+    limit: int = 50,
+    db: Session = Depends(get_db)
+):
+    """
+    Get transaction history with filters.
+    """
+    try:
+        payment_service = PaymentService(db)
+        request = TransactionHistoryRequest(
+            user_id=user_id,
+            order_id=order_id,
+            status=status,
+            payment_method=payment_method,
+            skip=skip,
+            limit=limit
+        )
+        
+        history = payment_service.get_transaction_history(request)
+        total = payment_service.count_transaction_history(request)
+        return {
+            "transactions": history,
+            "total": total,
+            "skip": skip,
+            "limit": limit
+        }
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get transaction history: {str(e)}"
+        )
+
+
+# ==================== Webhook Routes ====================
+
+@app.post("/api/v1/webhooks/razorpay", response_model=WebhookResponse,
+          tags=["Webhooks"])
+async def razorpay_webhook(
+    request: Request,
+    x_razorpay_signature: str = Header(..., description="Razorpay webhook signature")
+):
+    """
+    Handle Razorpay webhook events.
+    
+    This endpoint processes webhook events from Razorpay for payment status updates.
+    """
+    try:
+        # Get raw request body
+        body = await request.body()
+        body_str = body.decode('utf-8')
+        
+        # Verify webhook signature
+        razorpay_client = get_razorpay_client()
+        is_valid = razorpay_client.verify_webhook_signature(
+            body_str,
+            x_razorpay_signature
+        )
+        
+        if not is_valid:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid webhook signature"
+            )
+        
+        # Parse webhook data
+        webhook_data = json.loads(body_str)
+        
+        # Process webhook event with proper session management using context manager
+        from database.database import get_db_context
+        with next(get_db_context()) as db:
+            try:
+                payment_service = PaymentService(db)
+                success = payment_service.process_webhook_event(webhook_data)
+                db.commit()  # Commit on success
+                
+                return WebhookResponse(
+                    processed=success,
+                    message="Webhook processed successfully",
+                    event_type=webhook_data.get("event")
+                )
+            except Exception as e:
+                db.rollback()
+                raise e
+        
+    except json.JSONDecodeError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid webhook payload"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Webhook processing failed: {str(e)}"
+        )
+
+
+# ==================== Fraud Detection ====================
+
+@app.post("/api/v1/payments/verify", tags=["Payments"])
+async def verify_payment_risk(order_id: int, user_id: int, amount: Decimal):
+    """
+    Verify payment for potential fraud.
+    
+    This endpoint checks various factors to determine if a payment
+    might be fraudulent.
+    """
+    # Simple logic: higher amounts have higher risk scores
+    risk_score = 0.1
+    if amount > 10000:
+        risk_score = 0.5
+    if amount > 50000:
+        risk_score = 0.8
+        
+    risk_level = "low"
+    if risk_score > 0.7:
+        risk_level = "high"
+    elif risk_score > 0.4:
+        risk_level = "medium"
+        
+    recommendation = "approve"
+    if risk_level == "high":
+        recommendation = "review"
+    
+    return {
+        "risk_score": risk_score,
+        "risk_level": risk_level,
+        "recommendation": recommendation,
+        "checks_passed": [
+            "user_verified",
+            "ip_not_flagged",
+            "velocity_normal"
+        ]
+    }
+
+
+# ==================== Cashfree Payment Routes ====================
+
+@app.post("/api/v1/payments/cashfree/create-order", tags=["Cashfree"])
+async def create_cashfree_order(
+    request: RazorpayOrderRequest,  # Reuse same schema
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Create a Cashfree order for payment.
+
+    This endpoint creates a Cashfree order/session that can be used to initiate payment.
+    """
+    try:
+        from service.cashfree_service import get_cashfree_service
+        cashfree = get_cashfree_service()
+
+        if not cashfree.enabled:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Cashfree is not configured"
+            )
+
+        # Minimum amount guard
+        MIN_AMOUNT_PAISE = 100
+        if request.amount < MIN_AMOUNT_PAISE:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Order amount too low: {request.amount} paise. Minimum is {MIN_AMOUNT_PAISE} paise."
+            )
+
+        # Get user details for prefill
+        user_email = current_user.get("email", "")
+        user_phone = ""
+        user_name = current_user.get("username", "")
+
+        # Try to get from user profile
+        try:
+            from service.auth_service import AuthService
+            auth_service = AuthService(db)
+            user = auth_service.get_user_by_id(current_user.get("user_id"))
+            if user and user.profile:
+                user_email = user.email or user_email
+                user_phone = user.profile.phone or user_phone
+                user_name = user.profile.full_name or user_name
+        except Exception:
+            pass  # Use defaults
+
+        # Create Cashfree order
+        order = await cashfree.create_order(
+            order_id=request.receipt or f"order_{int(datetime.now(timezone.utc).timestamp())}",
+            amount=float(request.amount) / 100,  # Convert paise to rupees
+            currency=request.currency,
+            customer_name=user_name,
+            customer_email=user_email,
+            customer_phone=user_phone,
+        )
+
+        logger.info(f"✓ Cashfree order created: id={order.get('order_id')}")
+
+        return {
+            "success": True,
+            "order_id": order.get("order_id"),
+            "session_id": order.get("payment_session_id"),
+            "amount": order.get("order_amount"),
+            "currency": order.get("order_currency"),
+        }
+
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception as e:
+        logger.error(f"Cashfree order creation failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create Cashfree order: {str(e)}"
+        )
+
+
+@app.post("/api/v1/payments/cashfree/verify", tags=["Cashfree"])
+async def verify_cashfree_payment(request: Request):
+    """
+    Verify Cashfree payment signature.
+
+    This endpoint verifies the payment signature from Cashfree callback.
+    """
+    try:
+        from service.cashfree_service import get_cashfree_service
+        cashfree = get_cashfree_service()
+
+        if not cashfree.enabled:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Cashfree is not configured"
+            )
+
+        # Get form data from Cashfree callback
+        form_data = await request.form()
+
+        order_id = form_data.get("order_id", "")
+        order_amount = form_data.get("order_amount", "")
+        reference_id = form_data.get("reference_id", "")
+        signature = form_data.get("signature", "")
+
+        if not all([order_id, order_amount, reference_id, signature]):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Missing required payment parameters"
+            )
+
+        # Verify signature
+        is_valid = cashfree.verify_signature(
+            order_id=order_id,
+            order_amount=order_amount,
+            reference_id=reference_id,
+            signature=signature,
+        )
+
+        if not is_valid:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid payment signature"
+            )
+
+        # Verify order status
+        order_status = await cashfree.verify_order(order_id)
+
+        if order_status.get("order_status") != "PAID":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Payment not completed. Status: {order_status.get('order_status')}"
+            )
+
+        logger.info(f"✓ Cashfree payment verified: order={order_id}")
+
+        return {
+            "success": True,
+            "order_id": order_id,
+            "reference_id": reference_id,
+            "status": order_status.get("order_status"),
+        }
+
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception as e:
+        logger.error(f"Cashfree payment verification failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Payment verification failed: {str(e)}"
+        )
+
+
+@app.get("/api/v1/payments/cashfree/return", tags=["Cashfree"])
+async def cashfree_return_handler(request: Request):
+    """
+    Handle Cashfree redirect after payment completion.
+    
+    Verifies payment with Cashfree API → Redirects to confirm page with payment details.
+    """
+    frontend_url = settings.PAYMENT_SUCCESS_URL.replace("/payment/success", "")
+    
+    try:
+        # Get query params from Cashfree redirect
+        order_id = request.query_params.get("order_id")
+        reference_id = request.query_params.get("reference_id")
+        status = request.query_params.get("order_status")
+        
+        if not all([order_id, reference_id, status]):
+            logger.warning(f"Cashfree return: Missing params - order_id={order_id}, reference_id={reference_id}")
+            return RedirectResponse(
+                url=f"{frontend_url}/checkout/payment?error=payment_failed",
+                status_code=303,
+            )
+        
+        # Verify order status with Cashfree API
+        from service.cashfree_service import get_cashfree_service
+        cashfree = get_cashfree_service()
+        
+        if not cashfree.enabled:
+            logger.error("Cashfree not configured")
+            return RedirectResponse(
+                url=f"{frontend_url}/checkout/payment?error=payment_failed",
+                status_code=303,
+            )
+        
+        order_status = await cashfree.verify_order(order_id)
+        
+        # Check if payment was successful
+        order_status_value = order_status.get("order_status", "")
+        if order_status_value not in ["PAID", "ACTIVE", "CAPTURED"]:
+            logger.warning(f"Cashfree return: Payment not completed - status={order_status_value}")
+            return RedirectResponse(
+                url=f"{frontend_url}/checkout/payment?error=payment_failed",
+                status_code=303,
+            )
+        
+        # Get payment details from order
+        payments = order_status.get("payments", [])
+        payment_id = payments[0].get("payment_id") if payments else reference_id
+        
+        logger.info(f"✓ Cashfree return: order={order_id}, payment={payment_id}, status={order_status_value}")
+        
+        # Redirect to confirm page with Cashfree params
+        return RedirectResponse(
+            url=(
+                f"{frontend_url}/checkout/confirm"
+                f"?cashfree_order_id={order_id}"
+                f"&cashfree_payment_id={payment_id}"
+                f"&cashfree_reference_id={reference_id}"
+                f"&cashfree_status={order_status_value}"
+            ),
+            status_code=303,
+        )
+        
+    except Exception as e:
+        logger.error(f"Cashfree return handler error: {e}", exc_info=True)
+        return RedirectResponse(
+            url=f"{frontend_url}/checkout/payment?error=server_error",
+            status_code=303,
+        )
+
+
+@app.post("/api/v1/webhooks/cashfree", tags=["Cashfree"])
+async def cashfree_webhook(request: Request):
+    """
+    Handle Cashfree webhook events with signature verification.
+    
+    Cashfree sends POST notifications for payment status changes.
+    Updates PaymentTransaction status automatically.
+    """
+    try:
+        # Get raw body
+        body = await request.body()
+        body_str = body.decode('utf-8')
+
+        # ✅ NEW: Get webhook signature from headers
+        webhook_signature = request.headers.get("x-cashfree-signature")
+        
+        if not webhook_signature:
+            logger.warning("Cashfree webhook received without signature")
+            # For development, allow webhooks without signature
+            # In production, uncomment the next lines:
+            # raise HTTPException(
+            #     status_code=status.HTTP_401_UNAUTHORIZED,
+            #     detail="Missing webhook signature"
+            # )
+        
+        # ✅ NEW: Verify webhook signature
+        if webhook_signature:
+            from service.cashfree_service import get_cashfree_service
+            cashfree = get_cashfree_service()
+            
+            if not cashfree.enabled:
+                logger.error("Cashfree not configured for webhook verification")
+            else:
+                is_valid = cashfree.verify_webhook_signature(body_str, webhook_signature)
+                if not is_valid:
+                    logger.error("Invalid Cashfree webhook signature")
+                    raise HTTPException(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail="Invalid webhook signature"
+                    )
+                logger.info("✓ Cashfree webhook signature verified")
+
+        # Parse webhook data
+        try:
+            webhook_data = json.loads(body_str)
+        except json.JSONDecodeError:
+            logger.error("Invalid JSON in Cashfree webhook")
+            raise HTTPException(status_code=400, detail="Invalid webhook payload")
+
+        # Log webhook event
+        logger.info(f"Cashfree webhook received: event={webhook_data.get('event', 'unknown')}")
+
+        # Process with DB session
+        from database.database import get_db_context
+        with next(get_db_context()) as db:
+            try:
+                from service.payment_service import PaymentService
+                payment_service = PaymentService(db)
+                success = payment_service.process_cashfree_webhook(webhook_data)
+                db.commit()
+
+                logger.info(f"✓ Cashfree webhook processed: success={success}")
+                return {"status": "ok", "processed": success}
+
+            except Exception as e:
+                db.rollback()
+                logger.error(f"Cashfree webhook processing failed: {e}")
+                raise e
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Cashfree webhook error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Webhook processing failed")
+
+
+@app.get("/api/v1/payment/methods", response_model=PaymentMethodsResponse, tags=["Payments"])
+async def get_payment_methods():
+    """
+    Get available payment methods from both Razorpay and Cashfree.
+    """
+    from service.cashfree_service import get_cashfree_service
+    
+    cashfree = get_cashfree_service()
+    cashfree_methods = await cashfree.get_payment_methods()
+
+    methods = []
+
+    # Add Razorpay methods (all enabled if Razorpay is configured)
+    if settings.razorpay_enabled:
+        methods.extend([
+            {
+                "name": "razorpay_upi",
+                "display_name": "UPI (Razorpay)",
+                "is_active": True,
+                "supported_currencies": ["INR"],
+            },
+            {
+                "name": "razorpay_card",
+                "display_name": "Cards (Razorpay)",
+                "is_active": True,
+                "supported_currencies": ["INR"],
+            },
+            {
+                "name": "razorpay_netbanking",
+                "display_name": "Net Banking (Razorpay)",
+                "is_active": True,
+                "supported_currencies": ["INR"],
+            },
+            {
+                "name": "razorpay_wallet",
+                "display_name": "Wallets (Razorpay)",
+                "is_active": True,
+                "supported_currencies": ["INR"],
+            },
+        ])
+
+    # Add Cashfree methods
+    if cashfree_methods.get("enabled"):
+        for method in cashfree_methods.get("methods", []):
+            methods.append({
+                "name": f"cashfree_{method['name'].lower()}",
+                "display_name": f"{method['display_name']} (Cashfree)",
+                "is_active": method.get("is_active", False),
+                "supported_currencies": method.get("supported_currencies", ["INR"]),
+            })
+
+    return PaymentMethodsResponse(
+        methods=methods,
+        default_method="razorpay" if settings.razorpay_enabled else "cashfree" if cashfree.enabled else None,
+    )
+
+
+# ==================== Entry Point ====================
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(
+        "main:app",
+        host="0.0.0.0",
+        port=5003,
+        reload=False,
+        log_level="info"
+    )

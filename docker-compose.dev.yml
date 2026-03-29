@@ -169,11 +169,12 @@ services:
       context: ./frontend_new
       dockerfile: Dockerfile.dev
     volumes:
-      # Mount the entire frontend directory for config files (jsconfig.json, next.config.js, etc.)
+      # Mount source code for hot reload (excluding node_modules and .next)
       - ./frontend_new:/app
-      # Use anonymous volume for .next to prevent host overwrites, but let node_modules use container's installed deps
+      # Preserve node_modules and .next in container
+      - /app/node_modules
       - /app/.next
     environment:
       - NODE_ENV=development
-      - NEXT_PUBLIC_API_URL=http://72.61.255.8:6005
+      - NEXT_PUBLIC_API_URL=https://aaryaclothing.in
     command: npm run dev

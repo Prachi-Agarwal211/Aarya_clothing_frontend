@@ -130,7 +130,7 @@ export default function AdminSidebar({ collapsed, onToggle, isMobile = false, on
         'fixed top-0 left-0 z-40 h-screen transition-all duration-300 ease-in-out',
         'bg-[#0B0608]/60 backdrop-blur-xl border-r border-[#B76E79]/20',
         'flex flex-col shadow-[4px_0_24px_rgba(0,0,0,0.4)]',
-        isMobile ? 'w-72' : (collapsed ? 'w-20' : 'w-64')
+        isMobile ? (collapsed ? 'w-20' : 'w-72') : (collapsed ? 'w-20' : 'w-64')
       )}
       role="navigation"
       aria-label="Admin navigation"
@@ -155,13 +155,29 @@ export default function AdminSidebar({ collapsed, onToggle, isMobile = false, on
 
         {/* Toggle/Close Button */}
         {isMobile ? (
-          <button
-            onClick={onClose}
-            className="p-2 rounded-lg hover:bg-[#B76E79]/10 transition-colors min-w-[44px] min-h-[44px] touch-target"
-            aria-label="Close navigation menu"
-          >
-            <X className="w-5 h-5 text-[#EAE0D5]/70" />
-          </button>
+          <div className="flex items-center gap-1">
+            {/* Collapse toggle for mobile */}
+            <button
+              onClick={handleToggle}
+              className="p-2 rounded-lg hover:bg-[#B76E79]/10 transition-colors min-w-[44px] min-h-[44px] touch-target"
+              aria-label={collapsed ? 'Expand navigation menu' : 'Collapse navigation menu'}
+              aria-expanded={!collapsed}
+            >
+              {collapsed ? (
+                <ChevronRight className="w-5 h-5 text-[#EAE0D5]/70" />
+              ) : (
+                <ChevronLeft className="w-5 h-5 text-[#EAE0D5]/70" />
+              )}
+            </button>
+            {/* Close button for mobile */}
+            <button
+              onClick={onClose}
+              className="p-2 rounded-lg hover:bg-[#B76E79]/10 transition-colors min-w-[44px] min-h-[44px] touch-target"
+              aria-label="Close navigation menu"
+            >
+              <X className="w-5 h-5 text-[#EAE0D5]/70" />
+            </button>
+          </div>
         ) : (
           <button
             onClick={handleToggle}

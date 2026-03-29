@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect, useRef } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/authContext';
 // We can reuse AdminHeader and AdminSidebar for now, 
 // but ideally Staff should have their own sidebar with limited items.
@@ -11,12 +11,40 @@ import AdminHeader from '../../layout/AdminHeader';
 
 export default function StaffDashboardLayout({ children }) {
   const router = useRouter();
+  const pathname = usePathname();
   const { user, loading, isAuthenticated } = useAuth();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const sidebarRef = useRef(null);
 
   // Note: Permission check is done in the page-level layout (app/admin/staff/layout.js)
   // This component assumes the user is authorized.
+
+  // Close mobile menu on route change
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [pathname]);
+
+  // Handle click/touch outside to close mobile menu
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+
+    const handleClickOutside = (event) => {
+      if (!sidebarRef.current) return;
+      const headerMenuButton = document.querySelector('[data-mobile-menu-button]');
+      if (headerMenuButton?.contains(event.target)) return;
+      if (!sidebarRef.current.contains(event.target)) {
+        setMobileMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, [mobileMenuOpen]);
 
   if (loading) {
     return (
@@ -60,6 +88,7 @@ export default function StaffDashboardLayout({ children }) {
 
       {/* Sidebar - Mobile */}
       <div
+        ref={sidebarRef}
         className={`
           lg:hidden fixed inset-y-0 left-0 z-50
           transform transition-transform duration-300
@@ -69,6 +98,8 @@ export default function StaffDashboardLayout({ children }) {
         <AdminSidebar
           collapsed={false}
           onToggle={() => setMobileMenuOpen(false)}
+          isMobile={true}
+          onClose={() => setMobileMenuOpen(false)}
         />
       </div>
 

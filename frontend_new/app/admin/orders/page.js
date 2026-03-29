@@ -299,6 +299,7 @@ function OrdersContent() {
         'Order #': '',
         'Customer Email': '',
         'Customer Name': '',
+        'Phone': '',
         'Total (₹)': '',
         'Payment Method': '',
         'POD/Tracking No.': '',
@@ -319,6 +320,7 @@ function OrdersContent() {
             'Order #': order.order_number || `ORD-${String(order.id).padStart(6, '0')}`,
             'Customer Email': order.customer_email || '',
             'Customer Name': order.customer_name || '',
+            'Phone': order.customer_phone || '',
             'Total (₹)': order.total_amount || 0,
             'Payment Method': order.payment_method || '',
             'POD/Tracking No.': order.tracking_number || order.pod_number || '',
@@ -335,6 +337,7 @@ function OrdersContent() {
         { wch: 15 }, // Order #
         { wch: 30 }, // Customer Email
         { wch: 25 }, // Customer Name
+        { wch: 15 }, // Phone
         { wch: 12 }, // Total
         { wch: 15 }, // Payment Method
         { wch: 20 }, // POD/Tracking No.
@@ -354,6 +357,7 @@ function OrdersContent() {
               'Order #': order.order_number || `ORD-${String(order.id).padStart(6, '0')}`,
               'Customer Email': order.customer_email || '',
               'Customer Name': order.customer_name || '',
+              'Phone': order.customer_phone || '',
               'Total (₹)': order.total_amount || 0,
               'Payment Method': order.payment_method || '',
               'POD/Tracking No.': order.tracking_number || order.pod_number || '',
@@ -370,6 +374,7 @@ function OrdersContent() {
           { wch: 15 }, // Order #
           { wch: 30 }, // Customer Email
           { wch: 25 }, // Customer Name
+          { wch: 15 }, // Phone
           { wch: 12 }, // Total
           { wch: 15 }, // Payment Method
           { wch: 20 }, // POD/Tracking No.
@@ -745,7 +750,7 @@ function OrdersContent() {
               </div>
               <div className="p-3 bg-[#7A2F57]/10 rounded-xl text-xs text-[#EAE0D5]/50">
                 <p className="font-medium mb-1">Columns exported:</p>
-                <p>Order ID, Order #, Customer Email, Customer Name, Total (₹), Payment Method, POD/Tracking No., Shipping Address, Order Date</p>
+                <p>Order ID, Order #, Customer Email, Customer Name, Phone, Total (₹), Payment Method, POD/Tracking No., Shipping Address, Order Date</p>
                 <p className="mt-2 text-[#B76E79]">Excel will be organized with one sheet per day!</p>
               </div>
             </div>

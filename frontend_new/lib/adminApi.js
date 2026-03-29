@@ -108,23 +108,10 @@ export const ordersApi = {
 // ==================== AI API ====================
 export const aiApi = {
   customerChat: (message, sessionId, language = 'auto') =>
-    fetch('/api/v1/ai/customer/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ message, session_id: sessionId, language }),
-    }).then(r => r.json()),
+    adminClient.post('/api/v1/ai/customer/chat', { message, session_id: sessionId, language }),
 
-  adminChat: (message, sessionId, images) => {
-    return fetch('/api/v1/ai/admin/chat', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ message, session_id: sessionId, images }),
-      credentials: 'include', // Send cookies automatically
-    }).then(r => r.json());
-  },
+  adminChat: (message, sessionId, images) =>
+    adminClient.post('/api/v1/ai/admin/chat', { message, session_id: sessionId, images }),
 
   getAnalytics: (days = 30) =>
     adminClient.get('/api/v1/ai/admin/analytics', { days }),

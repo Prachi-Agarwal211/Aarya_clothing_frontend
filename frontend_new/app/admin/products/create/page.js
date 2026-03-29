@@ -22,7 +22,7 @@ const INITIAL_FORM = {
   slug: '',
   short_description: '',
   description: '',
-  base_price: '',
+  price: '',
   mrp: '',
   category_id: '',
   brand: '',
@@ -131,8 +131,8 @@ export default function CreateProductPage() {
   const validate = () => {
     const newErrors = {};
     if (!form.name.trim()) newErrors.name = 'Product name is required';
-    const price = parseFloat(form.base_price);
-    if (!form.base_price || price <= 0) newErrors.base_price = 'Selling price must be greater than 0';
+    const price = parseFloat(form.price);
+    if (!form.price || price <= 0) newErrors.price = 'Selling price must be greater than 0';
     if (form.mrp && parseFloat(form.mrp) < price) newErrors.mrp = 'MRP must be ≥ selling price';
     if (!form.category_id) newErrors.category_id = 'Collection is required';
     // 🔥 CRITICAL FIX: Validate initial_stock is a non-negative number
@@ -154,7 +154,7 @@ export default function CreateProductPage() {
         slug: form.slug || undefined,
         short_description: form.short_description || undefined,
         description: form.description || undefined,
-        base_price: parseFloat(form.base_price),
+        base_price: parseFloat(form.price),
         mrp: form.mrp ? parseFloat(form.mrp) : undefined,
         category_id: parseInt(form.category_id),
         brand: form.brand || undefined,
@@ -331,18 +331,18 @@ export default function CreateProductPage() {
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#EAE0D5]/50">₹</span>
                     <input
                       type="number"
-                      name="base_price"
-                      value={form.base_price}
+                      name="price"
+                      value={form.price}
                       onChange={handleChange}
                       placeholder="0"
                       min="0.01"
                       step="0.01"
                       className={`w-full pl-8 pr-4 py-2.5 bg-[#0B0608]/60 border rounded-xl text-[#EAE0D5] placeholder-[#EAE0D5]/40 focus:outline-none transition-colors ${
-                        errors.base_price ? 'border-red-500/50' : 'border-[#B76E79]/20 focus:border-[#B76E79]/40'
+                        errors.price ? 'border-red-500/50' : 'border-[#B76E79]/20 focus:border-[#B76E79]/40'
                       }`}
                     />
                   </div>
-                  {errors.base_price && <p className="text-red-400 text-xs mt-1">{errors.base_price}</p>}
+                  {errors.price && <p className="text-red-400 text-xs mt-1">{errors.price}</p>}
                 </div>
 
                 {/* MRP */}
@@ -367,9 +367,9 @@ export default function CreateProductPage() {
                     />
                   </div>
                   {errors.mrp && <p className="text-red-400 text-xs mt-1">{errors.mrp}</p>}
-                  {form.base_price && form.mrp && parseFloat(form.mrp) > parseFloat(form.base_price) && (
+                  {form.price && form.mrp && parseFloat(form.mrp) > parseFloat(form.price) && (
                     <p className="text-green-400/70 text-xs mt-1">
-                      Discount: {Math.round((1 - parseFloat(form.base_price) / parseFloat(form.mrp)) * 100)}% off
+                      Discount: {Math.round((1 - parseFloat(form.price) / parseFloat(form.mrp)) * 100)}% off
                     </p>
                   )}
                 </div>

@@ -181,6 +181,7 @@ class UserListItem(BaseModel):
     email: str
     username: str
     full_name: str
+    phone: Optional[str] = None
     role: str
     is_active: bool
     created_at: Optional[datetime] = None

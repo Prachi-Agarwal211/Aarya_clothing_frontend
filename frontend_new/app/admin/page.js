@@ -15,6 +15,7 @@ import { ErrorBoundary, ErrorDisplay } from '@/components/admin/shared/ErrorBoun
 import { dashboardApi, ordersApi, inventoryApi } from '@/lib/adminApi';
 import { useAuth } from '@/lib/authContext';
 import { isAdmin } from '@/lib/roles';
+import { cn } from '@/lib/utils';
 import logger from '@/lib/logger';
 
 const fmt = (n) =>
@@ -433,9 +434,4 @@ export default function AdminDashboard() {
       <DashboardContent />
     </ErrorBoundary>
   );
-}
-
-// Utility function for class names
-function cn(...classes) {
-  return classes.filter(Boolean).join(' ');
 }

@@ -51,14 +51,14 @@ export default function CartDrawer() {
   const handleIncreaseQuantity = async (item) => {
     const newQuantity = item.quantity + 1;
     const itemKey = `${item.product_id}_${item.variant_id || 0}`;
-    
+
     // Check real-time stock availability
     const stockCheck = checkStock(item.product_id, item.variant_id, newQuantity);
-    
-    if (!stockCheck.inStock && stockCheck.available !== null) {
+
+    if (!stockCheck.inStock) {
       setStockErrors(prev => ({
         ...prev,
-        [itemKey]: `Only ${stockCheck.available} available`
+        [itemKey]: 'Quantity unavailable'
       }));
       return;
     }

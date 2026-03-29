@@ -1718,6 +1718,7 @@ async def list_all_orders(
                o.total_amount, o.payment_method, o.status, o.tracking_number,
                o.order_notes, o.created_at, o.updated_at,
                u.email as customer_email, COALESCE(up.full_name, u.username) as customer_name,
+               COALESCE(up.phone, '') as customer_phone,
                o.invoice_number, o.shipping_address
         FROM orders o
         LEFT JOIN users u ON u.id = o.user_id
@@ -1754,8 +1755,9 @@ async def list_all_orders(
             "updated_at": str(r[11]),
             "customer_email": r[12],
             "customer_name": r[13],
-            "invoice_number": r[14],
-            "shipping_address": r[15],
+            "customer_phone": r[14],
+            "invoice_number": r[15],
+            "shipping_address": r[16],
             "order_number": f"ORD-{r[0]:06d}",
         }
         for r in rows
@@ -2009,6 +2011,7 @@ async def export_orders_excel(
     rows = db.execute(
         text(f"""
         SELECT o.id, u.email, COALESCE(up.full_name, u.username) as customer_name,
+               up.phone as customer_phone,
                o.total_amount, o.payment_method, o.status, o.tracking_number,
                o.shipping_address, o.created_at
         FROM orders o
@@ -2025,7 +2028,7 @@ async def export_orders_excel(
     from collections import defaultdict
     orders_by_date = defaultdict(list)
     for r in rows:
-        order_date = r[8]
+        order_date = r[9]
         if order_date:
             date_key = order_date.strftime('%Y-%m-%d') if hasattr(order_date, 'strftime') else str(order_date)[:10]
             orders_by_date[date_key].append(r)
@@ -2041,6 +2044,7 @@ async def export_orders_excel(
         "Order #",
         "Customer Email",
         "Customer Name",
+        "Phone",
         "Total (₹)",
         "Payment Method",
         "POD / Tracking No.",
@@ -2072,17 +2076,21 @@ async def export_orders_excel(
             cell.alignment = Alignment(horizontal="center")
         
         # Write data
+        # SQL column indices: 0=id, 1=email, 2=customer_name, 3=customer_phone,
+        # 4=total_amount, 5=payment_method, 6=status, 7=tracking_number,
+        # 8=shipping_address, 9=created_at
         for row_idx, r in enumerate(date_orders, 2):
             order_id = r[0]
             ws.cell(row=row_idx, column=1, value=order_id)
             ws.cell(row=row_idx, column=2, value=f"ORD-{order_id:06d}")
             ws.cell(row=row_idx, column=3, value=r[1])   # email
             ws.cell(row=row_idx, column=4, value=r[2])   # customer_name
-            ws.cell(row=row_idx, column=5, value=float(r[3] or 0))  # total
-            ws.cell(row=row_idx, column=6, value=r[4])   # payment_method
-            ws.cell(row=row_idx, column=7, value=r[6])   # tracking_number / POD
-            ws.cell(row=row_idx, column=8, value=r[7])   # shipping_address
-            ws.cell(row=row_idx, column=9, value=str(r[8])[:19] if r[8] else "")  # created_at
+            ws.cell(row=row_idx, column=5, value=r[3] or "")   # customer_phone
+            ws.cell(row=row_idx, column=6, value=float(r[4] or 0))  # total_amount
+            ws.cell(row=row_idx, column=7, value=r[5])   # payment_method
+            ws.cell(row=row_idx, column=8, value=r[7])   # tracking_number / POD
+            ws.cell(row=row_idx, column=9, value=r[8])   # shipping_address
+            ws.cell(row=row_idx, column=10, value=str(r[9])[:19] if r[9] else "")  # created_at
         
         # Auto-adjust column widths
         for col in ws.columns:
@@ -4282,6 +4290,7 @@ async def get_user(
             u.email,
             u.username,
             COALESCE(up.full_name, '') as full_name,
+            COALESCE(up.phone, '') as phone,
             u.role,
             u.is_active,
             u.created_at,
@@ -4310,11 +4319,12 @@ async def get_user(
         "email": row[1],
         "username": row[2],
         "full_name": row[3],
-        "role": row[4],
-        "is_active": row[5],
-        "created_at": row[6],
-        "order_count": row[7],
-        "total_spent": float(row[8]),
+        "phone": row[4],
+        "role": row[5],
+        "is_active": row[6],
+        "created_at": row[7],
+        "order_count": row[8],
+        "total_spent": float(row[9]),
     }
 
 

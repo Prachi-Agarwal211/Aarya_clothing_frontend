@@ -505,13 +505,16 @@ export default function ProductDetailPage() {
                     <button
                       onClick={() => setQuantity(Math.min(product.stock_quantity || 10, quantity + 1))}
                       className="p-2.5 text-[#EAE0D5]/70 hover:text-[#EAE0D5] hover:bg-[#B76E79]/10 transition-colors"
+                      disabled={quantity >= (product.stock_quantity || 10)}
                     >
                       <Plus className="w-4 h-4" />
                     </button>
                   </div>
-                  <span className="text-sm text-[#EAE0D5]/50">
-                    {product.in_stock ? `${product.stock_quantity} available` : 'Out of stock'}
-                  </span>
+                  {product.stock_quantity !== undefined && product.stock_quantity > 0 && (
+                    <p className="text-xs text-[#EAE0D5]/50">
+                      {product.stock_quantity - quantity} more available
+                    </p>
+                  )}
                 </div>
               </div>
 

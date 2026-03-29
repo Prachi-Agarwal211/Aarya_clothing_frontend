@@ -189,7 +189,7 @@ function ModelSelect({ provider, value, onChange }) {
 }
 
 // ── Provider Card ─────────────────────────────────────────────────────────────
-function ProviderCard({ providerKey, config, isActive, onActivate, apiKey, onUpdateApiKey, onTestKey, testResult }) {
+function ProviderCard({ providerKey, config, isActive, onActivate, apiKey, onUpdateApiKey, onTestKey, testResult, selectedModel }) {
   const Icon = config.icon;
 
   return (
@@ -238,10 +238,13 @@ function ProviderCard({ providerKey, config, isActive, onActivate, apiKey, onUpd
         </div>
 
         {/* Model Selection (only if active) */}
-        {isActive && (
+        {isActive && selectedModel && (
           <div>
-            <p className="text-xs font-medium text-[#EAE0D5]/60 mb-2 uppercase tracking-wider">Select Model</p>
-            <ModelSelect provider={providerKey} value={apiKey ? 'selected' : ''} onChange={() => {}} />
+            <p className="text-xs font-medium text-[#EAE0D5]/60 mb-2 uppercase tracking-wider">Current Model</p>
+            <p className="text-sm text-[#F2C29A] font-mono bg-[#0B0608]/60 px-3 py-2 rounded-lg border border-[#B76E79]/10">
+              {selectedModel}
+            </p>
+            <p className="text-xs text-[#EAE0D5]/30 mt-1">Change models in the Model Configuration section below</p>
           </div>
         )}
       </div>
@@ -367,6 +370,7 @@ export default function SuperAdminAiSettings() {
               onUpdateApiKey={(value) => updateSetting(`${key.toUpperCase()}_API_KEY`, value)}
               onTestKey={() => testApiKey(key, settings[`${key.toUpperCase()}_API_KEY`])}
               testResult={testResults[`${key}_test`]}
+              selectedModel={activeProvider === key ? (settings.CUSTOMER_MODEL || settings.ADMIN_MODEL) : ''}
             />
           ))}
         </div>

@@ -46,8 +46,13 @@ export default function AdminLayout({ children }) {
       }
     };
 
+    // Use both mousedown (desktop) and touchstart (mobile) for reliable close behavior
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
   }, [mobileMenuOpen]);
 
   // Close mobile menu on route change

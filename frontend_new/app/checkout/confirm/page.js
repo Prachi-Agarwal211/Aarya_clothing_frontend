@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { CheckCircle, Package, Truck, MapPin, ChevronRight, ShoppingBag, AlertCircle, Receipt, Printer } from 'lucide-react';
@@ -17,6 +17,13 @@ export default function CheckoutConfirmPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isCreating, setIsCreating] = useState(false); // Prevent concurrent order creation
+  const mountedRef = useRef(false); // Prevent state updates after unmount
+
+  // Cleanup on unmount
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -27,6 +34,21 @@ export default function CheckoutConfirmPage() {
 
   useEffect(() => {
     if (isAuthenticated) {
+      // Idempotency: if order already created, just fetch it
+      const alreadyCreated = sessionStorage.getItem('order_created');
+      if (alreadyCreated && alreadyCreated !== 'error') {
+        (async () => {
+          try {
+            const existing = await ordersApi.getById(parseInt(alreadyCreated));
+            if (existing && mountedRef.current) setOrder(existing.order || existing);
+          } catch (err) {
+            logger.warn('Failed to fetch existing order:', err?.message);
+          }
+          if (mountedRef.current) setLoading(false);
+        })();
+        return;
+      }
+
       // For redirect-mode payments, payment details are sent as URL params
       const params = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
       

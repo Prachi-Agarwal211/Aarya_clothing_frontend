@@ -217,6 +217,19 @@ export default function InventoryPage() {
   const [editThresholdItem, setEditThresholdItem] = useState(null);
   const [toast, setToast] = useState(null);
   const [stats, setStats] = useState({ total: 0, lowStock: 0, outOfStock: 0 });
+  const allItemsCacheRef = React.useRef(null);
+  const cacheTimestampRef = React.useRef(null);
+  const CACHE_EXPIRY_MS = 5 * 60 * 1000; // 5 minutes
+
+  const isCacheValid = () => {
+    if (!allItemsCacheRef.current || !cacheTimestampRef.current) return false;
+    return Date.now() - cacheTimestampRef.current < CACHE_EXPIRY_MS;
+  };
+
+  const invalidateCache = () => {
+    allItemsCacheRef.current = null;
+    cacheTimestampRef.current = null;
+  };
 
   const showToast = useCallback((message, type = 'success') => {
     setToast({ message, type });
@@ -239,15 +252,24 @@ export default function InventoryPage() {
           data = await inventoryApi.getOutOfStock();
         } else {
           data = await inventoryApi.list({ limit: 500 });
+          // Cache the full list for stats computation
+          allItemsCacheRef.current = data.items || [];
+          cacheTimestampRef.current = Date.now();
         }
         const currentItems = data.items || [];
         setItems(currentItems);
 
-        // For stats, use the All tab data if already on it, otherwise fetch separately once
-        let allItems = currentItems;
-        if (activeTab !== 'All') {
-          const allData = await inventoryApi.list({ limit: 500 });
-          allItems = allData.items || [];
+        // For stats: use cached All tab data if available and valid, otherwise fetch once
+        let allItems = allItemsCacheRef.current;
+        if (!allItems || allItems.length === 0 || !isCacheValid()) {
+          if (activeTab === 'All') {
+            allItems = currentItems;
+          } else {
+            const allData = await inventoryApi.list({ limit: 500 });
+            allItems = allData.items || [];
+            allItemsCacheRef.current = allItems;
+            cacheTimestampRef.current = Date.now();
+          }
         }
         const total = allItems.length;
         const low = allItems.filter(i => i.quantity > 0 && i.quantity <= (i.low_stock_threshold || 5)).length;

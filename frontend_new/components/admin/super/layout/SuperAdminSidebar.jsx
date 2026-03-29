@@ -27,7 +27,7 @@ const navigation = [
   { name: 'System Settings', href: '/admin/super/settings', icon: Settings },
 ];
 
-export default function SuperAdminSidebar({ collapsed, onToggle }) {
+export default function SuperAdminSidebar({ collapsed, onToggle, onClose }) {
   const pathname = usePathname();
   const router = useRouter();
   const { logout } = useAuth();

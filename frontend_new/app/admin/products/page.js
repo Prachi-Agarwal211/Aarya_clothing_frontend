@@ -56,15 +56,17 @@ function BulkPriceModal({ selectedIds, onClose, onDone }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-      <div className="bg-[#0B0608] border border-[#B76E79]/30 rounded-2xl w-full max-w-md">
-        <div className="flex items-center justify-between p-6 border-b border-[#B76E79]/20">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-full sm:max-w-md bg-[#0B0608] border border-[#B76E79]/30 sm:rounded-2xl flex flex-col max-h-[90vh]">
+        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-[#B76E79]/20 flex-shrink-0">
           <h2 className="text-lg font-bold text-[#F2C29A]">Bulk Price Update</h2>
           <button onClick={onClose} className="p-2 rounded-lg hover:bg-[#B76E79]/10 text-[#EAE0D5]/60"><X className="w-5 h-5" /></button>
         </div>
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <p className="text-sm text-[#EAE0D5]/60">{selectedIds.length} product(s) selected</p>
-          {error && <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">{error}</div>}
+        <div className="overflow-y-auto flex-1 min-h-0">
+          <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4">
+            <p className="text-sm text-[#EAE0D5]/60">{selectedIds.length} product(s) selected</p>
+            {error && <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">{error}</div>}
           <div>
             <label className="block text-sm text-[#EAE0D5]/70 mb-2">Update Mode</label>
             <div className="grid grid-cols-3 gap-2">
@@ -98,7 +100,8 @@ function BulkPriceModal({ selectedIds, onClose, onDone }) {
               {saving ? 'Updating...' : 'Update Prices'}
             </button>
           </div>
-        </form>
+          </form>
+        </div>
       </div>
     </div>
   );
@@ -161,9 +164,9 @@ function VariantModal({ product, variant, onClose, onSaved }) {
   }, []);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 h-full">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 h-full">
       <div className="absolute inset-0 bg-[#0B0608]/80 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-md bg-[#0B0608] border border-[#B76E79]/20 rounded-2xl shadow-2xl flex flex-col max-h-[90vh]">
+      <div className="relative w-full sm:max-w-md bg-[#0B0608] border border-[#B76E79]/20 sm:rounded-2xl shadow-2xl flex flex-col max-h-[95vh] sm:max-h-[90vh]">
         <div className="flex items-center justify-between p-4 sm:p-6 border-b border-[#B76E79]/10 flex-shrink-0">
           <div>
             <h2 className="text-xl font-bold text-[#F2C29A]" style={{ fontFamily: 'Cinzel, serif' }}>
@@ -302,18 +305,18 @@ function EditProductModal({ product, collections, onClose, onSaved }) {
   }, []);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 h-full">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 h-full">
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-lg bg-[#0B0608] border border-[#B76E79]/30 rounded-2xl shadow-2xl flex flex-col max-h-[92vh]">
+      <div className="relative w-full sm:max-w-lg bg-[#0B0608] border border-[#B76E79]/30 sm:rounded-2xl shadow-2xl flex flex-col max-h-[95vh] sm:max-h-[90vh]">
         {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b border-[#B76E79]/15 flex-shrink-0">
+        <div className="flex items-center justify-between p-4 sm:p-5 border-b border-[#B76E79]/15 flex-shrink-0">
           <div>
             <h2 className="text-lg font-bold text-[#F2C29A]" style={{ fontFamily: 'Cinzel, serif' }}>Edit Product</h2>
-            <p className="text-xs text-[#EAE0D5]/50 mt-0.5 truncate max-w-[280px]">{product.name}</p>
+            <p className="text-xs text-[#EAE0D5]/50 mt-0.5 truncate max-w-[240px]">{product.name}</p>
           </div>
           <div className="flex items-center gap-2">
             <Link href={`/admin/products/${product.id}/edit`} target="_blank"
-              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-[#B76E79]/20 text-[#EAE0D5]/50 hover:text-[#EAE0D5] hover:border-[#B76E79]/40 text-xs transition-colors"
+              className="hidden sm:flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-[#B76E79]/20 text-[#EAE0D5]/50 hover:text-[#EAE0D5] hover:border-[#B76E79]/40 text-xs transition-colors"
               title="Open full edit page">
               Full Edit <ArrowRight className="w-3 h-3" />
             </Link>
@@ -323,18 +326,19 @@ function EditProductModal({ product, collections, onClose, onSaved }) {
           </div>
         </div>
 
-        {/* Body */}
-        <div className="p-5 overflow-y-auto space-y-4 flex-1 min-h-0">
-          {error && <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm">{error}</div>}
+        {/* Body — scrollable */}
+        <div className="p-4 sm:p-5 overflow-y-auto flex-1 min-h-0">
+          {error && <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm">{error}</div>}
 
           <form id="edit-product-form" onSubmit={handleSubmit} className="space-y-4">
-            {/* Name & Price row */}
+            {/* Name */}
             <div>
               <label className="block text-xs text-[#EAE0D5]/60 mb-1.5 uppercase tracking-wider">Product Name *</label>
               <input name="name" value={form.name} onChange={handleChange} required
                 className="w-full px-4 py-2.5 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-xl text-[#EAE0D5] placeholder-[#EAE0D5]/40 focus:outline-none focus:border-[#B76E79]/40 text-sm" />
             </div>
 
+            {/* Price & MRP */}
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs text-[#EAE0D5]/60 mb-1.5 uppercase tracking-wider">Price *</label>
@@ -364,10 +368,24 @@ function EditProductModal({ product, collections, onClose, onSaved }) {
               </select>
             </div>
 
+            {/* Brand */}
+            <div>
+              <label className="block text-xs text-[#EAE0D5]/60 mb-1.5 uppercase tracking-wider">Brand</label>
+              <input name="brand" value={form.brand} onChange={handleChange} placeholder="e.g. Aarya, FabIndia"
+                className="w-full px-4 py-2.5 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-xl text-[#EAE0D5] placeholder-[#EAE0D5]/40 focus:outline-none focus:border-[#B76E79]/40 text-sm" />
+            </div>
+
             {/* Short description */}
             <div>
               <label className="block text-xs text-[#EAE0D5]/60 mb-1.5 uppercase tracking-wider">Short Description</label>
               <textarea name="short_description" value={form.short_description} onChange={handleChange} rows={2}
+                className="w-full px-4 py-2.5 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-xl text-[#EAE0D5] placeholder-[#EAE0D5]/40 focus:outline-none focus:border-[#B76E79]/40 text-sm resize-none" />
+            </div>
+
+            {/* Full description */}
+            <div>
+              <label className="block text-xs text-[#EAE0D5]/60 mb-1.5 uppercase tracking-wider">Full Description</label>
+              <textarea name="description" value={form.description} onChange={handleChange} rows={4}
                 className="w-full px-4 py-2.5 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-xl text-[#EAE0D5] placeholder-[#EAE0D5]/40 focus:outline-none focus:border-[#B76E79]/40 text-sm resize-none" />
             </div>
 
@@ -386,8 +404,8 @@ function EditProductModal({ product, collections, onClose, onSaved }) {
           </form>
         </div>
 
-        {/* Footer */}
-        <div className="p-5 border-t border-[#B76E79]/15 flex gap-3 flex-shrink-0">
+        {/* Footer — always visible */}
+        <div className="p-4 sm:p-5 border-t border-[#B76E79]/15 flex gap-3 flex-shrink-0">
           <button type="button" onClick={onClose}
             className="flex-1 py-2.5 rounded-xl border border-[#B76E79]/20 text-[#EAE0D5]/60 hover:bg-[#B76E79]/10 text-sm transition-colors">Cancel</button>
           <button type="submit" form="edit-product-form" disabled={saving}
@@ -430,8 +448,10 @@ function ProductRow({ product, collections, onRefresh, selected, onToggleSelect,
     }
   };
 
-  // Expose reload so parent can trigger after variant save
-  product._reloadVariants = loadVariants;
+  // Store reload function in ref so parent can trigger after variant save
+  // (previously mutated product prop directly which is a React anti-pattern)
+  const reloadVariantsRef = useRef(loadVariants);
+  reloadVariantsRef.current = loadVariants;
 
   const handleQuickStockAdjust = async (variant, delta) => {
     setAdjustingStock(variant.id);

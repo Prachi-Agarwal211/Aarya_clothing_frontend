@@ -96,7 +96,6 @@ export function generateProductSchema(product, reviews = []) {
         "name": "Aarya Clothing"
       }
     },
-    ...(aggregateRating && { "aggregateRating" }),
     "category": product.collection_name || product.category,
     "material": product.fabric,
     "color": product.colors?.[0]?.name || 'Multi-color',

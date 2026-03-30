@@ -39,6 +39,18 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+# ── Provider Base URLs ────────────────────────────────────────────────────────
+GROQ_BASE_URL = "https://api.groq.com/openai/v1"
+OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+GLM_BASE_URL = "https://open.bigmodel.cn/api/paas/v4"
+NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1"
+
+# ── Default Models ────────────────────────────────────────────────────────────
+GROQ_DEFAULT_MODEL = "llama-3.3-70b-versatile"
+OPENROUTER_DEFAULT_MODEL = "meta-llama/llama-3.3-70b-instruct:free"
+GLM_DEFAULT_MODEL = "glm-4-flash"
+NVIDIA_DEFAULT_MODEL = "meta/llama3-70b-instruct"
+
 # ── Pricing constants (USD per token) - All FREE tier models ─────────────────
 PRICE_PER_TOKEN = {
     # Groq (FREE)
@@ -66,7 +78,7 @@ SALES BEHAVIORS (follow these naturally, not mechanically):
 - When showing products, always mention 1-2 key selling points (fabric, occasion, style)
 - After showing products, offer to help narrow down by size, color, or budget
 - If a customer viewed something, suggest complementary items ("This kurta pairs beautifully with...")
-- For repeat customers, acknowledge their taste: "Based on your previous orders, you seem to love..." 
+- For repeat customers, acknowledge their taste: "Based on your previous orders, you seem to love..."
 - When a product is low stock, mention it naturally ("This one is selling fast!")
 - Suggest size guidance proactively when customer shows purchase intent
 - If budget is mentioned, always filter and stay within it — never suggest higher-priced items without asking
@@ -255,7 +267,7 @@ _KEY_ROTATION_INDEX = 0  # module-level round-robin counter
 
 def _get_provider_api_key() -> str:
     """Get API key from key rotation service (Groq/OpenRouter/GLM/NVIDIA).
-    
+
     This function uses the key rotation service to get an available provider key.
     All providers use OpenAI-compatible API format.
     """
@@ -281,16 +293,17 @@ def _get_provider_api_key() -> str:
     groq_key = os.environ.get("GROQ_API_KEY", "")
     if groq_key and groq_key not in ("", "your_groq_api_key_here"):
         return groq_key
-    
+
     # Try OpenRouter
     openrouter_key = os.environ.get("OPENROUTER_API_KEY", "")
     if openrouter_key and openrouter_key not in ("", "your_openrouter_api_key_here"):
         return openrouter_key
-    
+
     raise ValueError("No AI API key configured. Set GROQ_API_KEY or OPENROUTER_API_KEY in .env file.")
 
 
 # ── pgvector embedding helpers ────────────────────────────────────────────────
+# Note: Embeddings removed - Groq and other OpenAI-compatible providers don't support embeddings
 
 def _product_embed_text(name: str, description: str = "", category: str = "", tags: str = "") -> str:
     """Build rich text for embedding — name + category + description + tags."""
@@ -304,28 +317,13 @@ def _product_embed_text(name: str, description: str = "", category: str = "", ta
     return " | ".join(parts)
 
 
-def _generate_embedding(text_input: str, api_key: str) -> Optional[List[float]]:
-    """Generate embedding using Gemini gemini-embedding-001 (768-dim)."""
-    try:
-        genai.configure(api_key=api_key)
-        result = genai.embed_content(
-            model="models/gemini-embedding-001",
-            content=text_input,
-            task_type="retrieval_document",
-        )
-        return result["embedding"]
-    except Exception as e:
-        logger.error(f"Embedding generation error: {e}")
-        return None
-
-
 def _vec_str(embedding: List[float]) -> str:
     """Convert float list to Postgres vector literal string."""
     return "[" + ",".join(f"{v:.8f}" for v in embedding) + "]"
 
 
 def _calc_cost(model: str, tokens_in: int, tokens_out: int) -> float:
-    prices = PRICE_PER_TOKEN.get(model, PRICE_PER_TOKEN[GEMINI_FLASH_LITE])
+    prices = PRICE_PER_TOKEN.get(model, PRICE_PER_TOKEN[GROQ_DEFAULT_MODEL])
     return (tokens_in * prices["input"]) + (tokens_out * prices["output"])
 
 
@@ -374,7 +372,7 @@ def get_session_history(db: Session, session_id: str, max_messages: int = 8) -> 
     messages = []
     for row in reversed(rows):
         if row[0] in ("user", "assistant"):
-            messages.append({"role": row[0], "parts": [row[1] or ""]})
+            messages.append({"role": row[0], "content": row[1] or ""})
     return messages
 
 
@@ -419,143 +417,170 @@ def save_message(db: Session, session_id: str, role: str, content: str,
 # ── Customer tools ────────────────────────────────────────────────────────────
 
 def _customer_tools(db: Session) -> List[Dict]:
-    """Enhanced customer tools for comprehensive e-commerce assistance."""
+    """Enhanced customer tools for comprehensive e-commerce assistance.
+    
+    Returns tools in OpenAI format for tool calling.
+    """
     return [
         {
-            "name": "get_new_arrivals",
-            "description": "Get the latest new arrival products. Use when customer wants to see new items.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "limit": {"type": "integer", "description": "Number of products (default 6, max 12)"}
+            "type": "function",
+            "function": {
+                "name": "get_new_arrivals",
+                "description": "Get the latest new arrival products. Use when customer wants to see new items.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "limit": {"type": "integer", "description": "Number of products (default 6, max 12)"}
+                    }
                 }
             }
         },
         {
-            "name": "search_products",
-            "description": "Search for products by name, category, color, style, or price range.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "query": {"type": "string", "description": "Search query"},
-                    "category": {"type": "string", "description": "Optional category filter"},
-                    "max_price": {"type": "number", "description": "Maximum price filter"},
-                    "limit": {"type": "integer", "description": "Number of results (default 6)"}
-                },
-                "required": ["query"]
-            }
-        },
-        {
-            "name": "get_collections",
-            "description": "Get all product collections/categories available in the store.",
-            "parameters": {"type": "object", "properties": {}}
-        },
-        {
-            "name": "semantic_search_products",
-            "description": "AI-powered semantic product search. Use for vague or intent-based queries like 'something for a wedding', 'casual summer outfit', 'gift for mom'. Better than keyword search for natural language.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "query": {"type": "string", "description": "Natural language search query"},
-                    "limit": {"type": "integer", "description": "Number of results (default 6, max 12)"}
-                },
-                "required": ["query"]
-            }
-        },
-        {
-            "name": "get_order_status",
-            "description": "Get order status and tracking information. Requires order_id. Use when customer asks 'where is my order' or provides order number.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "order_id": {"type": "integer", "description": "Order ID to check status for"}
-                },
-                "required": ["order_id"]
-            }
-        },
-        {
-            "name": "get_order_history",
-            "description": "Get customer's order history. Use when authenticated user asks about their past orders.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "limit": {"type": "integer", "description": "Number of orders (default 5, max 20)"}
+            "type": "function",
+            "function": {
+                "name": "search_products",
+                "description": "Search for products by name, category, color, style, or price range.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "query": {"type": "string", "description": "Search query"},
+                        "category": {"type": "string", "description": "Optional category filter"},
+                        "max_price": {"type": "number", "description": "Maximum price filter"},
+                        "limit": {"type": "integer", "description": "Number of results (default 6)"}
+                    },
+                    "required": ["query"]
                 }
             }
         },
         {
-            "name": "get_cart",
-            "description": "Get current user's shopping cart contents. Use when customer asks 'what's in my cart' or 'show my cart'.",
-            "parameters": {"type": "object", "properties": {}}
-        },
-        {
-            "name": "add_to_cart",
-            "description": "Add a product to the user's cart. Requires product_id and quantity. Use when customer says 'add this to cart' or 'I want to buy this'.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "product_id": {"type": "integer", "description": "Product ID to add"},
-                    "quantity": {"type": "integer", "description": "Quantity (default 1)"},
-                    "size": {"type": "string", "description": "Size variant (optional)"},
-                    "color": {"type": "string", "description": "Color variant (optional)"}
-                },
-                "required": ["product_id"]
+            "type": "function",
+            "function": {
+                "name": "get_collections",
+                "description": "Get all product collections/categories available in the store.",
+                "parameters": {"type": "object", "properties": {}}
             }
         },
         {
-            "name": "get_customer_purchase_history",
-            "description": "Get a summary of the customer's past purchases, favourite categories, and style preferences. Use when giving personalized recommendations or when the customer mentions past orders.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "limit": {"type": "integer", "description": "Number of past orders to include (default 5)"}
+            "type": "function",
+            "function": {
+                "name": "get_order_status",
+                "description": "Get order status and tracking information. Requires order_id. Use when customer asks 'where is my order' or provides order number.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "order_id": {"type": "integer", "description": "Order ID to check status for"}
+                    },
+                    "required": ["order_id"]
                 }
             }
         },
         {
-            "name": "get_size_guide",
-            "description": "Get size guide recommendations for a product. Use when customer asks about sizing or 'what size should I get'.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "product_id": {"type": "integer", "description": "Product ID to get size guide for"},
-                    "measurements": {"type": "string", "description": "Customer's body measurements (optional, e.g., 'bust: 36, waist: 28')"}
-                },
-                "required": ["product_id"]
+            "type": "function",
+            "function": {
+                "name": "get_order_history",
+                "description": "Get customer's order history. Use when authenticated user asks about their past orders.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "limit": {"type": "integer", "description": "Number of orders (default 5, max 20)"}
+                    }
+                }
             }
         },
         {
-            "name": "get_shipping_estimate",
-            "description": "Get estimated delivery time for a pincode. Use when customer asks about delivery time or shipping.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "pincode": {"type": "string", "description": "Delivery pincode"}
-                },
-                "required": ["pincode"]
+            "type": "function",
+            "function": {
+                "name": "get_cart",
+                "description": "Get current user's shopping cart contents. Use when customer asks 'what's in my cart' or 'show my cart'.",
+                "parameters": {"type": "object", "properties": {}}
             }
         },
         {
-            "name": "get_faq_answer",
-            "description": "Get answer to frequently asked questions about shipping, returns, payments, policies. Use for common customer service questions.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "question": {"type": "string", "description": "Customer's question"}
-                },
-                "required": ["question"]
+            "type": "function",
+            "function": {
+                "name": "add_to_cart",
+                "description": "Add a product to the user's cart. Requires product_id and quantity. Use when customer says 'add this to cart' or 'I want to buy this'.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "product_id": {"type": "integer", "description": "Product ID to add"},
+                        "quantity": {"type": "integer", "description": "Quantity (default 1)"},
+                        "size": {"type": "string", "description": "Size variant (optional)"},
+                        "color": {"type": "string", "description": "Color variant (optional)"}
+                    },
+                    "required": ["product_id"]
+                }
             }
         },
         {
-            "name": "get_product_recommendations",
-            "description": "Get personalized product recommendations based on browsing history or preferences. Use for 'what do you recommend' or 'suggest something'.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "style": {"type": "string", "description": "Style preference (optional, e.g., 'casual', 'formal', 'traditional')"},
-                    "occasion": {"type": "string", "description": "Occasion (optional, e.g., 'wedding', 'party', 'office')"},
-                    "budget": {"type": "number", "description": "Budget range (optional)"},
-                    "limit": {"type": "integer", "description": "Number of recommendations (default 6)"}
+            "type": "function",
+            "function": {
+                "name": "get_customer_purchase_history",
+                "description": "Get a summary of the customer's past purchases, favourite categories, and style preferences. Use when giving personalized recommendations or when the customer mentions past orders.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "limit": {"type": "integer", "description": "Number of past orders to include (default 5)"}
+                    }
+                }
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "get_size_guide",
+                "description": "Get size guide recommendations for a product. Use when customer asks about sizing or 'what size should I get'.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "product_id": {"type": "integer", "description": "Product ID to get size guide for"},
+                        "measurements": {"type": "string", "description": "Customer's body measurements (optional, e.g., 'bust: 36, waist: 28')"}
+                    },
+                    "required": ["product_id"]
+                }
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "get_shipping_estimate",
+                "description": "Get estimated delivery time for a pincode. Use when customer asks about delivery time or shipping.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "pincode": {"type": "string", "description": "Delivery pincode"}
+                    },
+                    "required": ["pincode"]
+                }
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "get_faq_answer",
+                "description": "Get answer to frequently asked questions about shipping, returns, payments, policies. Use for common customer service questions.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "question": {"type": "string", "description": "Customer's question"}
+                    },
+                    "required": ["question"]
+                }
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "get_product_recommendations",
+                "description": "Get personalized product recommendations based on browsing history or preferences. Use for 'what do you recommend' or 'suggest something'.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "style": {"type": "string", "description": "Style preference (optional, e.g., 'casual', 'formal', 'traditional')"},
+                        "occasion": {"type": "string", "description": "Occasion (optional, e.g., 'wedding', 'party', 'office')"},
+                        "budget": {"type": "number", "description": "Budget range (optional)"},
+                        "limit": {"type": "integer", "description": "Number of recommendations (default 6)"}
+                    }
                 }
             }
         }
@@ -563,6 +588,7 @@ def _customer_tools(db: Session) -> List[Dict]:
 
 
 def _execute_customer_tool(db: Session, tool_name: str, args: Dict) -> str:
+    """Execute a customer tool and return result as JSON string."""
     try:
         if tool_name == "get_new_arrivals":
             limit = min(int(args.get("limit", 6)), 12)
@@ -655,66 +681,11 @@ def _execute_customer_tool(db: Session, tool_name: str, args: Dict) -> str:
                                   "image": r[3], "slug": r[4]} for r in rows]
             })
 
-        elif tool_name == "semantic_search_products":
-            query = args.get("query", "")
-            limit = min(int(args.get("limit", 6)), 12)
-            try:
-                api_key = _get_gemini_key()
-                query_vec = _generate_embedding(query, api_key)
-            except Exception:
-                query_vec = None
-            if query_vec is None:
-                # Graceful fallback to keyword search
-                return _execute_customer_tool(db, "search_products", {"query": query, "limit": limit})
-            vec_literal = _vec_str(query_vec)
-            rows = db.execute(text(f"""
-                SELECT p.id, p.name, p.description, p.base_price,
-                       (
-                           SELECT pi.image_url
-                           FROM product_images pi
-                           WHERE pi.product_id = p.id
-                           ORDER BY pi.is_primary DESC, pi.display_order ASC, pi.id ASC
-                           LIMIT 1
-                       ) as primary_image,
-                       c.name as category,
-                       COALESCE(p.average_rating, 0) as rating,
-                       (
-                           SELECT ARRAY_AGG(DISTINCT inv.color)
-                           FILTER (WHERE inv.color IS NOT NULL AND inv.quantity > 0)
-                           FROM inventory inv WHERE inv.product_id = p.id
-                       ) as colors,
-                       (
-                           SELECT ARRAY_AGG(DISTINCT inv.size)
-                           FILTER (WHERE inv.size IS NOT NULL AND inv.quantity > 0)
-                           FROM inventory inv WHERE inv.product_id = p.id
-                       ) as sizes,
-                       1 - (p.embedding <=> '{vec_literal}'::vector) as similarity
-                FROM products p
-                LEFT JOIN collections c ON c.id = p.category_id
-                WHERE p.is_active = true AND p.embedding IS NOT NULL
-                ORDER BY p.embedding <=> '{vec_literal}'::vector
-                LIMIT :lim
-            """), {"lim": limit}).fetchall()
-            if not rows:
-                return _execute_customer_tool(db, "search_products", {"query": query, "limit": limit})
-            products = [
-                {"id": r[0], "name": r[1], "description": (r[2] or "")[:120],
-                 "price": float(r[3] or 0), "image": r[4], "category": r[5],
-                 "rating": float(r[6] or 0),
-                 "colors": list(r[7]) if r[7] else [],
-                 "sizes": list(r[8]) if r[8] else [],
-                 "similarity": round(float(r[9] or 0), 3)}
-                for r in rows
-            ]
-            return json.dumps({"products": products, "count": len(products),
-                               "query": query, "search_type": "semantic"})
-
         elif tool_name == "get_order_status":
-            # Get order status for a specific order ID
             order_id = int(args.get("order_id", 0))
-            user_id = args.get("user_id")  # Optional: for authorization
+            user_id = args.get("user_id")
             row = db.execute(text("""
-                SELECT o.id, o.status, o.total_amount, o.tracking_number, 
+                SELECT o.id, o.status, o.total_amount, o.tracking_number,
                        o.created_at, o.shipped_at, o.delivered_at,
                        o.shipping_address, o.payment_method,
                        STRING_AGG(oi.product_name || ' (x' || oi.quantity || ')', ', ') as items
@@ -725,20 +696,18 @@ def _execute_customer_tool(db: Session, tool_name: str, args: Dict) -> str:
             """), {"oid": order_id}).fetchone()
             if not row:
                 return json.dumps({"error": f"Order #{order_id} not found", "order_id": order_id})
-            
-            # Check authorization if user_id provided
+
             if user_id:
                 owner = db.execute(text(
                     "SELECT user_id FROM orders WHERE id = :oid"
                 ), {"oid": order_id}).fetchone()
                 if owner and owner[0] != user_id:
-                    # Check if user is admin
                     user_role = db.execute(text(
                         "SELECT role FROM users WHERE id = :uid"
                     ), {"uid": user_id}).fetchone()
                     if not user_role or user_role[0] != 'admin':
                         return json.dumps({"error": "Unauthorized: This order belongs to another customer"})
-            
+
             return json.dumps({
                 "order": {
                     "id": row[0],
@@ -755,14 +724,13 @@ def _execute_customer_tool(db: Session, tool_name: str, args: Dict) -> str:
             })
 
         elif tool_name == "get_order_history":
-            # Get customer's order history
             limit = min(int(args.get("limit", 5)), 20)
             user_id = args.get("user_id")
             if not user_id:
                 return json.dumps({"error": "Authentication required", "orders": [], "count": 0})
-            
+
             rows = db.execute(text("""
-                SELECT o.id, o.status, o.total_amount, o.created_at, 
+                SELECT o.id, o.status, o.total_amount, o.created_at,
                        o.tracking_number,
                        STRING_AGG(oi.product_name, ', ') as items
                 FROM orders o
@@ -771,7 +739,7 @@ def _execute_customer_tool(db: Session, tool_name: str, args: Dict) -> str:
                 GROUP BY o.id
                 ORDER BY o.created_at DESC LIMIT :lim
             """), {"uid": user_id, "lim": limit}).fetchall()
-            
+
             orders = [
                 {
                     "id": r[0],
@@ -786,32 +754,31 @@ def _execute_customer_tool(db: Session, tool_name: str, args: Dict) -> str:
             return json.dumps({"orders": orders, "count": len(orders)})
 
         elif tool_name == "get_cart":
-            # Get current user's cart
             user_id = args.get("user_id")
             if not user_id:
                 return json.dumps({"error": "Authentication required", "cart": None})
-            
+
             cart = db.execute(text("""
                 SELECT c.id, c.total_amount
                 FROM carts c
                 WHERE c.user_id = :uid AND c.is_active = true
                 ORDER BY c.updated_at DESC LIMIT 1
             """), {"uid": user_id}).fetchone()
-            
+
             if not cart:
                 return json.dumps({"cart": {"items": [], "total": 0, "count": 0}})
-            
+
             items = db.execute(text("""
                 SELECT ci.quantity, ci.price, p.name, p.id,
                        ci.size, ci.color,
-                       (SELECT pi.image_url FROM product_images pi 
-                        WHERE pi.product_id = p.id 
+                       (SELECT pi.image_url FROM product_images pi
+                        WHERE pi.product_id = p.id
                         ORDER BY pi.is_primary DESC LIMIT 1) as image
                 FROM cart_items ci
                 JOIN products p ON p.id = ci.product_id
                 WHERE ci.cart_id = :cid
             """), {"cid": cart[0]}).fetchall()
-            
+
             cart_items = [
                 {
                     "product_id": r[3],
@@ -824,7 +791,7 @@ def _execute_customer_tool(db: Session, tool_name: str, args: Dict) -> str:
                 }
                 for r in items
             ]
-            
+
             return json.dumps({
                 "cart": {
                     "id": cart[0],
@@ -868,33 +835,31 @@ def _execute_customer_tool(db: Session, tool_name: str, args: Dict) -> str:
                 return json.dumps({"error": str(e), "success": False})
 
         elif tool_name == "get_size_guide":
-            # Get size guide for a product
             product_id = int(args.get("product_id", 0))
             measurements = args.get("measurements")
-            
+
             product = db.execute(text("""
                 SELECT p.name, c.name as category
                 FROM products p
                 LEFT JOIN collections c ON c.id = p.category_id
                 WHERE p.id = :pid
             """), {"pid": product_id}).fetchone()
-            
+
             if not product:
                 return json.dumps({"error": "Product not found"})
-            
-            # Get available sizes from inventory
+
             sizes = db.execute(text("""
                 SELECT DISTINCT size, quantity
                 FROM inventory
                 WHERE product_id = :pid AND size IS NOT NULL AND quantity > 0
-                ORDER BY 
-                    CASE size 
-                        WHEN 'XS' THEN 1 WHEN 'S' THEN 2 WHEN 'M' THEN 3 
-                        WHEN 'L' THEN 4 WHEN 'XL' THEN 5 WHEN 'XXL' THEN 6 
-                        ELSE 7 
+                ORDER BY
+                    CASE size
+                        WHEN 'XS' THEN 1 WHEN 'S' THEN 2 WHEN 'M' THEN 3
+                        WHEN 'L' THEN 4 WHEN 'XL' THEN 5 WHEN 'XXL' THEN 6
+                        ELSE 7
                     END
             """), {"pid": product_id}).fetchall()
-            
+
             size_chart = {
                 "XS": {"bust": "32-34", "waist": "24-26", "hips": "34-36"},
                 "S": {"bust": "34-36", "waist": "26-28", "hips": "36-38"},
@@ -903,10 +868,9 @@ def _execute_customer_tool(db: Session, tool_name: str, args: Dict) -> str:
                 "XL": {"bust": "40-42", "waist": "32-34", "hips": "42-44"},
                 "XXL": {"bust": "42-44", "waist": "34-36", "hips": "44-46"},
             }
-            
+
             recommendation = None
             if measurements:
-                # Simple size recommendation logic
                 try:
                     bust = float(measurements.split('bust')[1].split(':')[1].split(',')[0].strip()) if 'bust' in measurements else None
                     if bust:
@@ -917,7 +881,7 @@ def _execute_customer_tool(db: Session, tool_name: str, args: Dict) -> str:
                         else: recommendation = "XXL"
                 except:
                     pass
-            
+
             return json.dumps({
                 "product": product[0],
                 "category": product[1],
@@ -928,21 +892,18 @@ def _execute_customer_tool(db: Session, tool_name: str, args: Dict) -> str:
             })
 
         elif tool_name == "get_shipping_estimate":
-            # Get shipping estimate for pincode
             pincode = args.get("pincode", "")
-            
-            # Simple pincode-based estimation logic
-            # In production, integrate with shipping partner API
-            metro_pincodes = ["110", "400", "560", "600", "700", "500", "380"]  # Major city prefixes
+
+            metro_pincodes = ["110", "400", "560", "600", "700", "500", "380"]
             is_metro = any(pincode.startswith(prefix) for prefix in metro_pincodes)
-            
+
             if is_metro:
                 delivery_days = "2-3 business days"
-                shipping_cost = 0  # Free for metro
+                shipping_cost = 0
             else:
                 delivery_days = "4-6 business days"
                 shipping_cost = 99
-            
+
             return json.dumps({
                 "pincode": pincode,
                 "estimated_delivery": delivery_days,
@@ -952,9 +913,8 @@ def _execute_customer_tool(db: Session, tool_name: str, args: Dict) -> str:
             })
 
         elif tool_name == "get_faq_answer":
-            # Get FAQ answer
             question = args.get("question", "").lower()
-            
+
             faq_database = {
                 "shipping": {
                     "keywords": ["ship", "delivery", "deliver", "shipping", "post", "courier"],
@@ -985,16 +945,16 @@ def _execute_customer_tool(db: Session, tool_name: str, args: Dict) -> str:
                     "answer": "All our products are 100% genuine with quality assurance. We source directly from manufacturers. If you're not satisfied, we offer hassle-free returns within 15 days."
                 }
             }
-            
+
             best_match = None
             max_matches = 0
-            
+
             for topic, data in faq_database.items():
                 matches = sum(1 for keyword in data["keywords"] if keyword in question)
                 if matches > max_matches:
                     max_matches = matches
                     best_match = topic
-            
+
             if best_match and max_matches > 0:
                 return json.dumps({
                     "topic": best_match,
@@ -1009,31 +969,29 @@ def _execute_customer_tool(db: Session, tool_name: str, args: Dict) -> str:
                 })
 
         elif tool_name == "get_product_recommendations":
-            # Get personalized product recommendations
             style = args.get("style", "")
             occasion = args.get("occasion", "")
             budget = args.get("budget")
             limit = min(int(args.get("limit", 6)), 12)
             user_id = args.get("user_id")
-            
-            # Build query based on preferences
+
             conditions = ["p.is_active = true"]
             params: Dict[str, Any] = {"lim": limit}
-            
+
             if budget:
                 conditions.append("p.base_price <= :budget")
                 params["budget"] = float(budget)
-            
+
             if style:
                 conditions.append("(p.name ILIKE :style OR p.description ILIKE :style OR p.tags ILIKE :style)")
                 params["style"] = f"%{style}%"
-            
+
             if occasion:
                 conditions.append("(p.name ILIKE :occ OR p.description ILIKE :occ OR p.tags ILIKE :occ)")
                 params["occ"] = f"%{occasion}%"
-            
+
             where_clause = " AND ".join(conditions)
-            
+
             rows = db.execute(text(f"""
                 SELECT p.id, p.name, p.description, p.base_price,
                        (
@@ -1049,14 +1007,14 @@ def _execute_customer_tool(db: Session, tool_name: str, args: Dict) -> str:
                 FROM products p
                 LEFT JOIN collections c ON c.id = p.category_id
                 WHERE {where_clause}
-                ORDER BY 
+                ORDER BY
                     (CASE WHEN p.is_featured THEN 1 ELSE 0 END) DESC,
                     (CASE WHEN p.is_new_arrival THEN 1 ELSE 0 END) DESC,
                     p.average_rating DESC,
                     p.updated_at DESC
                 LIMIT :lim
             """), params).fetchall()
-            
+
             products = [
                 {
                     "id": r[0],
@@ -1071,7 +1029,7 @@ def _execute_customer_tool(db: Session, tool_name: str, args: Dict) -> str:
                 }
                 for r in rows
             ]
-            
+
             return json.dumps({
                 "products": products,
                 "count": len(products),
@@ -1100,7 +1058,6 @@ def _execute_customer_tool(db: Session, tool_name: str, args: Dict) -> str:
             orders = [{"id": r[0], "total": float(r[1] or 0), "date": str(r[2]),
                        "status": str(r[3]), "categories": r[4], "products": r[5]}
                       for r in rows]
-            # Infer interests from category frequency
             cat_counts: Dict[str, int] = {}
             for o in orders:
                 for cat in (o.get("categories") or "").split(", "):
@@ -1121,83 +1078,94 @@ def _execute_customer_tool(db: Session, tool_name: str, args: Dict) -> str:
 # ── Admin tools ───────────────────────────────────────────────────────────────
 
 def _admin_tools() -> List[Dict]:
+    """Admin tools in OpenAI format for tool calling."""
     return [
         {
-            "name": "get_orders",
-            "description": "Get orders list with optional status/date filter.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "status": {"type": "string", "enum": ["confirmed", "shipped", "delivered", "cancelled"]},
-                    "limit": {"type": "integer"},
-                    "days": {"type": "integer", "description": "Orders from last N days"}
+            "type": "function",
+            "function": {
+                "name": "get_orders",
+                "description": "Get orders list with optional status/date filter.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "status": {"type": "string", "enum": ["confirmed", "shipped", "delivered", "cancelled"]},
+                        "limit": {"type": "integer"},
+                        "days": {"type": "integer", "description": "Orders from last N days"}
+                    }
                 }
             }
         },
         {
-            "name": "get_order_details",
-            "description": "Get full details of a specific order by ID.",
-            "parameters": {
-                "type": "object",
-                "properties": {"order_id": {"type": "integer"}},
-                "required": ["order_id"]
-            }
-        },
-        {
-            "name": "get_revenue_summary",
-            "description": "Get revenue analytics: total, daily average, top products, by period.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "days": {"type": "integer", "description": "Period in days (default 30)"}
+            "type": "function",
+            "function": {
+                "name": "get_order_details",
+                "description": "Get full details of a specific order by ID.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {"order_id": {"type": "integer"}},
+                    "required": ["order_id"]
                 }
             }
         },
         {
-            "name": "get_inventory_alerts",
-            "description": "Get low stock and out-of-stock inventory items.",
-            "parameters": {"type": "object", "properties": {}}
-        },
-        {
-            "name": "get_customer_stats",
-            "description": "Get customer statistics: total, new this month, high-value customers.",
-            "parameters": {"type": "object", "properties": {}}
-        },
-        {
-            "name": "search_orders",
-            "description": "Search orders by customer name, email, or order ID.",
-            "parameters": {
-                "type": "object",
-                "properties": {"query": {"type": "string"}},
-                "required": ["query"]
-            }
-        },
-        {
-            "name": "get_ai_cost_summary",
-            "description": "Get AI usage and cost summary for the store.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "days": {"type": "integer", "description": "Period in days (default 30)"}
+            "type": "function",
+            "function": {
+                "name": "get_revenue_summary",
+                "description": "Get revenue analytics: total, daily average, top products, by period.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "days": {"type": "integer", "description": "Period in days (default 30)"}
+                    }
                 }
             }
         },
         {
-            "name": "semantic_search_products",
-            "description": "AI semantic product search using vector similarity. Use for intent-based queries or to find similar products.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "query": {"type": "string", "description": "Natural language query"},
-                    "limit": {"type": "integer", "description": "Number of results (default 10)"}
-                },
-                "required": ["query"]
+            "type": "function",
+            "function": {
+                "name": "get_inventory_alerts",
+                "description": "Get low stock and out-of-stock inventory items.",
+                "parameters": {"type": "object", "properties": {}}
             }
-        }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "get_customer_stats",
+                "description": "Get customer statistics: total, new this month, high-value customers.",
+                "parameters": {"type": "object", "properties": {}}
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "search_orders",
+                "description": "Search orders by customer name, email, or order ID.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {"query": {"type": "string"}},
+                    "required": ["query"]
+                }
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "get_ai_cost_summary",
+                "description": "Get AI usage and cost summary for the store.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "days": {"type": "integer", "description": "Period in days (default 30)"}
+                    }
+                }
+            }
+        },
     ]
 
 
 def _execute_admin_tool(db: Session, tool_name: str, args: Dict) -> str:
+    """Execute an admin read-only tool and return result as JSON string."""
     try:
         if tool_name == "get_orders":
             status = args.get("status")
@@ -1369,50 +1337,6 @@ def _execute_admin_tool(db: Session, tool_name: str, args: Dict) -> str:
                 ]
             })
 
-        elif tool_name == "semantic_search_products":
-            query = args.get("query", "")
-            limit = min(int(args.get("limit", 10)), 50)
-            try:
-                api_key = _get_gemini_key()
-                query_vec = _generate_embedding(query, api_key)
-            except Exception:
-                query_vec = None
-            if query_vec is None:
-                return json.dumps({"error": "Embedding generation failed. Use keyword search instead."})
-            vec_literal = _vec_str(query_vec)
-            rows = db.execute(text(f"""
-                SELECT p.id, p.name, p.base_price, p.is_active,
-                       COALESCE((
-                           SELECT SUM(i.quantity - i.reserved_quantity)
-                           FROM inventory i
-                           WHERE i.product_id = p.id AND i.is_active = true
-                       ), 0) as total_stock,
-                       c.name as category,
-                       1 - (p.embedding <=> '{vec_literal}'::vector) as similarity
-                FROM products p
-                LEFT JOIN collections c ON c.id = p.category_id
-                WHERE p.embedding IS NOT NULL
-                ORDER BY p.embedding <=> '{vec_literal}'::vector
-                LIMIT :lim
-            """), {"lim": limit}).fetchall()
-            products = [
-                {"id": r[0], "name": r[1], "price": float(r[2] or 0),
-                 "active": r[3], "stock": r[4], "category": r[5],
-                 "similarity": round(float(r[6] or 0), 3)}
-                for r in rows
-            ]
-            embedded_count = db.execute(text(
-                "SELECT COUNT(*) FROM products WHERE embedding IS NOT NULL"
-            )).scalar() or 0
-            total_count = db.execute(text(
-                "SELECT COUNT(*) FROM products"
-            )).scalar() or 0
-            return json.dumps({
-                "products": products, "count": len(products), "query": query,
-                "search_type": "semantic",
-                "coverage": f"{embedded_count}/{total_count} products have embeddings"
-            })
-
     except Exception as e:
         logger.error(f"Admin tool error [{tool_name}]: {e}")
         return json.dumps({"error": str(e)})
@@ -1423,72 +1347,87 @@ def _execute_admin_tool(db: Session, tool_name: str, args: Dict) -> str:
 # ── Admin WRITE tool definitions (create pending actions, never auto-execute) ─
 
 def _admin_write_tool_definitions() -> List[Dict]:
-    """Write tools that the AI can call to build pending actions for admin confirmation."""
+    """Write tools in OpenAI format that create pending actions for admin confirmation."""
     return [
         {
-            "name": "ship_order",
-            "description": "Prepare to mark an order as shipped with a POD/tracking number. Creates a PENDING ACTION that requires admin confirmation before execution.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "order_id": {"type": "integer", "description": "Order ID to ship"},
-                    "tracking_number": {"type": "string", "description": "POD or tracking number"},
-                    "carrier": {"type": "string", "description": "Carrier name (optional)"},
-                },
-                "required": ["order_id", "tracking_number"]
+            "type": "function",
+            "function": {
+                "name": "ship_order",
+                "description": "Prepare to mark an order as shipped with a POD/tracking number. Creates a PENDING ACTION that requires admin confirmation before execution.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "order_id": {"type": "integer", "description": "Order ID to ship"},
+                        "tracking_number": {"type": "string", "description": "POD or tracking number"},
+                        "carrier": {"type": "string", "description": "Carrier name (optional)"},
+                    },
+                    "required": ["order_id", "tracking_number"]
+                }
             }
         },
         {
-            "name": "update_product_price",
-            "description": "Prepare to update a product's price. Creates a PENDING ACTION requiring confirmation.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "product_id": {"type": "integer"},
-                    "new_price": {"type": "number", "description": "New price in INR"},
-                    "reason": {"type": "string", "description": "Reason for change"},
-                },
-                "required": ["product_id", "new_price"]
+            "type": "function",
+            "function": {
+                "name": "update_product_price",
+                "description": "Prepare to update a product's price. Creates a PENDING ACTION requiring confirmation.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "product_id": {"type": "integer"},
+                        "new_price": {"type": "number", "description": "New price in INR"},
+                        "reason": {"type": "string", "description": "Reason for change"},
+                    },
+                    "required": ["product_id", "new_price"]
+                }
             }
         },
         {
-            "name": "bulk_update_category_prices",
-            "description": "Prepare to bulk-update prices for all products in a category by a percentage. Creates a PENDING ACTION requiring confirmation.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "category_name": {"type": "string"},
-                    "percent_change": {"type": "number", "description": "+10 = increase 10%, -5 = reduce 5%"},
-                },
-                "required": ["category_name", "percent_change"]
+            "type": "function",
+            "function": {
+                "name": "bulk_update_category_prices",
+                "description": "Prepare to bulk-update prices for all products in a category by a percentage. Creates a PENDING ACTION requiring confirmation.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "category_name": {"type": "string"},
+                        "percent_change": {"type": "number", "description": "+10 = increase 10%, -5 = reduce 5%"},
+                    },
+                    "required": ["category_name", "percent_change"]
+                }
             }
         },
         {
-            "name": "adjust_stock",
-            "description": "Prepare to adjust inventory quantity for a SKU. Creates a PENDING ACTION requiring confirmation.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "sku": {"type": "string"},
-                    "quantity_change": {"type": "integer", "description": "Positive to add, negative to reduce"},
-                    "reason": {"type": "string"},
-                },
-                "required": ["sku", "quantity_change"]
+            "type": "function",
+            "function": {
+                "name": "adjust_stock",
+                "description": "Prepare to adjust inventory quantity for a SKU. Creates a PENDING ACTION requiring confirmation.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "sku": {"type": "string"},
+                        "quantity_change": {"type": "integer", "description": "Positive to add, negative to reduce"},
+                        "reason": {"type": "string"},
+                    },
+                    "required": ["sku", "quantity_change"]
+                }
             }
         },
         {
-            "name": "create_product_draft",
-            "description": "Prepare to create a new product draft. Creates a PENDING ACTION requiring confirmation. Product will be created as inactive.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "name": {"type": "string"},
-                    "base_price": {"type": "number"},
-                    "category_name": {"type": "string"},
-                    "description": {"type": "string"},
-                    "tags": {"type": "string", "description": "Comma-separated tags"},
-                },
-                "required": ["name", "base_price", "category_name"]
+            "type": "function",
+            "function": {
+                "name": "create_product_draft",
+                "description": "Prepare to create a new product draft. Creates a PENDING ACTION requiring confirmation. Product will be created as inactive.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "name": {"type": "string"},
+                        "base_price": {"type": "number"},
+                        "category_name": {"type": "string"},
+                        "description": {"type": "string"},
+                        "tags": {"type": "string", "description": "Comma-separated tags"},
+                    },
+                    "required": ["name", "base_price", "category_name"]
+                }
             }
         },
     ]
@@ -1648,7 +1587,7 @@ def execute_confirmed_action(db: Session, action_type: str, params: Dict, admin_
                 "now": now
             }).fetchone()
             db.commit()
-            return {"success": True, "message": f"✓ Product draft created (ID #{row[0]}). Activate it from the Products page.", "product_id": row[0]}
+            return {"success": True, "message": f"✓ Product draft created: '{params['name']}' (ID: {row[0]})"}
 
         return {"success": False, "message": f"Unknown action type: '{action_type}'. No changes made."}
 
@@ -1671,41 +1610,6 @@ def _get_setting(db: Session, key: str, default: str = "") -> str:
         return default
 
 
-def _customer_chat_groq_fallback(
-    db: Session,
-    user_message: str,
-    session_id: str,
-    user_id: Optional[int],
-    system_prompt: str,
-    max_tokens: int,
-) -> Dict[str, Any]:
-    """Fallback to Groq (free Llama) when Gemini quota is exceeded."""
-    if not OPENAI_AVAILABLE:
-        raise RuntimeError("Groq fallback unavailable (openai package not installed)")
-    groq_key = os.environ.get("GROQ_API_KEY", "")
-    if not groq_key:
-        raise RuntimeError("GROQ_API_KEY not configured")
-    model_name = "llama-3.3-70b-versatile"
-    client = _OpenAI(api_key=groq_key, base_url="https://api.groq.com/openai/v1")
-    history = get_session_history(db, session_id, max_messages=6)
-    messages: List[Dict] = [{"role": "system", "content": system_prompt}]
-    messages += [{"role": m["role"], "content": m["parts"][0]} for m in history]
-    messages.append({"role": "user", "content": user_message})
-    resp = client.chat.completions.create(
-        model=model_name, messages=messages,
-        max_tokens=max_tokens, temperature=0.7,
-    )
-    reply = resp.choices[0].message.content or "I'm here to help! What would you like to see?"
-    ti = resp.usage.prompt_tokens if resp.usage else 0
-    to_ = resp.usage.completion_tokens if resp.usage else 0
-    save_message(db, session_id, "assistant", reply, ti, to_, model_name)
-    return {
-        "session_id": session_id, "reply": reply,
-        "tool_results": {}, "tokens_used": ti + to_,
-        "cost_usd": 0.0, "provider": "groq_fallback",
-    }
-
-
 def customer_chat(
     db: Session,
     user_message: str,
@@ -1716,12 +1620,14 @@ def customer_chat(
 ) -> Dict[str, Any]:
     """
     Customer AI Salesman chat with enhanced e-commerce capabilities.
-    Supports Gemini Flash Lite (primary) with Groq Llama fallback on quota errors.
+    Uses OpenAI-compatible API (Groq primary) with tool calling.
     Returns: { session_id, reply, tool_results, tokens_used, cost }
     """
-    api_key = _get_gemini_key()  # must be Gemini key for genai SDK
-    genai.configure(api_key=api_key)
-    model_name = _get_setting(db, "CUSTOMER_MODEL", os.environ.get("AI_MODEL", GEMINI_FLASH_LITE))
+    if not OPENAI_AVAILABLE:
+        raise RuntimeError("OpenAI package not installed. Run: pip install openai")
+    
+    api_key = _get_provider_api_key()
+    model_name = _get_setting(db, "CUSTOMER_MODEL", os.environ.get("AI_MODEL", GROQ_DEFAULT_MODEL))
     max_tokens = int(_get_setting(db, "CUSTOMER_MAX_TOKENS", os.environ.get("AI_CUSTOMER_MAX_TOKENS", "512")))
     max_history = int(_get_setting(db, "CUSTOMER_HISTORY", "8"))
 
@@ -1772,53 +1678,71 @@ def customer_chat(
     session_id = get_or_create_session(db, session_id or "", user_id, "customer")
     history = get_session_history(db, session_id, max_messages=max_history)
 
-    tools = _customer_tools(db)
-    model = genai.GenerativeModel(
-        model_name=model_name,
-        system_instruction=system_prompt,
-        tools=[{"function_declarations": tools}],
-        generation_config={"max_output_tokens": max_tokens, "temperature": 0.7},
-    )
-    # Gemini requires "model" role (not "assistant") for AI turns in history
-    gemini_history = [
-        {"role": "model" if m["role"] == "assistant" else m["role"], "parts": m["parts"]}
-        for m in history
-    ]
-    chat = model.start_chat(history=gemini_history)
+    # Build messages array
+    messages: List[Dict[str, str]] = [{"role": "system", "content": system_prompt}]
+    messages += [{"role": m["role"], "content": m["content"]} for m in history]
+    messages.append({"role": "user", "content": user_message})
 
-    # Save user message (no tokens yet)
+    # Save user message
     save_message(db, session_id, "user", user_message, 0, 0, model_name)
 
+    # Create OpenAI client with Groq base URL
+    client = _OpenAI(api_key=api_key, base_url=GROQ_BASE_URL)
+    tools = _customer_tools(db)
+
     try:
-        response = chat.send_message(user_message)
-        tokens_in = response.usage_metadata.prompt_token_count or 0
-        tokens_out = response.usage_metadata.candidates_token_count or 0
+        # First API call with tools
+        resp = client.chat.completions.create(
+            model=model_name,
+            messages=messages,
+            tools=tools,
+            tool_choice="auto",
+            max_tokens=max_tokens,
+            temperature=0.7,
+        )
+
+        tokens_in = resp.usage.prompt_tokens if resp.usage else 0
+        tokens_out = resp.usage.completion_tokens if resp.usage else 0
 
         # Handle tool calls if present
         tool_results = {}
-        final_text = ""
-        for part in response.parts:
-            if hasattr(part, "function_call") and part.function_call:
-                fc = part.function_call
+        final_text = resp.choices[0].message.content or ""
+
+        if resp.choices[0].message.tool_calls:
+            # Execute tools and get results
+            for tool_call in resp.choices[0].message.tool_calls:
+                tool_name = tool_call.function.name
+                tool_args = json.loads(tool_call.function.arguments)
+                
                 # Pass user_id to tool execution for auth-dependent tools
-                args_dict = dict(fc.args)
                 if user_id:
-                    args_dict["user_id"] = user_id
-                result = _execute_customer_tool(db, fc.name, args_dict)
-                tool_results[fc.name] = result
-                # Second pass with tool result
-                follow_up = chat.send_message(
-                    genai.protos.Content(parts=[
-                        genai.protos.Part(function_response=genai.protos.FunctionResponse(
-                            name=fc.name, response={"result": result}
-                        ))
-                    ])
-                )
-                tokens_in += follow_up.usage_metadata.prompt_token_count or 0
-                tokens_out += follow_up.usage_metadata.candidates_token_count or 0
-                final_text = follow_up.text or ""
-            elif hasattr(part, "text"):
-                final_text += part.text or ""
+                    tool_args["user_id"] = user_id
+                
+                result = _execute_customer_tool(db, tool_name, tool_args)
+                tool_results[tool_name] = result
+
+            # Build second API call with tool results
+            messages.append(resp.choices[0].message)
+            for tool_call in resp.choices[0].message.tool_calls:
+                tool_name = tool_call.function.name
+                result = tool_results.get(tool_name, json.dumps({"error": "Tool execution failed"}))
+                messages.append({
+                    "role": "tool",
+                    "tool_call_id": tool_call.id,
+                    "content": result,
+                })
+
+            # Second API call to get final response after tool execution
+            follow_up = client.chat.completions.create(
+                model=model_name,
+                messages=messages,
+                max_tokens=max_tokens,
+                temperature=0.7,
+            )
+
+            tokens_in += follow_up.usage.prompt_tokens if follow_up.usage else 0
+            tokens_out += follow_up.usage.completion_tokens if follow_up.usage else 0
+            final_text = follow_up.choices[0].message.content or ""
 
         final_text = final_text.strip()
         save_message(db, session_id, "assistant", final_text,
@@ -1831,26 +1755,21 @@ def customer_chat(
             "tool_results": tool_results,
             "tokens_used": tokens_in + tokens_out,
             "cost_usd": _calc_cost(model_name, tokens_in, tokens_out),
+            "provider": "groq",
         }
 
     except Exception as e:
         logger.error(f"Customer chat error: {e}")
         msg = str(e).lower()
-        # Try Groq fallback on quota/rate errors before giving up
-        if ("quota" in msg or "rate" in msg or "429" in msg or "resource_exhausted" in msg):
-            try:
-                logger.info("Gemini quota hit — trying Groq fallback")
-                return _customer_chat_groq_fallback(
-                    db, user_message, session_id, user_id, system_prompt, max_tokens
-                )
-            except Exception as fallback_err:
-                logger.error(f"Groq fallback also failed: {fallback_err}")
+        
+        # Handle different error types
         if "api key" in msg or "authentication" in msg:
             friendly = "Our AI assistant is taking a short break. Please try again soon! 🙏"
         elif "quota" in msg or "rate" in msg or "429" in msg:
             friendly = "I'm a bit busy right now — please try again in a moment! 😊"
         else:
             friendly = "I'm having a little trouble right now. Please try again in a moment! 🌸"
+        
         save_message(db, session_id, "assistant", friendly, 0, 0, model_name)
         return {
             "session_id": session_id,
@@ -1859,77 +1778,6 @@ def customer_chat(
             "tokens_used": 0,
             "cost_usd": 0.0,
         }
-
-
-def _admin_chat_openai(
-    db: Session, user_message: str, session_id: str, user_id: int,
-    model_name: str, api_key: str, base_url: Optional[str], max_tokens: int, max_history: int,
-) -> Dict[str, Any]:
-    """Text-only admin chat via OpenAI-compatible API (OpenAI, Groq, Together, etc.)."""
-    client = _OpenAI(api_key=api_key, base_url=base_url)
-    history = get_session_history(db, session_id, max_messages=max_history)
-    messages: List[Dict] = [{"role": "system", "content": ADMIN_SYSTEM_PROMPT}]
-    messages += [{"role": m["role"], "content": m["parts"][0]} for m in history]
-    messages.append({"role": "user", "content": user_message})
-
-    save_message(db, session_id, "user", user_message, 0, 0, model_name)
-    try:
-        resp = client.chat.completions.create(
-            model=model_name, messages=messages,
-            max_tokens=max_tokens, temperature=0.4,
-        )
-        reply = resp.choices[0].message.content or ""
-        ti = resp.usage.prompt_tokens if resp.usage else 0
-        to = resp.usage.completion_tokens if resp.usage else 0
-        save_message(db, session_id, "assistant", reply, ti, to, model_name)
-        return {
-            "session_id": session_id, "reply": reply,
-            "tool_calls": [], "pending_actions": [],
-            "tokens_used": ti + to,
-            "cost_usd": _calc_cost(model_name, ti, to),
-            "provider": "openai",
-        }
-    except Exception as e:
-        logger.error(f"OpenAI admin chat error: {e}")
-        friendly = _friendly_error(e)
-        save_message(db, session_id, "assistant", friendly, 0, 0, model_name)
-        return {"session_id": session_id, "reply": friendly, "error": "service_error",
-                "tool_calls": [], "pending_actions": [], "tokens_used": 0, "cost_usd": 0.0}
-
-
-def _admin_chat_anthropic(
-    db: Session, user_message: str, session_id: str, user_id: int,
-    model_name: str, api_key: str, max_tokens: int, max_history: int,
-) -> Dict[str, Any]:
-    """Text-only admin chat via Anthropic Claude."""
-    client = _anthropic.Anthropic(api_key=api_key)
-    history = get_session_history(db, session_id, max_messages=max_history)
-    messages: List[Dict] = [{"role": m["role"], "content": m["parts"][0]} for m in history]
-    messages.append({"role": "user", "content": user_message})
-
-    save_message(db, session_id, "user", user_message, 0, 0, model_name)
-    try:
-        resp = client.messages.create(
-            model=model_name, max_tokens=max_tokens,
-            system=ADMIN_SYSTEM_PROMPT, messages=messages,
-        )
-        reply = resp.content[0].text if resp.content else ""
-        ti = resp.usage.input_tokens if resp.usage else 0
-        to = resp.usage.output_tokens if resp.usage else 0
-        save_message(db, session_id, "assistant", reply, ti, to, model_name)
-        return {
-            "session_id": session_id, "reply": reply,
-            "tool_calls": [], "pending_actions": [],
-            "tokens_used": ti + to,
-            "cost_usd": _calc_cost(model_name, ti, to),
-            "provider": "anthropic",
-        }
-    except Exception as e:
-        logger.error(f"Anthropic admin chat error: {e}")
-        friendly = _friendly_error(e)
-        save_message(db, session_id, "assistant", friendly, 0, 0, model_name)
-        return {"session_id": session_id, "reply": friendly, "error": "service_error",
-                "tool_calls": [], "pending_actions": [], "tokens_used": 0, "cost_usd": 0.0}
 
 
 def admin_chat(
@@ -1941,105 +1789,107 @@ def admin_chat(
 ) -> Dict[str, Any]:
     """
     Admin AI Assistant chat.
-    Supports Gemini (full tools + pending actions), OpenAI, Anthropic, Groq.
-    Write operations always return pending_actions — never auto-execute.
+    Uses OpenAI-compatible API (Groq primary) with tool calling.
+    Write operations return pending_actions — never auto-execute.
     Returns: { session_id, reply, tool_calls, pending_actions, tokens_used, cost_usd }
+    
+    Note: Image support is not available with Groq's current models.
+    If image_data is provided, it will be acknowledged but not processed.
     """
-    model_name = _get_setting(db, "ADMIN_MODEL", os.environ.get("AI_ADMIN_MODEL", GEMINI_FLASH))
+    if not OPENAI_AVAILABLE:
+        raise RuntimeError("OpenAI package not installed. Run: pip install openai")
+    
+    model_name = _get_setting(db, "ADMIN_MODEL", os.environ.get("AI_ADMIN_MODEL", GROQ_DEFAULT_MODEL))
     max_tokens = int(_get_setting(db, "ADMIN_MAX_TOKENS", os.environ.get("AI_ADMIN_MAX_TOKENS", "2048")))
     max_history = int(_get_setting(db, "ADMIN_HISTORY", "10"))
-    provider = _get_setting(db, "AI_PROVIDER", "gemini").lower()
 
     session_id = get_or_create_session(db, session_id or "", user_id, "admin")
 
-    # ── Route to non-Gemini providers (text-only, no tool calling) ───────────
-    if provider == "openai" and OPENAI_AVAILABLE:
-        api_key = _get_setting(db, "OPENAI_API_KEY", os.environ.get("OPENAI_API_KEY", ""))
-        if not api_key:
-            api_key = _get_api_key()  # fallback
-        return _admin_chat_openai(db, user_message, session_id, user_id,
-                                  model_name, api_key, None, max_tokens, max_history)
-
-    if provider == "groq" and OPENAI_AVAILABLE:
-        api_key = _get_setting(db, "GROQ_API_KEY", os.environ.get("GROQ_API_KEY", ""))
-        return _admin_chat_openai(db, user_message, session_id, user_id,
-                                  model_name, api_key, "https://api.groq.com/openai/v1",
-                                  max_tokens, max_history)
-
-    if provider == "anthropic" and ANTHROPIC_AVAILABLE:
-        api_key = _get_setting(db, "ANTHROPIC_API_KEY", os.environ.get("ANTHROPIC_API_KEY", ""))
-        return _admin_chat_anthropic(db, user_message, session_id, user_id,
-                                     model_name, api_key, max_tokens, max_history)
-
-    # ── Default: Gemini with full tool support ────────────────────────────────
-    api_key = _get_gemini_key()  # must be Gemini key for genai SDK
-    genai.configure(api_key=api_key)
+    # Get API key and create client
+    api_key = _get_provider_api_key()
+    client = _OpenAI(api_key=api_key, base_url=GROQ_BASE_URL)
 
     # Combine read-only + write tools
     all_tools = _admin_tools() + _admin_write_tool_definitions()
-    model = genai.GenerativeModel(
-        model_name=model_name,
-        system_instruction=ADMIN_SYSTEM_PROMPT,
-        tools=[{"function_declarations": all_tools}],
-        generation_config={"max_output_tokens": max_tokens, "temperature": 0.4},
-    )
+
+    # Build messages array
+    messages: List[Dict[str, str]] = [{"role": "system", "content": ADMIN_SYSTEM_PROMPT}]
     history = get_session_history(db, session_id, max_messages=max_history)
-    # Gemini requires "model" role (not "assistant") for AI turns in history
-    gemini_history = [
-        {"role": "model" if m["role"] == "assistant" else m["role"], "parts": m["parts"]}
-        for m in history
-    ]
-    chat = model.start_chat(history=gemini_history)
-
-    parts: List[Any] = [user_message]
+    messages += [{"role": m["role"], "content": m["content"]} for m in history]
+    
+    # Handle image data (note: Groq doesn't support images, so we acknowledge but don't process)
     if image_data:
-        for img in image_data[:3]:
-            parts.append({"mime_type": img["mime_type"], "data": img["data"]})
+        image_note = "\n\n[Note: You've included images, but the current AI model doesn't support image analysis. Please describe what you'd like me to help you with.]"
+        messages.append({"role": "user", "content": user_message + image_note})
+    else:
+        messages.append({"role": "user", "content": user_message})
 
+    # Save user message
     save_message(db, session_id, "user", user_message, 0, 0, model_name,
                  image_urls=[img.get("url") for img in (image_data or [])])
 
     try:
-        response = chat.send_message(parts)
-        tokens_in = response.usage_metadata.prompt_token_count or 0
-        tokens_out = response.usage_metadata.candidates_token_count or 0
+        # First API call with tools
+        resp = client.chat.completions.create(
+            model=model_name,
+            messages=messages,
+            tools=all_tools,
+            tool_choice="auto",
+            max_tokens=max_tokens,
+            temperature=0.4,
+        )
+
+        tokens_in = resp.usage.prompt_tokens if resp.usage else 0
+        tokens_out = resp.usage.completion_tokens if resp.usage else 0
 
         tool_calls_log: Dict = {}
+        tool_results: Dict = {}
         pending_actions: List[Dict] = []
-        final_text = ""
+        final_text = resp.choices[0].message.content or ""
 
-        for part in response.parts:
-            if hasattr(part, "function_call") and part.function_call:
-                fc = part.function_call
-                fc_name = fc.name
-                fc_args = dict(fc.args)
+        if resp.choices[0].message.tool_calls:
+            # First pass: execute tools and collect results
+            for tool_call in resp.choices[0].message.tool_calls:
+                tool_name = tool_call.function.name
+                tool_args = json.loads(tool_call.function.arguments)
 
-                if fc_name in WRITE_TOOLS:
+                tool_calls_log[tool_name] = {"args": tool_args}
+
+                if tool_name in WRITE_TOOLS:
                     # Build pending action — DO NOT execute
-                    pending = _build_pending_action(db, fc_name, fc_args)
+                    pending = _build_pending_action(db, tool_name, tool_args)
                     pending_actions.append(pending)
-                    tool_result = json.dumps({
+                    tool_results[tool_name] = json.dumps({
                         "status": "pending_confirmation",
                         "message": "Action prepared for admin confirmation.",
+                        "pending_action": pending,
                     })
                 else:
-                    tool_result = _execute_admin_tool(db, fc_name, fc_args)
+                    # Execute read-only tool
+                    tool_results[tool_name] = _execute_admin_tool(db, tool_name, tool_args)
 
-                tool_calls_log[fc_name] = {"args": fc_args}
+            # Second pass: build messages for second API call
+            messages.append(resp.choices[0].message)
+            for tool_call in resp.choices[0].message.tool_calls:
+                tool_name = tool_call.function.name
+                result = tool_results.get(tool_name, json.dumps({"error": "Tool execution failed"}))
+                messages.append({
+                    "role": "tool",
+                    "tool_call_id": tool_call.id,
+                    "content": result,
+                })
 
-                follow_up = chat.send_message(
-                    genai.protos.Content(parts=[
-                        genai.protos.Part(function_response=genai.protos.FunctionResponse(
-                            name=fc_name, response={"result": tool_result}
-                        ))
-                    ])
-                )
-                tokens_in += follow_up.usage_metadata.prompt_token_count or 0
-                tokens_out += follow_up.usage_metadata.candidates_token_count or 0
-                final_text = follow_up.text or ""
+            # Second API call to get final response
+            follow_up = client.chat.completions.create(
+                model=model_name,
+                messages=messages,
+                max_tokens=max_tokens,
+                temperature=0.4,
+            )
 
-            elif hasattr(part, "text"):
-                final_text += part.text or ""
+            tokens_in += follow_up.usage.prompt_tokens if follow_up.usage else 0
+            tokens_out += follow_up.usage.completion_tokens if follow_up.usage else 0
+            final_text = follow_up.choices[0].message.content or ""
 
         final_text = final_text.strip()
         save_message(db, session_id, "assistant", final_text,
@@ -2053,7 +1903,7 @@ def admin_chat(
             "pending_actions": pending_actions,
             "tokens_used": tokens_in + tokens_out,
             "cost_usd": _calc_cost(model_name, tokens_in, tokens_out),
-            "provider": "gemini",
+            "provider": "groq",
         }
 
     except Exception as e:
@@ -2078,68 +1928,32 @@ def generate_product_embeddings_batch(
 ) -> Dict[str, Any]:
     """
     Generate / refresh embeddings for products.
-    If product_ids is None → regenerates all products without embeddings.
+    
+    DEPRECATED: Embeddings are not supported by Groq and other OpenAI-compatible providers.
+    This function is kept for backward compatibility but will return a notice.
+    
+    If product_ids is None → would regenerate all products without embeddings.
     Returns { updated, skipped, errors, total }.
     """
-    try:
-        api_key = _get_gemini_key()
-    except ValueError as e:
-        return {"success": False, "error": str(e), "updated": 0, "skipped": 0, "errors": 0}
-
-    if product_ids:
-        rows = db.execute(text("""
-            SELECT p.id, p.name, p.description, c.name as category
-            FROM products p
-            LEFT JOIN collections c ON c.id = p.category_id
-            WHERE p.id = ANY(:ids)
-        """), {"ids": product_ids}).fetchall()
-    else:
-        rows = db.execute(text("""
-            SELECT p.id, p.name, p.description, c.name as category
-            FROM products p
-            LEFT JOIN collections c ON c.id = p.category_id
-            WHERE p.embedding IS NULL
-            ORDER BY p.id
-            LIMIT :bs
-        """), {"bs": batch_size}).fetchall()
-
-    updated = skipped = errors = 0
-    for row in rows:
-        pid, name, desc, cat = row[0], row[1], row[2] or "", row[3] or ""
-        tags = ""
-        embed_text = _product_embed_text(name, desc, cat, tags)
-        vec = _generate_embedding(embed_text, api_key)
-        if vec is None:
-            errors += 1
-            continue
-        try:
-            db.execute(text("""
-                UPDATE products SET embedding = :vec::vector
-                WHERE id = :pid
-            """), {"vec": _vec_str(vec), "pid": pid})
-            db.commit()
-            updated += 1
-        except Exception as e:
-            db.rollback()
-            logger.error(f"Failed to save embedding for product #{pid}: {e}")
-            errors += 1
-
-    total = db.execute(text(
-        "SELECT COUNT(*) FROM products WHERE embedding IS NOT NULL"
-    )).scalar() or 0
-
+    logger.warning("Embedding generation is deprecated. Groq and other providers don't support embeddings.")
     return {
-        "success": True,
-        "updated": updated,
-        "skipped": skipped,
-        "errors": errors,
-        "total_with_embeddings": total,
-        "message": f"Generated {updated} embeddings ({errors} errors). {total} products indexed total.",
+        "success": False,
+        "error": "Embedding generation is not supported. Groq and other OpenAI-compatible providers don't offer embedding APIs.",
+        "updated": 0,
+        "skipped": 0,
+        "errors": 0,
+        "total_with_embeddings": db.execute(text(
+            "SELECT COUNT(*) FROM products WHERE embedding IS NOT NULL"
+        )).scalar() or 0,
+        "message": "Embedding generation is deprecated. Consider using an external embedding service if needed.",
     }
 
 
 def generate_single_product_embedding(db: Session, product_id: int) -> Dict[str, Any]:
-    """Generate or refresh embedding for a single product."""
+    """Generate or refresh embedding for a single product.
+    
+    DEPRECATED: See generate_product_embeddings_batch().
+    """
     return generate_product_embeddings_batch(db, product_ids=[product_id], batch_size=1)
 
 

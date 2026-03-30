@@ -156,6 +156,7 @@ const ProductCard = ({ product, className }) => {
             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
             className="object-cover transition-all duration-700 group-hover:scale-110 group-hover:brightness-110"
             priority={isNew}
+            loading="eager"
           />
 
           {/* Premium Gradient Overlay */}

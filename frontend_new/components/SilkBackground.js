@@ -57,13 +57,11 @@ export default function SilkBackground() {
       return;
     }
 
-    // Mobile devices (unified 768px threshold): static gradient for battery
+    // Mobile optimization: reduce frame rate but keep animation
     isMobileRef.current = window.innerWidth < 768 ||
       /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    if (isMobileRef.current) {
-      canvas.style.background = STATIC_GRADIENT;
-      return;
-    }
+    // Use lower frame rate on mobile (24fps instead of 30fps)
+    const frameInterval = isMobileRef.current ? 1000 / 24 : 1000 / 30;
 
     // Try WebGL2 first, fallback to WebGL1
     const gl = canvas.getContext('webgl2', { 
@@ -282,7 +280,6 @@ export default function SilkBackground() {
     window.addEventListener('resize', debouncedResize, { passive: true });
 
     // Animation loop with battery-efficient frame throttling
-    const frameInterval = 1000 / 30; // 30fps on desktop
     startTimeRef.current = performance.now();
 
     function render(currentTime) {

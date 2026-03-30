@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, memo } from 'react';
 import Image from 'next/image';
 import { gsap, ScrollTrigger } from '@/lib/gsapConfig';
 import { Button } from '../ui/button';
@@ -8,15 +8,17 @@ import { useLogo } from '@/lib/siteConfigContext';
 
 /**
  * AboutSection - Modern about section with scroll animations
- * 
+ *
  * ARCHITECTURE: All data comes from backend API via props.
  * No hard-coded defaults - parent component provides all data.
- * 
+ *
  * Features:
  * - Split layout with parallax images
  * - GSAP scroll-triggered animations
  * - Counter animation for stats
  * - Glass morphism styling
+ *
+ * PERFORMANCE: Wrapped with React.memo to prevent unnecessary re-renders
  */
 const AboutSection = ({
   id,
@@ -286,4 +288,5 @@ const AboutSection = ({
   );
 };
 
-export default AboutSection;
+// PERFORMANCE: Memoize component to prevent unnecessary re-renders
+export default memo(AboutSection);

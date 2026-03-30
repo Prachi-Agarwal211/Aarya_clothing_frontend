@@ -58,16 +58,25 @@ const HeroSection = ({
     gsap.killTweensOf([outgoingSlide, incomingSlide]);
 
     // Create new animations and track them
+    // OPTIMIZATION: Use opacity + translate instead of scale for better mobile performance
+    // force3D: true ensures GPU acceleration
     const outAnim = gsap.to(outgoingSlide, {
       opacity: 0,
-      scale: 1.05,
+      y: -50, // Translate instead of scale
       duration: 1,
-      ease: 'power2.inOut'
+      ease: 'power2.inOut',
+      force3D: true // GPU acceleration
     });
 
     const inAnim = gsap.fromTo(incomingSlide,
-      { opacity: 0, scale: 1.1 },
-      { opacity: 1, scale: 1, duration: 1, ease: 'power2.out' }
+      { opacity: 0, y: 50 }, // Translate instead of scale
+      { 
+        opacity: 1, 
+        y: 0, 
+        duration: 1, 
+        ease: 'power2.out',
+        force3D: true // GPU acceleration
+      }
     );
 
     slideAnimationRefs.current = [outAnim, inAnim];
@@ -75,7 +84,8 @@ const HeroSection = ({
   }, [slides.length]);
 
   useEffect(() => {
-    autoPlayRef.current = setInterval(nextSlide, 5000);
+    // OPTIMIZATION: Increased interval to 8000ms for better mobile battery life
+    autoPlayRef.current = setInterval(nextSlide, 8000);
 
     return () => {
       if (autoPlayRef.current) {
@@ -96,28 +106,28 @@ const HeroSection = ({
     let ctx = gsap.context(() => {
       const tl = gsap.timeline({ delay: 0.3 });
 
-      // First slide entrance
+      // First slide entrance - OPTIMIZED with force3D and translate instead of scale
       if (slideRefs.current[0]) {
         tl.fromTo(slideRefs.current[0],
-          { opacity: 0, scale: 1.1 },
-          { opacity: 1, scale: 1, duration: 1.2, ease: 'power3.out' }
+          { opacity: 0, y: 50 }, // Translate instead of scale
+          { opacity: 1, y: 0, duration: 1.2, ease: 'power3.out', force3D: true }
         );
       }
 
-      // Tagline entrance (from top)
+      // Tagline entrance (from top) - OPTIMIZED with force3D
       if (taglineRef.current) {
         tl.fromTo(taglineRef.current,
           { y: -30, opacity: 0 },
-          { y: 0, opacity: 1, duration: 0.8, ease: 'power3.out' },
+          { y: 0, opacity: 1, duration: 0.8, ease: 'power3.out', force3D: true },
           "-=0.6"
         );
       }
 
-      // Buttons entrance (staggered, from bottom)
+      // Buttons entrance (staggered, from bottom) - OPTIMIZED with force3D
       if (buttonContainerRef.current) {
         tl.fromTo(buttonContainerRef.current.children,
           { y: 40, opacity: 0 },
-          { y: 0, opacity: 1, duration: 0.8, stagger: 0.15, ease: 'power3.out' },
+          { y: 0, opacity: 1, duration: 0.8, stagger: 0.15, ease: 'power3.out', force3D: true },
           "-=0.4"
         );
       }
@@ -201,17 +211,19 @@ const HeroSection = ({
           >
             {/* Image - Full viewport with Next.js Image optimization */}
             {imgSrc && (
-              <div className="absolute inset-0">
+              <div className="absolute inset-0 aspect-[9/16] md:aspect-[16/9]">
                 <Image
                   src={imgSrc}
                   alt={slide.alt || `Hero slide ${index + 1}`}
                   fill
-                  priority={index === 0} // Priority load first slide only (LCP optimization)
-                  sizes="100vw" // Full viewport width
+                  priority={index === 0}
+                  fetchPriority={index === 0 ? 'high' : 'auto'}
+                  sizes={isMobile ? '100vw' : '(max-width: 768px) 100vw, 100vw'}
                   className="object-cover object-top"
-                  quality={index === 0 ? 85 : 75} // Higher quality for LCP image
-                  loading={index === 0 ? 'eager' : 'lazy'} // Eager for first, lazy for others
-                  decoding="async" // Non-blocking decoding
+                  // OPTIMIZATION: Lower quality for mobile (65) vs desktop (75) for faster loading
+                  quality={isMobile ? 65 : index === 0 ? 85 : 75}
+                  loading={index === 0 ? 'eager' : 'lazy'}
+                  decoding="async"
                   placeholder="blur"
                   blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k="
                 />

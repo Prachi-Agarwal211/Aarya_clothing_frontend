@@ -30,12 +30,28 @@ export function useViewport() {
     const w = window.innerWidth;
     const h = window.innerHeight;
 
-    setViewport({
-      width: w,
-      height: h,
-      isMobile: w < 768,
-      isTablet: w >= 768 && w < 1024,
-      isDesktop: w >= 1024,
+    // Only update if breakpoint changed - prevents unnecessary re-renders
+    setViewport(prev => {
+      const newIsMobile = w < 768;
+      const newIsTablet = w >= 768 && w < 1024;
+      const newIsDesktop = w >= 1024;
+      
+      // Only update state if breakpoint actually changed
+      if (prev.isMobile === newIsMobile && 
+          prev.isTablet === newIsTablet && 
+          prev.isDesktop === newIsDesktop &&
+          Math.abs(prev.width - w) < 10 &&  // Allow small width changes without re-render
+          Math.abs(prev.height - h) < 10) {
+        return prev;
+      }
+      
+      return {
+        width: w,
+        height: h,
+        isMobile: newIsMobile,
+        isTablet: newIsTablet,
+        isDesktop: newIsDesktop,
+      };
     });
   }, []);
 

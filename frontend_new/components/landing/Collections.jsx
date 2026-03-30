@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, memo } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { gsap, ScrollTrigger } from '@/lib/gsapConfig';
@@ -8,15 +8,17 @@ import { ArrowRight } from 'lucide-react';
 
 /**
  * Collections - Modern section with overlapping cards
- * 
+ *
  * ARCHITECTURE: All data comes from backend API via props.
  * No hard-coded defaults - parent component provides all data.
- * 
+ *
  * Features:
  * - Overlapping card layout
  * - GSAP scroll-triggered animations
  * - Staggered reveal effects
  * - Glass morphism styling
+ *
+ * PERFORMANCE: Wrapped with React.memo to prevent unnecessary re-renders
  */
 const Collections = ({
   id,
@@ -202,4 +204,5 @@ const CollectionCard = ({ category, size = 'medium', index }) => {
   );
 };
 
-export default Collections;
+// PERFORMANCE: Memoize component to prevent unnecessary re-renders
+export default memo(Collections);

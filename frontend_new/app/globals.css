@@ -2464,7 +2464,7 @@ main {
     animation: none !important;
     transition: none !important;
   }
-  
+
   /* Optimize touch targets */
   .touch-target-mobile {
     min-height: 44px;
@@ -2473,18 +2473,75 @@ main {
     align-items: center;
     justify-content: center;
   }
-  
+
   /* Prevent zoom on input focus */
   input,
   textarea,
   select {
     font-size: 16px !important;
   }
-  
+
   /* Optimize scrolling */
   .mobile-scroll {
     -webkit-overflow-scrolling: touch;
     overflow-scrolling: touch;
+  }
+}
+
+/* ============================================
+   MOBILE PERFORMANCE OPTIMIZATIONS
+   ============================================ */
+
+@media (max-width: 768px) {
+  /* PERFORMANCE: GPU acceleration for parallax layers */
+  .parallax-layer {
+    will-change: transform;
+    contain: layout style paint;
+  }
+
+  /* PERFORMANCE: Content visibility for below-fold content */
+  /* Skips rendering work for off-screen content */
+  .content-below-fold {
+    content-visibility: auto;
+    contain-intrinsic-size: 0 800px;
+  }
+
+  /* PERFORMANCE: Optimize image rendering */
+  img {
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
+  }
+
+  /* PERFORMANCE: Reduce paint areas */
+  .glass-card,
+  .card-glass {
+    backdrop-filter: blur(8px); /* Reduced from 12-16px for mobile */
+    -webkit-backdrop-filter: blur(8px);
+  }
+
+  /* PERFORMANCE: Simplify shadows on mobile */
+  .shadow-\[0_8px_32px_rgba\(0\,0\,0\,0\.3\)\] {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  }
+
+  /* PERFORMANCE: Reduce gradient complexity */
+  .bg-gradient-to-br {
+    background: linear-gradient(135deg, var(--tw-gradient-stops));
+  }
+}
+
+/* ============================================
+   REDUCED MOTION SUPPORT
+   ============================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
 

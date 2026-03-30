@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import { useCart } from '@/lib/cartContext';
 import { useAuth } from '@/lib/authContext';
 import { useToast } from '@/components/ui/Toast';
+import { useViewport } from '@/lib/hooks/useViewport';
 import { AddToCartButton } from '@/components/cart/CartAnimation';
 import { wishlistApi } from '@/lib/customerApi';
 import logger from '@/lib/logger';
@@ -32,6 +33,7 @@ const ProductCard = ({ product, className }) => {
   const category = product.collection_name || product.category || '';
   const isNew = product.is_new_arrival ?? product.isNew ?? false;
   const originalPrice = product.mrp || product.originalPrice;
+  const { isMobile } = useViewport();
   const [isWishlisted, setIsWishlisted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { addItem, openCart } = useCart();
@@ -153,12 +155,12 @@ const ProductCard = ({ product, className }) => {
             src={ensureFullUrl(image)}
             alt={name}
             fill
-            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+            sizes="(max-width: 640px) 280px, (max-width: 1024px) 320px, 360px"
             className="object-cover transition-all duration-700 group-hover:scale-110 group-hover:brightness-110"
-            priority={isNew} // Priority for new arrivals
-            loading={isNew ? 'eager' : 'lazy'} // Eager for new, lazy for others
-            decoding="async" // Non-blocking decoding
-            quality={75} // Mobile-optimized quality
+            priority={false}
+            loading="lazy"
+            decoding="async"
+            quality={isMobile ? 65 : 75}
             placeholder="blur"
             blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k="
           />

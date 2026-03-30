@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, memo } from 'react';
 import { gsap, ScrollTrigger } from '@/lib/gsapConfig';
 import ProductCard from '../common/ProductCard';
 
@@ -15,6 +15,8 @@ import ProductCard from '../common/ProductCard';
  * - GSAP scroll-triggered animations
  * - Glass card containers
  * - No separate CTA button - products are inline on landing page
+ *
+ * PERFORMANCE: Wrapped with React.memo to prevent unnecessary re-renders
  */
 const NewArrivals = ({
   id,
@@ -144,4 +146,5 @@ const NewArrivals = ({
   );
 };
 
-export default NewArrivals;
+// PERFORMANCE: Memoize component to prevent unnecessary re-renders
+export default memo(NewArrivals);

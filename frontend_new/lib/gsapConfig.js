@@ -1,12 +1,17 @@
 /**
  * GSAP Configuration - Centralized imports and plugin registration
- * 
+ *
  * This file provides a single entry point for GSAP imports across the application.
  * Benefits:
  * - Single plugin registration (prevents duplicate registrations)
  * - Smaller bundle size through tree-shaking
  * - Consistent animation configuration
  * - Easier maintenance and updates
+ *
+ * PERFORMANCE OPTIMIZATIONS:
+ * - force3D: true for GPU acceleration on all animations
+ * - lazyLoad: true to defer animation initialization
+ * - Mobile-specific settings for better battery life
  */
 
 import { gsap } from 'gsap';
@@ -17,7 +22,19 @@ import { Draggable } from 'gsap/Draggable';
 // Register plugins only on client side
 if (typeof window !== 'undefined') {
   gsap.registerPlugin(ScrollTrigger, ScrollToPlugin, Draggable);
+  
+  // PERFORMANCE: Global GSAP performance settings
+  gsap.defaults({
+    force3D: true, // GPU acceleration for all animations
+    lazy: true, // Lazy load animations
+  });
 }
+
+// PERFORMANCE: Mobile detection utility
+const isMobile = () => {
+  if (typeof window === 'undefined') return false;
+  return window.innerWidth < 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+};
 
 // Default animation configuration for consistency
 export const animationConfig = {
@@ -28,7 +45,7 @@ export const animationConfig = {
     elegant: 'power3.out',
     snappy: 'power4.out',
   },
-  // Default durations
+  // Default durations - slightly longer on mobile for perceived smoothness
   duration: {
     fast: 0.3,
     normal: 0.5,
@@ -47,6 +64,12 @@ export const animationConfig = {
     end: 'bottom 20%',
     toggleActions: 'play none none reverse',
   },
+  // PERFORMANCE: Mobile-specific optimizations
+  mobileContext: {
+    durationMultiplier: 1.2, // Slightly slower on mobile for battery
+    reduceMotion: false, // Keep animations but optimize them
+    force3D: true, // Always use GPU acceleration
+  },
 };
 
 // Export gsap and plugins for use in components
@@ -60,8 +83,14 @@ export { gsap, ScrollTrigger, ScrollToPlugin, Draggable };
  * @param {Object} scrollConfig - ScrollTrigger configuration
  */
 export function createScrollAnimation(element, fromVars, toVars, scrollConfig = {}) {
+  // PERFORMANCE: Apply mobile optimizations if needed
+  const isMobileDevice = isMobile();
+  const durationMultiplier = isMobileDevice ? animationConfig.mobileContext.durationMultiplier : 1;
+  
   return gsap.fromTo(element, fromVars, {
     ...toVars,
+    duration: (toVars.duration || 1) * durationMultiplier,
+    force3D: animationConfig.mobileContext.force3D,
     scrollTrigger: {
       trigger: element,
       ...animationConfig.scrollTrigger,
@@ -78,8 +107,14 @@ export function createScrollAnimation(element, fromVars, toVars, scrollConfig = 
  * @param {string} staggerType - 'fast', 'normal', or 'slow'
  */
 export function createStaggerAnimation(elements, fromVars, toVars, staggerType = 'normal') {
+  // PERFORMANCE: Apply mobile optimizations
+  const isMobileDevice = isMobile();
+  const durationMultiplier = isMobileDevice ? animationConfig.mobileContext.durationMultiplier : 1;
+  
   return gsap.fromTo(elements, fromVars, {
     ...toVars,
+    duration: (toVars.duration || 1) * durationMultiplier,
+    force3D: animationConfig.mobileContext.force3D,
     stagger: animationConfig.stagger[staggerType],
   });
 }
@@ -110,4 +145,5 @@ export default {
   createScrollAnimation,
   createStaggerAnimation,
   cleanupAnimations,
+  isMobile,
 };

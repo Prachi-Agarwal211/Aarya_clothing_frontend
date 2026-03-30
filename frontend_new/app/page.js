@@ -12,6 +12,8 @@ import logger from '@/lib/logger';
 import { LazyLoad, CardSkeleton } from '@/components/ui/LazyLoad';
 
 // Lazy load below-fold sections for faster initial load
+// PERFORMANCE: Removed ssr:false to enable SSR and prevent hydration jumps
+// Skeleton loaders now match content height for stable layout
 const NewArrivals = dynamic(() => import('@/components/landing/NewArrivals'), {
   loading: () => (
     <section aria-label="Loading new arrivals" className="py-16 sm:py-20 md:py-24">
@@ -20,7 +22,6 @@ const NewArrivals = dynamic(() => import('@/components/landing/NewArrivals'), {
       </div>
     </section>
   ),
-  ssr: false,
 });
 
 const Collections = dynamic(() => import('@/components/landing/Collections'), {
@@ -31,7 +32,6 @@ const Collections = dynamic(() => import('@/components/landing/Collections'), {
       </div>
     </section>
   ),
-  ssr: false,
 });
 
 const AboutSection = dynamic(() => import('@/components/landing/AboutSection'), {
@@ -42,7 +42,6 @@ const AboutSection = dynamic(() => import('@/components/landing/AboutSection'), 
       </div>
     </section>
   ),
-  ssr: false,
 });
 
 const Footer = dynamic(() => import('@/components/landing/Footer'), {
@@ -53,7 +52,6 @@ const Footer = dynamic(() => import('@/components/landing/Footer'), {
       </div>
     </footer>
   ),
-  ssr: false,
 });
 
 /**

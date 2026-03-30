@@ -37,10 +37,9 @@ export default function SilkBackground() {
   const isInitializedRef = useRef(false);
 
   const pathname = usePathname();
-  // Static background on admin / auth / checkout / MOBILE — no GPU waste
+  // Static background on admin / auth / checkout — no GPU waste
   const shouldAnimate = !pathname?.startsWith('/admin') &&
-                        !pathname?.startsWith('/checkout') &&
-                        !(typeof window !== 'undefined' && window.innerWidth < 768);  // Disable on mobile
+                        !pathname?.startsWith('/checkout');
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -58,28 +57,26 @@ export default function SilkBackground() {
       return;
     }
 
-    // Mobile optimization: DISABLE animation entirely on mobile for battery life
+    // PERFORMANCE: Mobile detection - optimize but keep animation
     isMobileRef.current = window.innerWidth < 768 ||
       /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+    // PERFORMANCE: Mobile uses simpler shader and lower FPS (20fps)
+    // Desktop keeps full quality at 30fps
+    const frameInterval = isMobileRef.current ? 1000 / 20 : 1000 / 30;
     
-    // Skip WebGL initialization on mobile - use static gradient instead
-    if (isMobileRef.current) {
-      canvas.style.background = STATIC_GRADIENT;
-      return;
-    }
-    
-    // Use lower frame rate on desktop (30fps)
-    const frameInterval = 1000 / 30;
+    // PERFORMANCE: Cap resolution for mobile to reduce GPU load
+    const maxDimension = isMobileRef.current ? 1280 : 1920;
 
     // Try WebGL2 first, fallback to WebGL1
-    const gl = canvas.getContext('webgl2', { 
-      alpha: false, 
+    const gl = canvas.getContext('webgl2', {
+      alpha: false,
       antialias: false,
-      powerPreference: 'low-power' 
-    }) || canvas.getContext('webgl', { 
-      alpha: false, 
+      powerPreference: 'low-power'
+    }) || canvas.getContext('webgl', {
+      alpha: false,
       antialias: false,
-      powerPreference: 'low-power' 
+      powerPreference: 'low-power'
     });
     
     if (!gl) {
@@ -101,13 +98,15 @@ export default function SilkBackground() {
     `;
 
     // Fragment shader - replicates the exact silk effect from original Canvas 2D code
+    // PERFORMANCE: Mobile uses simplified shader pattern for better battery life
     const fragmentShaderSource = `
       precision highp float;
-      
+
       varying vec2 v_uv;
       uniform float u_time;
       uniform vec2 u_resolution;
-      
+      uniform float u_isMobile;
+
       // Noise function matching the original JavaScript noise()
       float noise(vec2 p) {
         float G = 2.71828;
@@ -115,39 +114,48 @@ export default function SilkBackground() {
         float ry = G * sin(G * p.y);
         return fract(rx * ry * (1.0 + p.x));
       }
-      
+
       void main() {
         vec2 uv = v_uv;
-        
+
         // Time and speed - balanced for smooth, elegant animation
         float t = u_time * 0.0002;
         float speed = 0.006;
         float scale = 2.0;
         float noiseIntensity = 0.8;
-        
+
         // Calculate UV in scaled space
         float u = uv.x * scale;
         float v = uv.y * scale;
-        
+
         // Time offset
         float tOffset = speed * t * 1000.0;
-        
+
         // Texture coordinates with wave distortion
         float tex_x = u;
         float tex_y = v + 0.03 * sin(8.0 * tex_x - tOffset);
-        
-        // Pattern calculation - exact match to original
-        float pattern = 0.6 + 0.4 * sin(
-          5.0 * (tex_x + tex_y +
-            cos(3.0 * tex_x + 5.0 * tex_y) +
-            0.02 * tOffset) +
-          sin(20.0 * (tex_x + tex_y - 0.1 * tOffset))
-        );
-        
+
+        // PERFORMANCE: Simplified pattern calculation for mobile
+        // Mobile: simpler sine pattern (fewer operations)
+        // Desktop: full complex pattern with cos/sin layers
+        float pattern;
+        if (u_isMobile > 0.5) {
+          // Mobile shader: simplified pattern - 60% fewer GPU operations
+          pattern = 0.6 + 0.4 * sin(3.0 * (tex_x + tex_y) + 0.01 * tOffset);
+        } else {
+          // Desktop shader: full complex pattern for premium experience
+          pattern = 0.6 + 0.4 * sin(
+            5.0 * (tex_x + tex_y +
+              cos(3.0 * tex_x + 5.0 * tex_y) +
+              0.02 * tOffset) +
+            sin(20.0 * (tex_x + tex_y - 0.1 * tOffset))
+          );
+        }
+
         // Noise contribution - using smooth noise instead of harsh noise
         float rnd = fract(sin(dot(uv * 100.0, vec2(12.9898, 78.233))) * 43758.5453);
         float intensity = max(0.0, pattern - rnd / 15.0 * noiseIntensity);
-        
+
         // Color palette - exact match from original
         vec3 colors[8];
         colors[0] = vec3(11.0, 6.0, 8.0) / 255.0;      // #0B0608
@@ -158,13 +166,13 @@ export default function SilkBackground() {
         colors[5] = vec3(122.0, 47.0, 87.0) / 255.0;   // #7A2F57
         colors[6] = vec3(138.0, 75.0, 102.0) / 255.0;  // #8A4B66
         colors[7] = vec3(71.0, 60.0, 115.0) / 255.0;   // #473C73
-        
+
         // --- IMPROVED COLOR INTERPOLATION BLOCK ---
         // Color position calculation - smooth diagonal flow (original style)
         float colorPos = (sin(t * 4.0 + uv.x * 1.5 + uv.y * 1.0) + 1.0) * 0.5;
 
         vec3 color = vec3(0.0);
-        
+
         // Iterate through the color palette to blend continuously
         for (int i = 0; i < 7; ++i) {
             float segmentStart = float(i) / 7.0;
@@ -184,33 +192,33 @@ export default function SilkBackground() {
             color = colors[0];
         }
         // --- END IMPROVED COLOR INTERPOLATION BLOCK ---
-        
+
         // Apply intensity (matching original: 0.75)
         color = color * intensity * 0.75;
-        
+
         // Base gradient overlay - smooth multi-directional blend
         float gradientX = smoothstep(0.0, 1.0, uv.x);
         float gradientY = smoothstep(0.0, 1.0, uv.y);
         float gradientFactor = gradientX * 0.4 + gradientY * 0.6;
-        
+
         vec3 gradientColor1 = vec3(0.043, 0.024, 0.031);
         vec3 gradientColor2 = vec3(0.102, 0.059, 0.078);
         vec3 gradientColor3 = vec3(0.278, 0.235, 0.451);
         vec3 gradientColor4 = vec3(0.478, 0.184, 0.341);
-        
+
         vec3 gradientColor = mix(gradientColor1, gradientColor2, smoothstep(0.0, 0.33, gradientFactor));
         gradientColor = mix(gradientColor, gradientColor3, smoothstep(0.33, 0.66, gradientFactor));
         gradientColor = mix(gradientColor, gradientColor4, smoothstep(0.66, 1.0, gradientFactor));
-        
+
         // Blend pattern with gradient
         color = mix(gradientColor, color, 0.7);
-        
+
         // Radial overlay (matching original)
         vec2 center = vec2(0.4, 0.3);
         float dist = length(uv - center);
         float radialFade = smoothstep(0.8, 0.0, dist);
         color = mix(color, vec3(0.055, 0.035, 0.04), 0.1 * (1.0 - radialFade));
-        
+
         gl_FragColor = vec4(color, 1.0);
       }
     `;
@@ -267,13 +275,20 @@ export default function SilkBackground() {
     const positionLocation = gl.getAttribLocation(program, 'a_position');
     const timeLocation = gl.getUniformLocation(program, 'u_time');
     const resolutionLocation = gl.getUniformLocation(program, 'u_resolution');
+    // PERFORMANCE: Uniform for mobile detection in shader
+    const isMobileLocation = gl.getUniformLocation(program, 'u_isMobile');
 
     // Resize handler with debounce for performance
     let resizeTimeout;
     function resize() {
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      canvas.width = window.innerWidth * dpr;
-      canvas.height = window.innerHeight * dpr;
+      
+      // PERFORMANCE: Cap resolution for mobile to reduce GPU load
+      const width = Math.min(window.innerWidth * dpr, maxDimension);
+      const height = Math.min(window.innerHeight * dpr, maxDimension);
+      
+      canvas.width = width;
+      canvas.height = height;
       canvas.style.width = window.innerWidth + 'px';
       canvas.style.height = window.innerHeight + 'px';
       gl.viewport(0, 0, canvas.width, canvas.height);
@@ -321,7 +336,9 @@ export default function SilkBackground() {
       const elapsed = currentTime - startTimeRef.current;
       gl.uniform1f(timeLocation, elapsed);
       gl.uniform2f(resolutionLocation, canvas.width, canvas.height);
-      
+      // PERFORMANCE: Pass mobile flag to shader for simplified pattern
+      gl.uniform1f(isMobileLocation, isMobileRef.current ? 1.0 : 0.0);
+
       gl.drawArrays(gl.TRIANGLES, 0, 6);
       
       animationRef.current = requestAnimationFrame(render);

@@ -8,6 +8,7 @@ import logger from '@/lib/logger';
 export default function IntroVideo({ onVideoEnd }) {
   const videoRef = useRef(null);
   const containerRef = useRef(null);
+  const preloaderTimerRef = useRef(null);
   const [isVideoEnded, setIsVideoEnded] = useState(false);
   const [isFadingOut, setIsFadingOut] = useState(false);
   const [showSkip, setShowSkip] = useState(false);
@@ -15,9 +16,9 @@ export default function IntroVideo({ onVideoEnd }) {
   const [isMuted, setIsMuted] = useState(true);
   const [videoStarted, setVideoStarted] = useState(false);
   const [videoError, setVideoError] = useState(false);
-  const [showSoundHint, setShowSoundHint] = useState(false);
   const [autoplayFailed, setAutoplayFailed] = useState(false);
   const [videoLoaded, setVideoLoaded] = useState(false);
+  const [bufferProgress, setBufferProgress] = useState(0);
 
   const { isMobile } = useViewport();
   const introVideo = useIntroVideo();
@@ -30,34 +31,49 @@ export default function IntroVideo({ onVideoEnd }) {
     ? (introVideo.mobile || introVideo.desktop)
     : (introVideo.desktop || introVideo.mobile);
 
-  // Check session — skip if already seen, or if admin disabled the video
+  // Connection quality detection — skip on data-saver or very slow connections
+  const shouldSkipForNetwork = () => {
+    if (typeof navigator === 'undefined') return false;
+    const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    if (!conn) return false;
+    if (conn.saveData) return true;
+    if (conn.effectiveType === '2g' || conn.effectiveType === 'slow-2g') return true;
+    return false;
+  };
+
+  // Reduced motion preference
+  const prefersReducedMotion = () =>
+    typeof window !== 'undefined' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // Check session — skip if already seen, admin disabled, slow network, or reduced motion
   useEffect(() => {
     const hasSeenIntro = sessionStorage.getItem('hasSeenIntroVideo');
-    if (hasSeenIntro || introVideo.enabled === false) {
+    if (hasSeenIntro || introVideo.enabled === false || shouldSkipForNetwork() || prefersReducedMotion()) {
       setIsVideoEnded(true);
       onVideoEnd?.();
     }
   }, [onVideoEnd, introVideo.enabled]);
 
-  // Auto-start: after brief branded preloader, play video muted
+  // Adaptive preloader: full 1400ms normally, cut to 600ms if video already buffered
+  const startVideo = () => {
+    setShowPreloader(false);
+    setVideoStarted(true);
+    if (videoRef.current) {
+      videoRef.current.muted = true;
+      videoRef.current.play()
+        .then(() => setAutoplayFailed(false))
+        .catch((err) => {
+          logger.warn('Autoplay failed:', err);
+          setAutoplayFailed(true);
+        });
+    }
+  };
+
   useEffect(() => {
     if (isVideoEnded) return;
-    const preloaderTimer = setTimeout(() => {
-      setShowPreloader(false);
-      setVideoStarted(true);
-      if (videoRef.current) {
-        videoRef.current.muted = true;
-        videoRef.current.play()
-          .then(() => {
-            setAutoplayFailed(false);
-          })
-          .catch((err) => {
-            logger.warn('Autoplay failed:', err);
-            setAutoplayFailed(true);
-          });
-      }
-    }, 1800);
-    return () => clearTimeout(preloaderTimer);
+    preloaderTimerRef.current = setTimeout(startVideo, 1400);
+    return () => clearTimeout(preloaderTimerRef.current);
   }, [isVideoEnded]);
 
   // Show skip button 2s after video starts
@@ -67,29 +83,23 @@ export default function IntroVideo({ onVideoEnd }) {
     return () => clearTimeout(skipTimer);
   }, [videoStarted]);
 
-  // Show sound hint 3s after video starts, hide after 5s
-  useEffect(() => {
-    if (!videoStarted || !isMuted) return;
-
-    const showTimer = setTimeout(() => {
-      setShowSoundHint(true);
-
-      const hideTimer = setTimeout(() => {
-        setShowSoundHint(false);
-      }, 5000);
-
-      return () => clearTimeout(hideTimer);
-    }, 3000);
-
-    return () => clearTimeout(showTimer);
-  }, [videoStarted, isMuted]);
+  // Smooth volume fade-in on unmute
+  const fadeInVolume = (video) => {
+    video.volume = 0;
+    video.muted = false;
+    let vol = 0;
+    const step = () => {
+      vol = Math.min(1, vol + 0.08);
+      video.volume = vol;
+      if (vol < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  };
 
   const handlePlayWithSound = () => {
     if (!videoRef.current) return;
-    videoRef.current.muted = false;
-    videoRef.current.volume = 1;
+    fadeInVolume(videoRef.current);
     setIsMuted(false);
-    setShowSoundHint(false);
     if (autoplayFailed) {
       videoRef.current.play()
         .then(() => setAutoplayFailed(false))
@@ -111,23 +121,26 @@ export default function IntroVideo({ onVideoEnd }) {
     handleVideoEnd();
   };
 
-  const handleToggleMute = () => {
-    if (!videoRef.current) return;
-    const newMuted = !isMuted;
-    videoRef.current.muted = newMuted;
-    if (!newMuted) videoRef.current.volume = 1;
-    setIsMuted(newMuted);
-    // Hide hint immediately if user unmutes
-    if (!newMuted) setShowSoundHint(false);
-  };
-
   const handleVideoError = () => {
     setVideoError(true);
     setTimeout(() => handleVideoEnd(), 400);
   };
 
+  // When video is ready to play: cut preloader short if it hasn't fired yet
   const handleVideoCanPlay = () => {
     setVideoLoaded(true);
+    if (preloaderTimerRef.current && showPreloader) {
+      clearTimeout(preloaderTimerRef.current);
+      preloaderTimerRef.current = setTimeout(startVideo, 300);
+    }
+  };
+
+  // Track buffer progress for loading indicator
+  const handleProgress = () => {
+    const video = videoRef.current;
+    if (!video || !video.duration || video.buffered.length === 0) return;
+    const buffered = video.buffered.end(video.buffered.length - 1);
+    setBufferProgress(Math.round((buffered / video.duration) * 100));
   };
 
   if (isVideoEnded) return null;
@@ -180,15 +193,23 @@ export default function IntroVideo({ onVideoEnd }) {
           </div>
         </div>
 
-        {/* Loading dots */}
-        <div className="absolute bottom-12 flex items-center gap-2">
-          {[0, 1, 2].map(i => (
+        {/* Buffer progress bar + loading dots */}
+        <div className="absolute bottom-10 left-0 right-0 flex flex-col items-center gap-3 px-12">
+          <div className="w-full max-w-[200px] h-[1px] bg-white/10 rounded-full overflow-hidden">
             <div
-              key={i}
-              className="w-1.5 h-1.5 rounded-full bg-[#B76E79]/50 animate-pulse"
-              style={{ animationDelay: `${i * 0.2}s` }}
+              className="h-full bg-gradient-to-r from-[#B76E79]/60 to-[#F2C29A]/60 transition-all duration-300 rounded-full"
+              style={{ width: `${Math.max(5, bufferProgress)}%` }}
             />
-          ))}
+          </div>
+          <div className="flex items-center gap-2">
+            {[0, 1, 2].map(i => (
+              <div
+                key={i}
+                className="w-1.5 h-1.5 rounded-full bg-[#B76E79]/50 animate-pulse"
+                style={{ animationDelay: `${i * 0.2}s` }}
+              />
+            ))}
+          </div>
         </div>
       </div>
 
@@ -200,9 +221,11 @@ export default function IntroVideo({ onVideoEnd }) {
             key={videoUrl}
             muted
             playsInline
+            preload="metadata"
             onEnded={handleVideoEnd}
             onError={handleVideoError}
             onCanPlay={handleVideoCanPlay}
+            onProgress={handleProgress}
             className="absolute inset-0 w-full h-full object-cover"
             src={videoUrl}
           >

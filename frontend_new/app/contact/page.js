@@ -42,7 +42,7 @@ export default function ContactPage() {
               </div>
               <h2 className="text-2xl font-heading text-[#F2C29A] mb-3">Chat With Us Live</h2>
               <p className="text-[#EAE0D5]/60 mb-6 max-w-md mx-auto text-sm">
-                Connect with our support team instantly. Ask about your orders, products, returns, or anything else.
+                Connect with our support team instantly. Ask about orders, products, returns, or anything else.
               </p>
               <button
                 onClick={openChat}
@@ -63,7 +63,6 @@ export default function ContactPage() {
               {/* Contact Info */}
               <div className="rounded-3xl p-8 bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 space-y-6">
                 <h2 className="text-xl font-heading text-[#F2C29A]">Other Ways to Reach Us</h2>
-
                 <div className="flex items-start gap-4">
                   <div className="p-3 rounded-xl bg-[#B76E79]/10 border border-[#B76E79]/20 flex-shrink-0">
                     <Mail className="w-5 h-5 text-[#B76E79]" />
@@ -76,7 +75,6 @@ export default function ContactPage() {
                     <p className="text-[#EAE0D5]/40 text-xs mt-1">We reply within 24–48 hours</p>
                   </div>
                 </div>
-
                 <div className="flex items-start gap-4">
                   <div className="p-3 rounded-xl bg-[#B76E79]/10 border border-[#B76E79]/20 flex-shrink-0">
                     <Phone className="w-5 h-5 text-[#B76E79]" />

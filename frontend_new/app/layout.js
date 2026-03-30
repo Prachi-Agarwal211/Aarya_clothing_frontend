@@ -32,20 +32,31 @@ const playfair = Playfair_Display({
 });
 
 export const metadata = {
-  title: 'Aarya Clothing - Premium Ethnic Wear',
-  description: 'Discover exquisite ethnic wear collections at Aarya Clothing. Premium quality sarees, kurtis, gowns, and more.',
-  keywords: ['ethnic wear', 'sarees', 'kurtis', 'gowns', 'Indian fashion', 'traditional wear'],
+  title: {
+    default: 'Aarya Clothing — Premium Ethnic Wear | Sarees, Kurtis, Lehengas',
+    template: '%s | Aarya Clothing',
+  },
+  description: 'Shop premium ethnic wear at Aarya Clothing. Handcrafted sarees, designer kurtis, elegant lehengas. Free shipping across India.',
+  keywords: ['ethnic wear', 'sarees', 'kurtis', 'lehengas', 'Indian fashion', 'traditional wear', 'handcrafted clothing', 'Indian designer wear'],
   authors: [{ name: 'Aarya Clothing' }],
   creator: 'Aarya Clothing',
   publisher: 'Aarya Clothing',
-  robots: {
-    index: true,
-    follow: true,
-  },
+  robots: { index: true, follow: true },
+  alternates: { canonical: 'https://aaryaclothing.in' },
   openGraph: {
     type: 'website',
     locale: 'en_IN',
+    url: 'https://aaryaclothing.in',
     siteName: 'Aarya Clothing',
+    title: 'Aarya Clothing — Premium Ethnic Wear',
+    description: 'Handcrafted sarees, designer kurtis, elegant lehengas. Free shipping across India.',
+    images: [{ url: 'https://pub-7846c786f7154610b57735df47899fa0.r2.dev/logo.png', width: 1200, height: 630, alt: 'Aarya Clothing' }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Aarya Clothing — Premium Ethnic Wear',
+    description: 'Handcrafted sarees, designer kurtis, elegant lehengas. Free shipping across India.',
+    images: ['https://pub-7846c786f7154610b57735df47899fa0.r2.dev/logo.png'],
   },
 };
 

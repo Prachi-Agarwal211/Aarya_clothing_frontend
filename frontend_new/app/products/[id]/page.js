@@ -35,10 +35,34 @@ export default function ProductDetailPage() {
   const productId = params.id;
   const { showAlert } = useAlertToast();
   const { addItem, openCart } = useCart();
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, isStaff } = useAuth();
+  const isAdminUser = isStaff();
 
   const [product, setProduct] = useState(null);
   const [reviews, setReviews] = useState([]);
+  const [showReviewForm, setShowReviewForm] = useState(false);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState('');
+  const [submittingReview, setSubmittingReview] = useState(false);
+
+  const handleSubmitReview = async () => {
+    if (!isAuthenticated) { showAlert('Please sign in to write a review', 'error'); return; }
+    if (!reviewComment.trim()) { showAlert('Please write a comment', 'error'); return; }
+    setSubmittingReview(true);
+    try {
+      await reviewsApi.create(product.id, { rating: reviewRating, comment: reviewComment.trim() });
+      showAlert('Review submitted successfully!', 'success');
+      setReviewComment('');
+      setReviewRating(5);
+      setShowReviewForm(false);
+      const reviewsData = await reviewsApi.list(product.id);
+      setReviews(reviewsData.reviews || reviewsData || []);
+    } catch (err) {
+      showAlert(err?.message || 'Failed to submit review', 'error');
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
 
   const handleShare = async () => {
     const url = window.location.href;
@@ -490,7 +514,8 @@ export default function ProductDetailPage() {
                 </div>
               </div>
 
-              {/* Quantity */}
+              {/* Quantity - Admin Only */}
+              {isAdminUser && (
               <div>
                 <p className="text-sm text-[#EAE0D5]/70 mb-2">Quantity</p>
                 <div className="flex items-center gap-3">
@@ -512,6 +537,7 @@ export default function ProductDetailPage() {
                   </div>
                 </div>
               </div>
+              )}
 
               {/* Actions */}
               <div className="flex gap-3">
@@ -624,10 +650,43 @@ export default function ProductDetailPage() {
                       </div>
                       <p className="text-sm text-[#EAE0D5]/50 mt-1">{product.reviews_count} reviews</p>
                     </div>
-                    <button className="ml-auto px-4 py-2 bg-[#7A2F57]/30 text-[#F2C29A] rounded-lg hover:bg-[#7A2F57]/40 transition-colors">
-                      Write a Review
-                    </button>
+                    {isAuthenticated && (
+                      <button
+                        onClick={() => setShowReviewForm(v => !v)}
+                        className="ml-auto px-4 py-2 bg-[#7A2F57]/30 text-[#F2C29A] rounded-lg hover:bg-[#7A2F57]/40 transition-colors text-sm"
+                      >
+                        {showReviewForm ? 'Cancel' : 'Write a Review'}
+                      </button>
+                    )}
                   </div>
+
+                  {/* Inline Review Form */}
+                  {showReviewForm && isAuthenticated && (
+                    <div className="p-4 bg-[#0B0608]/60 rounded-xl border border-[#B76E79]/20 space-y-4">
+                      <p className="text-sm font-medium text-[#EAE0D5]">Your Rating</p>
+                      <div className="flex items-center gap-1">
+                        {[1,2,3,4,5].map(n => (
+                          <button key={n} onClick={() => setReviewRating(n)} className="p-0.5">
+                            <Star className={`w-6 h-6 transition-colors ${n <= reviewRating ? 'text-yellow-400 fill-yellow-400' : 'text-[#EAE0D5]/20 hover:text-yellow-400/60'}`} />
+                          </button>
+                        ))}
+                      </div>
+                      <textarea
+                        value={reviewComment}
+                        onChange={e => setReviewComment(e.target.value)}
+                        rows={3}
+                        placeholder="Share your experience with this product..."
+                        className="w-full px-3 py-2.5 bg-[#0B0608]/40 border border-[#B76E79]/20 rounded-lg text-[#EAE0D5] placeholder:text-[#EAE0D5]/30 text-sm focus:outline-none focus:border-[#B76E79]/50 resize-none"
+                      />
+                      <button
+                        onClick={handleSubmitReview}
+                        disabled={submittingReview}
+                        className="px-5 py-2 bg-gradient-to-r from-[#7A2F57] to-[#B76E79] text-white text-sm rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50"
+                      >
+                        {submittingReview ? 'Submitting...' : 'Submit Review'}
+                      </button>
+                    </div>
+                  )}
 
                   {/* Reviews List */}
                   <div className="space-y-4">

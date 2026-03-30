@@ -5,12 +5,15 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { X, Minus, Plus, ShoppingBag, Trash2, AlertCircle, Clock } from 'lucide-react';
 import { useCart } from '@/lib/cartContext';
+import { useAuth } from '@/lib/authContext';
 import { useReservationCountdown } from '@/lib/hooks/useReservationCountdown';
 import { useStockStream } from '@/lib/hooks/useStockStream';
 
 export default function CartDrawer() {
   const { cart, loading, isOpen, closeCart, updateQuantity, removeItem, itemCount } = useCart();
-  const [stockErrors, setStockErrors] = useState({}); // Track stock validation errors per item
+  const { isStaff } = useAuth();
+  const isAdminUser = isStaff();
+  const [stockErrors, setStockErrors] = useState({}); // Track stock validation errors per item (admin only)
   const [removingId, setRemovingId] = useState(null);
 
   const handleRemoveItem = (productId, variantId) => {
@@ -48,36 +51,32 @@ export default function CartDrawer() {
   };
 
   // Handle quantity increase with stock validation
+  // Stock validation happens server-side for all users, but error messages are only shown to admin/staff
   const handleIncreaseQuantity = async (item) => {
     const newQuantity = item.quantity + 1;
     const itemKey = `${item.product_id}_${item.variant_id || 0}`;
 
-    // Check real-time stock availability
-    const stockCheck = checkStock(item.product_id, item.variant_id, newQuantity);
-
-    if (!stockCheck.inStock) {
-      setStockErrors(prev => ({
-        ...prev,
-        [itemKey]: 'Quantity unavailable'
-      }));
-      return;
-    }
-    
-    // Clear any previous error for this item
-    setStockErrors(prev => {
-      const updated = { ...prev };
-      delete updated[itemKey];
-      return updated;
-    });
-    
     try {
       await updateQuantity(item.product_id, newQuantity, item.variant_id);
     } catch (err) {
-      // Backend validation failed
-      setStockErrors(prev => ({
-        ...prev,
-        [itemKey]: err.message || 'Insufficient stock'
-      }));
+      // Backend validation failed - only show error to admin/staff
+      if (isAdminUser) {
+        // Check real-time stock availability for admin users
+        const stockCheck = checkStock(item.product_id, item.variant_id, newQuantity);
+        
+        if (!stockCheck.inStock) {
+          setStockErrors(prev => ({
+            ...prev,
+            [itemKey]: 'Quantity unavailable'
+          }));
+        } else {
+          setStockErrors(prev => ({
+            ...prev,
+            [itemKey]: err.message || 'Insufficient stock'
+          }));
+        }
+      }
+      // For non-admin users, the error is silently handled by the backend
     }
   };
 
@@ -221,9 +220,9 @@ export default function CartDrawer() {
                             <Plus className="w-3.5 h-3.5" />
                           </button>
                         </div>
-                        
-                        {/* Stock Error Message */}
-                        {stockErrors[`${item.product_id}_${item.variant_id || 0}`] && (
+
+                        {/* Stock Error Message - Admin Only */}
+                        {isAdminUser && stockErrors[`${item.product_id}_${item.variant_id || 0}`] && (
                           <div className="flex items-center gap-1 text-xs text-red-400">
                             <AlertCircle className="w-3 h-3" />
                             <span>{stockErrors[`${item.product_id}_${item.variant_id || 0}`]}</span>

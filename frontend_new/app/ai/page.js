@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Send, Sparkles, ShoppingBag, Tag, Star,
+import { Send, Sparkles, ShoppingBag, Star,
   Loader2, ArrowRight, Package, Home, ShoppingCart, Check,
   LayoutGrid, LogIn, UserPlus, Wand2
 } from 'lucide-react';
@@ -27,7 +27,6 @@ const COLOR_HEX = {
 const SUGGESTIONS = [
   { label: '✨ New Arrivals', prompt: 'Show me your new arrivals' },
   { label: '👗 Collections', prompt: 'What collections do you have?' },
-  { label: '🏷️ Offers', prompt: 'Any current offers or discounts?' },
   { label: '🥻 Sarees', prompt: 'Show me sarees' },
   { label: '👘 Kurtis', prompt: 'Show me kurtis' },
   { label: '🎁 Gifting', prompt: 'What can I gift someone?' },
@@ -62,20 +61,18 @@ function MessageText({ text }) {
 
 // ── Parse all tool_results into structured data ───────────────────────────────
 function parseToolResults(toolResults) {
-  if (!toolResults) return { products: [], collections: [], promos: [] };
-  let products = [], collections = [], promos = [];
+  if (!toolResults) return { products: [], collections: [] };
+  let products = [], collections = [];
   try {
     for (const [key, val] of Object.entries(toolResults)) {
       const data = typeof val === 'string' ? JSON.parse(val) : val;
       if (data?.products?.length) products = data.products;
       if (data?.collections?.length) collections = data.collections;
-      if (data?.promotions?.length) promos = data.promotions;
     }
   } catch (err) {
-    // Silently continue with empty arrays if parsing fails
     logger.debug('Could not parse tool results for search:', err?.message);
   }
-  return { products, collections, promos };
+  return { products, collections };
 }
 
 // ── Star rating ───────────────────────────────────────────────────────────────
@@ -132,7 +129,7 @@ function SizeChips({ sizes }) {
 }
 
 // ── Product card ──────────────────────────────────────────────────────────────
-function ProductCard({ product: p }) {
+function ProductCard({ product: p, isAdminUser }) {
   const { addItem } = useCart();
   const [adding, setAdding] = React.useState(false);
   const [added, setAdded] = React.useState(false);
@@ -177,8 +174,8 @@ function ProductCard({ product: p }) {
             </span>
           </div>
         )}
-        {/* Stock badge */}
-        {p.in_stock === false && (
+        {/* Stock badge - Admin Only */}
+        {isAdminUser && p.in_stock === false && (
           <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
             <span className="text-xs text-red-400 font-medium">Out of Stock</span>
           </div>
@@ -231,7 +228,7 @@ function ProductCard({ product: p }) {
 }
 
 // ── Products grid ─────────────────────────────────────────────────────────────
-function ProductGrid({ products }) {
+function ProductGrid({ products, isAdminUser }) {
   if (!products?.length) return null;
   return (
     <div className="mt-3">
@@ -240,7 +237,7 @@ function ProductGrid({ products }) {
       </p>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         {products.slice(0, 6).map(p => (
-          <ProductCard key={p.id} product={p} />
+          <ProductCard key={p.id} product={p} isAdminUser={isAdminUser} />
         ))}
       </div>
       {products.length > 6 && (
@@ -272,28 +269,6 @@ function CollectionChips({ collections }) {
           </Link>
         ))}
       </div>
-    </div>
-  );
-}
-
-// ── Promo cards ───────────────────────────────────────────────────────────────
-function PromoPills({ promos }) {
-  if (!promos?.length) return null;
-  return (
-    <div className="mt-3 space-y-2">
-      <p className="text-xs text-[#EAE0D5]/40 px-1">Active offers</p>
-      {promos.map((promo, i) => (
-        <div key={i} className="flex items-start gap-3 p-3 bg-[#F2C29A]/5 border border-[#F2C29A]/20 rounded-xl">
-          <Tag className="w-4 h-4 text-[#F2C29A] flex-shrink-0 mt-0.5" />
-          <div>
-            <p className="text-sm font-mono font-bold text-[#F2C29A] tracking-widest">{promo.code}</p>
-            <p className="text-xs text-[#EAE0D5]/60 mt-0.5">{promo.description}</p>
-            {promo.min_order > 0 && (
-              <p className="text-xs text-[#EAE0D5]/40 mt-0.5">Min. order: ₹{promo.min_order.toLocaleString('en-IN')}</p>
-            )}
-          </div>
-        </div>
-      ))}
     </div>
   );
 }
@@ -357,7 +332,8 @@ function AiLoginGate() {
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 export default function AiShopPage() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, isStaff } = useAuth();
+  const isAdminUser = isStaff();
   const router = useRouter();
   const [messages, setMessages] = useState([WELCOME_MESSAGE]);
   const [input, setInput] = useState('');
@@ -527,8 +503,8 @@ export default function AiShopPage() {
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-2xl mx-auto px-4 py-4 space-y-5 pb-6">
           {messages.map(msg => {
-            const { products, collections, promos } = parseToolResults(msg.toolResults);
-            const hasRichContent = products.length || collections.length || promos.length;
+            const { products, collections } = parseToolResults(msg.toolResults);
+            const hasRichContent = products.length || collections.length;
 
             return (
               <div key={msg.id} className={`flex items-start gap-2.5 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
@@ -566,9 +542,8 @@ export default function AiShopPage() {
                   {/* Rich content cards */}
                   {msg.role === 'assistant' && hasRichContent > 0 && (
                     <div className="w-full mt-1">
-                      <ProductGrid products={products} />
+                      <ProductGrid products={products} isAdminUser={isAdminUser} />
                       <CollectionChips collections={collections} />
-                      <PromoPills promos={promos} />
                     </div>
                   )}
 

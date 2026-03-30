@@ -20,7 +20,6 @@ export default function SettingsPage() {
   });
   const [notifications, setNotifications] = useState({
     order_updates: true,
-    promotions: true,
     newsletter: false,
     stock_alerts: true,
   });
@@ -163,19 +162,6 @@ export default function SettingsPage() {
               type="checkbox"
               checked={notifications.order_updates}
               onChange={() => handleNotificationChange('order_updates')}
-              className="w-5 h-5 rounded border-[#B76E79]/30 bg-[#0B0608]/60 text-[#B76E79] focus:ring-[#B76E79]/30"
-            />
-          </label>
-
-          <label className="flex items-center justify-between p-3 bg-[#0B0608]/40 rounded-lg cursor-pointer hover:bg-[#0B0608]/60 transition-colors">
-            <div>
-              <p className="text-[#EAE0D5]">Promotions & Offers</p>
-              <p className="text-sm text-[#EAE0D5]/50">Receive updates about sales and discounts</p>
-            </div>
-            <input
-              type="checkbox"
-              checked={notifications.promotions}
-              onChange={() => handleNotificationChange('promotions')}
               className="w-5 h-5 rounded border-[#B76E79]/30 bg-[#0B0608]/60 text-[#B76E79] focus:ring-[#B76E79]/30"
             />
           </label>

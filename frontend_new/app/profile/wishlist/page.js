@@ -13,7 +13,8 @@ import logger from '@/lib/logger';
 export default function WishlistPage() {
   const router = useRouter();
   const { addItem, openCart } = useCart();
-  const { isAuthenticated, loading: authLoading } = useAuth();
+  const { isAuthenticated, loading: authLoading, isStaff } = useAuth();
+  const isAdminUser = isStaff();
   const [wishlist, setWishlist] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -139,8 +140,8 @@ export default function WishlistPage() {
                   </div>
                 )}
 
-                {/* Out of Stock Badge */}
-                {!product.in_stock && (
+                {/* Out of Stock Badge - Admin Only */}
+                {isAdminUser && !product.in_stock && (
                   <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
                     <span className="px-3 py-1 bg-red-500/80 text-white text-sm rounded-lg">
                       Out of Stock

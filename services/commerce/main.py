@@ -123,36 +123,53 @@ def _r2_url(path: str) -> str:
     return f"{r2_base}/{path.lstrip('/')}"
 
 
-def _enrich_product(product) -> dict:
-    """Convert a Product ORM object to a dict with full R2 URLs.
-    
+def _enrich_product(product, user_role: str = None) -> dict:
+    """
+    Convert a Product ORM object to a dict with full R2 URLs.
+
     This is the single place where R2 URL construction happens for products.
     Frontend receives ready-to-use URLs — no transformation needed.
+    
+    Role-based filtering:
+    - Admin/Staff: See full inventory data (quantities, thresholds, etc.)
+    - Customers/Unauthenticated: See only in_stock boolean, no quantities
     """
     primary = product.primary_image
+    is_admin_user = is_staff(user_role) if user_role else False
+    
+    # Role-based inventory filtering
+    if is_admin_user:
+        # Full inventory data for admin/staff
+        inventory = [
+            {"id": inv.id, "sku": inv.sku, "size": inv.size, "color": inv.color,
+             "quantity": inv.quantity, "reserved_quantity": inv.reserved_quantity,
+             "available_quantity": inv.available_quantity,
+             "low_stock_threshold": inv.low_stock_threshold,
+             "is_low_stock": inv.is_low_stock, "is_out_of_stock": inv.is_out_of_stock,
+             "updated_at": inv.updated_at}
+            for inv in (product.inventory or [])
+        ]
+    else:
+        # Limited inventory data for customers - no quantities exposed
+        inventory = [
+            {"size": inv.size, "color": inv.color, "in_stock": not inv.is_out_of_stock}
+            for inv in (product.inventory or [])
+        ]
+
+    # Extract unique sizes and colors from inventory for frontend selection
+    sizes = sorted(list(set(inv.size for inv in (product.inventory or []) if inv.size)))
+    colors = sorted(list(set(inv.color for inv in (product.inventory or []) if inv.color)))
+
+    # Build color objects with hex codes (if stored) or just names
+    color_objects = [{"name": c, "hex": "#888888"} for c in colors]  # Default hex, can be enhanced
+
     images = [
         {"id": img.id, "image_url": _r2_url(img.image_url),
          "alt_text": img.alt_text, "is_primary": img.is_primary,
          "display_order": img.display_order}
         for img in (product.images or [])
     ]
-    inventory = [
-        {"id": inv.id, "sku": inv.sku, "size": inv.size, "color": inv.color,
-         "quantity": inv.quantity, "reserved_quantity": inv.reserved_quantity,
-         "available_quantity": inv.available_quantity,
-         "low_stock_threshold": inv.low_stock_threshold,
-         "is_low_stock": inv.is_low_stock, "is_out_of_stock": inv.is_out_of_stock,
-         "updated_at": inv.updated_at}
-        for inv in (product.inventory or [])
-    ]
-    
-    # Extract unique sizes and colors from inventory for frontend selection
-    sizes = sorted(list(set(inv.size for inv in (product.inventory or []) if inv.size)))
-    colors = sorted(list(set(inv.color for inv in (product.inventory or []) if inv.color)))
-    
-    # Build color objects with hex codes (if stored) or just names
-    color_objects = [{"name": c, "hex": "#888888"} for c in colors]  # Default hex, can be enhanced
-    
+
     return {
         "id": product.id,
         "name": product.name,
@@ -178,9 +195,10 @@ def _enrich_product(product) -> dict:
         "is_featured": product.is_featured,
         "is_new_arrival": product.is_new_arrival,
         "is_new": product.is_new_arrival,  # Alias for frontend
-        "total_stock": product.total_stock or 0,
-        "inventory_count": product.total_stock or 0,
-        "stock_quantity": product.total_stock or 0,  # Alias for frontend
+        # Stock visibility: admin sees quantities, customers see only boolean
+        "total_stock": product.total_stock or 0 if is_admin_user else None,
+        "inventory_count": product.total_stock or 0 if is_admin_user else None,
+        "stock_quantity": product.total_stock or 0 if is_admin_user else None,  # Alias for frontend
         "in_stock": (product.total_stock or 0) > 0,  # Boolean for frontend Add to Cart
         "is_on_sale": product.is_on_sale,
         "discount_percentage": product.discount_percentage,
@@ -220,8 +238,9 @@ from shared.auth_middleware import (
     require_staff,
     initialize_auth_middleware
 )
+from shared.roles import is_staff
 from shared.request_id_middleware import RequestIDMiddleware
-from shared.error_responses import register_error_handlers
+from shared.error_handlers import register_error_handlers
 
 def reconcile_cart_reservations(db: Session) -> int:
     """
@@ -2542,9 +2561,12 @@ async def browse_products(
     in_stock_only: bool = True,
     skip: int = Query(0, ge=0),
     limit: int = Query(24, ge=1, le=100),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: Optional[dict] = Depends(get_current_user_optional)
 ):
     """Browse products with advanced filtering, sorting, and pagination."""
+    user_role = current_user.get("role") if current_user else None
+    
     query = db.query(Product).filter(Product.is_active == True)
 
     # Category filter (by ID or slug)
@@ -2585,7 +2607,7 @@ async def browse_products(
     products = query.offset(skip).limit(limit).all()
 
     return {
-        "products": [_enrich_product(p) for p in products],
+        "products": [_enrich_product(p, user_role) for p in products],
         "total": total,
         "page": skip // limit + 1,
         "total_pages": (total + limit - 1) // limit,
@@ -2603,9 +2625,12 @@ async def browse_products(
 async def get_related_products(
     product_id: int,
     limit: int = Query(8, ge=1, le=20),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: Optional[dict] = Depends(get_current_user_optional)
 ):
     """Get related products based on same category."""
+    user_role = current_user.get("role") if current_user else None
+    
     product = db.query(Product).filter(Product.id == product_id, Product.is_active == True).first()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
@@ -2614,7 +2639,7 @@ async def get_related_products(
         Product.id != product_id,
         Product.is_active == True
     ).order_by(func.random()).limit(limit).all()
-    return {"products": [_enrich_product(p) for p in related]}
+    return {"products": [_enrich_product(p, user_role) for p in related]}
 
 
 # ==================== Cart Enhancements ====================
@@ -2971,9 +2996,14 @@ async def get_landing_page_config(db: Session = Depends(get_db)):
 
 
 @app.get("/api/v1/landing/featured", tags=["Landing Page"])
-async def get_featured_data(db: Session = Depends(get_db)):
+async def get_featured_data(
+    db: Session = Depends(get_db),
+    current_user: Optional[dict] = Depends(get_current_user_optional)
+):
     """Get featured products, categories, and new arrivals for the landing page."""
     from sqlalchemy.orm import selectinload, joinedload
+    
+    user_role = current_user.get("role") if current_user else None
 
     featured_products = db.query(Product).options(
         joinedload(Product.category),
@@ -2996,8 +3026,8 @@ async def get_featured_data(db: Session = Depends(get_db)):
     ).all()
 
     return {
-        "featured_products": [_enrich_product(p) for p in featured_products],
-        "new_arrivals": [_enrich_product(p) for p in new_arrivals],
+        "featured_products": [_enrich_product(p, user_role) for p in featured_products],
+        "new_arrivals": [_enrich_product(p, user_role) for p in new_arrivals],
         "featured_categories": [_enrich_collection(c) for c in featured_categories],
     }
 

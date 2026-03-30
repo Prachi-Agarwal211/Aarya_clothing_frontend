@@ -167,12 +167,14 @@ const AboutSection = ({
                     shadow-[0_8px_32px_rgba(0,0,0,0.3)]
                   "
                 >
-                  <Image
-                    src={images[0]}
-                    alt="Craftsmanship"
-                    fill
-                    className="object-top object-cover grayscale hover:grayscale-0 transition-all duration-700"
-                  />
+                  {images[0] && (
+                    <Image
+                      src={images[0]}
+                      alt="Craftsmanship"
+                      fill
+                      className="object-top object-cover grayscale hover:grayscale-0 transition-all duration-700"
+                    />
+                  )}
                 </div>
               </div>
 
@@ -191,12 +193,14 @@ const AboutSection = ({
                   "
                 >
                   <div className="relative w-full h-full rounded-xl sm:rounded-2xl overflow-hidden">
-                    <Image
-                      src={images[1]}
-                      alt="Detail"
-                      fill
-                      className="object-top object-cover opacity-80 hover:opacity-100 transition-opacity duration-500"
-                    />
+                    {images[1] && (
+                      <Image
+                        src={images[1]}
+                        alt="Detail"
+                        fill
+                        className="object-top object-cover opacity-80 hover:opacity-100 transition-opacity duration-500"
+                      />
+                    )}
                   </div>
                 </div>
               </div>

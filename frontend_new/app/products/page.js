@@ -18,6 +18,7 @@ import {
   ShoppingCart,
 } from 'lucide-react';
 import { useCart } from '@/lib/cartContext';
+import { useAuth } from '@/lib/authContext';
 import EnhancedHeader from '@/components/landing/EnhancedHeader';
 import Footer from '@/components/landing/Footer';
 import { productsApi, collectionsApi } from '@/lib/customerApi';
@@ -36,6 +37,8 @@ function ProductsContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { addItem, openCart } = useCart();
+  const { isStaff } = useAuth();
+  const isAdminUser = isStaff();
   const [quickAddingId, setQuickAddingId] = React.useState(null);
 
   const handleQuickAdd = async (e, product) => {
@@ -434,8 +437,8 @@ function ProductsContent() {
                                   {product.discount_percentage}% OFF
                                 </span>
                               )}
-                              {/* Quick-add hover overlay (grid mode only) */}
-                              {viewMode === 'grid' && product.in_stock && (
+                              {/* Quick-add hover overlay (grid mode only, admin/staff only) */}
+                              {isAdminUser && viewMode === 'grid' && product.in_stock && (
                                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end justify-center pb-4 z-10">
                                   <button
                                     onClick={(e) => handleQuickAdd(e, product)}

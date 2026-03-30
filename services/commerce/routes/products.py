@@ -34,7 +34,8 @@ from search.meilisearch_client import (
     index_product as meili_index_product,
     delete_product as meili_delete_product,
 )
-from shared.auth_middleware import get_current_user, require_admin, require_staff
+from shared.auth_middleware import get_current_user, get_current_user_optional, require_admin, require_staff
+from shared.roles import is_staff, is_admin
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +53,7 @@ def _r2_url(path: str) -> str:
     r2_base = settings.R2_PUBLIC_URL.rstrip('/')
     return f"{r2_base}/{path.lstrip('/')}"
 
+
 def _enrich_images(images) -> list:
     """Convert product image ORM list to enriched dicts with full R2 URLs."""
     return [
@@ -68,34 +70,61 @@ def _enrich_images(images) -> list:
     ]
 
 
-def _enrich_inventory(inventory) -> list:
-    """Convert inventory ORM list to enriched dicts."""
-    return [
-        {
-            "id": inv.id,
-            "product_id": inv.product_id,
-            "sku": inv.sku,
-            "size": inv.size,
-            "color": inv.color,
-            "quantity": inv.quantity,
-            "reserved_quantity": inv.reserved_quantity,
-            "available_quantity": inv.available_quantity,
-            "low_stock_threshold": inv.low_stock_threshold,
-            "is_low_stock": inv.is_low_stock,
-            "is_out_of_stock": inv.is_out_of_stock,
-            "created_at": inv.created_at,
-            "updated_at": inv.updated_at,
-        }
-        for inv in (inventory or [])
-    ]
+def _enrich_inventory(inventory, user_role: str = None) -> list:
+    """
+    Convert inventory ORM list to enriched dicts.
+    
+    Role-based filtering:
+    - Admin/Staff: See full inventory data (quantities, thresholds, etc.)
+    - Customers/Unauthenticated: See only size, color, and in_stock boolean
+    """
+    is_admin_user = is_staff(user_role) if user_role else False
+    
+    if is_admin_user:
+        # Full inventory data for admin/staff
+        return [
+            {
+                "id": inv.id,
+                "product_id": inv.product_id,
+                "sku": inv.sku,
+                "size": inv.size,
+                "color": inv.color,
+                "quantity": inv.quantity,
+                "reserved_quantity": inv.reserved_quantity,
+                "available_quantity": inv.available_quantity,
+                "low_stock_threshold": inv.low_stock_threshold,
+                "is_low_stock": inv.is_low_stock,
+                "is_out_of_stock": inv.is_out_of_stock,
+                "created_at": inv.created_at,
+                "updated_at": inv.updated_at,
+            }
+            for inv in (inventory or [])
+        ]
+    else:
+        # Limited inventory data for customers - no quantities exposed
+        return [
+            {
+                "size": inv.size,
+                "color": inv.color,
+                "in_stock": not inv.is_out_of_stock,
+            }
+            for inv in (inventory or [])
+        ]
 
 
-def _enrich_product(product, db: Session = None) -> dict:
-    """Convert Product ORM to dict with enriched data (R2 URLs, variants, collection info)."""
+def _enrich_product(product, db: Session = None, user_role: str = None) -> dict:
+    """
+    Convert Product ORM to dict with enriched data (R2 URLs, variants, collection info).
+    
+    Role-based filtering:
+    - Admin/Staff: See full inventory data
+    - Customers/Unauthenticated: See only in_stock boolean, no quantities
+    """
     primary_image = product.primary_image
     inventory_list = list(product.inventory or [])
     sizes = sorted({inv.size for inv in inventory_list if inv.size})
     colors = sorted({inv.color for inv in inventory_list if inv.color})
+    is_admin_user = is_staff(user_role) if user_role else False
 
     return {
         "id": product.id,
@@ -116,15 +145,16 @@ def _enrich_product(product, db: Session = None) -> dict:
         "image_url": _r2_url(primary_image) if primary_image else None,
         "primary_image": _r2_url(primary_image) if primary_image else None,
         "images": _enrich_images(product.images),
-        "inventory": _enrich_inventory(inventory_list),
+        "inventory": _enrich_inventory(inventory_list, user_role),
         "sizes": sizes,
         "colors": [{"name": c, "hex": "#888888"} for c in colors],
         "is_active": product.is_active,
         "is_featured": product.is_featured,
         "is_new_arrival": product.is_new_arrival,
         "is_new": product.is_new_arrival,
-        "total_stock": product.total_stock or 0,
-        "stock_quantity": product.total_stock or 0,
+        # Stock visibility: admin sees quantities, customers see only boolean
+        "total_stock": product.total_stock or 0 if is_admin_user else None,
+        "stock_quantity": product.total_stock or 0 if is_admin_user else None,
         "in_stock": (product.total_stock or 0) > 0,
         "is_on_sale": product.is_on_sale,
         "discount_percentage": product.discount_percentage,
@@ -158,11 +188,12 @@ async def list_products(
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
     search: Optional[str] = None,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: Optional[dict] = Depends(get_current_user_optional)
 ):
     """
     List products with filtering, sorting, and pagination.
-    
+
     - **category_id**: Filter by category/collection ID
     - **collection**: Filter by collection slug
     - **min_price/max_price**: Price range filter
@@ -174,6 +205,8 @@ async def list_products(
     - **limit**: Items per page (max 100)
     - **search**: Full-text search query (uses Meilisearch)
     """
+    user_role = current_user.get("role") if current_user else None
+    
     # Use Meilisearch for search queries
     if search:
         try:
@@ -186,8 +219,16 @@ async def list_products(
                 limit=limit,
             )
             if results.get("hits") is not None and not results.get("error"):
+                # Apply role-based filtering to Meilisearch results
+                hits = results.get("hits", [])
+                if not (current_user and is_staff(user_role)):
+                    # Filter sensitive fields for non-admin users
+                    hits = [
+                        {**h, "total_stock": None, "stock_quantity": None}
+                        for h in hits
+                    ]
                 return {
-                    "items": results.get("hits", []),
+                    "items": hits,
                     "total": results.get("total", 0),
                     "skip": (page - 1) * limit,
                     "limit": limit,
@@ -199,7 +240,7 @@ async def list_products(
         db_search = search
     else:
         db_search = None
-    
+
     # Database query with eager loading to avoid N+1
     query = db.query(Product).options(
         joinedload(Product.collection),
@@ -213,12 +254,12 @@ async def list_products(
         col = db.query(Collection).filter(Collection.slug == collection).first()
         if col:
             query = query.filter(Product.category_id == col.id)
-    
+
     if min_price:
         query = query.filter(Product.base_price >= min_price)
     if max_price:
         query = query.filter(Product.base_price <= max_price)
-    
+
     if sizes:
         size_list = [s.strip() for s in sizes.split(',') if s.strip()]
         if size_list:
@@ -227,7 +268,7 @@ async def list_products(
                     db.query(Inventory.product_id).filter(Inventory.size.in_(size_list))
                 )
             )
-    
+
     if colors:
         color_list = [c.strip() for c in colors.split(',') if c.strip()]
         if color_list:
@@ -260,14 +301,14 @@ async def list_products(
         query = query.order_by(desc(sort_col))
     else:
         query = query.order_by(sort_col.asc())
-    
+
     # Pagination
     total = query.count()
     offset = (page - 1) * limit
     products = query.offset(offset).limit(limit).all()
-    
-    # Enrich products
-    items = [_enrich_product(p, db) for p in products]
+
+    # Enrich products with role-based filtering
+    items = [_enrich_product(p, db, user_role) for p in products]
 
     # Calculate pagination metadata to match PaginatedResponse schema
     skip = offset
@@ -291,9 +332,12 @@ async def search_products(
     max_price: Optional[float] = None,
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=100),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: Optional[dict] = Depends(get_current_user_optional)
 ):
     """Search products using Meilisearch with DB fallback."""
+    user_role = current_user.get("role") if current_user else None
+    
     result = meili_search_products(
         query=q,
         category_id=category_id,
@@ -303,6 +347,13 @@ async def search_products(
         limit=limit,
     )
     if result.get("hits") or not result.get("error"):
+        # Apply role-based filtering to Meilisearch results
+        hits = result.get("hits", [])
+        if hits and not (current_user and is_staff(user_role)):
+            result["hits"] = [
+                {**h, "total_stock": None, "stock_quantity": None}
+                for h in hits
+            ]
         return result
 
     product_service = ProductService(db)
@@ -312,7 +363,7 @@ async def search_products(
         skip=skip, limit=limit
     )
     return {
-        "hits": [_enrich_product(p, db) for p in products] if products else [],
+        "hits": [_enrich_product(p, db, user_role) for p in products] if products else [],
         "total": len(products) if products else 0,
         "query": q,
         "fallback": True,
@@ -322,9 +373,12 @@ async def search_products(
 @router.get("/new-arrivals")
 async def get_new_arrivals(
     limit: int = Query(20, ge=1, le=100),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: Optional[dict] = Depends(get_current_user_optional)
 ):
     """Get new arrival products."""
+    user_role = current_user.get("role") if current_user else None
+    
     products = db.query(Product).options(
         joinedload(Product.collection),
         selectinload(Product.images),
@@ -333,15 +387,18 @@ async def get_new_arrivals(
         Product.is_new_arrival == True,
         Product.is_active == True
     ).order_by(Product.created_at.desc()).limit(limit).all()
-    return [_enrich_product(p, db) for p in products]
+    return [_enrich_product(p, db, user_role) for p in products]
 
 
 @router.get("/featured")
 async def get_featured_products(
     limit: int = Query(8, ge=1, le=50),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: Optional[dict] = Depends(get_current_user_optional)
 ):
     """Get featured products."""
+    user_role = current_user.get("role") if current_user else None
+    
     products = db.query(Product).options(
         joinedload(Product.collection),
         selectinload(Product.images),
@@ -350,15 +407,18 @@ async def get_featured_products(
         Product.is_active == True,
         Product.is_featured == True
     ).order_by(Product.created_at.desc()).limit(limit).all()
-    return [_enrich_product(p, db) for p in products]
+    return [_enrich_product(p, db, user_role) for p in products]
 
 
 @router.get("/slug/{slug}")
 async def get_product_by_slug(
     slug: str,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: Optional[dict] = Depends(get_current_user_optional)
 ):
     """Get product details by slug."""
+    user_role = current_user.get("role") if current_user else None
+    
     product = db.query(Product).options(
         joinedload(Product.collection),
         selectinload(Product.images),
@@ -370,15 +430,18 @@ async def get_product_by_slug(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Product not found"
         )
-    return _enrich_product(product, db)
+    return _enrich_product(product, db, user_role)
 
 
 @router.get("/{product_id}")
 async def get_product(
     product_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: Optional[dict] = Depends(get_current_user_optional)
 ):
     """Get product details by ID."""
+    user_role = current_user.get("role") if current_user else None
+    
     product = db.query(Product).options(
         joinedload(Product.collection),
         selectinload(Product.images),
@@ -391,7 +454,7 @@ async def get_product(
             detail="Product not found"
         )
 
-    return _enrich_product(product, db)
+    return _enrich_product(product, db, user_role)
 
 
 

@@ -148,14 +148,14 @@ async def lifespan(app: FastAPI):
     event_bus.register_handler(order_handler)
 
     # Validate AI API key at startup (fail fast if not configured)
-    from service.ai_service import _get_gemini_key
+    from service.ai_service import _get_provider_api_key
     try:
-        api_key = _get_gemini_key()
-        import google.generativeai as genai
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-2.0-flash-lite')
-        model.generate_content("test")
-        logger.info("AI API key validated successfully - Gemini AI service ready")
+        api_key = _get_provider_api_key()
+        from openai import OpenAI
+        client = OpenAI(api_key=api_key, base_url="https://api.groq.com/openai/v1")
+        # Simple test call
+        client.models.list()
+        logger.info("AI API key validated successfully - AI service ready (Groq/OpenRouter/GLM/NVIDIA)")
     except ValueError as e:
         logger.warning(f"AI service disabled: {e}")
     except Exception as e:

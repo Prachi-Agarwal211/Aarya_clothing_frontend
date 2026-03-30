@@ -1,0 +1,77 @@
+{
+  "name": "Aarya Clothing - Premium Ethnic Wear",
+  "short_name": "Aarya Clothing",
+  "description": "Shop premium ethnic wear - handcrafted sarees, designer kurtis, elegant lehengas",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#050203",
+  "theme_color": "#050203",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "https://pub-7846c786f7154610b57735df47899fa0.r2.dev/logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://pub-7846c786f7154610b57735df47899fa0.r2.dev/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["shopping", "fashion", "lifestyle"],
+  "lang": "en-IN",
+  "dir": "ltr",
+  "scope": "/",
+  "prefer_related_applications": false,
+  "shortcuts": [
+    {
+      "name": "New Arrivals",
+      "short_name": "New",
+      "description": "View latest collections",
+      "url": "/new-arrivals",
+      "icons": [{ "src": "https://pub-7846c786f7154610b57735df47899fa0.r2.dev/logo.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Collections",
+      "short_name": "Collections",
+      "description": "Browse all collections",
+      "url": "/collections",
+      "icons": [{ "src": "https://pub-7846c786f7154610b57735df47899fa0.r2.dev/logo.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Cart",
+      "short_name": "Cart",
+      "description": "View your shopping cart",
+      "url": "/cart",
+      "icons": [{ "src": "https://pub-7846c786f7154610b57735df47899fa0.r2.dev/logo.png", "sizes": "96x96" }]
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "https://pub-7846c786f7154610b57735df47899fa0.r2.dev/screenshot-home.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Home Page"
+    },
+    {
+      "src": "https://pub-7846c786f7154610b57735df47899fa0.r2.dev/screenshot-mobile.png",
+      "sizes": "750x1334",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Mobile View"
+    }
+  ],
+  "share_target": {
+    "action": "/share",
+    "method": "GET",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url"
+    }
+  }
+}

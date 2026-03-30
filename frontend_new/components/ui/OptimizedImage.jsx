@@ -1,16 +1,24 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
 
 /**
- * OptimizedImage - Enhanced Next.js Image with blur placeholder
- * 
- * Features:
- * - Shimmer loading effect
- * - Blur placeholder while loading
- * - Error handling
+ * OptimizedImage - Enhanced Next.js Image with performance optimizations
+ *
+ * Performance Features:
+ * - Blur placeholder while loading (LCP optimization)
+ * - Async decoding for non-blocking image rendering
+ * - Smart loading strategy (eager for ATF, lazy for BTF)
+ * - Connection-aware quality adjustment
+ * - Proper sizes attribute for responsive images
+ * - GPU-accelerated fade-in animation
+ *
+ * Accessibility:
+ * - Proper alt text support
+ * - Error state with retry option
+ * - Loading state announcement
  */
 const OptimizedImage = ({
   src,
@@ -22,16 +30,39 @@ const OptimizedImage = ({
   containerClassName,
   priority = false,
   sizes,
-  quality = 85,
+  quality,
   objectFit = 'cover',
   blur = true,
   fallbackSrc,
+  loading: loadingProp,
+  decoding = 'async',
+  onImageLoad,
   ...props
 }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   // Default to a placeholder if no valid src is provided to prevent Next.js Image crashes
   const [currentSrc, setCurrentSrc] = useState(src && src !== '' ? src : (fallbackSrc || '/placeholder-image.jpg'));
+  const [imageQuality, setImageQuality] = useState(quality);
+
+  // Detect connection speed and adjust quality accordingly
+  useEffect(() => {
+    // Default quality: 75 for mobile, 85 for desktop
+    const defaultQuality = typeof window !== 'undefined' && window.innerWidth < 768 ? 75 : 85;
+    setImageQuality(quality || defaultQuality);
+
+    // Further reduce quality on slow connections
+    if ('connection' in navigator) {
+      const conn = navigator.connection;
+      const isSlow = conn.saveData || 
+        conn.effectiveType === '2g' || 
+        conn.effectiveType === 'slow-2g';
+      
+      if (isSlow) {
+        setImageQuality(prev => Math.max(50, (prev || 75) - 20));
+      }
+    }
+  }, [quality]);
 
   // Update currentSrc when src changes
   React.useEffect(() => {
@@ -56,6 +87,7 @@ const OptimizedImage = ({
   const handleLoad = () => {
     setIsLoading(false);
     setHasError(false);
+    onImageLoad?.();
   };
 
   const handleRetry = () => {
@@ -64,15 +96,24 @@ const OptimizedImage = ({
     setIsLoading(true);
   };
 
+  // Determine loading strategy based on priority and position
+  const loadingStrategy = loadingProp || (priority ? 'eager' : 'lazy');
+
+  // Default sizes for responsive images
+  const defaultSizes = fill 
+    ? sizes || '(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw'
+    : sizes;
+
   // Error placeholder
   const errorPlaceholder = hasError && (
-    <div className="absolute inset-0 z-5 flex items-center justify-center bg-[#1a0a10] pointer-events-none">
+    <div className="absolute inset-0 z-5 flex items-center justify-center bg-[#1a0a10] pointer-events-none" role="status" aria-label="Image unavailable">
       <div className="text-center p-4">
         <svg
           className="w-12 h-12 mx-auto text-[#B76E79]/30 mb-2"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
+          aria-hidden="true"
         >
           <path
             strokeLinecap="round"
@@ -82,18 +123,27 @@ const OptimizedImage = ({
           />
         </svg>
         <p className="text-xs text-[#B76E79]/50">Image unavailable</p>
+        <button
+          onClick={handleRetry}
+          className="mt-2 text-xs text-[#F2C29A] hover:text-[#F2C29A]/80 underline"
+          aria-label="Retry loading image"
+        >
+          Retry
+        </button>
       </div>
     </div>
   );
 
   const imageProps = fill
-    ? { fill: true, sizes: sizes || '(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw' }
+    ? { fill: true, sizes: defaultSizes }
     : { width: width || 400, height: height || 500 };
 
   const imageClasses = cn(
     `object-${objectFit}`,
     isLoading ? 'opacity-0' : 'opacity-100',
-    'transition-opacity duration-500',
+    'transition-opacity duration-500 ease-out',
+    // GPU acceleration for smoother animations
+    'will-change-opacity',
     className
   );
 
@@ -108,20 +158,24 @@ const OptimizedImage = ({
           {...imageProps}
           className={imageClasses}
           priority={priority}
-          quality={quality}
+          quality={imageQuality}
+          loading={loadingStrategy}
+          decoding={decoding}
           onError={handleError}
           onLoad={handleLoad}
+          placeholder={blur ? 'blur' : undefined}
           {...props}
         />
       </>
     );
   }
 
-  // For non-fill mode, wrap in container
+  // For non-fill mode, wrap in container with aspect ratio preservation
   return (
     <div
       className={cn(
         'relative overflow-hidden',
+        'contain-layout', // CSS containment for performance
         containerClassName
       )}
     >
@@ -133,9 +187,12 @@ const OptimizedImage = ({
         {...imageProps}
         className={imageClasses}
         priority={priority}
-        quality={quality}
+        quality={imageQuality}
+        loading={loadingStrategy}
+        decoding={decoding}
         onError={handleError}
         onLoad={handleLoad}
+        placeholder={blur ? 'blur' : undefined}
         {...props}
       />
     </div>

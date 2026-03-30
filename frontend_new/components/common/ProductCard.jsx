@@ -148,15 +148,19 @@ const ProductCard = ({ product, className }) => {
             <Heart className={cn("w-5 h-5", isWishlisted && "fill-current")} />
           </button>
 
-          {/* Product Image */}
+          {/* Product Image - Optimized with proper loading strategy */}
           <Image
             src={ensureFullUrl(image)}
             alt={name}
             fill
-            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
             className="object-cover transition-all duration-700 group-hover:scale-110 group-hover:brightness-110"
-            priority={isNew}
-            loading="eager"
+            priority={isNew} // Priority for new arrivals
+            loading={isNew ? 'eager' : 'lazy'} // Eager for new, lazy for others
+            decoding="async" // Non-blocking decoding
+            quality={75} // Mobile-optimized quality
+            placeholder="blur"
+            blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k="
           />
 
           {/* Premium Gradient Overlay */}

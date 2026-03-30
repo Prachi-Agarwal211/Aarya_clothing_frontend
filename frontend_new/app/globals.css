@@ -2309,3 +2309,204 @@ main {
 .scrollbar-none::-webkit-scrollbar {
   display: none;
 }
+
+/* ============================================
+   MOBILE PERFORMANCE OPTIMIZATIONS
+   ============================================ */
+
+/* Content Visibility - defer rendering of off-screen content */
+.content-vis-auto {
+  content-visibility: auto;
+  contain-intrinsic-size: 0 500px;
+}
+
+/* GPU Acceleration for animations */
+.will-animate {
+  will-change: transform, opacity;
+}
+
+.will-transform {
+  will-change: transform;
+}
+
+/* CSS Containment for isolated components */
+.contain-strict {
+  contain: content;
+}
+
+.contain-layout {
+  contain: layout;
+}
+
+.contain-paint {
+  contain: paint;
+}
+
+.contain-style {
+  contain: style;
+}
+
+/* Reduced Motion - respect user preferences */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  
+  /* Keep essential animations */
+  .skeleton {
+    animation-duration: 1.5s !important;
+  }
+}
+
+/* Data Saver Mode - reduce quality on slow connections */
+.data-saver img,
+.data-saver picture {
+  filter: blur(0.2px);
+  quality: 60;
+}
+
+.data-saver .next-image-wrapper img {
+  quality: 60;
+}
+
+/* Page Hidden - reduce resource usage when tab is hidden */
+.page-hidden .will-animate {
+  will-change: auto;
+}
+
+.page-hidden video,
+.page-hidden audio {
+  pause-on-hide: true;
+}
+
+/* Touch Action optimizations */
+.touch-pan-x {
+  touch-action: pan-x;
+}
+
+.touch-pan-y {
+  touch-action: pan-y;
+}
+
+.touch-manipulation {
+  touch-action: manipulation;
+}
+
+.touch-none {
+  touch-action: none;
+}
+
+/* Prevent scroll jank */
+.scroll-smooth {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Hardware acceleration for transforms */
+.hw-accelerate {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  perspective: 1000px;
+}
+
+/* Prevent layout shift on images */
+.img-no-shift {
+  aspect-ratio: attr(width) / attr(height);
+  object-fit: cover;
+}
+
+/* Optimize list rendering */
+.virtual-list {
+  contain: strict;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* Skeleton loading optimization */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(183, 110, 121, 0.1) 25%,
+    rgba(183, 110, 121, 0.2) 50%,
+    rgba(183, 110, 121, 0.1) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-loading 1.5s infinite;
+  will-change: background-position;
+}
+
+@keyframes skeleton-loading {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Optimize font rendering */
+.font-opt-speed {
+  font-synthesis: none;
+  text-rendering: optimizeSpeed;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Prevent CLS on dynamic content */
+.cls-guard {
+  min-height: 1em;
+}
+
+/* Mobile-specific optimizations */
+@media (max-width: 640px) {
+  /* Reduce animations on mobile */
+  .mobile-reduce-motion {
+    animation: none !important;
+    transition: none !important;
+  }
+  
+  /* Optimize touch targets */
+  .touch-target-mobile {
+    min-height: 44px;
+    min-width: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  /* Prevent zoom on input focus */
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+  
+  /* Optimize scrolling */
+  .mobile-scroll {
+    -webkit-overflow-scrolling: touch;
+    overflow-scrolling: touch;
+  }
+}
+
+/* Print styles - reduce ink usage */
+@media print {
+  * {
+    background: transparent !important;
+    color: black !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+  
+  a,
+  a:visited {
+    text-decoration: underline;
+  }
+  
+  a[href]:after {
+    content: " (" attr(href) ")";
+  }
+  
+  a[href^="#"]:after {
+    content: "";
+  }
+}

@@ -3,14 +3,14 @@ AI Service — Aarya Clothing
 Handles both Customer AI Salesman and Admin AI Assistant.
 
 Architecture:
-  - Single provider: Google Gemini Flash (cheapest, free tier, multimodal)
+  - Multi-provider with automatic key rotation (Groq, OpenRouter, GLM, NVIDIA)
+  - All providers use OpenAI-compatible API format
   - Customer: minimal system prompt, 6-message history, product tools only
-  - Admin: full tool suite, 10-message history, agentic API calls, image support
+  - Admin: full tool suite, 10-message history, agentic API calls
   - Cost tracking: every call logs tokens + cost to ai_messages/ai_sessions tables
+  - All providers below have FREE tiers
 
-Pricing (Gemini 2.0 Flash Lite as of 2026):
-  - Input:  $0.075 / 1M tokens
-  - Output: $0.30  / 1M tokens
+Provider Priority: Groq (PRIMARY) > OpenRouter > GLM > NVIDIA
 """
 import os
 import json
@@ -19,11 +19,10 @@ import logging
 from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
 
-import google.generativeai as genai
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 
-# Optional AI providers — fail gracefully if not installed
+# OpenAI-compatible SDK for Groq, OpenRouter, GLM, NVIDIA
 try:
     from openai import OpenAI as _OpenAI
     OPENAI_AVAILABLE = True
@@ -40,23 +39,21 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
-# ── Pricing constants (USD per token) ───────────────────────────────────────
-GEMINI_FLASH_LITE = "gemini-2.0-flash-lite"
-GEMINI_FLASH     = "gemini-2.0-flash"
-
+# ── Pricing constants (USD per token) - All FREE tier models ─────────────────
 PRICE_PER_TOKEN = {
-    # Gemini
-    GEMINI_FLASH_LITE: {"input": 0.075 / 1_000_000, "output": 0.30 / 1_000_000},
-    GEMINI_FLASH:      {"input": 0.10  / 1_000_000, "output": 0.40 / 1_000_000},
-    # OpenAI (GPT-4o-mini as budget option)
-    "gpt-4o-mini":      {"input": 0.15 / 1_000_000, "output": 0.60 / 1_000_000},
-    "gpt-4o":           {"input": 2.50 / 1_000_000, "output": 10.0 / 1_000_000},
-    # Groq (free tier models)
+    # Groq (FREE)
     "llama-3.3-70b-versatile": {"input": 0.00 / 1_000_000, "output": 0.00 / 1_000_000},
     "mixtral-8x7b-32768":    {"input": 0.00 / 1_000_000, "output": 0.00 / 1_000_000},
-    # Anthropic (Claude)
-    "claude-3-haiku-20240307": {"input": 0.25 / 1_000_000, "output": 1.25 / 1_000_000},
-    "claude-3-5-sonnet-20241022": {"input": 3.00 / 1_000_000, "output": 15.0 / 1_000_000},
+    "gemma2-9b-it":          {"input": 0.00 / 1_000_000, "output": 0.00 / 1_000_000},
+    # OpenRouter (FREE models)
+    "meta-llama/llama-3.3-70b-instruct:free": {"input": 0.00 / 1_000_000, "output": 0.00 / 1_000_000},
+    "nousresearch/hermes-3-405b:free":        {"input": 0.00 / 1_000_000, "output": 0.00 / 1_000_000},
+    # GLM (FREE)
+    "glm-4-flash": {"input": 0.00 / 1_000_000, "output": 0.00 / 1_000_000},
+    "glm-4.7":     {"input": 0.00 / 1_000_000, "output": 0.00 / 1_000_000},
+    # NVIDIA (FREE)
+    "meta/llama3-70b-instruct": {"input": 0.00 / 1_000_000, "output": 0.00 / 1_000_000},
+    "mistralai/mistral-7b-instruct-v0.3": {"input": 0.00 / 1_000_000, "output": 0.00 / 1_000_000},
 }
 
 # ── System prompts ────────────────────────────────────────────────────────────
@@ -256,43 +253,15 @@ WRITE_TOOLS = frozenset({
 _KEY_ROTATION_INDEX = 0  # module-level round-robin counter
 
 
-def _get_api_keys() -> List[str]:
-    """Collect all configured Gemini API keys from environment (supports rotation)."""
-    keys = []
-    primary = os.environ.get("GEMINI_API_KEY", "")
-    if primary and primary not in ("", "your_gemini_api_key_here"):
-        keys.append(primary)
-    for i in range(1, 6):
-        k = os.environ.get(f"GEMINI_API_KEY_{i}", "")
-        if k and k not in ("", "your_gemini_api_key_here"):
-            keys.append(k)
-    return keys
-
-
-def _get_gemini_key() -> str:
-    """Get a Gemini API key from environment variables only.
+def _get_provider_api_key() -> str:
+    """Get API key from key rotation service (Groq/OpenRouter/GLM/NVIDIA).
     
-    IMPORTANT: Only use this for Google genai SDK calls (genai.configure, genai.embed_content).
-    The rotation service may return Groq/OpenRouter keys which are incompatible with the Google SDK.
-    """
-    keys = _get_api_keys()
-    if not keys:
-        raise ValueError("No GEMINI_API_KEY configured. Set GEMINI_API_KEY in .env file.")
-    global _KEY_ROTATION_INDEX
-    key = keys[_KEY_ROTATION_INDEX % len(keys)]
-    _KEY_ROTATION_INDEX = (_KEY_ROTATION_INDEX + 1) % len(keys)
-    return key
-
-
-def _get_api_key() -> str:
-    """Get available API key using rotation service (may return Groq/OpenRouter/Gemini key).
-    
-    WARNING: Do NOT use the result of this function with genai.configure() — use _get_gemini_key() instead.
-    This function is only correct for OpenAI-compatible SDK calls (Groq, OpenRouter, etc).
+    This function uses the key rotation service to get an available provider key.
+    All providers use OpenAI-compatible API format.
     """
     from core.ai_key_rotation import get_available_provider
     from database.database import get_db_context
-    
+
     db_gen = get_db_context()
     db = next(db_gen)
     try:
@@ -307,8 +276,18 @@ def _get_api_key() -> str:
             next(db_gen)
         except StopIteration:
             pass
+
+    # Fallback to Groq (primary provider) from env
+    groq_key = os.environ.get("GROQ_API_KEY", "")
+    if groq_key and groq_key not in ("", "your_groq_api_key_here"):
+        return groq_key
     
-    return _get_gemini_key()
+    # Try OpenRouter
+    openrouter_key = os.environ.get("OPENROUTER_API_KEY", "")
+    if openrouter_key and openrouter_key not in ("", "your_openrouter_api_key_here"):
+        return openrouter_key
+    
+    raise ValueError("No AI API key configured. Set GROQ_API_KEY or OPENROUTER_API_KEY in .env file.")
 
 
 # ── pgvector embedding helpers ────────────────────────────────────────────────

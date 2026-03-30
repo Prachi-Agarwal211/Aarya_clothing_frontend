@@ -21,7 +21,11 @@
     "test:seed": "node tests/utils/seed-test-data.js",
     "test:clear": "node tests/utils/seed-test-data.js --clear",
     "test:report": "playwright show-report",
-    "test:codegen": "playwright codegen"
+    "test:codegen": "playwright codegen",
+    "perf:test": "./scripts/test-performance.sh",
+    "perf:test:localhost": "./scripts/test-performance.sh http://localhost:3000",
+    "perf:audit": "lighthouse http://localhost:3000 --preset=performance --form-factor=mobile --view",
+    "perf:report": "lighthouse http://localhost:3000 --preset=performance --form-factor=mobile --output=html --output-path=./performance-reports/report-$(date +%Y%m%d-%H%M%S).html"
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",

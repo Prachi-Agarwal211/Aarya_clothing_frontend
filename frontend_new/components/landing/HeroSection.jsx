@@ -206,10 +206,14 @@ const HeroSection = ({
                   src={imgSrc}
                   alt={slide.alt || `Hero slide ${index + 1}`}
                   fill
-                  priority={index === 0} // Priority load first slide
-                  sizes="100vw"
+                  priority={index === 0} // Priority load first slide only (LCP optimization)
+                  sizes="100vw" // Full viewport width
                   className="object-cover object-top"
-                  quality={85}
+                  quality={index === 0 ? 85 : 75} // Higher quality for LCP image
+                  loading={index === 0 ? 'eager' : 'lazy'} // Eager for first, lazy for others
+                  decoding="async" // Non-blocking decoding
+                  placeholder="blur"
+                  blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k="
                 />
                 {/* Subtle gradient overlays - reduced intensity for brighter images */}
                 {/* Light header visibility gradient */}

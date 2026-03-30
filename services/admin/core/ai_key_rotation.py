@@ -3,7 +3,7 @@ AI Key Rotation Service - Aarya Clothing
 Manages multi-provider API key rotation with rate limit tracking.
 
 Features:
-- Automatic key rotation across 5 providers (Groq, Gemini, OpenRouter, GLM, NVIDIA)
+- Automatic key rotation across 4 providers (Groq, OpenRouter, GLM, NVIDIA)
 - Rate limit tracking per key (per-minute and daily)
 - Automatic fallback when rate limit hit
 - Cost tracking and budget alerts
@@ -67,10 +67,6 @@ PROVIDER_PRICING = {
         "llama-3.2-90b-vision-preview": {"input": 0.00, "output": 0.00},  # FREE!
         "gemma2-9b-it": {"input": 0.00, "output": 0.00},  # FREE! Fast
     },
-    ProviderName.GEMINI: {
-        "gemini-2.0-flash-lite": {"input": 0.00, "output": 0.00},  # Free tier
-        "gemini-2.0-flash": {"input": 0.00, "output": 0.00},  # Free tier
-    },
     ProviderName.OPENROUTER: {
         # Top free models for chat (24 total free models on OpenRouter)
         "meta-llama/llama-3.3-70b-instruct:free": {"input": 0.00, "output": 0.00},  # BEST for chat
@@ -115,20 +111,7 @@ class AIKeyRotation:
                 daily_limit=int(os.environ.get("GROQ_DAILY_LIMIT", "1000")),
                 base_url="https://api.groq.com/openai/v1",
             )
-        
-        # Gemini - DISABLED (key was leaked/revoked)
-        gemini_key = os.environ.get("GEMINI_API_KEY", "")
-        if gemini_key and os.environ.get("AI_GEMINI_ENABLED", "false").lower() == "true":
-            self.providers[ProviderName.GEMINI] = ProviderConfig(
-                name=ProviderName.GEMINI,
-                api_key=gemini_key,
-                model=os.environ.get("GEMINI_MODEL", "gemini-2.0-flash-lite"),
-                rate_limit=int(os.environ.get("GEMINI_RATE_LIMIT", "15")),
-                daily_limit=int(os.environ.get("GEMINI_DAILY_LIMIT", "1000000")),
-            )
-        else:
-            logger.info("Gemini provider is DISABLED (key was leaked)")
-        
+
         # OpenRouter
         openrouter_key = os.environ.get("OPENROUTER_API_KEY", "")
         if openrouter_key and os.environ.get("AI_OPENROUTER_ENABLED", "true").lower() == "true":
@@ -140,7 +123,7 @@ class AIKeyRotation:
                 daily_limit=int(os.environ.get("OPENROUTER_DAILY_LIMIT", "1000")),
                 base_url="https://openrouter.ai/api/v1",
             )
-        
+
         # GLM
         glm_key = os.environ.get("GLM_API_KEY", "")
         if glm_key and os.environ.get("AI_GLM_ENABLED", "true").lower() == "true":
@@ -152,7 +135,7 @@ class AIKeyRotation:
                 daily_limit=int(os.environ.get("GLM_DAILY_LIMIT", "1000")),
                 base_url="https://open.bigmodel.cn/api/paas/v4",
             )
-        
+
         # NVIDIA
         nvidia_key = os.environ.get("NVIDIA_API_KEY", "")
         if nvidia_key and os.environ.get("AI_NVIDIA_ENABLED", "true").lower() == "true":
@@ -164,7 +147,7 @@ class AIKeyRotation:
                 daily_limit=int(os.environ.get("NVIDIA_DAILY_LIMIT", "500")),
                 base_url="https://integrate.api.nvidia.com/v1",
             )
-        
+
         logger.info(f"Loaded {len(self.providers)} AI providers: {[p.name.value for p in self.providers.values()]}")
     
     def _get_rate_limit_key(self, provider: ProviderName) -> str:
@@ -214,17 +197,16 @@ class AIKeyRotation:
     def get_available_provider(self, priority_order: Optional[List[ProviderName]] = None) -> Optional[ProviderConfig]:
         """
         Get an available provider based on rate limits and priority.
-        
+
         Args:
-            priority_order: List of providers in priority order (default: Groq > Gemini > OpenRouter > GLM > NVIDIA)
-        
+            priority_order: List of providers in priority order (default: Groq > OpenRouter > GLM > NVIDIA)
+
         Returns:
             ProviderConfig if available, None if all providers are rate-limited
         """
         if priority_order is None:
             priority_order = [
                 ProviderName.GROQ,
-                ProviderName.GEMINI,
                 ProviderName.OPENROUTER,
                 ProviderName.GLM,
                 ProviderName.NVIDIA,

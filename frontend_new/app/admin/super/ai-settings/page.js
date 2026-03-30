@@ -11,51 +11,51 @@ import { aiSettingsApi } from '@/lib/adminApi';
 
 // ── Provider configurations ───────────────────────────────────────────────────
 const AI_PROVIDERS = {
-  gemini: {
-    name: 'Google Gemini',
-    icon: Cloud,
-    color: '#4285F4',
-    bgColor: 'rgba(66, 133, 244, 0.1)',
-    models: [
-      { value: 'gemini-2.0-flash-lite', label: 'Gemini 2.0 Flash Lite', cost: '$0.075/1M in · $0.30/1M out', badge: 'Cheapest', free: true },
-      { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash', cost: '$0.10/1M in · $0.40/1M out', badge: 'Recommended', free: false },
-      { value: 'gemini-1.5-flash', label: 'Gemini 1.5 Flash', cost: '$0.075/1M in · $0.30/1M out', badge: '', free: true },
-      { value: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro', cost: '$1.25/1M in · $5.00/1M out', badge: 'Expensive', free: false },
-    ]
-  },
-  openai: {
-    name: 'OpenAI',
-    icon: Server,
-    color: '#10A37F',
-    bgColor: 'rgba(16, 163, 127, 0.1)',
-    models: [
-      { value: 'gpt-4o-mini', label: 'GPT-4o Mini', cost: '$0.15/1M in · $0.60/1M out', badge: 'Recommended', free: false },
-      { value: 'gpt-4o', label: 'GPT-4o', cost: '$2.50/1M in · $10.00/1M out', badge: 'Premium', free: false },
-      { value: 'gpt-4-turbo', label: 'GPT-4 Turbo', cost: '$10.00/1M in · $30.00/1M out', badge: '', free: false },
-      { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo', cost: '$0.50/1M in · $1.50/1M out', badge: 'Budget', free: false },
-    ]
-  },
   groq: {
-    name: 'Groq',
+    name: 'Groq (PRIMARY)',
     icon: Zap,
     color: '#F55036',
     bgColor: 'rgba(245, 80, 54, 0.1)',
     models: [
-      { value: 'llama-3.3-70b-versatile', label: 'Llama 3.3 70B', cost: 'FREE (beta)', badge: 'Free!', free: true },
-      { value: 'llama-3.1-8b-instant', label: 'Llama 3.1 8B', cost: 'FREE (beta)', badge: 'Fastest', free: true },
-      { value: 'mixtral-8x7b-32768', label: 'Mixtral 8x7B', cost: 'FREE (beta)', badge: '', free: true },
-      { value: 'gemma2-9b-it', label: 'Gemma2 9B', cost: 'FREE (beta)', badge: '', free: true },
+      { value: 'llama-3.3-70b-versatile', label: 'Llama 3.3 70B', cost: 'FREE', badge: 'Best for Chat', free: true },
+      { value: 'mixtral-8x7b-32768', label: 'Mixtral 8x7B', cost: 'FREE', badge: 'Fast', free: true },
+      { value: 'gemma2-9b-it', label: 'Gemma2 9B', cost: 'FREE', badge: '', free: true },
+      { value: 'llama-3.2-90b-vision-preview', label: 'Llama 3.2 90B Vision', cost: 'FREE', badge: 'Multimodal', free: true },
     ]
   },
-  anthropic: {
-    name: 'Anthropic',
-    icon: Shield,
-    color: '#D97757',
-    bgColor: 'rgba(217, 119, 87, 0.1)',
+  openrouter: {
+    name: 'OpenRouter',
+    icon: Cloud,
+    color: '#5438DC',
+    bgColor: 'rgba(84, 56, 220, 0.1)',
     models: [
-      { value: 'claude-3-haiku-20240307', label: 'Claude 3 Haiku', cost: '$0.25/1M in · $1.25/1M out', badge: 'Fastest', free: false },
-      { value: 'claude-3-sonnet-20240229', label: 'Claude 3 Sonnet', cost: '$3.00/1M in · $15.00/1M out', badge: 'Balanced', free: false },
-      { value: 'claude-3-opus-20240229', label: 'Claude 3 Opus', cost: '$15.00/1M in · $75.00/1M out', badge: 'Most Powerful', free: false },
+      { value: 'meta-llama/llama-3.3-70b-instruct:free', label: 'Llama 3.3 70B Instruct', cost: 'FREE', badge: 'Best Free', free: true },
+      { value: 'nousresearch/hermes-3-405b:free', label: 'Hermes 3 405B', cost: 'FREE', badge: 'Best IQ', free: true },
+      { value: 'mistralai/mistral-small-3.1:free', label: 'Mistral Small 3.1', cost: 'FREE', badge: 'Balanced', free: true },
+      { value: 'z-ai/glm-4.5-air:free', label: 'GLM 4.5 Air', cost: 'FREE', badge: 'Multilingual', free: true },
+    ]
+  },
+  glm: {
+    name: 'GLM / Zhipu',
+    icon: Globe,
+    color: '#3B5998',
+    bgColor: 'rgba(59, 89, 152, 0.1)',
+    models: [
+      { value: 'glm-4-flash', label: 'GLM 4 Flash', cost: 'FREE', badge: 'Fastest', free: true },
+      { value: 'glm-4-air', label: 'GLM 4 Air', cost: 'FREE', badge: '', free: true },
+      { value: 'glm-4.7', label: 'GLM 4.7', cost: 'FREE', badge: 'Latest', free: true },
+    ]
+  },
+  nvidia: {
+    name: 'NVIDIA',
+    icon: Cpu,
+    color: '#76B900',
+    bgColor: 'rgba(118, 185, 0, 0.1)',
+    models: [
+      { value: 'meta/llama3-70b-instruct', label: 'Llama 3 70B Instruct', cost: 'FREE', badge: 'Best Chat', free: true },
+      { value: 'mistralai/mistral-7b-instruct-v0.3', label: 'Mistral 7B Instruct', cost: 'FREE', badge: 'Fastest', free: true },
+      { value: 'qwen/qwen-2.5-72b-instruct', label: 'Qwen 2.5 72B', cost: 'FREE', badge: 'Multilingual', free: true },
+      { value: 'google/gemma-2b-it', label: 'Gemma 2B', cost: 'FREE', badge: 'Lightweight', free: true },
     ]
   }
 };
@@ -276,7 +276,7 @@ export default function SuperAdminAiSettings() {
   const [saving, setSaving] = useState(false);
   const [testResults, setTestResults] = useState({});
   const [error, setError] = useState(null);
-  const [activeProvider, setActiveProvider] = useState('gemini');
+  const [activeProvider, setActiveProvider] = useState('groq');
 
   const fetchSettings = useCallback(async () => {
     try {
@@ -287,7 +287,7 @@ export default function SuperAdminAiSettings() {
         settingsMap[s.key] = s.value;
       });
       setSettings(settingsMap);
-      setActiveProvider(settingsMap.AI_PROVIDER || 'gemini');
+      setActiveProvider(settingsMap.AI_PROVIDER || 'groq');
     } catch (err) {
       setError(err.message || 'Failed to load settings');
     } finally {

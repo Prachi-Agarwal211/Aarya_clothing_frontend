@@ -81,11 +81,11 @@ const nextConfig = {
   // Experimental Features for better performance
   experimental: {
     optimizeCss: true,
-    optimizePackageImports: ['lucide-react', 'gsap', '@splinetool/react-spline', 'framer-motion'],
     // Enable early import for faster builds
     optimizeServerReact: true,
-    // Reduce bundle size with tree shaking via modularizeImports
-    // Tree shaking is handled by modularizeImports and webpack
+    // Enable React Server Components optimization
+    serverComponentsHmrCache: false,
+    // Reduce bundle size with better tree shaking
     // Enable memory-based caching for faster builds
     // Reduced cache times for development - changes reflect faster
     cacheLife: {
@@ -95,6 +95,8 @@ const nextConfig = {
         expire: 60, // 60 seconds
       },
     },
+    // Enable newer performance optimizations - deduplicated list
+    optimizePackageImports: ['lucide-react', 'gsap', 'framer-motion', 'recharts', '@use-gesture/react'],
   },
 
   // Modularize imports for smaller bundles

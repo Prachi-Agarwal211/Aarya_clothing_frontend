@@ -35,7 +35,7 @@ export default function WishlistPage() {
       setError(null);
 
       const data = await wishlistApi.list();
-      setWishlist(data.wishlist || data || []);
+      setWishlist(data.items || []);
     } catch (err) {
       logger.error('Error fetching wishlist:', err);
       setError('Failed to load wishlist. Please try again.');

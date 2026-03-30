@@ -1352,8 +1352,23 @@ async def list_chat_rooms(
     if status:
         where = "WHERE status = :status"
         params["status"] = status
+    
+    # Add unread count subquery
     rows = db.execute(
-        text(f"SELECT * FROM chat_rooms {where} ORDER BY updated_at DESC LIMIT 50"),
+        text(f"""
+            SELECT cr.*, 
+                   COALESCE(
+                       (SELECT COUNT(*) FROM chat_messages cm 
+                        WHERE cm.room_id = cr.id 
+                        AND cm.is_read = false 
+                        AND cm.sender_type IN ('customer', 'user')),
+                       0
+                   ) as unread
+            FROM chat_rooms cr 
+            {where} 
+            ORDER BY updated_at DESC 
+            LIMIT 50
+        """),
         params,
     ).fetchall()
     return {"rooms": [dict(r._mapping) for r in rows]}

@@ -14,6 +14,11 @@ export default function CustomerChatWidget() {
     const { showAlert } = useAlertToast();
     const pathname = usePathname();
 
+    // Move this guard to TOP - before any hooks
+    if (pathname?.startsWith('/admin') || pathname?.startsWith('/staff')) {
+        return null;
+    }
+
     const [isOpen, setIsOpen] = useState(false);
     const [isMinimized, setIsMinimized] = useState(false);
 
@@ -69,11 +74,6 @@ export default function CustomerChatWidget() {
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user]);
-
-    // Hide widget on admin and staff pages (AFTER hooks)
-    if (pathname?.startsWith('/admin') || pathname?.startsWith('/staff')) {
-        return null;
-    }
 
     const connectWebSocket = (rId) => {
         if (wsRef.current?.readyState === WebSocket.OPEN) return;

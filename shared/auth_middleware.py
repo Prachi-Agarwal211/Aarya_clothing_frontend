@@ -155,7 +155,7 @@ def get_current_user_optional(
     try:
         payload = auth_middleware.decode_token(token)
         return auth_middleware.extract_user_info(payload)
-    except HTTPException:
+    except Exception:
         return None
 
 

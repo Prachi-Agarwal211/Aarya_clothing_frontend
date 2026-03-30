@@ -15,10 +15,10 @@ class Wishlist(Base):
     
     # Timestamps
     added_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    
+
     # Relationship
-    product = relationship("Product")
-    
+    product = relationship("Product", foreign_keys=[product_id])
+
     # Unique constraint: user can only add each product once
     __table_args__ = (
         UniqueConstraint('user_id', 'product_id', name='uq_wishlist_user_product'),

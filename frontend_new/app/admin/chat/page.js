@@ -95,7 +95,7 @@ export default function ChatPage() {
 
     try {
       const baseUrl = getCommerceBaseUrl().replace(/^http/, 'ws');
-      const wsUrl = `${baseUrl}/api/v1/chat/ws/${selectedRoom.id}`;
+      const wsUrl = `${baseUrl}/api/v1/admin/chat/ws/${selectedRoom.id}`;
 
       logger.info('[Chat] Connecting to WebSocket:', wsUrl);
 

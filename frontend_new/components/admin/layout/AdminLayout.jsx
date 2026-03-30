@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+
 import { useRouter, usePathname } from 'next/navigation';
 import AdminSidebar from './AdminSidebar';
 import AdminHeader from './AdminHeader';
@@ -88,6 +89,16 @@ export default function AdminLayout({ children }) {
     };
   }, []);
 
+  // These must be defined before any early returns to satisfy Rules of Hooks
+  const handleMobileMenuClose = useCallback(() => {
+    setMobileMenuOpen(false);
+  }, []);
+
+  const handleSidebarToggle = useCallback((newState) => {
+    setSidebarCollapsed(newState);
+    localStorage.setItem(SIDEBAR_COLLAPSED_KEY, JSON.stringify(newState));
+  }, []);
+
   // Handle authentication and authorization
   useEffect(() => {
     if (!loading) {
@@ -158,15 +169,6 @@ export default function AdminLayout({ children }) {
       </div>
     );
   }
-
-  const handleMobileMenuClose = () => {
-    setMobileMenuOpen(false);
-  };
-
-  const handleSidebarToggle = useCallback((newState) => {
-    setSidebarCollapsed(newState);
-    localStorage.setItem(SIDEBAR_COLLAPSED_KEY, JSON.stringify(newState));
-  }, []);
 
   return (
     <div className="min-h-screen bg-[#0B0608] relative">

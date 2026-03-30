@@ -34,6 +34,13 @@ export default function CustomerChatWidget() {
         }
     }, [messages, isOpen, isMinimized]);
 
+    // Allow external triggers (e.g. Contact page) to open the chat
+    useEffect(() => {
+        const handleOpen = () => { setIsOpen(true); setIsMinimized(false); };
+        window.addEventListener('openSupportChat', handleOpen);
+        return () => window.removeEventListener('openSupportChat', handleOpen);
+    }, []);
+
     // Load existing active room on mount (if authenticated)
     useEffect(() => {
         if (!user) return;

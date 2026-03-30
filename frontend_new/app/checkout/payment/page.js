@@ -343,9 +343,10 @@ export default function CheckoutPaymentPage() {
         }
 
         // Configure checkout options
+        // Route return through backend handler so payment is verified before confirm page
         const checkoutOptions = {
           paymentSessionId: orderData.session_id,
-          returnUrl: `${window.location.origin}/checkout/confirm`,
+          returnUrl: `${window.location.origin}/api/v1/payments/cashfree/return`,
         };
 
         logger.info('Opening Cashfree checkout with session:', orderData.session_id);

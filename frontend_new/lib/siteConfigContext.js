@@ -121,6 +121,9 @@ export function useLogo() {
 export function useIntroVideo() {
   const { video } = useSiteConfig();
 
+  // Admin can disable the video via enabled flag (default: true)
+  const enabled = video?.enabled !== false;
+
   // NEW FORMAT (from backend): video is { desktop, mobile, enabled }
   // Backward compatibility: video.intro (legacy string format)
   
@@ -128,18 +131,19 @@ export function useIntroVideo() {
   if (video?.desktop || video?.mobile) {
     const desktop = video.desktop || video.mobile;
     const mobile = video.mobile || video.desktop;
-    return { desktop, mobile };
+    return { desktop, mobile, enabled };
   }
 
   // Legacy format: video.intro (string or object)
   const intro = video?.intro;
   if (typeof intro === 'string') {
-    return { desktop: intro, mobile: intro };
+    return { desktop: intro, mobile: intro, enabled };
   }
   if (intro?.desktop || intro?.mobile) {
     return {
       desktop: intro.desktop || intro.mobile,
       mobile: intro.mobile || intro.desktop,
+      enabled,
     };
   }
   
@@ -147,6 +151,7 @@ export function useIntroVideo() {
   return {
     desktop: null,
     mobile: null,
+    enabled,
   };
 }
 

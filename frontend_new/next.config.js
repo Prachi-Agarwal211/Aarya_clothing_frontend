@@ -8,6 +8,9 @@ const withBundleAnalyzer = require('@next/bundle-analyzer')({
 const nextConfig = {
   reactStrictMode: true,
 
+  // Disable the Next.js dev indicator ("N" button) visible in browser
+  devIndicators: false,
+
   // Disable ESLint during build to allow build to complete despite warnings
   eslint: {
     ignoreDuringBuilds: true,

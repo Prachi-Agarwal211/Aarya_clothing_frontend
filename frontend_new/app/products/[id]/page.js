@@ -510,11 +510,6 @@ export default function ProductDetailPage() {
                       <Plus className="w-4 h-4" />
                     </button>
                   </div>
-                  {product.stock_quantity !== undefined && product.stock_quantity > 0 && (
-                    <p className="text-xs text-[#EAE0D5]/50">
-                      {product.stock_quantity - quantity} more available
-                    </p>
-                  )}
                 </div>
               </div>
 

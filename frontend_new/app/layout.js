@@ -53,6 +53,9 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en" className={`${cinzel.variable} ${playfair.variable}`}>
       <head>
+        <link rel="icon" href="https://pub-7846c786f7154610b57735df47899fa0.r2.dev/logo.png" type="image/png" sizes="any" />
+        <link rel="shortcut icon" href="https://pub-7846c786f7154610b57735df47899fa0.r2.dev/logo.png" />
+        <link rel="apple-touch-icon" href="https://pub-7846c786f7154610b57735df47899fa0.r2.dev/logo.png" />
         <link rel="preconnect" href="https://pub-7846c786f7154610b57735df47899fa0.r2.dev" />
         <link rel="dns-prefetch" href="https://api.aaryaclothing.com" />
         <link rel="dns-prefetch" href="https://aaryaclothing.in" />

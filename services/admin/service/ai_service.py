@@ -1885,7 +1885,12 @@ def customer_chat(
         tools=[{"function_declarations": tools}],
         generation_config={"max_output_tokens": max_tokens, "temperature": 0.7},
     )
-    chat = model.start_chat(history=history)
+    # Gemini requires "model" role (not "assistant") for AI turns in history
+    gemini_history = [
+        {"role": "model" if m["role"] == "assistant" else m["role"], "parts": m["parts"]}
+        for m in history
+    ]
+    chat = model.start_chat(history=gemini_history)
 
     # Save user message (no tokens yet)
     save_message(db, session_id, "user", user_message, 0, 0, model_name)
@@ -2085,7 +2090,12 @@ def admin_chat(
         generation_config={"max_output_tokens": max_tokens, "temperature": 0.4},
     )
     history = get_session_history(db, session_id, max_messages=max_history)
-    chat = model.start_chat(history=history)
+    # Gemini requires "model" role (not "assistant") for AI turns in history
+    gemini_history = [
+        {"role": "model" if m["role"] == "assistant" else m["role"], "parts": m["parts"]}
+        for m in history
+    ]
+    chat = model.start_chat(history=gemini_history)
 
     parts: List[Any] = [user_message]
     if image_data:

@@ -155,29 +155,13 @@ export default function AdminSidebar({ collapsed, onToggle, isMobile = false, on
 
         {/* Toggle/Close Button */}
         {isMobile ? (
-          <div className="flex items-center gap-1">
-            {/* Collapse toggle for mobile */}
-            <button
-              onClick={handleToggle}
-              className="p-2 rounded-lg hover:bg-[#B76E79]/10 transition-colors min-w-[44px] min-h-[44px] touch-target"
-              aria-label={collapsed ? 'Expand navigation menu' : 'Collapse navigation menu'}
-              aria-expanded={!collapsed}
-            >
-              {collapsed ? (
-                <ChevronRight className="w-5 h-5 text-[#EAE0D5]/70" />
-              ) : (
-                <ChevronLeft className="w-5 h-5 text-[#EAE0D5]/70" />
-              )}
-            </button>
-            {/* Close button for mobile */}
-            <button
-              onClick={onClose}
-              className="p-2 rounded-lg hover:bg-[#B76E79]/10 transition-colors min-w-[44px] min-h-[44px] touch-target"
-              aria-label="Close navigation menu"
-            >
-              <X className="w-5 h-5 text-[#EAE0D5]/70" />
-            </button>
-          </div>
+          <button
+            onClick={onClose}
+            className="p-2 rounded-lg hover:bg-[#B76E79]/10 transition-colors min-w-[44px] min-h-[44px] touch-target"
+            aria-label="Close navigation menu"
+          >
+            <X className="w-5 h-5 text-[#EAE0D5]/70" />
+          </button>
         ) : (
           <button
             onClick={handleToggle}

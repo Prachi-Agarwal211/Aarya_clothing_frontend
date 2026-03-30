@@ -111,7 +111,7 @@ class CashfreeService:
         if not self.enabled:
             raise ValueError("Cashfree is not configured")
 
-        url = f"{self.base_url}/orders/{order_id}"
+        url = f"{self.base_url}/pg/orders/{order_id}"
 
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:

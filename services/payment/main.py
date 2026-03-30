@@ -820,12 +820,17 @@ async def cashfree_return_handler(request: Request):
     
     try:
         # Get query params from Cashfree redirect
+        # Cashfree v3 SDK sends: order_id, order_status, payment_id (or reference_id)
         order_id = request.query_params.get("order_id")
-        reference_id = request.query_params.get("reference_id")
-        status = request.query_params.get("order_status")
+        reference_id = (
+            request.query_params.get("reference_id")
+            or request.query_params.get("payment_id")
+            or ""
+        )
+        status = request.query_params.get("order_status") or request.query_params.get("status")
         
-        if not all([order_id, reference_id, status]):
-            logger.warning(f"Cashfree return: Missing params - order_id={order_id}, reference_id={reference_id}")
+        if not order_id or not status:
+            logger.warning(f"Cashfree return: Missing params - order_id={order_id}, status={status}")
             return RedirectResponse(
                 url=f"{frontend_url}/checkout/payment?error=payment_failed",
                 status_code=303,

@@ -30,14 +30,14 @@ export default function IntroVideo({ onVideoEnd }) {
     ? (introVideo.mobile || introVideo.desktop)
     : (introVideo.desktop || introVideo.mobile);
 
-  // Check session — skip if already seen
+  // Check session — skip if already seen, or if admin disabled the video
   useEffect(() => {
     const hasSeenIntro = sessionStorage.getItem('hasSeenIntroVideo');
-    if (hasSeenIntro) {
+    if (hasSeenIntro || introVideo.enabled === false) {
       setIsVideoEnded(true);
       onVideoEnd?.();
     }
-  }, [onVideoEnd]);
+  }, [onVideoEnd, introVideo.enabled]);
 
   // Auto-start: after brief branded preloader, play video muted
   useEffect(() => {
@@ -74,7 +74,6 @@ export default function IntroVideo({ onVideoEnd }) {
     const showTimer = setTimeout(() => {
       setShowSoundHint(true);
 
-      // Hide hint 5 seconds after showing
       const hideTimer = setTimeout(() => {
         setShowSoundHint(false);
       }, 5000);
@@ -84,6 +83,19 @@ export default function IntroVideo({ onVideoEnd }) {
 
     return () => clearTimeout(showTimer);
   }, [videoStarted, isMuted]);
+
+  const handlePlayWithSound = () => {
+    if (!videoRef.current) return;
+    videoRef.current.muted = false;
+    videoRef.current.volume = 1;
+    setIsMuted(false);
+    setShowSoundHint(false);
+    if (autoplayFailed) {
+      videoRef.current.play()
+        .then(() => setAutoplayFailed(false))
+        .catch(() => {});
+    }
+  };
 
   const handleVideoEnd = () => {
     setIsFadingOut(true);
@@ -220,86 +232,27 @@ export default function IntroVideo({ onVideoEnd }) {
 
       {/* ── Controls (visible after preloader gone) ── */}
       <div className={`absolute inset-0 z-20 transition-opacity duration-700 ${showPreloader ? 'opacity-0' : 'opacity-100'}`}>
-        {/* Mute toggle — bottom left */}
-        <button
-          onClick={handleToggleMute}
-          className="absolute bottom-4 left-4 sm:bottom-8 sm:left-8 pointer-events-auto flex items-center gap-2 px-4 py-2.5 bg-black/30 backdrop-blur-md border border-white/15 text-white/80 text-xs sm:text-sm rounded-full hover:bg-black/50 hover:border-white/30 transition-all duration-300"
-          style={{ fontFamily: 'var(--font-cinzel), serif' }}
-          aria-label={isMuted ? 'Unmute video' : 'Mute video'}
-        >
-          {isMuted ? (
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
-              <path strokeLinecap="round" strokeLinejoin="round" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
-            </svg>
-          ) : (
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15.536 8.464a5 5 0 010 7.072M12 6v12m0 0L6.343 13.343M12 18l5.657-5.657" />
-              <path strokeLinecap="round" strokeLinejoin="round" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
-            </svg>
-          )}
-          <span className="hidden sm:inline">{isMuted ? 'Unmute' : 'Mute'}</span>
-        </button>
 
-        {/* Sound hint — appears near mute button with elegant animation */}
-        <div
-          className={`absolute bottom-16 left-4 sm:bottom-20 sm:left-8 pointer-events-none transition-all duration-500 ease-out ${
-            showSoundHint ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'
-          }`}
-        >
-          <div className="flex items-center gap-2 px-3 py-2 bg-black/40 backdrop-blur-md border border-[#F2C29A]/30 rounded-full shadow-lg shadow-[#F2C29A]/5">
-            {/* Animated sound waves icon */}
-            <div className="relative w-5 h-5 flex items-center justify-center">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="w-4 h-4 text-[#F2C29A]"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={1.5}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M15.536 8.464a5 5 0 010 7.072M12 6v12m0 0L6.343 13.343M12 18l5.657-5.657"
-                />
-              </svg>
-              {/* Pulsing wave effect */}
-              <div className="absolute inset-0 w-5 h-5 border-2 border-[#B76E79]/40 rounded-full animate-ping" style={{ animationDuration: '1.5s' }} />
-            </div>
-            {/* Hint text */}
-            <span
-              className="text-[#F2C29A] text-xs font-medium tracking-wide"
-              style={{ fontFamily: 'var(--font-cinzel), serif' }}
+        {/* Centered play button — shown when muted or autoplay failed */}
+        {(isMuted || autoplayFailed) && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <button
+              onClick={handlePlayWithSound}
+              className="pointer-events-auto w-16 h-16 rounded-full bg-black/50 backdrop-blur-md border border-white/20 flex items-center justify-center hover:bg-black/70 hover:scale-110 transition-all duration-300 active:scale-95 shadow-2xl"
+              aria-label="Play video"
             >
-              Tap for sound
-            </span>
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-7 h-7 text-white ml-1" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M8 5v14l11-7z" />
+              </svg>
+            </button>
           </div>
-        </div>
-
-        {/* Start Video Button — appears if autoplay fails */}
-        {autoplayFailed && (
-          <button
-            onClick={() => {
-              if (videoRef.current) {
-                videoRef.current.muted = true;
-                videoRef.current.play()
-                  .then(() => setAutoplayFailed(false))
-                  .catch(() => {});
-              }
-            }}
-            className="absolute bottom-20 left-1/2 -translate-x-1/2 pointer-events-auto px-6 py-3 bg-[#B76E79]/90 backdrop-blur-md border border-[#F2C29A]/30 text-white text-sm font-medium rounded-full hover:bg-[#B76E79] transition-all duration-300 active:scale-95 shadow-lg shadow-[#B76E79]/30"
-            style={{ fontFamily: 'var(--font-cinzel), serif' }}
-          >
-            ▶ Start Video
-          </button>
         )}
 
-        {/* Skip button — bottom center on mobile, bottom right on desktop */}
+        {/* Skip button — bottom right */}
         {showSkip && (
           <button
             onClick={handleSkip}
-            className="absolute bottom-6 left-1/2 -translate-x-1/2 sm:bottom-8 sm:right-8 sm:left-auto sm:translate-x-0 pointer-events-auto px-5 py-2.5 bg-white/10 backdrop-blur-md border border-white/20 text-white text-xs sm:text-sm font-medium rounded-full hover:bg-white/20 transition-all duration-300 active:scale-95 hover:border-[#F2C29A]/50"
+            className="absolute bottom-6 right-6 sm:bottom-8 sm:right-8 pointer-events-auto px-5 py-2.5 bg-white/10 backdrop-blur-md border border-white/20 text-white text-xs sm:text-sm font-medium rounded-full hover:bg-white/20 transition-all duration-300 active:scale-95 hover:border-[#F2C29A]/50"
             style={{ fontFamily: 'var(--font-cinzel), serif' }}
           >
             Skip Intro

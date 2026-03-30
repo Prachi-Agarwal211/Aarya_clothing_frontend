@@ -43,7 +43,7 @@ export default function OrdersPage() {
       setError(null);
 
       const data = await ordersApi.list();
-      setOrders(data.orders || data || []);
+      setOrders(data.items || data.orders || []);
     } catch (err) {
       logger.error('Error fetching orders:', err);
       setError('Failed to load orders. Please try again.');

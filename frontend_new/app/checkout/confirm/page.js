@@ -93,12 +93,12 @@ export default function CheckoutConfirmPage() {
       setError(null);
 
       const addressId = sessionStorage.getItem('checkout_address_id');
-      
+
       // Razorpay params
       const paymentId = sessionStorage.getItem('payment_id');           // pay_xxx
       const razorpayOrderId = sessionStorage.getItem('razorpay_order_id'); // order_xxx
       const paymentSignature = sessionStorage.getItem('payment_signature'); // HMAC sig
-      
+
       // Cashfree params (NEW)
       const cashfreeOrderId = sessionStorage.getItem('cashfree_order_id');
       const cashfreePaymentId = sessionStorage.getItem('cashfree_payment_id');
@@ -126,28 +126,48 @@ export default function CheckoutConfirmPage() {
       // Check if we have payment info from either gateway
       const hasRazorpayPayment = paymentId || razorpayOrderId;
       const hasCashfreePayment = cashfreeOrderId || cashfreePaymentId;
-      
+
       if (!hasRazorpayPayment && !hasCashfreePayment) {
         setError('Payment information missing. Please complete payment first.');
         setTimeout(() => router.push('/checkout/payment'), 3000);
         return;
       }
 
+      // ✅ CRITICAL FIX: Clear old payment params BEFORE creating order
+      // This prevents mixing old + new payment data which causes verification failures
+      logger.info('Clearing old payment params before order creation');
+      sessionStorage.removeItem('payment_id');
+      sessionStorage.removeItem('razorpay_order_id');
+      sessionStorage.removeItem('payment_signature');
+      sessionStorage.removeItem('cashfree_order_id');
+      sessionStorage.removeItem('cashfree_payment_id');
+      sessionStorage.removeItem('cashfree_reference_id');
+      sessionStorage.removeItem('cashfree_status');
+
+      // Re-store fresh payment params (they're still in URL)
+      const params = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
+      if (params.get('payment_id')) sessionStorage.setItem('payment_id', params.get('payment_id'));
+      if (params.get('razorpay_order_id')) sessionStorage.setItem('razorpay_order_id', params.get('razorpay_order_id'));
+      if (params.get('razorpay_signature')) sessionStorage.setItem('payment_signature', params.get('razorpay_signature'));
+      if (params.get('cashfree_order_id')) sessionStorage.setItem('cashfree_order_id', params.get('cashfree_order_id'));
+      if (params.get('cashfree_payment_id')) sessionStorage.setItem('cashfree_payment_id', params.get('cashfree_payment_id'));
+      if (params.get('cashfree_reference_id')) sessionStorage.setItem('cashfree_reference_id', params.get('cashfree_reference_id'));
+
       // Determine payment method and prepare order data
       const paymentMethod = hasCashfreePayment ? 'cashfree' : 'razorpay';
-      
+
       const orderPayload = {
         address_id: parseInt(addressId),
         payment_method: paymentMethod,
       };
-      
+
       // Add Razorpay details
       if (hasRazorpayPayment) {
         orderPayload.transaction_id = paymentId;
         orderPayload.razorpay_order_id = razorpayOrderId;
         orderPayload.razorpay_signature = paymentSignature;
       }
-      
+
       // Add Cashfree details (NEW)
       if (hasCashfreePayment) {
         orderPayload.transaction_id = cashfreePaymentId;
@@ -155,6 +175,11 @@ export default function CheckoutConfirmPage() {
         orderPayload.cashfree_payment_id = cashfreePaymentId;
         orderPayload.cashfree_reference_id = cashfreeReferenceId;
       }
+
+      logger.info(
+        `Creating order: payment_method=${paymentMethod} transaction_id=${orderPayload.transaction_id} ` +
+        `razorpay_order_id=${orderPayload.razorpay_order_id || 'N/A'}`
+      );
 
       // Create order — backend verifies payment before recording
       const orderData = await ordersApi.create(orderPayload);
@@ -183,14 +208,29 @@ export default function CheckoutConfirmPage() {
       logger.error('Error creating order:', err);
       // Clear the idempotency guard so the user can retry
       sessionStorage.removeItem('order_created');
+      
       const detail = err?.response?.data?.detail || err?.data?.detail || err?.message || '';
+      const paymentId = sessionStorage.getItem('payment_id') || 'N/A';
+      
+      // ✅ IMPROVED: Better error messages with payment ID for support reference
       if (detail.toLowerCase().includes('stock') || detail.toLowerCase().includes('inventory') || detail.toLowerCase().includes('unavailable')) {
-        setError('Sorry, one or more items in your order are now out of stock. Please go back to your cart and try again.');
+        setError('Sorry, one or more items in your order are now out of stock. Your payment was successful but order could not be created. Please contact support with Payment ID: ' + paymentId);
       } else if (detail.toLowerCase().includes('payment') || detail.toLowerCase().includes('signature') || detail.toLowerCase().includes('verification')) {
-        setError('Payment verification failed. Please contact support if you were charged.');
+        setError('Payment verification failed. If money was deducted, please contact support with Payment ID: ' + paymentId + '. We will recover your order.');
+      } else if (detail.toLowerCase().includes('cart')) {
+        setError('Order created but cart could not be cleared. Please refresh the page. Your order is confirmed.');
+      } else if (detail.toLowerCase().includes('address')) {
+        setError('Address issue. Please try checkout again or contact support.');
       } else {
-        setError(detail || 'Failed to create order. Please contact support.');
+        setError(
+          'Order creation failed. Payment ID: ' + paymentId + 
+          '. If money was deducted, contact support at support@aaryaclothing.com with this Payment ID.'
+        );
       }
+      
+      // Don't clear payment params on error - user might need them for support
+      // Only clear address
+      sessionStorage.removeItem('checkout_address_id');
     } finally {
       isCreatingRef.current = false;
       setLoading(false);

@@ -26,6 +26,7 @@ from schemas.order import OrderCreate, OrderResponse, BulkOrderStatusUpdate, Set
 from schemas.error import ErrorResponse, PaginatedResponse
 from service.order_service import OrderService
 from shared.auth_middleware import get_current_user, require_admin, require_staff
+from core.razorpay_client import get_razorpay_client
 
 logger = logging.getLogger(__name__)
 
@@ -90,6 +91,16 @@ async def create_order(
     user_id = current_user.get("user_id")
     order_service = _get_order_service(db)
 
+    # Extract payment details for logging
+    payment_method = order_data.payment_method or "razorpay"
+    transaction_id = order_data.transaction_id or order_data.payment_id
+    razorpay_order_id = order_data.razorpay_order_id
+
+    logger.info(
+        f"ORDER_CREATE_START: user={user_id} payment_method={payment_method} "
+        f"transaction_id={transaction_id} razorpay_order_id={razorpay_order_id}"
+    )
+
     try:
         order = order_service.create_order(
             user_id=user_id,
@@ -97,24 +108,30 @@ async def create_order(
             address_id=order_data.address_id,
             promo_code=order_data.promo_code,
             order_notes=order_data.order_notes,
-            transaction_id=order_data.transaction_id or order_data.payment_id,
-            payment_method=order_data.payment_method or "razorpay",
+            transaction_id=transaction_id,
+            payment_method=payment_method,
             payment_signature=order_data.payment_signature,
-            razorpay_order_id=order_data.razorpay_order_id
+            razorpay_order_id=razorpay_order_id
         )
+        logger.info(f"ORDER_CREATE_SUCCESS: order_id={order.id} user={user_id}")
         return _enrich_order_response(order)
-    except HTTPException:
+    except HTTPException as http_err:
+        logger.error(
+            f"ORDER_CREATE_FAILED: user={user_id} "
+            f"status_code={http_err.status_code} detail={http_err.detail}"
+        )
         raise
     except ValueError as e:
+        logger.error(f"ORDER_CREATE_VALIDATION_ERROR: user={user_id} error={str(e)}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
     except Exception as e:
-        logger.error(f"Error creating order: {e}")
+        logger.error(f"ORDER_CREATE_ERROR: user={user_id} error={str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to create order"
+            detail="Failed to create order. Please contact support with payment ID if payment was completed."
         )
 
 
@@ -205,12 +222,12 @@ async def cancel_order(
 ):
     """
     Cancel order and release inventory.
-    
+
     Only allowed for CONFIRMED orders.
     """
     user_id = current_user.get("user_id")
     order_service = _get_order_service(db)
-    
+
     try:
         order = order_service.cancel_order(
             order_id=order_id,
@@ -230,6 +247,141 @@ async def cancel_order(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to cancel order"
+        )
+
+
+@router.post("/recover-from-payment", response_model=OrderResponse)
+async def recover_order_from_payment(
+    request: Request,
+    payment_id: str,
+    razorpay_order_id: str,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Recover order from successful payment if order creation failed.
+    
+    Use this when:
+    - Payment was successful (money deducted)
+    - Order was NOT created (network error, service down, etc.)
+    - User has payment_id and razorpay_order_id from Razorpay
+    
+    This endpoint:
+    1. Verifies payment with Razorpay
+    2. Checks if order already exists for this payment
+    3. Creates order if missing
+    4. Clears cart
+    """
+    user_id = current_user.get("user_id")
+    order_service = _get_order_service(db)
+    
+    logger.info(
+        f"ORDER_RECOVER_START: user={user_id} payment_id={payment_id} "
+        f"razorpay_order_id={razorpay_order_id}"
+    )
+    
+    try:
+        # Step 1: Verify payment with Razorpay
+        import httpx as _httpx
+        import os as _os
+        payment_service_url = _os.getenv("PAYMENT_SERVICE_URL", "http://payment:5003")
+        
+        verify_resp = _httpx.post(
+            f"{payment_service_url}/api/v1/payments/razorpay/verify-signature",
+            json={
+                "razorpay_order_id": razorpay_order_id,
+                "razorpay_payment_id": payment_id,
+                "razorpay_signature": "",  # We don't have signature, will fetch from Razorpay
+            },
+            timeout=30.0,
+        )
+        
+        # If signature verification fails, fetch payment details directly
+        if verify_resp.status_code != 200:
+            logger.warning(f"Signature verification failed, fetching payment details directly")
+            # Fetch payment from Razorpay API to confirm it was captured
+            try:
+                razorpay_client = get_razorpay_client()
+                payment_details = razorpay_client.fetch_payment(payment_id)
+                
+                if payment_details.get("status") != "captured":
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Payment not captured. Status: {payment_details.get('status')}"
+                    )
+                
+                logger.info(f"Payment verified via Razorpay API: {payment_id}")
+            except Exception as fetch_err:
+                logger.error(f"Failed to fetch payment from Razorpay: {fetch_err}")
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Could not verify payment. Please contact support."
+                )
+        
+        # Step 2: Check if order already exists for this payment
+        from models.order import Order
+        existing_order = db.query(Order).filter(
+            Order.transaction_id == payment_id,
+            Order.user_id == user_id
+        ).first()
+        
+        if existing_order:
+            logger.info(f"Order already exists: {existing_order.id} for payment {payment_id}")
+            return _enrich_order_response(existing_order)
+        
+        # Step 3: Create order with recovered payment data
+        logger.info(f"Creating recovered order for user {user_id} payment {payment_id}")
+        
+        # Get user's cart to recreate order
+        from service.cart_service import CartService
+        cart_service = CartService(db)
+        cart = cart_service.get_cart(user_id)
+        
+        if not cart or not cart.get("items"):
+            # Cart was already cleared, create minimal order
+            logger.warning(f"No cart found for user {user_id}, creating minimal order record")
+            # Create a minimal order record for tracking
+            order = Order(
+                user_id=user_id,
+                transaction_id=payment_id,
+                payment_method="razorpay",
+                razorpay_payment_id=payment_id,
+                razorpay_order_id=razorpay_order_id,
+                subtotal=0,
+                discount_applied=0,
+                shipping_cost=0,
+                gst_amount=0,
+                total_amount=0,
+                status=OrderStatus.CONFIRMED,
+                shipping_address="Recovered order - address data not available",
+                order_notes="Order recovered from successful payment. Contact support for details."
+            )
+            db.add(order)
+            db.commit()
+            db.refresh(order)
+            
+            logger.info(f"Minimal order created: {order.id} for payment {payment_id}")
+            return _enrich_order_response(order)
+        
+        # Full order recovery with cart items
+        order = order_service.create_order(
+            user_id=user_id,
+            address_id=None,  # Will use cart address if available
+            payment_method="razorpay",
+            transaction_id=payment_id,
+            razorpay_order_id=razorpay_order_id,
+        )
+        
+        logger.info(f"ORDER_RECOVER_SUCCESS: order_id={order.id} payment_id={payment_id}")
+        return _enrich_order_response(order)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"ORDER_RECOVER_ERROR: user={user_id} payment_id={payment_id} error={str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to recover order. Please contact support with payment ID."
         )
 
 

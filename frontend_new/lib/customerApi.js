@@ -126,6 +126,12 @@ export const ordersApi = {
 
   track: (id) =>
     commerceClient.get(`/api/v1/orders/${id}/tracking`),
+
+  // Order recovery - for when payment succeeded but order creation failed
+  recoverFromPayment: (paymentId, razorpayOrderId) =>
+    commerceClient.post('/api/v1/orders/recover-from-payment', null, {
+      params: { payment_id: paymentId, razorpay_order_id: razorpayOrderId },
+    }),
 };
 
 // ==================== Addresses API ====================

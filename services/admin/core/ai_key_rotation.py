@@ -33,7 +33,6 @@ logger = logging.getLogger(__name__)
 
 class ProviderName(str, Enum):
     GROQ = "groq"
-    GEMINI = "gemini"
     OPENROUTER = "openrouter"
     GLM = "glm"
     NVIDIA = "nvidia"

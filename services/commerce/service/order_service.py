@@ -148,10 +148,18 @@ class OrderService:
                     status_code=status.HTTP_402_PAYMENT_REQUIRED,
                     detail="Payment signature and Razorpay order ID are required"
                 )
+            
+            logger.info(
+                f"PAYMENT_VERIFY_START: user={user_id} payment_id={transaction_id} "
+                f"razorpay_order_id={razorpay_order_id} sig_len={len(payment_signature) if payment_signature else 0}"
+            )
+            
             try:
                 import httpx as _httpx
                 import os as _os
                 payment_service_url = _os.getenv("PAYMENT_SERVICE_URL", "http://payment:5003")
+                verify_start = datetime.now(timezone.utc)
+                
                 resp = _httpx.post(
                     f"{payment_service_url}/api/v1/payments/razorpay/verify-signature",
                     json={
@@ -161,15 +169,35 @@ class OrderService:
                     },
                     timeout=30.0,  # Increased from 10.0 to 30.0 for reliability
                 )
+                
+                verify_duration = (datetime.now(timezone.utc) - verify_start).total_seconds()
+                logger.info(
+                    f"PAYMENT_VERIFY_RESPONSE: user={user_id} status={resp.status_code} "
+                    f"duration={verify_duration}s response={resp.text[:200]}"
+                )
+                
                 if resp.status_code != 200:
+                    logger.error(
+                        f"PAYMENT_VERIFY_FAILED: user={user_id} payment_id={transaction_id} "
+                        f"status={resp.status_code} response={resp.text[:200]}"
+                    )
                     raise HTTPException(
                         status_code=status.HTTP_402_PAYMENT_REQUIRED,
                         detail="Payment verification failed — signature invalid"
                     )
+                    
+                logger.info(
+                    f"✓ PAYMENT_VERIFIED: user={user_id} payment_id={transaction_id} "
+                    f"order_id={razorpay_order_id}"
+                )
             except HTTPException:
                 raise
             except Exception as _e:
-                logger.error(f"Payment verification call failed: {_e}")
+                logger.error(
+                    f"PAYMENT_VERIFY_ERROR: user={user_id} payment_id={transaction_id} "
+                    f"error={str(_e)}",
+                    exc_info=True
+                )
                 raise HTTPException(
                     status_code=status.HTTP_402_PAYMENT_REQUIRED,
                     detail="Payment verification unavailable — cannot create order"
@@ -403,12 +431,106 @@ class OrderService:
         self.db.commit()
         self.db.refresh(order)
 
+        # CRITICAL: Create payment transaction record for audit trail and webhook tracking
+        # This ensures we have a complete payment history even if webhooks fail
+        if payment_method == "razorpay" and transaction_id:
+            try:
+                from sqlalchemy import text as _text
+                logger.info(
+                    f"PAYMENT_TRANSACTION_CREATE: order={order.id} user={user_id} "
+                    f"payment_id={transaction_id} order_id={razorpay_order_id}"
+                )
+                
+                # Insert payment transaction record
+                db.execute(
+                    _text("""
+                        INSERT INTO payment_transactions (
+                            order_id, user_id, amount, currency, payment_method,
+                            razorpay_order_id, razorpay_payment_id, razorpay_signature,
+                            status, created_at, completed_at, transaction_id
+                        ) VALUES (
+                            :order_id, :user_id, :amount, 'INR', 'razorpay',
+                            :razorpay_order_id, :razorpay_payment_id, :signature,
+                            'completed', NOW(), NOW(), :transaction_id
+                        )
+                        ON CONFLICT (transaction_id) DO NOTHING
+                    """),
+                    {
+                        "order_id": order.id,
+                        "user_id": user_id,
+                        "amount": order.total_amount,
+                        "razorpay_order_id": razorpay_order_id or "",
+                        "razorpay_payment_id": transaction_id,
+                        "signature": payment_signature or "",
+                        "transaction_id": transaction_id
+                    }
+                )
+                db.commit()
+                logger.info(
+                    f"✓ PAYMENT_TRANSACTION_CREATED: order={order.id} "
+                    f"transaction_id={transaction_id}"
+                )
+            except Exception as payment_err:
+                # Log error but don't fail the order - payment transaction is secondary
+                logger.error(
+                    f"⚠ FAILED to create payment transaction for order {order.id}: {payment_err}"
+                )
+                # Don't rollback - order is already committed successfully
+
+        # Create payment transaction for Cashfree payments as well
+        elif payment_method == "cashfree" and transaction_id:
+            try:
+                from sqlalchemy import text as _text
+                logger.info(
+                    f"PAYMENT_TRANSACTION_CREATE: order={order.id} user={user_id} "
+                    f"payment_id={transaction_id} cashfree_order_id={cashfree_order_id}"
+                )
+                
+                db.execute(
+                    _text("""
+                        INSERT INTO payment_transactions (
+                            order_id, user_id, amount, currency, payment_method,
+                            cashfree_order_id, cashfree_reference_id,
+                            status, created_at, completed_at, transaction_id
+                        ) VALUES (
+                            :order_id, :user_id, :amount, 'INR', 'cashfree',
+                            :cashfree_order_id, :cashfree_reference_id,
+                            'completed', NOW(), NOW(), :transaction_id
+                        )
+                        ON CONFLICT (transaction_id) DO NOTHING
+                    """),
+                    {
+                        "order_id": order.id,
+                        "user_id": user_id,
+                        "amount": order.total_amount,
+                        "cashfree_order_id": cashfree_order_id or "",
+                        "cashfree_reference_id": cashfree_reference_id or "",
+                        "transaction_id": transaction_id
+                    }
+                )
+                db.commit()
+                logger.info(
+                    f"✓ PAYMENT_TRANSACTION_CREATED: order={order.id} "
+                    f"transaction_id={transaction_id}"
+                )
+            except Exception as payment_err:
+                logger.error(
+                    f"⚠ FAILED to create payment transaction for order {order.id}: {payment_err}"
+                )
+
         # AFTER commit: Clear Redis cart (best effort, non-critical)
         # Order is already committed with reservations confirmed
         try:
             self.cart_service.clear_cart(user_id, release_reservations=False)
-        except Exception as e:
-            logger.warning("Failed to clear Redis cart for user %s: %s", user_id, e)
+            logger.info(f"✓ Cart cleared for user {user_id} after order {order.id}")
+        except Exception as cart_err:
+            logger.error(f"⚠ FAILED to clear cart for user {user_id} after order {order.id}: {cart_err}")
+            # Add note to order that cart clear failed (for debugging)
+            if order.order_notes:
+                order.order_notes += f" [Cart clear failed: {str(cart_err)}]"
+            else:
+                order.order_notes = f"Cart clear failed: {str(cart_err)}"
+            self.db.commit()
             # Don't re-throw - order is already committed with reservations confirmed
 
         # Send order confirmation email

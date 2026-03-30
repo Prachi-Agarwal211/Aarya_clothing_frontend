@@ -37,8 +37,8 @@ const AboutSection = ({
   useEffect(() => {
     const section = sectionRef.current;
     const content = contentRef.current;
-    const images = imageRefs.current;
-    const stats = statsRef.current;
+    const imageElements = imageRefs.current;
+    const statsElement = statsRef.current;
     if (!section || !content) return;
 
     // Use gsap.context for proper cleanup - only kills THIS component's animations
@@ -59,8 +59,8 @@ const AboutSection = ({
         }
       );
 
-      // Parallax images with different speeds
-      images.forEach((img, index) => {
+      // Parallax images with different speeds — filter null refs (React sets ref=null on unmount)
+      imageElements.filter(Boolean).forEach((img, index) => {
         const speed = index === 0 ? -30 : 30;
 
         gsap.fromTo(img,
@@ -92,8 +92,8 @@ const AboutSection = ({
       });
 
       // Stats counter animation
-      if (stats) {
-        const statElements = stats.children;
+      if (statsElement) {
+        const statElements = statsElement.children;
         Array.from(statElements).forEach((el, index) => {
           gsap.fromTo(el,
             { y: 50, opacity: 0, scale: 0.8 },
@@ -105,7 +105,7 @@ const AboutSection = ({
               delay: index * 0.15,
               ease: "back.out(1.7)",
               scrollTrigger: {
-                trigger: stats,
+                trigger: statsElement,
                 start: "top 85%",
               }
             }
@@ -130,8 +130,8 @@ const AboutSection = ({
         );
       }
 
-      return () => ctx.revert(); // Only kills this component's GSAP animations
     }); // Close gsap.context
+    return () => ctx.revert(); // Only kills this component's GSAP animations
   }, []);
 
   return (
@@ -167,13 +167,17 @@ const AboutSection = ({
                     shadow-[0_8px_32px_rgba(0,0,0,0.3)]
                   "
                 >
-                  {images[0] && (
+                  {images[0] ? (
                     <Image
                       src={images[0]}
                       alt="Craftsmanship"
                       fill
                       className="object-top object-cover grayscale hover:grayscale-0 transition-all duration-700"
                     />
+                  ) : (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <span className="text-[#B76E79]/30 text-xs tracking-widest uppercase">Our Craftsmanship</span>
+                    </div>
                   )}
                 </div>
               </div>
@@ -193,13 +197,17 @@ const AboutSection = ({
                   "
                 >
                   <div className="relative w-full h-full rounded-xl sm:rounded-2xl overflow-hidden">
-                    {images[1] && (
+                    {images[1] ? (
                       <Image
                         src={images[1]}
                         alt="Detail"
                         fill
                         className="object-top object-cover opacity-80 hover:opacity-100 transition-opacity duration-500"
                       />
+                    ) : (
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <span className="text-[#F2C29A]/20 text-xs tracking-widest uppercase">Fine Detail</span>
+                      </div>
                     )}
                   </div>
                 </div>

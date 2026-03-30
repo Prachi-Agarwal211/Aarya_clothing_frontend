@@ -163,7 +163,7 @@ function CreateReturnContent() {
           quantity: item.quantity,
           price: item.price,
         })),
-        video_url: videoUrl || videoPreview, // Use uploaded URL or preview blob
+        video_url: videoUrl || null, // Only send real uploaded URL, never a local blob
         exchange_preference: returnType === 'exchange' ? exchangePreference : null,
       };
 

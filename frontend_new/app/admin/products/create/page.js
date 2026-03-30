@@ -45,6 +45,7 @@ export default function CreateProductPage() {
   const [primaryIndex, setPrimaryIndex] = useState(0);
   const [variants, setVariants] = useState([]);
   const [errors, setErrors] = useState({});
+  const [submitError, setSubmitError] = useState('');
   const [isDragging, setIsDragging] = useState(false);
 
   useEffect(() => {
@@ -194,7 +195,7 @@ export default function CreateProductPage() {
       router.push('/admin/products');
     } catch (err) {
       logger.error('Error creating product:', err);
-      router.push('/admin/products');
+      setSubmitError(err.message || 'Failed to create product. Please check your inputs and try again.');
     } finally {
       setLoading(false);
     }
@@ -682,10 +683,18 @@ export default function CreateProductPage() {
               </div>
             </div>
 
+            {/* Submit Error */}
+            {submitError && (
+              <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 text-sm">
+                {submitError}
+              </div>
+            )}
+
             {/* Actions */}
             <div className="flex flex-col gap-3">
               <button
                 type="submit"
+                onClick={() => setSubmitError('')}
                 disabled={loading}
                 className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-[#7A2F57]/50 border border-[#B76E79]/50 rounded-xl text-[#F2C29A] hover:bg-[#7A2F57]/70 hover:shadow-[0_0_15px_rgba(183,110,121,0.2)] transition-all disabled:opacity-50"
               >

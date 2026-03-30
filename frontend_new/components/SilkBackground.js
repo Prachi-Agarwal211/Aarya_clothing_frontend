@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useEffect, useRef, useCallback, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
+import { usePathname } from 'next/navigation';
 import logger from '@/lib/logger';
 
 /**
@@ -19,6 +20,8 @@ import logger from '@/lib/logger';
  * - WebGL context loss handling
  * - Proper cleanup on unmount
  */
+const STATIC_GRADIENT = 'linear-gradient(135deg, #0B0608 0%, #1A0F14 25%, #473C73 50%, #7A2F57 75%, #8A4B66 100%)';
+
 export default function SilkBackground() {
   const canvasRef = useRef(null);
   const animationRef = useRef(null);
@@ -30,32 +33,35 @@ export default function SilkBackground() {
   const isPausedRef = useRef(false);
   const lastFrameTimeRef = useRef(0);
   const startTimeRef = useRef(0);
-  const [isMobile, setIsMobile] = useState(false);
+  const isMobileRef = useRef(false);         // ref — no re-init on resize
   const isInitializedRef = useRef(false);
 
-  // Adaptive frame rate based on device
-  useEffect(() => {
-    const checkMobile = () => {
-      const mobile = window.innerWidth < 768 || 
-                     /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-      setIsMobile(mobile);
-    };
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
-
-  // Frame rate throttling - adaptive based on device
-  const targetFPS = isMobile ? 24 : 30;
-  const frameInterval = 1000 / targetFPS;
+  const pathname = usePathname();
+  // Static background on admin / auth / checkout — no GPU waste
+  const shouldAnimate = !pathname?.startsWith('/admin') &&
+                        !pathname?.startsWith('/checkout');
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    // On mobile, use CSS gradient for better performance
-    if (isMobile && window.innerWidth < 640) {
-      canvas.style.background = 'linear-gradient(135deg, #0B0608 0%, #1A0F14 25%, #473C73 50%, #7A2F57 75%, #8A4B66 100%)';
+    // Static gradient for non-animated routes
+    if (!shouldAnimate) {
+      canvas.style.background = STATIC_GRADIENT;
+      return;
+    }
+
+    // prefers-reduced-motion: static gradient, no animation
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      canvas.style.background = STATIC_GRADIENT;
+      return;
+    }
+
+    // Mobile devices (unified 768px threshold): static gradient for battery
+    isMobileRef.current = window.innerWidth < 768 ||
+      /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    if (isMobileRef.current) {
+      canvas.style.background = STATIC_GRADIENT;
       return;
     }
 
@@ -275,20 +281,23 @@ export default function SilkBackground() {
     resize();
     window.addEventListener('resize', debouncedResize, { passive: true });
 
-    // Animation loop with frame throttling
+    // Animation loop with battery-efficient frame throttling
+    const frameInterval = 1000 / 30; // 30fps on desktop
     startTimeRef.current = performance.now();
-    
+
     function render(currentTime) {
-      // Skip if paused (tab hidden)
       if (isPausedRef.current) {
         animationRef.current = requestAnimationFrame(render);
         return;
       }
-      
-      // Frame rate throttling for battery optimization
+
       const deltaTime = currentTime - lastFrameTimeRef.current;
       if (deltaTime < frameInterval) {
-        animationRef.current = requestAnimationFrame(render);
+        // Use setTimeout to avoid waking up 60x/sec just to check the clock
+        const delay = Math.max(0, frameInterval - deltaTime);
+        animationRef.current = setTimeout(() => {
+          animationRef.current = requestAnimationFrame(render);
+        }, delay);
         return;
       }
       lastFrameTimeRef.current = currentTime - (deltaTime % frameInterval);
@@ -359,8 +368,9 @@ export default function SilkBackground() {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       canvas.removeEventListener('webglcontextlost', handleContextLost, false);
       canvas.removeEventListener('webglcontextrestored', handleContextRestored, false);
-      
+
       if (animationRef.current) {
+        clearTimeout(animationRef.current);
         cancelAnimationFrame(animationRef.current);
         animationRef.current = null;
       }
@@ -387,7 +397,7 @@ export default function SilkBackground() {
       
       isInitializedRef.current = false;
     };
-  }, [isMobile, frameInterval]);
+  }, [shouldAnimate]); // re-run only when route changes between animated/static
 
   return (
     <canvas 

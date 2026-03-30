@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { useAuth } from '../../../lib/authContext';
 import logger from '../../../lib/logger';
 
-export default function AdminHeader({ onMenuClick, user }) {
+export default function AdminHeader({ onMenuClick, user, mobileMenuOpen = false }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -76,7 +76,7 @@ export default function AdminHeader({ onMenuClick, user }) {
 
   return (
     <header
-      className="h-16 bg-[#0B0608]/80 backdrop-blur-xl border-b border-[#B76E79]/15 sticky top-0 z-30 overflow-hidden"
+      className="h-16 bg-[#0B0608]/80 backdrop-blur-xl border-b border-[#B76E79]/15 sticky top-0 z-30"
       role="banner"
     >
       <div className="h-full px-2 sm:px-4 flex items-center justify-between gap-2 sm:gap-4">
@@ -88,7 +88,7 @@ export default function AdminHeader({ onMenuClick, user }) {
             data-mobile-menu-button
             className="lg:hidden p-2 rounded-lg hover:bg-[#B76E79]/10 transition-colors min-w-[44px] min-h-[44px] touch-target"
             aria-label="Open navigation menu"
-            aria-expanded="false"
+            aria-expanded={mobileMenuOpen}
             aria-controls="mobile-sidebar"
           >
             <Menu className="w-5 h-5 text-[#EAE0D5]/70" />

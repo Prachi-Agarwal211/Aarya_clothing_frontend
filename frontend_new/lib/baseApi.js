@@ -361,16 +361,16 @@ export class BaseApiClient {
 
 // Pre-configured clients
 export function getCoreBaseUrl() {
-  if (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_API_URL) {
-    return process.env.NEXT_PUBLIC_API_URL;
-  }
+  // Browser: always use current origin so prod never calls localhost.
+  // Exception: dev frontend port 6004 routes through nginx on 6005.
   if (typeof window !== 'undefined') {
     const origin = window.location.origin;
-    // If accessing via frontend port (6004), route API calls through nginx (6005)
-    if (origin.includes(':6004')) {
-      return 'http://localhost:6005';
-    }
+    if (origin.includes(':6004')) return 'http://localhost:6005';
     return origin;
+  }
+  // SSR: use env var (internal Docker URL) or fallback
+  if (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL;
   }
   return 'http://localhost:6005';
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import {
@@ -41,6 +41,7 @@ const PRICE_RANGES = [
 
 export default function CollectionPage() {
   const params = useParams();
+  const router = useRouter();
   const slug = params.slug;
   const { addItem, openCart } = useCart();
   const { isAuthenticated } = useAuth();
@@ -83,7 +84,7 @@ export default function CollectionPage() {
       // Check if already in wishlist
       const isInWishlist = await wishlistApi.check(product.id);
 
-      if (isInWishlist?.is_in_wishlist) {
+      if (isInWishlist?.in_wishlist) {
         await wishlistApi.remove(product.id);
         toast.success('Removed from Wishlist', `${product.name} removed from your wishlist`);
       } else {

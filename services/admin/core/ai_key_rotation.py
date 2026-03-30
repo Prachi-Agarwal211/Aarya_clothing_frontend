@@ -99,8 +99,7 @@ PROVIDER_PRICING = {
 class AIKeyRotation:
     """Manages AI provider key rotation with rate limiting."""
     
-    def __init__(self, db: Session):
-        self.db = db
+    def __init__(self, db: Session = None):
         self.providers: Dict[ProviderName, ProviderConfig] = {}
         self._load_providers()
     

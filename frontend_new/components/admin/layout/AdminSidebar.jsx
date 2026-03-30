@@ -37,16 +37,6 @@ export default function AdminSidebar({ collapsed, onToggle, isMobile = false, on
   const { user, logout } = useAuth();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-  // Persist sidebar collapse state in localStorage (desktop only)
-  useEffect(() => {
-    if (!isMobile) {
-      const saved = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
-      if (saved !== null && collapsed !== JSON.parse(saved)) {
-        onToggle?.();
-      }
-    }
-  }, []);
-
   const handleToggle = useCallback(() => {
     if (!isMobile) {
       const newState = !collapsed;
@@ -68,9 +58,11 @@ export default function AdminSidebar({ collapsed, onToggle, isMobile = false, on
     navigation = [
       { name: 'Dashboard', href: '/admin/staff', icon: LayoutDashboard },
       { name: 'Orders', href: '/admin/staff/orders', icon: Package },
+      { name: 'Returns', href: '/admin/returns', icon: RotateCcw },
       { name: 'Products & Stock', href: '/admin/products', icon: ShoppingBag },
       { name: 'Inventory', href: '/admin/staff/inventory', icon: Warehouse },
       { name: 'Collections', href: '/admin/collections', icon: Layers },
+      { name: 'Chat Support', href: '/admin/chat', icon: MessageCircle },
     ];
   } else {
     // Regular Admin
@@ -127,10 +119,15 @@ export default function AdminSidebar({ collapsed, onToggle, isMobile = false, on
   return (
     <aside
       className={cn(
-        'fixed top-0 left-0 z-40 h-screen transition-all duration-300 ease-in-out',
+        // Mobile: parent wrapper handles fixed positioning + slide animation
+        // Desktop: this element is itself fixed to the left edge
+        isMobile
+          ? 'h-full w-full'
+          : 'fixed top-0 left-0 z-40 h-screen',
+        'transition-all duration-300 ease-in-out',
         'bg-[#0B0608]/60 backdrop-blur-xl border-r border-[#B76E79]/20',
         'flex flex-col shadow-[4px_0_24px_rgba(0,0,0,0.4)]',
-        isMobile ? (collapsed ? 'w-20' : 'w-72') : (collapsed ? 'w-20' : 'w-64')
+        !isMobile && (collapsed ? 'w-20' : 'w-64')
       )}
       role="navigation"
       aria-label="Admin navigation"

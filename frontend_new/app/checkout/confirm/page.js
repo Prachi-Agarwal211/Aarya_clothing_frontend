@@ -16,7 +16,7 @@ export default function CheckoutConfirmPage() {
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [isCreating, setIsCreating] = useState(false); // Prevent concurrent order creation
+  const isCreatingRef = useRef(false); // Prevent concurrent order creation (useRef avoids stale closure bug)
   const mountedRef = useRef(false); // Prevent state updates after unmount
 
   // Cleanup on unmount
@@ -81,12 +81,12 @@ export default function CheckoutConfirmPage() {
 
   const createOrder = async () => {
     // Prevent concurrent order creation calls
-    if (isCreating) {
+    if (isCreatingRef.current) {
       logger.warn('Order creation already in progress - ignoring duplicate call');
       return;
     }
 
-    setIsCreating(true);
+    isCreatingRef.current = true;
 
     try {
       setLoading(true);
@@ -192,7 +192,7 @@ export default function CheckoutConfirmPage() {
         setError(detail || 'Failed to create order. Please contact support.');
       }
     } finally {
-      setIsCreating(false);
+      isCreatingRef.current = false;
       setLoading(false);
     }
   };
@@ -342,7 +342,7 @@ export default function CheckoutConfirmPage() {
           <div className="space-y-2 pt-4 border-t border-[#B76E79]/10 text-sm">
             <div className="flex justify-between pt-3 border-t border-[#B76E79]/10 text-base font-bold">
               <span className="text-[#F2C29A]">Total Paid</span>
-              <span className="text-[#F2C29A]">{formatCurrency(order.total)}</span>
+              <span className="text-[#F2C29A]">{formatCurrency(order.total_amount ?? order.total)}</span>
             </div>
             <p className="text-xs text-[#EAE0D5]/40 pt-1">
               Price shown is final - includes all taxes and shipping. No hidden charges.

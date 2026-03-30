@@ -3,6 +3,7 @@
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 import json
+import os
 import re
 from typing import List, Optional
 import asyncio
@@ -147,14 +148,12 @@ async def lifespan(app: FastAPI):
     event_bus.register_handler(order_handler)
 
     # Validate AI API key at startup (fail fast if not configured)
-    from service.ai_service import _get_api_key
+    from service.ai_service import _get_gemini_key
     try:
-        api_key = _get_api_key()
-        # Test API key validity with a simple call
+        api_key = _get_gemini_key()
         import google.generativeai as genai
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-pro')
-        # Quick test to verify key works
+        model = genai.GenerativeModel('gemini-2.0-flash-lite')
         model.generate_content("test")
         logger.info("AI API key validated successfully - Gemini AI service ready")
     except ValueError as e:
@@ -171,11 +170,14 @@ async def lifespan(app: FastAPI):
     logger.info(f"Shutting down {settings.SERVICE_NAME}...")
 
 
+_env = os.environ.get("ENVIRONMENT", "production")
 app = FastAPI(
     title="Aarya Clothing - Admin & Staff Service",
     description="Dashboard, Analytics, Order/Inventory Management, Chat, Landing Config",
     version="1.0.0",
     lifespan=lifespan,
+    docs_url="/docs" if _env != "production" else None,
+    redoc_url="/redoc" if _env != "production" else None,
 )
 
 app.add_middleware(
@@ -2440,8 +2442,8 @@ async def get_ai_sessions(
     current_user: dict = Depends(require_admin),
 ):
     """Get AI session list for analytics (admin only)."""
-    where = "WHERE s.created_at >= NOW() - INTERVAL ':days days'"
-    params: dict = {"days": days}
+    where = f"WHERE s.created_at >= NOW() - INTERVAL '{int(days)} days'"
+    params: dict = {}
     if role in ("customer", "admin"):
         where += " AND s.role = :role"
         params["role"] = role

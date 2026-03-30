@@ -14,6 +14,19 @@ async function getCollection(slug) {
   }
 }
 
+async function getCollectionProducts(slug) {
+  try {
+    const res = await fetch(`${INTERNAL_API}/api/v1/products?collection=${slug}&limit=20&is_active=true`, {
+      next: { revalidate: 3600 },
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data?.products || data?.items || [];
+  } catch {
+    return [];
+  }
+}
+
 export async function generateMetadata({ params }) {
   const collection = await getCollection(params.slug);
   if (!collection) {
@@ -43,7 +56,12 @@ export async function generateMetadata({ params }) {
 }
 
 export default async function CollectionLayout({ children, params }) {
-  const collection = await getCollection(params.slug);
+  const [collection, products] = await Promise.all([
+    getCollection(params.slug),
+    getCollectionProducts(params.slug),
+  ]);
+
+  const collectionUrl = `${BASE_URL}/collections/${collection?.slug || params.slug}`;
 
   const breadcrumb = {
     '@context': 'https://schema.org',
@@ -52,10 +70,24 @@ export default async function CollectionLayout({ children, params }) {
       { '@type': 'ListItem', position: 1, name: 'Home', item: BASE_URL },
       { '@type': 'ListItem', position: 2, name: 'Collections', item: `${BASE_URL}/collections` },
       ...(collection
-        ? [{ '@type': 'ListItem', position: 3, name: collection.name, item: `${BASE_URL}/collections/${collection.slug || params.slug}` }]
+        ? [{ '@type': 'ListItem', position: 3, name: collection.name, item: collectionUrl }]
         : []),
     ],
   };
+
+  const itemList = products.length > 0 ? {
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    name: collection?.name ? `${collection.name} — Aarya Clothing` : 'Collection — Aarya Clothing',
+    url: collectionUrl,
+    numberOfItems: products.length,
+    itemListElement: products.map((p, i) => ({
+      '@type': 'ListItem',
+      position: i + 1,
+      url: `${BASE_URL}/products/${p.slug || p.id}`,
+      name: p.name,
+    })),
+  } : null;
 
   return (
     <>
@@ -63,6 +95,12 @@ export default async function CollectionLayout({ children, params }) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumb) }}
       />
+      {itemList && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(itemList) }}
+        />
+      )}
       {children}
     </>
   );

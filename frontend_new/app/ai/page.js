@@ -8,7 +8,6 @@ import { Send, Sparkles, ShoppingBag, Star,
   Loader2, ArrowRight, Package, Home, ShoppingCart, Check,
   LayoutGrid, LogIn, UserPlus, Wand2
 } from 'lucide-react';
-import { aiApi } from '@/lib/adminApi';
 import { useCart } from '@/lib/cartContext';
 import { useAuth } from '@/lib/authContext';
 import logger from '@/lib/logger';

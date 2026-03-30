@@ -528,9 +528,9 @@ export default function ProductDetailPage() {
                     </button>
                     <span className="w-12 text-center text-[#EAE0D5]">{quantity}</span>
                     <button
-                      onClick={() => setQuantity(Math.min(product.stock_quantity || 10, quantity + 1))}
+                      onClick={() => setQuantity(Math.min(product.stock_quantity || 1, quantity + 1))}
                       className="p-2.5 text-[#EAE0D5]/70 hover:text-[#EAE0D5] hover:bg-[#B76E79]/10 transition-colors"
-                      disabled={quantity >= (product.stock_quantity || 10)}
+                      disabled={quantity >= (product.stock_quantity || 1)}
                     >
                       <Plus className="w-4 h-4" />
                     </button>

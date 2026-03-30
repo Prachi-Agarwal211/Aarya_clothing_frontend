@@ -196,7 +196,10 @@ export function middleware(request) {
   const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route));
 
   if (isProtectedRoute) {
-    if (!isAuthenticated) {
+    // Allow through if refresh_token exists — client-side authContext will
+    // handle the 401 from the API and silently refresh the access_token.
+    // Only hard-redirect when there is truly no session at all.
+    if (!isAuthenticated && !hasRefreshToken) {
       const loginUrl = new URL('/auth/login', request.url);
       loginUrl.searchParams.set('redirect_url', request.nextUrl.pathname + request.nextUrl.search);
       return NextResponse.redirect(loginUrl);

@@ -3,7 +3,7 @@
 import React, { useState, useEffect, Suspense, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { setAuthData } from '../../../lib/baseApi';
+import { setAuthData, getCoreBaseUrl } from '../../../lib/baseApi';
 import { useLogo } from '../../../lib/siteConfigContext';
 import { CheckCircle, XCircle } from 'lucide-react';
 import logger from '@/lib/logger';
@@ -57,11 +57,8 @@ function VerifyEmailForm() {
 
         logger.info('[VerifyEmail] Calling API with encoded token');
 
-        // Get API base URL
-        const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:6005';
-
         // Use native fetch with proper credentials to ensure cookies are sent
-        const response = await fetch(`${API_BASE}/api/v1/auth/verify-email?token=${encodedToken}`, {
+        const response = await fetch(`${getCoreBaseUrl()}/api/v1/auth/verify-email?token=${encodedToken}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

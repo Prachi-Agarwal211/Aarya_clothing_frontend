@@ -1,3 +1,5 @@
+import { redirect } from 'next/navigation';
+
 const INTERNAL_API = process.env.INTERNAL_API_URL || 'http://commerce:5002';
 const BASE_URL = 'https://aaryaclothing.in';
 
@@ -51,6 +53,11 @@ export async function generateMetadata({ params }) {
 export default async function ProductDetailLayout({ children, params }) {
   const product = await getProduct(params.id);
 
+  // Canonical redirect: /products/123 → /products/my-slug
+  if (product?.slug && /^\d+$/.test(params.id) && product.slug !== params.id) {
+    redirect(`/products/${product.slug}`);
+  }
+
   const jsonLd = product
     ? {
         '@context': 'https://schema.org',
@@ -60,6 +67,10 @@ export default async function ProductDetailLayout({ children, params }) {
         image: product.images?.map((i) => i.image_url).filter(Boolean) ||
           (product.primary_image ? [product.primary_image] : []),
         brand: { '@type': 'Brand', name: 'Aarya Clothing' },
+        speakable: {
+          '@type': 'SpeakableSpecification',
+          cssSelector: ['.product-name', '.product-price', '.product-description'],
+        },
         offers: {
           '@type': 'Offer',
           price: product.price,

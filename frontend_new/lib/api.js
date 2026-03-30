@@ -23,7 +23,6 @@ export {
   reviewsApi,
   userApi,
   paymentApi,
-  promotionsApi,
   chatApi,
   returnsApi,
 } from './customerApi';

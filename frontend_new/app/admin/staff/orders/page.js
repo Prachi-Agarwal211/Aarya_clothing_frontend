@@ -15,14 +15,10 @@ import logger from '@/lib/logger';
 
 const STATUS_OPTIONS = [
   { value: '', label: 'All Status' },
-  { value: 'pending', label: 'Pending' },
   { value: 'confirmed', label: 'Confirmed' },
-  { value: 'processing', label: 'Processing' },
   { value: 'shipped', label: 'Shipped' },
   { value: 'delivered', label: 'Delivered' },
-  { value: 'returned', label: 'Returned' },
   { value: 'cancelled', label: 'Cancelled' },
-  { value: 'refunded', label: 'Refunded' },
 ];
 
 export default function StaffOrdersPage() {

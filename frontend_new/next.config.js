@@ -228,15 +228,8 @@ const nextConfig = {
     ];
   },
 
-  // DNS prefetch for faster API calls
-  async rewrites() {
-    return [
-      {
-        source: '/api/:path*',
-        destination: `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:6005'}/api/:path*`,
-      },
-    ];
-  },
+  // NOTE: API routing is handled entirely by Nginx.
+  // No Next.js rewrites needed — they would proxy to localhost:6005 inside Docker which is invalid.
 };
 
 module.exports = withBundleAnalyzer(nextConfig);

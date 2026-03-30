@@ -14,6 +14,10 @@ import {
   Shield,
   Users,
   CreditCard,
+  Package,
+  ShoppingBag,
+  Warehouse,
+  Layers,
 } from 'lucide-react';
 import { useAuth } from '@/lib/authContext';
 import logger from '@/lib/logger';
@@ -23,8 +27,16 @@ const navigation = [
   { name: 'AI Configuration', href: '/admin/super/ai-settings', icon: SlidersHorizontal },
   { name: 'AI Monitoring', href: '/admin/super/ai-monitoring', icon: Activity },
   { name: 'User Management', href: '/admin/super/users', icon: Users },
-  { name: 'Billing & Subscription', href: '/admin/super/billing', icon: CreditCard },
   { name: 'System Settings', href: '/admin/super/settings', icon: Settings },
+];
+
+const adminNavigation = [
+  { name: 'Products', href: '/admin/products', icon: ShoppingBag },
+  { name: 'Orders', href: '/admin/orders', icon: Package },
+  { name: 'Inventory', href: '/admin/inventory', icon: Warehouse },
+  { name: 'Collections', href: '/admin/collections', icon: Layers },
+  { name: 'Customers', href: '/admin/customers', icon: Users },
+  { name: 'Settings', href: '/admin/settings', icon: Settings },
 ];
 
 export default function SuperAdminSidebar({ collapsed, onToggle, onClose }) {
@@ -103,25 +115,38 @@ export default function SuperAdminSidebar({ collapsed, onToggle, onClose }) {
           {navigation.map((item) => {
             const Icon = item.icon;
             const active = isActive(item.href);
-
             return (
               <li key={item.name}>
                 <Link
                   href={item.href}
-                  className={`
-                    flex items-center gap-3 px-3 py-2.5 rounded-xl
-                    transition-all duration-200
-                    ${active
-                      ? 'bg-[#7A2F57]/30 text-[#F2C29A] border border-[#B76E79]/30'
-                      : 'text-[#EAE0D5]/70 hover:bg-[#B76E79]/10 hover:text-[#EAE0D5]'
-                    }
-                  `}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 ${active ? 'bg-[#7A2F57]/30 text-[#F2C29A] border border-[#B76E79]/30' : 'text-[#EAE0D5]/70 hover:bg-[#B76E79]/10 hover:text-[#EAE0D5]'}`}
                   title={collapsed ? item.name : undefined}
                 >
                   <Icon className={`w-5 h-5 flex-shrink-0 ${active ? 'text-[#F2C29A]' : ''}`} />
-                  {!collapsed && (
-                    <span className="font-medium text-sm">{item.name}</span>
-                  )}
+                  {!collapsed && <span className="font-medium text-sm">{item.name}</span>}
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+
+        {/* Admin section divider */}
+        {!collapsed && (
+          <p className="px-4 pt-4 pb-1 text-xs text-[#EAE0D5]/30 uppercase tracking-widest">Admin</p>
+        )}
+        <ul className="space-y-1 px-2">
+          {adminNavigation.map((item) => {
+            const Icon = item.icon;
+            const active = pathname.startsWith(item.href);
+            return (
+              <li key={item.name}>
+                <Link
+                  href={item.href}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 ${active ? 'bg-[#7A2F57]/30 text-[#F2C29A] border border-[#B76E79]/30' : 'text-[#EAE0D5]/70 hover:bg-[#B76E79]/10 hover:text-[#EAE0D5]'}`}
+                  title={collapsed ? item.name : undefined}
+                >
+                  <Icon className={`w-5 h-5 flex-shrink-0 ${active ? 'text-[#F2C29A]' : ''}`} />
+                  {!collapsed && <span className="font-medium text-sm">{item.name}</span>}
                 </Link>
               </li>
             );

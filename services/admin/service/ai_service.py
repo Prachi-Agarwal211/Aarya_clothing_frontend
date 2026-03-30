@@ -107,11 +107,9 @@ TOOLS YOU HAVE:
 - Product search (keyword and semantic)
 - New arrivals browsing
 - Collections/categories browsing
-- Active promotions lookup
 - Order status lookup (requires order ID)
 - Order history (for authenticated users)
 - Cart management (view, add items)
-- Coupon validation and application
 - Size guide recommendations
 - Shipping time estimates
 - FAQ answers for common questions
@@ -123,14 +121,13 @@ CUSTOMER_SYSTEM_PROMPT_HI = """आप AaryaBot हैं — Aarya Clothing क�
 - ग्राहकों को प्राकृतिक भाषा में उत्पाद खोजने में मदद करें
 - वरीयताओं के आधार पर व्यक्तिगत सिफारिशें प्रदान करें
 - ऑर्डर स्थिति और ट्रैकिंग जानकारी जांचें
-- कार्ट प्रबंधन में सहायता (आइटम जोड़ें, कार्ट दिखाएं, कूपन लागू करें)
+- कार्ट प्रबंधन में सहायता (आइटम जोड़ें, कार्ट दिखाएं)
 - शिपिंग, रिटर्न, भुगतान और नीतियों के बारे में प्रश्नों के उत्तर दें
 - आकार सुझाव दें और स्टाइलिंग सलाह प्रदान करें
-- कूपन कोड लागू करें और छूट की गणना करें
 - रियल-टाइम में स्टॉक उपलब्धता जांचें
 
 ग्राउंडिंग नियम:
-- केवल टूल से सत्यापित उत्पाद, स्टॉक, ऑर्डर, कीमत, कूपन या नीति की जानकारी ही बताएं।
+- केवल टूल से सत्यापित उत्पाद, स्टॉक, ऑर्डर, कीमत या नीति की जानकारी ही बताएं।
 - यदि किसी बात की पुष्टि नहीं हो सकती, तो स्पष्ट कहें कि अभी पुष्टि नहीं कर सकते।
 - उपलब्धता, डिलीवरी, या ऑर्डर स्थिति के बारे में अनुमान न लगाएं।
 - संदेह होने पर अनुमान लगाने के बजाय एक स्पष्ट follow-up प्रश्न पूछें।
@@ -272,30 +269,46 @@ def _get_api_keys() -> List[str]:
     return keys
 
 
-def _get_api_key() -> str:
-    """Get available API key using rotation service with multi-provider support."""
-    from core.ai_key_rotation import get_available_provider
-    from database.database import get_db_context
+def _get_gemini_key() -> str:
+    """Get a Gemini API key from environment variables only.
     
-    try:
-        with next(get_db_context()) as db:
-            provider = get_available_provider(db)
-            if provider:
-                logger.info(f"Using AI provider: {provider.name.value} (model: {provider.model})")
-                return provider.api_key
-    except Exception as e:
-        logger.error(f"Key rotation service failed: {e}, falling back to env")
-    
-    # Fallback to old Gemini-only method
+    IMPORTANT: Only use this for Google genai SDK calls (genai.configure, genai.embed_content).
+    The rotation service may return Groq/OpenRouter keys which are incompatible with the Google SDK.
+    """
     keys = _get_api_keys()
     if not keys:
-        raise ValueError("No AI API keys configured. Set GROQ_API_KEY or GEMINI_API_KEY in .env file.")
-    
+        raise ValueError("No GEMINI_API_KEY configured. Set GEMINI_API_KEY in .env file.")
     global _KEY_ROTATION_INDEX
     key = keys[_KEY_ROTATION_INDEX % len(keys)]
     _KEY_ROTATION_INDEX = (_KEY_ROTATION_INDEX + 1) % len(keys)
-    logger.info(f"Using fallback Gemini key (index {_KEY_ROTATION_INDEX})")
     return key
+
+
+def _get_api_key() -> str:
+    """Get available API key using rotation service (may return Groq/OpenRouter/Gemini key).
+    
+    WARNING: Do NOT use the result of this function with genai.configure() — use _get_gemini_key() instead.
+    This function is only correct for OpenAI-compatible SDK calls (Groq, OpenRouter, etc).
+    """
+    from core.ai_key_rotation import get_available_provider
+    from database.database import get_db_context
+    
+    db_gen = get_db_context()
+    db = next(db_gen)
+    try:
+        provider = get_available_provider(db)
+        if provider:
+            logger.info(f"Using AI provider: {provider.name.value} (model: {provider.model})")
+            return provider.api_key
+    except Exception as e:
+        logger.error(f"Key rotation service failed: {e}, falling back to env")
+    finally:
+        try:
+            next(db_gen)
+        except StopIteration:
+            pass
+    
+    return _get_gemini_key()
 
 
 # ── pgvector embedding helpers ────────────────────────────────────────────────
@@ -456,11 +469,6 @@ def _customer_tools(db: Session) -> List[Dict]:
         {
             "name": "get_collections",
             "description": "Get all product collections/categories available in the store.",
-            "parameters": {"type": "object", "properties": {}}
-        },
-        {
-            "name": "get_active_promotions",
-            "description": "Get current active promotions and discount codes.",
             "parameters": {"type": "object", "properties": {}}
         },
         {
@@ -668,26 +676,11 @@ def _execute_customer_tool(db: Session, tool_name: str, args: Dict) -> str:
                                   "image": r[3], "slug": r[4]} for r in rows]
             })
 
-        elif tool_name == "get_active_promotions":
-            rows = db.execute(text("""
-                SELECT code, description, discount_type, discount_value, minimum_order
-                FROM promotions
-                WHERE is_active = true
-                  AND (valid_until IS NULL OR valid_until > NOW())
-                ORDER BY discount_value DESC LIMIT 5
-            """)).fetchall()
-            return json.dumps({
-                "promotions": [
-                    {"code": r[0], "description": r[1], "type": str(r[2]),
-                     "value": float(r[3] or 0), "min_order": float(r[4] or 0)}
-                    for r in rows
-                ]
-            })
         elif tool_name == "semantic_search_products":
             query = args.get("query", "")
             limit = min(int(args.get("limit", 6)), 12)
             try:
-                api_key = _get_api_key()
+                api_key = _get_gemini_key()
                 query_vec = _generate_embedding(query, api_key)
             except Exception:
                 query_vec = None
@@ -820,7 +813,7 @@ def _execute_customer_tool(db: Session, tool_name: str, args: Dict) -> str:
                 return json.dumps({"error": "Authentication required", "cart": None})
             
             cart = db.execute(text("""
-                SELECT c.id, c.total_amount, c.coupon_code, c.discount_amount
+                SELECT c.id, c.total_amount
                 FROM carts c
                 WHERE c.user_id = :uid AND c.is_active = true
                 ORDER BY c.updated_at DESC LIMIT 1
@@ -857,121 +850,43 @@ def _execute_customer_tool(db: Session, tool_name: str, args: Dict) -> str:
                 "cart": {
                     "id": cart[0],
                     "total": float(cart[1] or 0),
-                    "coupon": cart[2],
-                    "discount": float(cart[3] or 0),
                     "items": cart_items,
                     "count": len(cart_items)
                 }
             })
 
         elif tool_name == "add_to_cart":
-            # Add product to cart (simplified - returns success/failure)
             user_id = args.get("user_id")
             product_id = int(args.get("product_id", 0))
             quantity = int(args.get("quantity", 1))
             size = args.get("size")
             color = args.get("color")
-            
+
             if not user_id:
                 return json.dumps({"error": "Authentication required", "success": False})
-            
+
             try:
-                # Get or create cart
-                cart = db.execute(text("""
-                    SELECT id FROM carts 
-                    WHERE user_id = :uid AND is_active = true 
-                    ORDER BY updated_at DESC LIMIT 1
-                """), {"uid": user_id}).fetchone()
-                
-                if not cart:
-                    cart = db.execute(text("""
-                        INSERT INTO carts (user_id, total_amount, is_active)
-                        VALUES (:uid, 0, true) RETURNING id
-                    """), {"uid": user_id}).fetchone()
-                
-                cart_id = cart[0]
-                
-                # Get product price
-                product = db.execute(text("""
-                    SELECT base_price FROM products WHERE id = :pid
-                """), {"pid": product_id}).fetchone()
-                
-                if not product:
-                    return json.dumps({"error": "Product not found", "success": False})
-                
-                price = float(product[0] or 0)
-                
-                # Add to cart items
-                db.execute(text("""
-                    INSERT INTO cart_items (cart_id, product_id, quantity, price, size, color)
-                    VALUES (:cid, :pid, :qty, :price, :size, :color)
-                    ON CONFLICT (cart_id, product_id, size, color) 
-                    DO UPDATE SET quantity = cart_items.quantity + :qty
-                """), {"cid": cart_id, "pid": product_id, "qty": quantity, 
-                       "price": price, "size": size, "color": color})
-                
-                db.commit()
-                return json.dumps({"success": True, "message": "Added to cart", "product_id": product_id})
+                import httpx
+                commerce_base = os.environ.get("COMMERCE_SERVICE_URL", "http://commerce:5002")
+                payload = {"product_id": product_id, "quantity": quantity}
+                if size:
+                    payload["size"] = size
+                if color:
+                    payload["color"] = color
+
+                resp = httpx.post(
+                    f"{commerce_base}/api/v1/cart/items",
+                    json=payload,
+                    headers={"X-User-Id": str(user_id), "X-Internal-Call": "1"},
+                    timeout=8.0,
+                )
+                if resp.status_code in (200, 201):
+                    return json.dumps({"success": True, "message": "Added to cart", "product_id": product_id})
+                detail = resp.json().get("detail", resp.text)[:200]
+                return json.dumps({"success": False, "error": detail})
             except Exception as e:
-                db.rollback()
                 logger.error(f"Add to cart error: {e}")
                 return json.dumps({"error": str(e), "success": False})
-
-        elif tool_name == "apply_coupon":
-            # Validate and apply coupon
-            user_id = args.get("user_id")
-            code = args.get("code", "").strip().upper()
-            
-            if not user_id:
-                return json.dumps({"error": "Authentication required", "valid": False})
-            
-            coupon = db.execute(text("""
-                SELECT code, discount_type, discount_value, minimum_order, 
-                       description, valid_until
-                FROM promotions
-                WHERE code = :code AND is_active = true
-                  AND (valid_until IS NULL OR valid_until > NOW())
-            """), {"code": code}).fetchone()
-            
-            if not coupon:
-                return json.dumps({"valid": False, "error": "Invalid or expired coupon"})
-            
-            # Get cart total
-            cart = db.execute(text("""
-                SELECT id, total_amount FROM carts 
-                WHERE user_id = :uid AND is_active = true 
-                ORDER BY updated_at DESC LIMIT 1
-            """), {"uid": user_id}).fetchone()
-            
-            if not cart:
-                return json.dumps({"valid": False, "error": "Cart not found"})
-            
-            cart_total = float(cart[1] or 0)
-            min_order = float(coupon[4] or 0)
-            
-            if cart_total < min_order:
-                return json.dumps({
-                    "valid": False, 
-                    "error": f"Minimum order value ₹{min_order} required"
-                })
-            
-            discount_value = float(coupon[3] or 0)
-            discount_type = str(coupon[2])
-            
-            if discount_type == "percentage":
-                discount = (cart_total * discount_value) / 100
-            else:  # fixed
-                discount = discount_value
-            
-            return json.dumps({
-                "valid": True,
-                "code": coupon[0],
-                "description": coupon[4],
-                "discount_type": discount_type,
-                "discount_value": discount_value,
-                "discount_amount": discount,
-                "final_total": cart_total - discount
-            })
 
         elif tool_name == "get_size_guide":
             # Get size guide for a product
@@ -1479,7 +1394,7 @@ def _execute_admin_tool(db: Session, tool_name: str, args: Dict) -> str:
             query = args.get("query", "")
             limit = min(int(args.get("limit", 10)), 50)
             try:
-                api_key = _get_api_key()
+                api_key = _get_gemini_key()
                 query_vec = _generate_embedding(query, api_key)
             except Exception:
                 query_vec = None
@@ -1825,7 +1740,7 @@ def customer_chat(
     Supports Gemini Flash Lite (primary) with Groq Llama fallback on quota errors.
     Returns: { session_id, reply, tool_results, tokens_used, cost }
     """
-    api_key = _get_api_key()  # rotates through all configured keys
+    api_key = _get_gemini_key()  # must be Gemini key for genai SDK
     genai.configure(api_key=api_key)
     model_name = _get_setting(db, "CUSTOMER_MODEL", os.environ.get("AI_MODEL", GEMINI_FLASH_LITE))
     max_tokens = int(_get_setting(db, "CUSTOMER_MAX_TOKENS", os.environ.get("AI_CUSTOMER_MAX_TOKENS", "512")))
@@ -2078,7 +1993,7 @@ def admin_chat(
                                      model_name, api_key, max_tokens, max_history)
 
     # ── Default: Gemini with full tool support ────────────────────────────────
-    api_key = _get_api_key()
+    api_key = _get_gemini_key()  # must be Gemini key for genai SDK
     genai.configure(api_key=api_key)
 
     # Combine read-only + write tools
@@ -2188,7 +2103,7 @@ def generate_product_embeddings_batch(
     Returns { updated, skipped, errors, total }.
     """
     try:
-        api_key = _get_api_key()
+        api_key = _get_gemini_key()
     except ValueError as e:
         return {"success": False, "error": str(e), "updated": 0, "skipped": 0, "errors": 0}
 

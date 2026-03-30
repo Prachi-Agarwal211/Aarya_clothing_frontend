@@ -17,6 +17,7 @@ This service handles:
 """
 import logging
 import asyncio
+import os
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from fastapi import FastAPI, Depends, HTTPException, status, Request, UploadFile, File, Query, Header, WebSocket, WebSocketDisconnect
@@ -240,7 +241,6 @@ from shared.auth_middleware import (
 )
 from shared.roles import is_staff
 from shared.request_id_middleware import RequestIDMiddleware
-from shared.error_handlers import register_error_handlers
 
 def reconcile_cart_reservations(db: Session) -> int:
     """
@@ -454,11 +454,14 @@ async def lifespan(app: FastAPI):
 
 # ==================== FastAPI App ====================
 
+_env = os.environ.get("ENVIRONMENT", "production")
 app = FastAPI(
     title="Aarya Clothing - Commerce Service",
     description="Product Management, Categories, Cart, Orders, Inventory",
     version="2.0.0",
-    lifespan=lifespan
+    lifespan=lifespan,
+    docs_url="/docs" if _env != "production" else None,
+    redoc_url="/redoc" if _env != "production" else None,
 )
 
 # CORS
@@ -472,9 +475,6 @@ app.add_middleware(
 
 # Request ID
 app.add_middleware(RequestIDMiddleware)
-
-# Standardized error handlers
-register_error_handlers(app)
 
 # Register route modules (if available)
 # This modularizes the 2800+ line main.py into manageable route files

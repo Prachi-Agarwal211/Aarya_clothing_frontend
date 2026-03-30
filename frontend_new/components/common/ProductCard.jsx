@@ -68,10 +68,11 @@ const ProductCard = ({ product, className }) => {
     }
 
     try {
-      await addItem(productData.id || id, productData.quantity || 1, {
-        size: productData.size,
-        color: productData.color
-      });
+      await addItem(
+        productData.id || id,
+        productData.quantity || 1,
+        productData.variantId ? { id: productData.variantId } : null
+      );
       toast.success('Added to Cart', `${productData.name || name} has been added to your cart`);
       openCart();
     } catch (error) {

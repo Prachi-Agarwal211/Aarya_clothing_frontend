@@ -311,7 +311,7 @@ export default function CheckoutPaymentPage() {
       let orderData;
       try {
         orderData = await paymentApi.createCashfreeOrder({
-          amount: Math.round((cart.total || 0) * 100),
+          amount: cart.total || 0,
           currency: 'INR',
           receipt: `cart_${Date.now()}`,
         });
@@ -359,12 +359,9 @@ export default function CheckoutPaymentPage() {
         
       } catch (sdkErr) {
         logger.error('Cashfree SDK error:', sdkErr);
-        
-        // Fallback: Direct redirect to Cashfree checkout URL
-        logger.warn('SDK checkout failed, falling back to direct redirect');
-        const cashfreeUrl = `https://checkout.cashfree.com/v2?session_id=${orderData.session_id}`;
-        window.location.href = cashfreeUrl;
-        // Browser navigates away — keep redirectProcessing true
+        setError('Payment could not be opened. Please try again or use Razorpay.');
+        setRedirectProcessing(false);
+        setCashfreeLoading(false);
         return;
       }
 

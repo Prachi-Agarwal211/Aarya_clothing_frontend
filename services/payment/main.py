@@ -26,7 +26,6 @@ logger = logging.getLogger(__name__)
 from core.config import settings
 from core.redis_client import redis_client
 from database.database import get_db, init_db
-from service.payment_service import PaymentService
 from shared.auth_middleware import (
     get_current_user,
     require_admin,
@@ -76,11 +75,14 @@ async def lifespan(app: FastAPI):
 
 # ==================== FastAPI App ====================
 
+_env = os.environ.get("ENVIRONMENT", "production")
 app = FastAPI(
     title="Aarya Clothing - Payment Service",
     description="Payment Processing with Razorpay Integration",
     version="1.0.0",
-    lifespan=lifespan
+    lifespan=lifespan,
+    docs_url="/docs" if _env != "production" else None,
+    redoc_url="/redoc" if _env != "production" else None,
 )
 
 app.add_middleware(

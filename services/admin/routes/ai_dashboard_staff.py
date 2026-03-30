@@ -87,8 +87,8 @@ async def execute_ai_dashboard_query(
     if not tool_name:
         raise HTTPException(status_code=400, detail="Tool name required")
     
-    # Check permission
-    if not has_permission(db, user["sub"], "ai_dashboard", "view"):
+    # Check permission — super_admin bypasses granular permission checks
+    if user.get("role") != "super_admin" and not has_permission(db, user["sub"], "ai_dashboard", "view"):
         raise HTTPException(status_code=403, detail="Insufficient permissions")
     
     result = _execute_dashboard_tool(db, tool_name, args)

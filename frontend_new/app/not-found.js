@@ -23,7 +23,7 @@ export default function NotFound() {
     if (searchQuery.trim()) {
       // Sanitize search input to prevent XSS
       const safeQuery = sanitizeSearch(searchQuery);
-      window.location.href = `/products?search=${encodeURIComponent(safeQuery)}`;
+      window.location.href = `/products?q=${encodeURIComponent(safeQuery)}`;
     }
   };
 

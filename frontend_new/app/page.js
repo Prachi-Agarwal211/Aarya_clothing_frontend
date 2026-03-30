@@ -137,13 +137,27 @@ export default function Home() {
 
   useEffect(() => {
     setIsClient(true);
-    // Fetch landing data from backend
-    fetchLandingData();
 
-    // Check if user has already seen the intro video in this session
-    const hasSeenIntro = sessionStorage.getItem('hasSeenIntroVideo');
-    if (hasSeenIntro) {
+    // Check if user can skip the intro video
+    const hasSeenSession = !!sessionStorage.getItem('hasSeenIntroVideo');
+    const hasSeenRecently = (() => {
+      try {
+        const ts = localStorage.getItem('introVideoLastSeen');
+        return ts && Date.now() - parseInt(ts, 10) < 24 * 60 * 60 * 1000;
+      } catch { return false; }
+    })();
+    const conn = typeof navigator !== 'undefined'
+      ? (navigator.connection || navigator.mozConnection || navigator.webkitConnection)
+      : null;
+    const isSlow = conn && (conn.saveData || conn.effectiveType === '2g' || conn.effectiveType === 'slow-2g' || conn.effectiveType === '3g');
+
+    if (hasSeenSession || hasSeenRecently || isSlow) {
+      // Skip video — fetch data immediately
       setShowLanding(true);
+      fetchLandingData();
+    } else {
+      // Video will play — delay fetch by 1s so video buffers first on fast networks
+      setTimeout(fetchLandingData, 1000);
     }
   }, [fetchLandingData]);
 

@@ -7,10 +7,27 @@ export const metadata: Metadata = {
   description: 'Learn about our shipping options, delivery times, and shipping costs. Free shipping on orders above ₹999 across India.',
   keywords: 'shipping policy, delivery, shipping cost, free shipping, order tracking, Aarya Clothing',
   robots: 'index, follow',
+  alternates: { canonical: 'https://aaryaclothing.in/shipping' },
+};
+
+const howToJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'HowTo',
+  name: 'How to Track Your Aarya Clothing Order',
+  description: 'Step-by-step guide to tracking your order after placing it at Aarya Clothing.',
+  step: [
+    { '@type': 'HowToStep', position: 1, name: 'Place your order', text: 'Complete your purchase on aaryaclothing.in. You will receive an order confirmation email immediately.' },
+    { '@type': 'HowToStep', position: 2, name: 'Order processing', text: 'Your order is processed and packed within 1–2 business days.' },
+    { '@type': 'HowToStep', position: 3, name: 'Dispatch & tracking', text: 'Once dispatched, you receive a shipping confirmation email with a tracking link.' },
+    { '@type': 'HowToStep', position: 4, name: 'Track your shipment', text: 'Click the tracking link in your email, or visit the My Orders section in your account to track in real time.' },
+    { '@type': 'HowToStep', position: 5, name: 'Delivery', text: 'Standard delivery takes 3–5 business days across India. Express delivery takes 1–2 business days for select pincodes.' },
+  ],
 };
 
 export default function ShippingPolicyPage() {
   return (
+    <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(howToJsonLd) }} />
     <main className="min-h-screen py-12 sm:py-16 md:py-20 relative z-10">
       <div className="container mx-auto px-4 sm:px-6 md:px-8 max-w-4xl">
         {/* Header */}
@@ -334,5 +351,6 @@ export default function ShippingPolicyPage() {
         </div>
       </div>
     </main>
+    </>
   );
 }

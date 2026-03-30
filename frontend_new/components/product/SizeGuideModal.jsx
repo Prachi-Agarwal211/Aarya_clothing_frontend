@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { X, Ruler, MessageCircle, Info } from 'lucide-react';
 import Modal from '../ui/Modal';
 import logger from '@/lib/logger';
+import { getCoreBaseUrl } from '@/lib/baseApi';
 
 /**
  * Size Guide Modal Component
@@ -27,7 +28,9 @@ export default function SizeGuideModal({ isOpen, onClose, category = 'kurta' }) 
   const fetchSizeGuide = async (category) => {
     setLoading(true);
     try {
-      const response = await fetch(`/api/v1/size-guide?category=${category}`);
+      const response = await fetch(`${getCoreBaseUrl()}/api/v1/size-guide?category=${category}`, {
+        credentials: 'include',
+      });
       if (response.ok) {
         const data = await response.json();
         setSizeData(data);

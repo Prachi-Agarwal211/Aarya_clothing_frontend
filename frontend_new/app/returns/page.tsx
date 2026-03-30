@@ -7,10 +7,27 @@ export const metadata: Metadata = {
   description: 'Learn about our return and refund policy. We accept returns only for damaged or defective products within 3 days of delivery.',
   keywords: 'return policy, refund policy, exchange policy, returns, refunds, Aarya Clothing',
   robots: 'index, follow',
+  alternates: { canonical: 'https://aaryaclothing.in/returns' },
+};
+
+const howToJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'HowTo',
+  name: 'How to Return a Damaged or Defective Item',
+  description: 'Step-by-step guide to returning a damaged or defective product purchased from Aarya Clothing.',
+  step: [
+    { '@type': 'HowToStep', position: 1, name: 'Check eligibility', text: 'Returns are accepted for any reason within 7 days of delivery. Items must be unused, unwashed, and in original packaging.' },
+    { '@type': 'HowToStep', position: 2, name: 'Contact support', text: 'Submit a return request on the website or email us at support@aaryaclothing.in within 7 days of delivery with your order number.' },
+    { '@type': 'HowToStep', position: 3, name: 'Receive return label', text: 'Our team will verify your request and send a prepaid return shipping label to your registered email within 24 hours.' },
+    { '@type': 'HowToStep', position: 4, name: 'Pack and ship', text: 'Pack the item securely in its original packaging and drop it off at the nearest courier partner location.' },
+    { '@type': 'HowToStep', position: 5, name: 'Refund processed', text: 'Once we receive and inspect the item, your refund will be processed within 5–7 business days to your original payment method.' },
+  ],
 };
 
 export default function ReturnRefundPolicyPage() {
   return (
+    <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(howToJsonLd) }} />
     <main className="min-h-screen py-12 sm:py-16 md:py-20 relative z-10">
       <div className="container mx-auto px-4 sm:px-6 md:px-8 max-w-4xl">
         {/* Header */}
@@ -327,5 +344,6 @@ export default function ReturnRefundPolicyPage() {
         </div>
       </div>
     </main>
+    </>
   );
 }

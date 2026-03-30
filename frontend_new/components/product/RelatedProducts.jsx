@@ -16,19 +16,21 @@ export default function RelatedProducts({ productId, collectionId }) {
 
   useEffect(() => {
     if (!productId) return;
+    let mounted = true;
     const controller = new AbortController();
     (async () => {
       try {
         const data = await productsApi.getRelated(productId);
+        if (!mounted) return;
         const items = Array.isArray(data) ? data : (data?.items || data?.products || []);
         setProducts(items.filter(p => p.id !== productId).slice(0, 4));
       } catch (err) {
-        if (err.name !== 'AbortError') logger.warn('Related products failed:', err?.message);
+        if (mounted && err.name !== 'AbortError') logger.warn('Related products failed:', err?.message);
       } finally {
-        setLoading(false);
+        if (mounted) setLoading(false);
       }
     })();
-    return () => controller.abort();
+    return () => { mounted = false; controller.abort(); };
   }, [productId]);
 
   if (!loading && products.length === 0) return null;

@@ -1,14 +1,53 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useIntroVideo } from '@/lib/siteConfigContext';
 import { useViewport } from '@/lib/hooks/useViewport';
 import logger from '@/lib/logger';
+
+// ── Network quality helpers ──────────────────────────────────────────────────
+function getNetworkQuality() {
+  if (typeof navigator === 'undefined') return 'unknown';
+  const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+  if (!conn) return 'unknown';
+  if (conn.saveData) return 'save-data';
+  const et = conn.effectiveType;
+  if (et === '2g' || et === 'slow-2g') return 'slow';
+  if (et === '3g') return 'medium';
+  return 'fast';
+}
+function shouldSkipForNetwork() {
+  const q = getNetworkQuality();
+  return q === 'save-data' || q === 'slow';
+}
+function getPreloaderDuration() {
+  const q = getNetworkQuality();
+  if (q === 'save-data') return 0;
+  if (q === 'slow') return 800;
+  if (q === 'medium') return 1100;
+  return 1400;
+}
+
+// ── localStorage with 24h TTL ────────────────────────────────────────────────
+function hasSeenIntroRecently() {
+  try {
+    const ts = localStorage.getItem('introVideoLastSeen');
+    if (!ts) return false;
+    return Date.now() - parseInt(ts, 10) < 24 * 60 * 60 * 1000;
+  } catch { return false; }
+}
+function markIntroSeen() {
+  try {
+    localStorage.setItem('introVideoLastSeen', Date.now().toString());
+    sessionStorage.setItem('hasSeenIntroVideo', 'true');
+  } catch {}
+}
 
 export default function IntroVideo({ onVideoEnd }) {
   const videoRef = useRef(null);
   const containerRef = useRef(null);
   const preloaderTimerRef = useRef(null);
+  const retryCountRef = useRef(0);
   const [isVideoEnded, setIsVideoEnded] = useState(false);
   const [isFadingOut, setIsFadingOut] = useState(false);
   const [showSkip, setShowSkip] = useState(false);
@@ -17,70 +56,58 @@ export default function IntroVideo({ onVideoEnd }) {
   const [videoStarted, setVideoStarted] = useState(false);
   const [videoError, setVideoError] = useState(false);
   const [autoplayFailed, setAutoplayFailed] = useState(false);
-  const [videoLoaded, setVideoLoaded] = useState(false);
   const [bufferProgress, setBufferProgress] = useState(0);
 
   const { isMobile } = useViewport();
   const introVideo = useIntroVideo();
 
-  // CRITICAL: Video URL selection with fallback chain
-  // Mobile → mobile || desktop
-  // Desktop → desktop || mobile
-  // MUST NEVER be null/empty - always have a video to play
   const videoUrl = isMobile
     ? (introVideo.mobile || introVideo.desktop)
     : (introVideo.desktop || introVideo.mobile);
 
-  // Connection quality detection — skip on data-saver or very slow connections
-  const shouldSkipForNetwork = () => {
-    if (typeof navigator === 'undefined') return false;
-    const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
-    if (!conn) return false;
-    if (conn.saveData) return true;
-    if (conn.effectiveType === '2g' || conn.effectiveType === 'slow-2g') return true;
-    return false;
-  };
-
-  // Reduced motion preference
-  const prefersReducedMotion = () =>
+  const prefersReducedMotion =
     typeof window !== 'undefined' &&
     window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  // Check session — skip if already seen, admin disabled, slow network, or reduced motion
+  // Skip if already seen recently, disabled, slow network, or reduced motion
   useEffect(() => {
-    const hasSeenIntro = sessionStorage.getItem('hasSeenIntroVideo');
-    if (hasSeenIntro || introVideo.enabled === false || shouldSkipForNetwork() || prefersReducedMotion()) {
+    const skip =
+      hasSeenIntroRecently() ||
+      !!sessionStorage.getItem('hasSeenIntroVideo') ||
+      introVideo.enabled === false ||
+      shouldSkipForNetwork() ||
+      prefersReducedMotion;
+    if (skip) {
       setIsVideoEnded(true);
       onVideoEnd?.();
     }
-  }, [onVideoEnd, introVideo.enabled]);
+  }, [onVideoEnd, introVideo.enabled]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Adaptive preloader: full 1400ms normally, cut to 600ms if video already buffered
-  const startVideo = () => {
+  const startVideo = useCallback(() => {
     setShowPreloader(false);
     setVideoStarted(true);
-    if (videoRef.current) {
-      videoRef.current.muted = true;
-      videoRef.current.play()
+    const video = videoRef.current;
+    if (video) {
+      video.muted = true;
+      video.play()
         .then(() => setAutoplayFailed(false))
         .catch((err) => {
-          logger.warn('Autoplay failed:', err);
+          logger.warn('Autoplay failed:', err.message);
           setAutoplayFailed(true);
         });
     }
-  };
+  }, []);
 
   useEffect(() => {
     if (isVideoEnded) return;
-    preloaderTimerRef.current = setTimeout(startVideo, 1400);
+    preloaderTimerRef.current = setTimeout(startVideo, getPreloaderDuration());
     return () => clearTimeout(preloaderTimerRef.current);
-  }, [isVideoEnded]);
+  }, [isVideoEnded, startVideo]);
 
-  // Show skip button 2s after video starts
   useEffect(() => {
     if (!videoStarted) return;
-    const skipTimer = setTimeout(() => setShowSkip(true), 2000);
-    return () => clearTimeout(skipTimer);
+    const t = setTimeout(() => setShowSkip(true), 2000);
+    return () => clearTimeout(t);
   }, [videoStarted]);
 
   // Smooth volume fade-in on unmute
@@ -107,33 +134,61 @@ export default function IntroVideo({ onVideoEnd }) {
     }
   };
 
-  const handleVideoEnd = () => {
+  const handleVideoEnd = useCallback(() => {
     setIsFadingOut(true);
-    sessionStorage.setItem('hasSeenIntroVideo', 'true');
+    markIntroSeen();
     setTimeout(() => {
       setIsVideoEnded(true);
       onVideoEnd?.();
     }, 600);
-  };
+  }, [onVideoEnd]);
 
-  const handleSkip = () => {
+  const handleSkip = useCallback(() => {
     if (videoRef.current) videoRef.current.pause();
     handleVideoEnd();
-  };
+  }, [handleVideoEnd]);
 
-  const handleVideoError = () => {
+  // One retry on MEDIA_ERR_NETWORK; skip gracefully for other errors
+  const handleVideoError = useCallback(() => {
+    const video = videoRef.current;
+    const err = video?.error;
+    logger.error('IntroVideo error:', {
+      code: err?.code,
+      message: err?.message,
+      network: typeof navigator !== 'undefined'
+        ? (navigator.connection?.effectiveType || 'unknown') : 'ssr',
+    });
+    if (err?.code === 2 && retryCountRef.current < 1) {
+      retryCountRef.current += 1;
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.load();
+          videoRef.current.play().catch(() => {
+            setVideoError(true);
+            setTimeout(handleVideoEnd, 400);
+          });
+        }
+      }, 1000);
+      return;
+    }
     setVideoError(true);
-    setTimeout(() => handleVideoEnd(), 400);
-  };
+    setTimeout(handleVideoEnd, 400);
+  }, [handleVideoEnd]);
 
-  // When video is ready to play: cut preloader short if it hasn't fired yet
-  const handleVideoCanPlay = () => {
-    setVideoLoaded(true);
+  const handleVideoCanPlay = useCallback(() => {
     if (preloaderTimerRef.current && showPreloader) {
       clearTimeout(preloaderTimerRef.current);
-      preloaderTimerRef.current = setTimeout(startVideo, 300);
+      preloaderTimerRef.current = setTimeout(startVideo, 200);
     }
-  };
+  }, [showPreloader, startVideo]);
+
+  // Keyboard: Escape = skip — placed after handleSkip to avoid TDZ
+  useEffect(() => {
+    if (isVideoEnded) return;
+    const onKey = (e) => { if (e.key === 'Escape') handleSkip(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [isVideoEnded, handleSkip]);
 
   // Track buffer progress for loading indicator
   const handleProgress = () => {
@@ -150,6 +205,8 @@ export default function IntroVideo({ onVideoEnd }) {
       ref={containerRef}
       className={`fixed inset-0 z-[100] transition-opacity duration-600 ${isFadingOut ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
       style={{ background: '#050203' }}
+      role="dialog"
+      aria-label="Intro video. Press Escape to skip."
     >
       {/* ── Branded Preloader ── */}
       <div
@@ -221,7 +278,7 @@ export default function IntroVideo({ onVideoEnd }) {
             key={videoUrl}
             muted
             playsInline
-            preload="metadata"
+            preload="auto"
             onEnded={handleVideoEnd}
             onError={handleVideoError}
             onCanPlay={handleVideoCanPlay}
@@ -256,19 +313,34 @@ export default function IntroVideo({ onVideoEnd }) {
       {/* ── Controls (visible after preloader gone) ── */}
       <div className={`absolute inset-0 z-20 transition-opacity duration-700 ${showPreloader ? 'opacity-0' : 'opacity-100'}`}>
 
-        {/* Centered play button — shown when muted or autoplay failed */}
-        {(isMuted || autoplayFailed) && (
+        {/* Centered play button — ONLY when autoplay failed and video is not playing */}
+        {autoplayFailed && !videoStarted && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <button
               onClick={handlePlayWithSound}
               className="pointer-events-auto w-16 h-16 rounded-full bg-black/50 backdrop-blur-md border border-white/20 flex items-center justify-center hover:bg-black/70 hover:scale-110 transition-all duration-300 active:scale-95 shadow-2xl"
-              aria-label="Play video"
+              aria-label="Play video with sound"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="w-7 h-7 text-white ml-1" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M8 5v14l11-7z" />
               </svg>
             </button>
           </div>
+        )}
+
+        {/* Small unmute button — shown when video is playing muted */}
+        {videoStarted && isMuted && (
+          <button
+            onClick={handlePlayWithSound}
+            className="absolute bottom-6 left-6 sm:bottom-8 sm:left-8 pointer-events-auto flex items-center gap-2 px-3 py-2 bg-black/40 backdrop-blur-md border border-white/20 text-white text-xs rounded-full hover:bg-black/60 transition-all duration-300 active:scale-95"
+            aria-label="Unmute video"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707A1 1 0 0112 5v14a1 1 0 01-1.707.707L5.586 15z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+            </svg>
+            <span>Tap for sound</span>
+          </button>
         )}
 
         {/* Skip button — bottom right */}

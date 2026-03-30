@@ -68,7 +68,6 @@ export default function RootLayout({ children }) {
         <link rel="shortcut icon" href="https://pub-7846c786f7154610b57735df47899fa0.r2.dev/logo.png" />
         <link rel="apple-touch-icon" href="https://pub-7846c786f7154610b57735df47899fa0.r2.dev/logo.png" />
         <link rel="preconnect" href="https://pub-7846c786f7154610b57735df47899fa0.r2.dev" />
-        <link rel="dns-prefetch" href="https://api.aaryaclothing.com" />
         <link rel="dns-prefetch" href="https://aaryaclothing.in" />
         <script
           type="application/ld+json"
@@ -79,15 +78,28 @@ export default function RootLayout({ children }) {
             "url": "https://aaryaclothing.in",
             "logo": "https://pub-7846c786f7154610b57735df47899fa0.r2.dev/logo.png",
             "description": "Premium ethnic wear brand specialising in handcrafted sarees, designer kurtis, and elegant lehengas.",
+            "slogan": "Timeless elegance for the modern soul",
+            "foundingDate": "2020",
+            "foundingLocation": {
+              "@type": "Place",
+              "address": {
+                "@type": "PostalAddress",
+                "addressLocality": "Jaipur",
+                "addressRegion": "Rajasthan",
+                "addressCountry": "IN"
+              }
+            },
             "contactPoint": {
               "@type": "ContactPoint",
-              "telephone": "+91-98765-43210",
+              "telephone": "+91-9876543210",
               "contactType": "customer service",
               "areaServed": "IN",
               "availableLanguage": ["en", "hi"]
             },
             "address": {
               "@type": "PostalAddress",
+              "addressLocality": "Jaipur",
+              "addressRegion": "Rajasthan",
               "addressCountry": "IN"
             },
             "sameAs": [
@@ -155,31 +167,11 @@ export default function RootLayout({ children }) {
         
         {/* Razorpay SDK - preload for faster checkout */}
         <link rel="preconnect" href="https://checkout.razorpay.com" />
-        <Script id="register-sw" strategy="afterInteractive">
+        <Script id="clear-old-sw" strategy="afterInteractive">
           {`
             if ('serviceWorker' in navigator) {
-              window.addEventListener('load', function() {
-                // Force unregister ALL old service workers to clear broken caches
-                navigator.serviceWorker.getRegistrations().then(function(registrations) {
-                  for(let registration of registrations) {
-                    registration.unregister();
-                    console.log('Service Worker unregistered:', registration.scope);
-                  }
-                }).then(function() {
-                  // Clear all old caches
-                  caches.keys().then(function(names) {
-                    for (let name of names) {
-                      if (name.includes('aarya-clothing')) {
-                        caches.delete(name);
-                        console.log('Old cache deleted:', name);
-                      }
-                    }
-                  });
-                }).then(function() {
-                  // Register fresh service worker
-                  navigator.serviceWorker.register('/sw.js');
-                  console.log('Fresh Service Worker registered');
-                });
+              navigator.serviceWorker.getRegistrations().then(function(regs) {
+                regs.forEach(function(r) { r.unregister(); });
               });
             }
           `}

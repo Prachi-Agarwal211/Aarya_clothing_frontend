@@ -95,10 +95,6 @@ export const cartApi = {
       customer_gstin: customerGstin,
     }),
 
-  // Apply coupon/promo code to cart
-  applyCoupon: (code) =>
-    commerceClient.post(`/api/v1/cart/coupon`, null, { params: { code } }),
-
   // Validate stock for all cart items before checkout
   validateStock: () =>
     commerceClient.post('/api/v1/checkout/validate'),
@@ -222,16 +218,6 @@ export const paymentApi = {
 
   getMethods: () =>
     paymentClient.get('/api/v1/payment/methods'),
-};
-
-// ==================== Promotions API ====================
-export const promotionsApi = {
-  validate: (code, orderTotal, userId = null) =>
-    commerceClient.post('/api/v1/promotions/validate', {
-      code,
-      order_total: orderTotal,
-      user_id: userId
-    }),
 };
 
 // ==================== Chat API ====================
@@ -422,7 +408,6 @@ export const customerApi = {
   reviews: reviewsApi,
   user: userApi,
   payment: paymentApi,
-  promotions: promotionsApi,
   chat: chatApi,
   returns: returnsApi,
   landing: landingApi,

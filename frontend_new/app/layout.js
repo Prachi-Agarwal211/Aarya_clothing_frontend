@@ -59,6 +59,46 @@ export default function RootLayout({ children }) {
         <link rel="preconnect" href="https://pub-7846c786f7154610b57735df47899fa0.r2.dev" />
         <link rel="dns-prefetch" href="https://api.aaryaclothing.com" />
         <link rel="dns-prefetch" href="https://aaryaclothing.in" />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "Organization",
+            "name": "Aarya Clothing",
+            "url": "https://aaryaclothing.in",
+            "logo": "https://pub-7846c786f7154610b57735df47899fa0.r2.dev/logo.png",
+            "description": "Premium ethnic wear brand specialising in handcrafted sarees, designer kurtis, and elegant lehengas.",
+            "contactPoint": {
+              "@type": "ContactPoint",
+              "telephone": "+91-98765-43210",
+              "contactType": "customer service",
+              "areaServed": "IN",
+              "availableLanguage": ["en", "hi"]
+            },
+            "address": {
+              "@type": "PostalAddress",
+              "addressCountry": "IN"
+            },
+            "sameAs": [
+              "https://www.instagram.com/aaryaclothing",
+              "https://www.facebook.com/aaryaclothing"
+            ]
+          })}}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "WebSite",
+            "name": "Aarya Clothing",
+            "url": "https://aaryaclothing.in",
+            "potentialAction": {
+              "@type": "SearchAction",
+              "target": { "@type": "EntryPoint", "urlTemplate": "https://aaryaclothing.in/search?q={search_term_string}" },
+              "query-input": "required name=search_term_string"
+            }
+          })}}
+        />
       </head>
       <body className="relative font-sans">
         {/* Skip Links for Accessibility */}

@@ -1,17 +1,76 @@
 import { Metadata } from 'next';
 import Link from 'next/link';
 import { Lock, Eye, Shield, UserCheck, Cookie, Mail, Database, Globe, RotateCcw, Video } from 'lucide-react';
+import { generateArticleSchema, generateBreadcrumbSchema } from '@/lib/structuredData';
 
+const LAST_MODIFIED = '2024-01-15';
+
+// SEO Metadata
 export const metadata: Metadata = {
-  title: 'Privacy Policy | Aarya Clothing',
-  description: 'Learn how Aarya Clothing collects, uses, and protects your personal information. Your privacy is our priority.',
-  keywords: 'privacy policy, data protection, GDPR, personal information, data security, Aarya Clothing',
-  robots: 'index, follow',
+  title: 'Privacy Policy | Aarya Clothing - Data Protection & Privacy',
+  description: 'Learn how Aarya Clothing collects, uses, and protects your personal information. Your privacy is our priority. GDPR compliant data protection.',
+  keywords: ['privacy policy', 'data protection', 'GDPR', 'personal information', 'data security', 'Aarya Clothing', 'privacy rights'],
+  authors: [{ name: 'Aarya Clothing' }],
+  creator: 'Aarya Clothing',
+  publisher: 'Aarya Clothing',
+  robots: { index: true, follow: true },
+  alternates: { canonical: 'https://aaryaclothing.in/privacy' },
+  openGraph: {
+    title: 'Privacy Policy | Aarya Clothing',
+    description: 'Learn how we protect your personal information and respect your privacy rights.',
+    url: 'https://aaryaclothing.in/privacy',
+    type: 'article',
+    publishedTime: '2020-01-01',
+    modifiedTime: LAST_MODIFIED,
+    images: [{ url: 'https://pub-7846c786f7154610b57735df47899fa0.r2.dev/logo.png', width: 1200, height: 630, alt: 'Aarya Clothing' }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Privacy Policy | Aarya Clothing',
+    description: 'Learn how we protect your personal information and respect your privacy rights.',
+    images: ['https://pub-7846c786f7154610b57735df47899fa0.r2.dev/logo.png'],
+  },
 };
 
+// Generate structured data
+function generateStructuredData() {
+  const breadcrumbSchema = generateBreadcrumbSchema([
+    { name: 'Home', url: '/' },
+    { name: 'Privacy Policy', url: '/privacy' }
+  ]);
+
+  const articleSchema = generateArticleSchema({
+    title: 'Privacy Policy',
+    description: 'Learn how Aarya Clothing collects, uses, and protects your personal information.',
+    url: 'https://aaryaclothing.in/privacy',
+    datePublished: '2020-01-01',
+    dateModified: LAST_MODIFIED,
+    articleBody: 'At Aarya Clothing, we are committed to protecting your privacy and ensuring the security of your personal information.',
+  });
+
+  return {
+    breadcrumbSchema,
+    articleSchema
+  };
+}
+
 export default function PrivacyPolicyPage() {
+  const { breadcrumbSchema, articleSchema } = generateStructuredData();
+
   return (
-    <main className="min-h-screen py-12 sm:py-16 md:py-20 relative z-10">
+    <main className="min-h-screen py-12 sm:py-16 md:py-20 relative z-10" role="main" aria-label="Privacy Policy">
+      {/* Structured Data */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
+        key="breadcrumb-schema"
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(articleSchema) }}
+        key="article-schema"
+      />
+
       <div className="container mx-auto px-4 sm:px-6 md:px-8 max-w-4xl">
         {/* Header */}
         <div className="text-center mb-12">

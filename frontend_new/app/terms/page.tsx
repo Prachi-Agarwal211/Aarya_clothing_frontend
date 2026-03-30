@@ -1,17 +1,76 @@
 import { Metadata } from 'next';
 import Link from 'next/link';
 import { Shield, CheckCircle, AlertCircle, Scale } from 'lucide-react';
+import { generateArticleSchema, generateBreadcrumbSchema } from '@/lib/structuredData';
 
+const LAST_MODIFIED = '2024-01-15';
+
+// SEO Metadata
 export const metadata: Metadata = {
-  title: 'Terms of Service | Aarya Clothing',
+  title: 'Terms of Service | Aarya Clothing - Legal Agreement',
   description: 'Read our terms of service for Aarya Clothing. Learn about your rights, responsibilities, and our policies for using our e-commerce platform.',
-  keywords: 'terms of service, terms and conditions, legal agreement, e-commerce terms, Aarya Clothing',
-  robots: 'index, follow',
+  keywords: ['terms of service', 'terms and conditions', 'legal agreement', 'e-commerce terms', 'Aarya Clothing', 'user agreement'],
+  authors: [{ name: 'Aarya Clothing' }],
+  creator: 'Aarya Clothing',
+  publisher: 'Aarya Clothing',
+  robots: { index: true, follow: true },
+  alternates: { canonical: 'https://aaryaclothing.in/terms' },
+  openGraph: {
+    title: 'Terms of Service | Aarya Clothing',
+    description: 'Read our terms of service and understand your rights and responsibilities.',
+    url: 'https://aaryaclothing.in/terms',
+    type: 'article',
+    publishedTime: '2020-01-01',
+    modifiedTime: LAST_MODIFIED,
+    images: [{ url: 'https://pub-7846c786f7154610b57735df47899fa0.r2.dev/logo.png', width: 1200, height: 630, alt: 'Aarya Clothing' }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Terms of Service | Aarya Clothing',
+    description: 'Read our terms of service and understand your rights and responsibilities.',
+    images: ['https://pub-7846c786f7154610b57735df47899fa0.r2.dev/logo.png'],
+  },
 };
 
+// Generate structured data
+function generateStructuredData() {
+  const breadcrumbSchema = generateBreadcrumbSchema([
+    { name: 'Home', url: '/' },
+    { name: 'Terms of Service', url: '/terms' }
+  ]);
+
+  const articleSchema = generateArticleSchema({
+    title: 'Terms of Service',
+    description: 'Read our terms of service for Aarya Clothing.',
+    url: 'https://aaryaclothing.in/terms',
+    datePublished: '2020-01-01',
+    dateModified: LAST_MODIFIED,
+    articleBody: 'Welcome to Aarya Clothing. These Terms of Service govern your access to and use of our website, products, and services.',
+  });
+
+  return {
+    breadcrumbSchema,
+    articleSchema
+  };
+}
+
 export default function TermsOfServicePage() {
+  const { breadcrumbSchema, articleSchema } = generateStructuredData();
+
   return (
-    <main className="min-h-screen py-12 sm:py-16 md:py-20 relative z-10">
+    <main className="min-h-screen py-12 sm:py-16 md:py-20 relative z-10" role="main" aria-label="Terms of Service">
+      {/* Structured Data */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
+        key="breadcrumb-schema"
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(articleSchema) }}
+        key="article-schema"
+      />
+
       <div className="container mx-auto px-4 sm:px-6 md:px-8 max-w-4xl">
         {/* Header */}
         <div className="text-center mb-12">

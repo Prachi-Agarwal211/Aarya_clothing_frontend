@@ -1,42 +1,65 @@
 'use client';
 
-import React from 'react';
-import { motion, useMotionValue, useSpring } from 'framer-motion';
+import React, { useRef, useEffect } from 'react';
+import { gsap } from '@/lib/gsapConfig';
 
 export function MagneticButton({ children, className, onClick, ...props }) {
-    const x = useMotionValue(0);
-    const y = useMotionValue(0);
+    const buttonRef = useRef(null);
 
-    // Spring configuration for a smooth, natural magnetic pull
-    const springX = useSpring(x, { stiffness: 150, damping: 15, mass: 0.1 });
-    const springY = useSpring(y, { stiffness: 150, damping: 15, mass: 0.1 });
+    useEffect(() => {
+        const button = buttonRef.current;
+        if (!button) return;
 
-    const handleMouseMove = (e) => {
-        const rect = e.currentTarget.getBoundingClientRect();
-        const centerX = rect.left + rect.width / 2;
-        const centerY = rect.top + rect.height / 2;
+        let proxy = { x: 0, y: 0 };
+        let xTarget = 0;
+        let yTarget = 0;
 
-        // Calculate distance from center (magnetic pull strength)
-        // 0.3 determines how far the button follows the cursor
-        x.set((e.clientX - centerX) * 0.3);
-        y.set((e.clientY - centerY) * 0.3);
-    };
+        const handleMouseMove = (e) => {
+            const rect = button.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
 
-    const handleMouseLeave = () => {
-        x.set(0);
-        y.set(0);
-    };
+            // Calculate distance from center (magnetic pull strength)
+            // 0.3 determines how far the button follows the cursor
+            xTarget = (e.clientX - centerX) * 0.3;
+            yTarget = (e.clientY - centerY) * 0.3;
+        };
+
+        const handleMouseLeave = () => {
+            xTarget = 0;
+            yTarget = 0;
+        };
+
+        // Animation loop for smooth magnetic effect
+        const animate = () => {
+            // Linear interpolation for smooth spring-like effect
+            proxy.x += (xTarget - proxy.x) * 0.1;
+            proxy.y += (yTarget - proxy.y) * 0.1;
+
+            gsap.set(button, { x: proxy.x, y: proxy.y });
+
+            requestAnimationFrame(animate);
+        };
+
+        animate();
+
+        button.addEventListener('mousemove', handleMouseMove);
+        button.addEventListener('mouseleave', handleMouseLeave);
+
+        return () => {
+            button.removeEventListener('mousemove', handleMouseMove);
+            button.removeEventListener('mouseleave', handleMouseLeave);
+        };
+    }, []);
 
     return (
-        <motion.div
-            style={{ x: springX, y: springY }}
-            onMouseMove={handleMouseMove}
-            onMouseLeave={handleMouseLeave}
+        <div
+            ref={buttonRef}
             onClick={onClick}
             className={`inline-block w-fit ${className || ''}`}
             {...props}
         >
             {children}
-        </motion.div>
+        </div>
     );
 }

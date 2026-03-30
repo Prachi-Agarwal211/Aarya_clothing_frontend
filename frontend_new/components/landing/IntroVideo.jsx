@@ -69,9 +69,10 @@ export default function IntroVideo({ onVideoEnd }) {
     typeof window !== 'undefined' &&
     window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  // Skip if already seen recently, disabled, slow network, or reduced motion
+  // Skip if already seen recently, disabled, slow network, reduced motion, OR MOBILE
   useEffect(() => {
     const skip =
+      isMobile ||  // ALWAYS skip on mobile for better performance
       hasSeenIntroRecently() ||
       !!sessionStorage.getItem('hasSeenIntroVideo') ||
       introVideo.enabled === false ||
@@ -81,7 +82,7 @@ export default function IntroVideo({ onVideoEnd }) {
       setIsVideoEnded(true);
       onVideoEnd?.();
     }
-  }, [onVideoEnd, introVideo.enabled]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [onVideoEnd, introVideo.enabled, isMobile]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const startVideo = useCallback(() => {
     setShowPreloader(false);

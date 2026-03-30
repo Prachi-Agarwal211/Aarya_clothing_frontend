@@ -265,41 +265,84 @@ WRITE_TOOLS = frozenset({
 _KEY_ROTATION_INDEX = 0  # module-level round-robin counter
 
 
-def _get_provider_api_key() -> str:
-    """Get API key from key rotation service (Groq/OpenRouter/GLM/NVIDIA).
+def _get_active_provider() -> Dict[str, Any]:
+    """Get active provider with key, base_url, model, and name.
 
-    This function uses the key rotation service to get an available provider key.
-    All providers use OpenAI-compatible API format.
+    Returns provider info dict for full provider rotation support.
+    Returns: {"key": "...", "base_url": "...", "model": "...", "name": "groq"}
+
+    Provider Priority: Groq (PRIMARY) > OpenRouter > GLM > NVIDIA
     """
-    from core.ai_key_rotation import get_available_provider
+    from core.ai_key_rotation import get_available_provider, ProviderName
     from database.database import get_db_context
 
-    db_gen = get_db_context()
-    db = next(db_gen)
     try:
-        provider = get_available_provider(db)
-        if provider:
-            logger.info(f"Using AI provider: {provider.name.value} (model: {provider.model})")
-            return provider.api_key
+        with get_db_context() as db:
+            provider = get_available_provider(db)
+            if provider:
+                # Increment usage for rate limit tracking
+                logger.info(f"Using provider: {provider.name.value} (model: {provider.model})")
+                return {
+                    "key": provider.api_key,
+                    "base_url": provider.base_url,
+                    "model": provider.model,
+                    "name": provider.name.value,
+                }
     except Exception as e:
         logger.error(f"Key rotation service failed: {e}, falling back to env")
-    finally:
-        try:
-            next(db_gen)
-        except StopIteration:
-            pass
 
-    # Fallback to Groq (primary provider) from env
+    # Fallback to environment variables with provider info
+    # Groq (primary provider)
     groq_key = os.environ.get("GROQ_API_KEY", "")
     if groq_key and groq_key not in ("", "your_groq_api_key_here"):
-        return groq_key
+        return {
+            "key": groq_key,
+            "base_url": GROQ_BASE_URL,
+            "model": os.environ.get("GROQ_MODEL", GROQ_DEFAULT_MODEL),
+            "name": "groq",
+        }
 
-    # Try OpenRouter
+    # OpenRouter
     openrouter_key = os.environ.get("OPENROUTER_API_KEY", "")
     if openrouter_key and openrouter_key not in ("", "your_openrouter_api_key_here"):
-        return openrouter_key
+        return {
+            "key": openrouter_key,
+            "base_url": OPENROUTER_BASE_URL,
+            "model": os.environ.get("OPENROUTER_MODEL", OPENROUTER_DEFAULT_MODEL),
+            "name": "openrouter",
+        }
 
-    raise ValueError("No AI API key configured. Set GROQ_API_KEY or OPENROUTER_API_KEY in .env file.")
+    # GLM
+    glm_key = os.environ.get("GLM_API_KEY", "")
+    if glm_key and glm_key not in ("", "your_glm_api_key_here"):
+        return {
+            "key": glm_key,
+            "base_url": GLM_BASE_URL,
+            "model": os.environ.get("GLM_MODEL", GLM_DEFAULT_MODEL),
+            "name": "glm",
+        }
+
+    # NVIDIA
+    nvidia_key = os.environ.get("NVIDIA_API_KEY", "")
+    if nvidia_key and nvidia_key not in ("", "your_nvidia_api_key_here"):
+        return {
+            "key": nvidia_key,
+            "base_url": NVIDIA_BASE_URL,
+            "model": os.environ.get("NVIDIA_MODEL", NVIDIA_DEFAULT_MODEL),
+            "name": "nvidia",
+        }
+
+    raise ValueError("No AI API key configured. Set GROQ_API_KEY, OPENROUTER_API_KEY, GLM_API_KEY, or NVIDIA_API_KEY in .env file.")
+
+
+def _get_provider_api_key() -> str:
+    """Get API key from key rotation service (Groq/OpenRouter/GLM/NVIDIA).
+    
+    Legacy function for backward compatibility. Returns only the API key.
+    For full provider rotation, use _get_active_provider() instead.
+    """
+    provider = _get_active_provider()
+    return provider["key"]
 
 
 # ── pgvector embedding helpers ────────────────────────────────────────────────
@@ -1620,14 +1663,18 @@ def customer_chat(
 ) -> Dict[str, Any]:
     """
     Customer AI Salesman chat with enhanced e-commerce capabilities.
-    Uses OpenAI-compatible API (Groq primary) with tool calling.
-    Returns: { session_id, reply, tool_results, tokens_used, cost }
+    Uses OpenAI-compatible API with full provider rotation (Groq/OpenRouter/GLM/NVIDIA).
+    Returns: { session_id, reply, tool_results, tokens_used, cost, provider }
     """
     if not OPENAI_AVAILABLE:
         raise RuntimeError("OpenAI package not installed. Run: pip install openai")
+
+    # Get active provider with rotation support
+    provider = _get_active_provider()
+    logger.info(f"Customer chat using provider: {provider['name']} (model: {provider['model']})")
     
-    api_key = _get_provider_api_key()
-    model_name = _get_setting(db, "CUSTOMER_MODEL", os.environ.get("AI_MODEL", GROQ_DEFAULT_MODEL))
+    # Use provider's model as default, but allow DB/env override
+    model_name = _get_setting(db, "CUSTOMER_MODEL", provider["model"])
     max_tokens = int(_get_setting(db, "CUSTOMER_MAX_TOKENS", os.environ.get("AI_CUSTOMER_MAX_TOKENS", "512")))
     max_history = int(_get_setting(db, "CUSTOMER_HISTORY", "8"))
 
@@ -1686,8 +1733,8 @@ def customer_chat(
     # Save user message
     save_message(db, session_id, "user", user_message, 0, 0, model_name)
 
-    # Create OpenAI client with Groq base URL
-    client = _OpenAI(api_key=api_key, base_url=GROQ_BASE_URL)
+    # Create OpenAI client with dynamic provider base_url
+    client = _OpenAI(api_key=provider["key"], base_url=provider["base_url"])
     tools = _customer_tools(db)
 
     try:
@@ -1755,7 +1802,7 @@ def customer_chat(
             "tool_results": tool_results,
             "tokens_used": tokens_in + tokens_out,
             "cost_usd": _calc_cost(model_name, tokens_in, tokens_out),
-            "provider": "groq",
+            "provider": provider["name"],  # "groq", "openrouter", "glm", or "nvidia"
         }
 
     except Exception as e:
@@ -1777,6 +1824,7 @@ def customer_chat(
             "error": "service_error",
             "tokens_used": 0,
             "cost_usd": 0.0,
+            "provider": provider["name"],
         }
 
 
@@ -1789,25 +1837,29 @@ def admin_chat(
 ) -> Dict[str, Any]:
     """
     Admin AI Assistant chat.
-    Uses OpenAI-compatible API (Groq primary) with tool calling.
+    Uses OpenAI-compatible API with full provider rotation (Groq/OpenRouter/GLM/NVIDIA).
     Write operations return pending_actions — never auto-execute.
-    Returns: { session_id, reply, tool_calls, pending_actions, tokens_used, cost_usd }
-    
+    Returns: { session_id, reply, tool_calls, pending_actions, tokens_used, cost_usd, provider }
+
     Note: Image support is not available with Groq's current models.
     If image_data is provided, it will be acknowledged but not processed.
     """
     if not OPENAI_AVAILABLE:
         raise RuntimeError("OpenAI package not installed. Run: pip install openai")
+
+    # Get active provider with rotation support
+    provider = _get_active_provider()
+    logger.info(f"Admin chat using provider: {provider['name']} (model: {provider['model']})")
     
-    model_name = _get_setting(db, "ADMIN_MODEL", os.environ.get("AI_ADMIN_MODEL", GROQ_DEFAULT_MODEL))
+    # Use provider's model as default, but allow DB/env override
+    model_name = _get_setting(db, "ADMIN_MODEL", provider["model"])
     max_tokens = int(_get_setting(db, "ADMIN_MAX_TOKENS", os.environ.get("AI_ADMIN_MAX_TOKENS", "2048")))
     max_history = int(_get_setting(db, "ADMIN_HISTORY", "10"))
 
     session_id = get_or_create_session(db, session_id or "", user_id, "admin")
 
-    # Get API key and create client
-    api_key = _get_provider_api_key()
-    client = _OpenAI(api_key=api_key, base_url=GROQ_BASE_URL)
+    # Create OpenAI client with dynamic provider base_url
+    client = _OpenAI(api_key=provider["key"], base_url=provider["base_url"])
 
     # Combine read-only + write tools
     all_tools = _admin_tools() + _admin_write_tool_definitions()
@@ -1903,7 +1955,7 @@ def admin_chat(
             "pending_actions": pending_actions,
             "tokens_used": tokens_in + tokens_out,
             "cost_usd": _calc_cost(model_name, tokens_in, tokens_out),
-            "provider": "groq",
+            "provider": provider["name"],  # "groq", "openrouter", "glm", or "nvidia"
         }
 
     except Exception as e:
@@ -1918,6 +1970,7 @@ def admin_chat(
             "pending_actions": [],
             "tokens_used": 0,
             "cost_usd": 0.0,
+            "provider": provider["name"],
         }
 
 

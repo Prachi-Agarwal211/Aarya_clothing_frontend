@@ -148,14 +148,14 @@ async def lifespan(app: FastAPI):
     event_bus.register_handler(order_handler)
 
     # Validate AI API key at startup (fail fast if not configured)
-    from service.ai_service import _get_provider_api_key
+    from service.ai_service import _get_active_provider
     try:
-        api_key = _get_provider_api_key()
+        provider = _get_active_provider()
         from openai import OpenAI
-        client = OpenAI(api_key=api_key, base_url="https://api.groq.com/openai/v1")
+        client = OpenAI(api_key=provider["key"], base_url=provider["base_url"])
         # Simple test call
         client.models.list()
-        logger.info("AI API key validated successfully - AI service ready (Groq/OpenRouter/GLM/NVIDIA)")
+        logger.info(f"AI API key validated successfully - AI service ready (Provider: {provider['name']}, Model: {provider['model']})")
     except ValueError as e:
         logger.warning(f"AI service disabled: {e}")
     except Exception as e:

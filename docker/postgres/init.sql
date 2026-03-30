@@ -1577,24 +1577,30 @@ CREATE INDEX IF NOT EXISTS idx_ai_settings_category ON ai_settings(category);
 
 -- Default settings (DO UPDATE ensures keys are refreshed on re-init)
 INSERT INTO ai_settings (key, value, description, is_secret, category) VALUES
-    ('CUSTOMER_MODEL',     'gemini-2.0-flash-lite',  'Gemini model for customer AI (Aarya)',           FALSE, 'models'),
-    ('ADMIN_MODEL',        'gemini-2.0-flash',        'Gemini model for admin AI (Aria)',               FALSE, 'models'),
-    ('CUSTOMER_MAX_TOKENS','512',                     'Max output tokens for customer chat',            FALSE, 'models'),
-    ('ADMIN_MAX_TOKENS',   '2048',                    'Max output tokens for admin chat',               FALSE, 'models'),
-    ('CUSTOMER_HISTORY',   '6',                       'Message history length for customer',            FALSE, 'models'),
-    ('ADMIN_HISTORY',      '10',                      'Message history length for admin',               FALSE, 'models'),
-    ('MONTHLY_COST_LIMIT', '10.00',                   'Monthly cost limit in USD (alert)',              FALSE, 'limits'),
-    ('DAILY_COST_LIMIT',   '1.00',                    'Daily cost limit in USD (alert)',                FALSE, 'limits'),
-    ('HINDI_SUPPORT',      'true',                    'Enable Hindi/bilingual support',                 FALSE, 'language'),
-    ('CUSTOMER_LANGUAGE',  'auto',                    'Customer AI language: auto/en/hi',               FALSE, 'language'),
-    ('AI_PROVIDER',        'gemini',                  'Admin AI provider: gemini|openai|anthropic|groq',FALSE, 'models'),
-    ('OPENAI_API_KEY',     '',                        'OpenAI API key (sk-...)',                         TRUE,  'api_keys'),
-    ('GROQ_API_KEY',       '',                        'Groq API key (gsk_...) - free tier available',   TRUE,  'api_keys'),
-    ('ANTHROPIC_API_KEY',  '',                        'Anthropic API key (sk-ant-...)',                  TRUE,  'api_keys'),
-    ('OPENAI_DEFAULT_MODEL', 'gpt-4o-mini',            'Default OpenAI model (text-only)',               FALSE, 'models'),
-    ('GROQ_DEFAULT_MODEL',   'llama-3.3-70b-versatile',   'Default Groq model (free)',                      FALSE, 'models'),
-    ('ANTHROPIC_DEFAULT_MODEL', 'claude-3-haiku-20240307','Default Anthropic model (budget)',               FALSE, 'models')
-ON CONFLICT (key) DO NOTHING;
+    ('CUSTOMER_MODEL',     'llama-3.3-70b-versatile',  'Groq model for customer AI (Aarya) - FREE',    FALSE, 'models'),
+    ('ADMIN_MODEL',        'llama-3.3-70b-versatile',  'Groq model for admin AI (Aria) - FREE',        FALSE, 'models'),
+    ('CUSTOMER_MAX_TOKENS','512',                       'Max output tokens for customer chat',          FALSE, 'models'),
+    ('ADMIN_MAX_TOKENS',   '2048',                      'Max output tokens for admin chat',             FALSE, 'models'),
+    ('CUSTOMER_HISTORY',   '6',                         'Message history length for customer',          FALSE, 'models'),
+    ('ADMIN_HISTORY',      '10',                        'Message history length for admin',             FALSE, 'models'),
+    ('MONTHLY_COST_LIMIT', '10.00',                     'Monthly cost limit in USD (alert)',            FALSE, 'limits'),
+    ('DAILY_COST_LIMIT',   '1.00',                      'Daily cost limit in USD (alert)',              FALSE, 'limits'),
+    ('HINDI_SUPPORT',      'true',                      'Enable Hindi/bilingual support',               FALSE, 'language'),
+    ('CUSTOMER_LANGUAGE',  'auto',                      'Customer AI language: auto/en/hi',             FALSE, 'language'),
+    ('AI_PROVIDER',        'groq',                      'Admin AI provider: groq|openrouter|glm|nvidia',FALSE, 'models'),
+    ('OPENAI_API_KEY',     '',                          'OpenAI API key (sk-...)',                       TRUE,  'api_keys'),
+    ('GROQ_API_KEY',       '',                          'Groq API key (gsk_...) - FREE tier available', TRUE,  'api_keys'),
+    ('OPENROUTER_API_KEY', '',                          'OpenRouter API key (sk-or-v1...) - FREE models',TRUE, 'api_keys'),
+    ('GLM_API_KEY',        '',                          'GLM/Zhipu API key - FREE tier available',      TRUE,  'api_keys'),
+    ('NVIDIA_API_KEY',     '',                          'NVIDIA API key - FREE tier available',         TRUE,  'api_keys'),
+    ('OPENAI_DEFAULT_MODEL', 'gpt-4o-mini',              'Default OpenAI model (text-only)',             FALSE, 'models'),
+    ('GROQ_DEFAULT_MODEL',   'llama-3.3-70b-versatile',  'Default Groq model - FREE & FAST',             FALSE, 'models'),
+    ('OPENROUTER_DEFAULT_MODEL', 'meta-llama/llama-3.3-70b-instruct:free', 'Default OpenRouter model - FREE', FALSE, 'models'),
+    ('GLM_DEFAULT_MODEL',    'glm-4-flash',             'Default GLM model - FREE',                     FALSE, 'models'),
+    ('NVIDIA_DEFAULT_MODEL', 'meta/llama3-70b-instruct', 'Default NVIDIA model - FREE',                 FALSE, 'models')
+ON CONFLICT (key) DO UPDATE SET 
+    value = EXCLUDED.value,
+    description = EXCLUDED.description;
 
 -- ============================================
 -- SEED OPENAI KEY FROM ENV (run after first init via psql or migration)

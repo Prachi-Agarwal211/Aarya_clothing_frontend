@@ -37,9 +37,10 @@ export default function SilkBackground() {
   const isInitializedRef = useRef(false);
 
   const pathname = usePathname();
-  // Static background on admin / auth / checkout — no GPU waste
+  // Static background on admin / auth / checkout / MOBILE — no GPU waste
   const shouldAnimate = !pathname?.startsWith('/admin') &&
-                        !pathname?.startsWith('/checkout');
+                        !pathname?.startsWith('/checkout') &&
+                        !(typeof window !== 'undefined' && window.innerWidth < 768);  // Disable on mobile
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -57,11 +58,18 @@ export default function SilkBackground() {
       return;
     }
 
-    // Mobile optimization: reduce frame rate but keep animation
+    // Mobile optimization: DISABLE animation entirely on mobile for battery life
     isMobileRef.current = window.innerWidth < 768 ||
       /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    // Use lower frame rate on mobile (24fps instead of 30fps)
-    const frameInterval = isMobileRef.current ? 1000 / 24 : 1000 / 30;
+    
+    // Skip WebGL initialization on mobile - use static gradient instead
+    if (isMobileRef.current) {
+      canvas.style.background = STATIC_GRADIENT;
+      return;
+    }
+    
+    // Use lower frame rate on desktop (30fps)
+    const frameInterval = 1000 / 30;
 
     // Try WebGL2 first, fallback to WebGL1
     const gl = canvas.getContext('webgl2', { 

@@ -1,17 +1,76 @@
 import { Metadata } from 'next';
 import Link from 'next/link';
 import { CreditCard, CheckCircle, AlertCircle } from 'lucide-react';
+import { generateArticleSchema, generateBreadcrumbSchema } from '@/lib/structuredData';
 
+const LAST_MODIFIED = '2024-01-15';
+
+// SEO Metadata
 export const metadata: Metadata = {
-  title: 'Payment Policy | Aarya Clothing',
+  title: 'Payment Policy | Aarya Clothing - Secure Online Payments',
   description: 'Learn about our payment policy at Aarya Clothing. Secure online payments via Razorpay — UPI, cards, net banking and wallets accepted.',
-  keywords: 'payment policy, online payment, Razorpay, UPI, secure payment, Aarya Clothing',
-  robots: 'index, follow',
+  keywords: ['payment policy', 'online payment', 'Razorpay', 'UPI', 'secure payment', 'Aarya Clothing', 'payment methods'],
+  authors: [{ name: 'Aarya Clothing' }],
+  creator: 'Aarya Clothing',
+  publisher: 'Aarya Clothing',
+  robots: { index: true, follow: true },
+  alternates: { canonical: 'https://aaryaclothing.in/payment-policy' },
+  openGraph: {
+    title: 'Payment Policy | Aarya Clothing',
+    description: 'Learn about our secure payment methods and policies.',
+    url: 'https://aaryaclothing.in/payment-policy',
+    type: 'article',
+    publishedTime: '2020-01-01',
+    modifiedTime: LAST_MODIFIED,
+    images: [{ url: 'https://pub-7846c786f7154610b57735df47899fa0.r2.dev/logo.png', width: 1200, height: 630, alt: 'Aarya Clothing' }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Payment Policy | Aarya Clothing',
+    description: 'Learn about our secure payment methods and policies.',
+    images: ['https://pub-7846c786f7154610b57735df47899fa0.r2.dev/logo.png'],
+  },
 };
 
+// Generate structured data
+function generateStructuredData() {
+  const breadcrumbSchema = generateBreadcrumbSchema([
+    { name: 'Home', url: '/' },
+    { name: 'Payment Policy', url: '/payment-policy' }
+  ]);
+
+  const articleSchema = generateArticleSchema({
+    title: 'Payment Policy',
+    description: 'Learn about our payment policy at Aarya Clothing.',
+    url: 'https://aaryaclothing.in/payment-policy',
+    datePublished: '2020-01-01',
+    dateModified: LAST_MODIFIED,
+    articleBody: 'At Aarya Clothing, we accept online payments only through our secure payment gateway.',
+  });
+
+  return {
+    breadcrumbSchema,
+    articleSchema
+  };
+}
+
 export default function PaymentPolicyPage() {
+  const { breadcrumbSchema, articleSchema } = generateStructuredData();
+
   return (
-    <main className="min-h-screen py-12 sm:py-16 md:py-20 relative z-10">
+    <main className="min-h-screen py-12 sm:py-16 md:py-20 relative z-10" role="main" aria-label="Payment Policy">
+      {/* Structured Data */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
+        key="breadcrumb-schema"
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(articleSchema) }}
+        key="article-schema"
+      />
+
       <div className="container mx-auto px-4 sm:px-6 md:px-8 max-w-4xl">
         {/* Header */}
         <div className="text-center mb-12">

@@ -96,17 +96,13 @@ const nextConfig = {
       },
     },
     // Enable newer performance optimizations - deduplicated list
-    optimizePackageImports: ['lucide-react', 'gsap', 'framer-motion', 'recharts', '@use-gesture/react'],
+    optimizePackageImports: ['lucide-react', 'gsap', 'recharts', '@use-gesture/react'],
   },
 
   // Modularize imports for smaller bundles
   modularizeImports: {
     'lucide-react': {
       transform: 'lucide-react/dist/esm/icons/{{kebabCase member}}',
-    },
-    // Tree shake framer-motion
-    'framer-motion': {
-      transform: 'framer-motion/dist/esm/{{member}}',
     },
   },
 
@@ -138,13 +134,6 @@ const nextConfig = {
           gsap: {
             test: /[\\/]node_modules[\\/](gsap|@gsap)[\\/]/,
             name: 'gsap',
-            chunks: 'all',
-            priority: 20,
-          },
-          // Separate framer-motion chunk
-          framer: {
-            test: /[\\/]node_modules[\\/]framer-motion[\\/]/,
-            name: 'framer',
             chunks: 'all',
             priority: 20,
           },
@@ -232,6 +221,18 @@ const nextConfig = {
 
   // NOTE: API routing is handled entirely by Nginx.
   // No Next.js rewrites needed — they would proxy to localhost:6005 inside Docker which is invalid.
+  
+  // Redirects for SEO and UX
+  async redirects() {
+    return [
+      // Redirect /new-arrivals to home page #new-arrivals section
+      {
+        source: '/new-arrivals',
+        destination: '/#new-arrivals',
+        permanent: true, // 301 redirect for SEO
+      },
+    ];
+  },
 };
 
 module.exports = withBundleAnalyzer(nextConfig);

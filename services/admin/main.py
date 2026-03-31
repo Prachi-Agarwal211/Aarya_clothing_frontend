@@ -2552,8 +2552,11 @@ async def refresh_all_embeddings(
     current_user: dict = Depends(require_admin),
 ):
     """
-    Batch-generate Gemini embeddings for all products that don't have one yet.
-    Run this after adding new products or on first setup.
+    DEPRECATED: Embedding generation is not supported by Groq and other OpenAI-compatible providers.
+    
+    This endpoint is kept for backward compatibility but will return a notice.
+    Consider using an external embedding service (e.g., OpenAI, Cohere) if embeddings are needed.
+    
     batch_size controls how many products to process per call (max 200).
     """
     from service.ai_service import generate_product_embeddings_batch
@@ -2956,7 +2959,7 @@ async def test_api_key(
 ):
     """Test an API key for any supported AI provider."""
     key = data.get("api_key", "").strip()
-    provider = data.get("provider", "gemini")
+    provider = data.get("provider", "groq")
 
     if not key or key == "__current__":
         # Get from environment
@@ -2964,28 +2967,10 @@ async def test_api_key(
 
     if not key:
         raise HTTPException(status_code=400, detail="No API key configured")
-    
+
     try:
-        if provider == "gemini":
-            import google.generativeai as genai
-            genai.configure(api_key=key)
-            model = genai.GenerativeModel("gemini-2.0-flash-lite")
-            resp = model.generate_content(
-                "Say 'ok' in one word.", generation_config={"max_output_tokens": 5}
-            )
-            return {"valid": True, "response": resp.text.strip(), "provider": provider}
-        
-        elif provider == "openai":
-            from openai import OpenAI
-            client = OpenAI(api_key=key)
-            resp = client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[{"role": "user", "content": "Say 'ok' in one word"}],
-                max_tokens=5
-            )
-            return {"valid": True, "response": resp.choices[0].message.content.strip(), "provider": provider}
-        
-        elif provider == "groq":
+        # Test Groq (PRIMARY provider)
+        if provider == "groq":
             from groq import Groq
             client = Groq(api_key=key)
             resp = client.chat.completions.create(
@@ -2994,20 +2979,43 @@ async def test_api_key(
                 max_tokens=5
             )
             return {"valid": True, "response": resp.choices[0].message.content.strip(), "provider": provider}
-        
-        elif provider == "anthropic":
-            import anthropic
-            client = anthropic.Anthropic(api_key=key)
-            resp = client.messages.create(
-                model="claude-3-haiku-20240307",
-                max_tokens=5,
-                messages=[{"role": "user", "content": "Say 'ok' in one word"}]
+
+        # Test OpenRouter
+        elif provider == "openrouter":
+            from openai import OpenAI
+            client = OpenAI(api_key=key, base_url="https://openrouter.ai/api/v1")
+            resp = client.chat.completions.create(
+                model="meta-llama/llama-3.3-70b-instruct:free",
+                messages=[{"role": "user", "content": "Say 'ok' in one word"}],
+                max_tokens=5
             )
-            return {"valid": True, "response": resp.content[0].text.strip(), "provider": provider}
-        
+            return {"valid": True, "response": resp.choices[0].message.content.strip(), "provider": provider}
+
+        # Test GLM
+        elif provider == "glm":
+            from openai import OpenAI
+            client = OpenAI(api_key=key, base_url="https://open.bigmodel.cn/api/paas/v4")
+            resp = client.chat.completions.create(
+                model="glm-4-flash",
+                messages=[{"role": "user", "content": "Say 'ok' in one word"}],
+                max_tokens=5
+            )
+            return {"valid": True, "response": resp.choices[0].message.content.strip(), "provider": provider}
+
+        # Test NVIDIA
+        elif provider == "nvidia":
+            from openai import OpenAI
+            client = OpenAI(api_key=key, base_url="https://integrate.api.nvidia.com/v1")
+            resp = client.chat.completions.create(
+                model="meta/llama3-70b-instruct",
+                messages=[{"role": "user", "content": "Say 'ok' in one word"}],
+                max_tokens=5
+            )
+            return {"valid": True, "response": resp.choices[0].message.content.strip(), "provider": provider}
+
         else:
-            raise HTTPException(status_code=400, detail=f"Unsupported provider: {provider}")
-    
+            raise HTTPException(status_code=400, detail=f"Unsupported provider: {provider}. Supported: groq, openrouter, glm, nvidia")
+
     except Exception as e:
         return {"valid": False, "error": str(e), "provider": provider}
 

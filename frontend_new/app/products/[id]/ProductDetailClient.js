@@ -121,6 +121,7 @@ export default function ProductDetailClient({ initialProduct, initialReviews, pr
   const fetchProduct = async () => {
     // Skip fetch if we already have initial data from server
     if (initialProduct) {
+      setLoading(false); // ✅ Fix: End loading state when using server data
       return;
     }
 

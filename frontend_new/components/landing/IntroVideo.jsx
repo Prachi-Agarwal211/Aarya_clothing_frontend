@@ -36,9 +36,9 @@ function hasSeenIntroRecently() {
     const parsed = parseInt(ts, 10);
     if (isNaN(parsed)) return false;
     return Date.now() - parsed < 24 * 60 * 60 * 1000;
-  } catch (e) { 
+  } catch (e) {
     logger.warn('Failed to check intro video status:', e);
-    return false; 
+    return false;
   }
 }
 function markIntroSeen() {
@@ -78,28 +78,28 @@ export default function IntroVideo({ onVideoEnd }) {
     typeof window !== 'undefined' &&
     window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  // Skip if already seen recently, disabled, slow network, reduced motion, OR MOBILE
+  // Skip if already seen recently, disabled, slow network, or reduced motion
+  // NOTE: Removed isMobile skip - users want to see the video on mobile too!
   useEffect(() => {
     const seenRecently = hasSeenIntroRecently();
     const seenInSession = !!sessionStorage.getItem('hasSeenIntroVideo');
     const skip =
-      isMobile ||  // ALWAYS skip on mobile for better performance
       seenRecently ||
       seenInSession ||
       introVideo.enabled === false ||
       shouldSkipForNetwork() ||
       prefersReducedMotion;
-    
-    logger.log('IntroVideo skip check:', { 
-      isMobile, 
-      seenRecently, 
-      seenInSession, 
-      enabled: introVideo.enabled, 
-      slowNetwork: shouldSkipForNetwork(), 
+
+    logger.log('IntroVideo skip check:', {
+      isMobile,
+      seenRecently,
+      seenInSession,
+      enabled: introVideo.enabled,
+      slowNetwork: shouldSkipForNetwork(),
       reducedMotion: prefersReducedMotion,
-      willSkip: skip 
+      willSkip: skip
     });
-    
+
     if (skip) {
       logger.log('Skipping intro video');
       setIsVideoEnded(true);
@@ -114,9 +114,12 @@ export default function IntroVideo({ onVideoEnd }) {
     if (video) {
       video.muted = true;
       video.play()
-        .then(() => setAutoplayFailed(false))
+        .then(() => {
+          logger.log('Video started playing successfully');
+          setAutoplayFailed(false);
+        })
         .catch((err) => {
-          logger.warn('Autoplay failed:', err.message);
+          logger.warn('Video autoplay failed:', err.message, err.name);
           setAutoplayFailed(true);
         });
     }
@@ -176,35 +179,58 @@ export default function IntroVideo({ onVideoEnd }) {
   const handleVideoError = useCallback(() => {
     const video = videoRef.current;
     const err = video?.error;
+    const errorCode = err?.code;
+    const errorMessage = err?.message || 'Unknown error';
+    
     logger.error('IntroVideo error:', {
-      code: err?.code,
-      message: err?.message,
+      code: errorCode,
+      message: errorMessage,
       network: typeof navigator !== 'undefined'
         ? (navigator.connection?.effectiveType || 'unknown') : 'ssr',
+      currentTime: video?.currentTime,
+      duration: video?.duration,
     });
-    if (err?.code === 2 && retryCountRef.current < 1) {
+    
+    // Error codes: 1=MEDIA_ERR_ABORTED, 2=MEDIA_ERR_NETWORK, 3=MEDIA_ERR_DECODE, 4=MEDIA_ERR_SRC_NOT_SUPPORTED
+    if (errorCode === 2 && retryCountRef.current < 2) {
+      // Network error - retry up to 2 times
       retryCountRef.current += 1;
+      logger.warn(`Retrying video load (attempt ${retryCountRef.current}/2)`);
       setTimeout(() => {
         if (videoRef.current) {
           videoRef.current.load();
-          videoRef.current.play().catch(() => {
-            setVideoError(true);
-            setTimeout(handleVideoEnd, 400);
+          videoRef.current.play().catch((playErr) => {
+            logger.error('Retry play failed:', playErr.message);
+            // Don't set videoError yet - let it continue playing if possible
           });
         }
-      }, 1000);
+      }, 1500);
       return;
     }
-    setVideoError(true);
-    setTimeout(handleVideoEnd, 400);
+    
+    // For other errors, log but don't end the video - it might still play
+    if (errorCode === 1) {
+      logger.warn('Video was aborted (user likely navigated away)');
+      return; // Don't end, just log
+    }
+    
+    // Only set videoError for critical errors (3=decode, 4=src not supported)
+    if (errorCode === 3 || errorCode === 4) {
+      logger.error('Critical video error, ending intro');
+      setVideoError(true);
+      setTimeout(handleVideoEnd, 800);
+    }
   }, [handleVideoEnd]);
 
   const handleVideoCanPlay = useCallback(() => {
+    logger.log('Video can play - clearing preloader');
     if (preloaderTimerRef.current && showPreloader) {
       clearTimeout(preloaderTimerRef.current);
-      preloaderTimerRef.current = setTimeout(startVideo, 200);
+      preloaderTimerRef.current = null;
+      setShowPreloader(false);
+      setVideoStarted(true);
     }
-  }, [showPreloader, startVideo]);
+  }, [showPreloader]);
 
   // Keyboard: Escape = skip — placed after handleSkip to avoid TDZ
   useEffect(() => {
@@ -215,12 +241,18 @@ export default function IntroVideo({ onVideoEnd }) {
   }, [isVideoEnded, handleSkip]);
 
   // Track buffer progress for loading indicator
-  const handleProgress = () => {
+  const handleProgress = useCallback(() => {
     const video = videoRef.current;
     if (!video || !video.duration || video.buffered.length === 0) return;
     const buffered = video.buffered.end(video.buffered.length - 1);
-    setBufferProgress(Math.round((buffered / video.duration) * 100));
-  };
+    const progress = Math.round((buffered / video.duration) * 100);
+    setBufferProgress(progress);
+    
+    // Log when video is mostly buffered
+    if (progress > 80 && progress < 85) {
+      logger.log(`Video buffered: ${progress}%`);
+    }
+  }, []);
 
   if (isVideoEnded) return null;
 
@@ -302,13 +334,17 @@ export default function IntroVideo({ onVideoEnd }) {
             key={videoUrl}
             muted
             playsInline
-            preload="auto"
+            preload="metadata"
             onEnded={handleVideoEnd}
             onError={handleVideoError}
             onCanPlay={handleVideoCanPlay}
             onProgress={handleProgress}
+            onWaiting={() => logger.log('Video waiting (buffering)')}
+            onPlaying={() => logger.log('Video started playing')}
+            onPause={() => logger.log('Video paused')}
             className="absolute inset-0 w-full h-full object-cover"
             src={videoUrl}
+            poster="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect fill='%230a0608' width='100' height='100'/%3E%3C/svg%3E"
           >
             Your browser does not support the video tag.
           </video>

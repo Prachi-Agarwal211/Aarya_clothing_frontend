@@ -23,7 +23,7 @@ const ensureFullUrl = (url) => {
   return `${baseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
 };
 
-const ProductCard = ({ product, className }) => {
+const ProductCard = ({ product, className, priority = false }) => {
   // Support both old shape {id,name,price,image,category,isNew,originalPrice}
   // and new DB-driven shape {id,name,price,mrp,image_url,collection_name,is_new_arrival,discount_percentage}
   const id = product.id;
@@ -118,6 +118,9 @@ const ProductCard = ({ product, className }) => {
     <>
       <div className={cn("group relative w-full product-card-enhanced", className)}>
         <div className="relative aspect-[3/4] overflow-hidden bg-[#1A1A1A] rounded-2xl">
+          {/* Tappable image area — navigates to product on mobile */}
+          <Link href={`/products/${id}`} className="absolute inset-0 z-10 lg:pointer-events-none" aria-label={`View ${name}`} />
+
           {/* Premium New Badge with Animation */}
           {isNew && (
             <div className="absolute top-4 left-4 z-20">
@@ -157,33 +160,43 @@ const ProductCard = ({ product, className }) => {
             fill
             sizes="(max-width: 640px) 280px, (max-width: 1024px) 320px, 360px"
             className="object-cover transition-all duration-700 group-hover:scale-110 group-hover:brightness-110"
-            priority={false}
-            loading="lazy"
-            decoding="async"
-            quality={isMobile ? 65 : 75}
+            priority={priority}
+            quality={75}
             placeholder="blur"
             blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k="
           />
 
-          {/* Premium Gradient Overlay */}
-          <div className="absolute inset-0 bg-gradient-to-t from-[#050203]/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+          {/* Mobile: subtle gradient at bottom for add-to-cart (NO blur, NO full overlay) */}
+          <div className="absolute bottom-0 left-0 right-0 z-20 flex items-end p-3 lg:hidden">
+            <div className="absolute inset-0 bg-gradient-to-t from-[#050203]/90 via-[#050203]/40 to-transparent rounded-b-2xl" />
+            <AddToCartButton
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                handleAddToCart(product);
+              }}
+              className="relative w-full min-h-[44px] bg-gradient-to-r from-[#EAE0D5] to-[#F2C29A] text-[#050203] rounded-full active:scale-95 flex items-center justify-center gap-2 font-medium transition-transform"
+            >
+              <ShoppingBag className="w-5 h-5" />
+              <span>Add to Cart</span>
+            </AddToCartButton>
+          </div>
 
-          {/* Premium Overlay Actions with Staggered Animation */}
-          <div className="absolute inset-0 bg-[#050203]/50 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-all duration-500 flex flex-col justify-end p-4 gap-2 lg:flex-row lg:items-center lg:justify-center lg:p-0 lg:gap-4 backdrop-blur-[4px] rounded-2xl">
+          {/* Desktop: hover overlay with centered actions (hidden on mobile) */}
+          <div className="absolute inset-0 bg-[#050203]/50 hidden lg:flex opacity-0 group-hover:opacity-100 transition-all duration-500 flex-row items-center justify-center gap-4 backdrop-blur-[4px] rounded-2xl">
             <AddToCartButton
               onClick={(e) => {
                 e.preventDefault();
                 handleAddToCart(product);
               }}
-              className="w-full lg:w-auto min-h-[44px] lg:p-4 bg-gradient-to-r from-[#EAE0D5] to-[#F2C29A] text-[#050203] rounded-full transform lg:translate-y-6 opacity-100 lg:opacity-0 lg:group-hover:translate-y-0 lg:group-hover:opacity-100 transition-all duration-500 delay-100 hover:shadow-[0_0_30px_rgba(242,194,154,0.5)] active:scale-95 flex items-center justify-center gap-2 font-medium"
+              className="p-4 bg-gradient-to-r from-[#EAE0D5] to-[#F2C29A] text-[#050203] rounded-full transform translate-y-6 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-500 delay-100 hover:shadow-[0_0_30px_rgba(242,194,154,0.5)] active:scale-95 flex items-center justify-center"
             >
               <ShoppingBag className="w-5 h-5" />
-              <span className="lg:hidden">Add to Cart</span>
             </AddToCartButton>
           </div>
 
           {/* Bottom Gradient Line Animation */}
-          <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-[#7A2F57] via-[#B76E79] to-[#F2C29A] transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 origin-left" />
+          <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-[#7A2F57] via-[#B76E79] to-[#F2C29A] transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 origin-left z-30" />
         </div>
 
         {/* Premium Product Info */}

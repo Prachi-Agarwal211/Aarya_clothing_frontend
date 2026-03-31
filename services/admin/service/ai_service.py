@@ -30,13 +30,6 @@ except ImportError:
     _OpenAI = None
     OPENAI_AVAILABLE = False
 
-try:
-    import anthropic as _anthropic
-    ANTHROPIC_AVAILABLE = True
-except ImportError:
-    _anthropic = None
-    ANTHROPIC_AVAILABLE = False
-
 logger = logging.getLogger(__name__)
 
 # ── Provider Base URLs ────────────────────────────────────────────────────────

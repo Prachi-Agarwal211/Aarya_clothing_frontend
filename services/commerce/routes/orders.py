@@ -11,6 +11,7 @@ Order management endpoints:
 """
 
 import logging
+import os
 from typing import List, Optional
 from decimal import Decimal
 from datetime import datetime, timezone
@@ -26,7 +27,7 @@ from schemas.order import OrderCreate, OrderResponse, BulkOrderStatusUpdate, Set
 from schemas.error import ErrorResponse, PaginatedResponse
 from service.order_service import OrderService
 from shared.auth_middleware import get_current_user, require_admin, require_staff
-from core.razorpay_client import get_razorpay_client
+import httpx
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +35,47 @@ router = APIRouter(prefix="/api/v1/orders", tags=["Orders"])
 
 
 # ==================== Helper Functions ====================
+
+def _fetch_payment_from_razorpay_direct(payment_id: str) -> dict:
+    """
+    Fetch payment details directly from Razorpay API using HMAC-SHA256.
+    
+    This is a fallback when the Payment Service is unavailable.
+    Uses the same HMAC verification approach as the payment service.
+    
+    Args:
+        payment_id: Razorpay payment ID (e.g., pay_xxx)
+        
+    Returns:
+        Payment details dict with 'status' field
+        
+    Raises:
+        HTTPException: If payment fetch fails
+    """
+    from core.config import settings
+    
+    if not settings.RAZORPAY_KEY_ID or not settings.RAZORPAY_KEY_SECRET:
+        logger.warning("Razorpay credentials not configured, cannot fetch payment")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Payment gateway not configured"
+        )
+    
+    try:
+        # Use Razorpay Python SDK directly
+        import razorpay
+        client = razorpay.Client(
+            auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET)
+        )
+        payment_details = client.payment.fetch(payment_id)
+        return payment_details
+    except Exception as e:
+        logger.error(f"Failed to fetch payment from Razorpay: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Failed to verify payment: {str(e)}"
+        )
+
 
 def _get_order_service(db: Session) -> OrderService:
     """Get order service instance."""
@@ -281,43 +323,43 @@ async def recover_order_from_payment(
     )
     
     try:
-        # Step 1: Verify payment with Razorpay
-        import httpx as _httpx
-        import os as _os
-        payment_service_url = _os.getenv("PAYMENT_SERVICE_URL", "http://payment:5003")
-        
-        verify_resp = _httpx.post(
-            f"{payment_service_url}/api/v1/payments/razorpay/verify-signature",
-            json={
-                "razorpay_order_id": razorpay_order_id,
-                "razorpay_payment_id": payment_id,
-                "razorpay_signature": "",  # We don't have signature, will fetch from Razorpay
-            },
-            timeout=30.0,
-        )
-        
-        # If signature verification fails, fetch payment details directly
-        if verify_resp.status_code != 200:
-            logger.warning(f"Signature verification failed, fetching payment details directly")
-            # Fetch payment from Razorpay API to confirm it was captured
-            try:
-                razorpay_client = get_razorpay_client()
-                payment_details = razorpay_client.fetch_payment(payment_id)
-                
+        # Step 1: Verify payment with Razorpay via Payment Service API
+        payment_service_url = os.getenv("PAYMENT_SERVICE_URL", "http://payment:5003")
+
+        try:
+            verify_resp = httpx.post(
+                f"{payment_service_url}/api/v1/payments/razorpay/verify-signature",
+                json={
+                    "razorpay_order_id": razorpay_order_id,
+                    "razorpay_payment_id": payment_id,
+                    "razorpay_signature": "",  # We don't have signature, will fetch from Razorpay
+                },
+                timeout=30.0,
+            )
+
+            if verify_resp.status_code == 200:
+                logger.info(f"Payment verified via Payment Service API: {payment_id}")
+            else:
+                # Payment service verification failed - try direct Razorpay API call
+                logger.warning(f"Payment Service verification failed (status {verify_resp.status_code}), trying direct Razorpay API")
+                payment_details = _fetch_payment_from_razorpay_direct(payment_id)
                 if payment_details.get("status") != "captured":
                     raise HTTPException(
                         status_code=status.HTTP_400_BAD_REQUEST,
                         detail=f"Payment not captured. Status: {payment_details.get('status')}"
                     )
-                
-                logger.info(f"Payment verified via Razorpay API: {payment_id}")
-            except Exception as fetch_err:
-                logger.error(f"Failed to fetch payment from Razorpay: {fetch_err}")
+                logger.info(f"Payment verified via direct Razorpay API: {payment_id}")
+        except httpx.RequestError as http_err:
+            # Payment service unavailable - fall back to direct Razorpay API
+            logger.warning(f"Payment Service unavailable: {http_err}, using direct Razorpay API")
+            payment_details = _fetch_payment_from_razorpay_direct(payment_id)
+            if payment_details.get("status") != "captured":
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Could not verify payment. Please contact support."
+                    detail=f"Payment not captured. Status: {payment_details.get('status')}"
                 )
-        
+            logger.info(f"Payment verified via direct Razorpay API: {payment_id}")
+
         # Step 2: Check if order already exists for this payment
         from models.order import Order
         existing_order = db.query(Order).filter(

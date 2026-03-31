@@ -21,7 +21,7 @@ const paymentClient = new BaseApiClient(getPaymentBaseUrl());
 // ==================== Products API ====================
 export const productsApi = {
   list: (params = {}) => {
-    return commerceClient.get('/api/v1/products', params);
+    return commerceClient.get('/api/v1/products/browse', params);
   },
 
   get: (id) => {

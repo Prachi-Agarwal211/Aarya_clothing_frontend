@@ -165,18 +165,18 @@ class AIKeyRotation:
         rate_key = self._get_rate_limit_key(provider.name)
         daily_key = self._get_daily_count_key(provider.name)
         
-        # Check per-minute rate limit
-        current_rpm = int(redis_client.get(rate_key) or 0)
-        if current_rpm >= provider.rate_limit:
-            logger.warning(f"Provider {provider.name.value} hit rate limit: {current_rpm}/{provider.rate_limit} RPM")
-            return False
-        
-        # Check daily limit
-        current_daily = int(redis_client.get(daily_key) or 0)
-        if current_daily >= provider.daily_limit:
-            logger.warning(f"Provider {provider.name.value} hit daily limit: {current_daily}/{provider.daily_limit}")
-            return False
-        
+        try:
+            raw = redis_client.client
+            current_rpm = int(raw.get(rate_key) or 0)
+            if current_rpm >= provider.rate_limit:
+                logger.warning(f"Provider {provider.name.value} hit rate limit: {current_rpm}/{provider.rate_limit} RPM")
+                return False
+            current_daily = int(raw.get(daily_key) or 0)
+            if current_daily >= provider.daily_limit:
+                logger.warning(f"Provider {provider.name.value} hit daily limit: {current_daily}/{provider.daily_limit}")
+                return False
+        except Exception as e:
+            logger.warning(f"Redis rate limit check failed for {provider.name.value}: {e}, allowing request")
         return True
     
     def _increment_usage(self, provider: ProviderConfig):
@@ -184,15 +184,17 @@ class AIKeyRotation:
         rate_key = self._get_rate_limit_key(provider.name)
         daily_key = self._get_daily_count_key(provider.name)
         
-        # Increment per-minute counter (expires after 60 seconds)
-        pipe = redis_client.pipeline()
-        pipe.incr(rate_key)
-        pipe.expire(rate_key, 60)
-        pipe.incr(daily_key)
-        pipe.expire(daily_key, 86400)  # 24 hours
-        pipe.execute()
-        
-        logger.debug(f"Incremented usage for {provider.name.value}")
+        try:
+            raw = redis_client.client
+            pipe = raw.pipeline()
+            pipe.incr(rate_key)
+            pipe.expire(rate_key, 60)
+            pipe.incr(daily_key)
+            pipe.expire(daily_key, 86400)
+            pipe.execute()
+            logger.debug(f"Incremented usage for {provider.name.value}")
+        except Exception as e:
+            logger.warning(f"Redis usage increment failed for {provider.name.value}: {e}")
     
     def get_available_provider(self, priority_order: Optional[List[ProviderName]] = None) -> Optional[ProviderConfig]:
         """
@@ -235,8 +237,9 @@ class AIKeyRotation:
             rate_key = self._get_rate_limit_key(provider.name)
             daily_key = self._get_daily_count_key(provider.name)
             
-            current_rpm = int(redis_client.get(rate_key) or 0)
-            current_daily = int(redis_client.get(daily_key) or 0)
+            raw = redis_client.client
+            current_rpm = int(raw.get(rate_key) or 0)
+            current_daily = int(raw.get(daily_key) or 0)
             
             status.append({
                 "name": provider.name.value,
@@ -255,10 +258,14 @@ class AIKeyRotation:
     
     def reset_daily_limits(self):
         """Reset all daily limits (called at midnight UTC)."""
-        for provider in self.providers.values():
-            daily_key = self._get_daily_count_key(provider.name)
-            redis_client.delete(daily_key)
-        logger.info("Reset all AI provider daily limits")
+        try:
+            raw = redis_client.client
+            for provider in self.providers.values():
+                daily_key = self._get_daily_count_key(provider.name)
+                raw.delete(daily_key)
+            logger.info("Reset all AI provider daily limits")
+        except Exception as e:
+            logger.warning(f"Redis daily limit reset failed: {e}")
     
     def get_cost_estimate(self, provider: ProviderName, input_tokens: int, output_tokens: int) -> float:
         """Estimate cost for a request."""

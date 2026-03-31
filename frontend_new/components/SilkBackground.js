@@ -57,16 +57,20 @@ export default function SilkBackground() {
       return;
     }
 
-    // PERFORMANCE: Mobile detection - optimize but keep animation
+    // Mobile devices: static gradient saves battery + prevents thermal throttling
+    // on mid/low-end Androids. WebGL on mobile adds GPU pressure with no visible benefit
+    // since the silk animation is barely visible while scrolling on small screens.
     isMobileRef.current = window.innerWidth < 768 ||
       /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
-    // PERFORMANCE: Mobile uses simpler shader and lower FPS (20fps)
-    // Desktop keeps full quality at 30fps
-    const frameInterval = isMobileRef.current ? 1000 / 20 : 1000 / 30;
-    
-    // PERFORMANCE: Cap resolution for mobile to reduce GPU load
-    const maxDimension = isMobileRef.current ? 1280 : 1920;
+    if (isMobileRef.current) {
+      canvas.style.background = STATIC_GRADIENT;
+      return;
+    }
+
+    // Desktop: full WebGL at 30fps
+    const frameInterval = 1000 / 30;
+    const maxDimension = 1920;
 
     // Try WebGL2 first, fallback to WebGL1
     const gl = canvas.getContext('webgl2', {

@@ -170,15 +170,21 @@ export function PerformanceOptimizations() {
 
     updateImageQuality();
 
-    // 5. Preconnect to API endpoint on idle
+    // 5. Preconnect to known external domains on idle for faster subsequent requests
     if ('requestIdleCallback' in window) {
       requestIdleCallback(() => {
-        // Preconnect to API for faster subsequent requests
-        const link = document.createElement('link');
-        link.rel = 'preconnect';
-        link.href = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:6005';
-        link.crossOrigin = 'anonymous';
-        document.head.appendChild(link);
+        const origins = [
+          'https://pub-7846c786f7154610b57735df47899fa0.r2.dev',
+          'https://checkout.razorpay.com',
+        ];
+        origins.forEach(href => {
+          if (document.querySelector(`link[rel="preconnect"][href="${href}"]`)) return;
+          const link = document.createElement('link');
+          link.rel = 'preconnect';
+          link.href = href;
+          link.crossOrigin = 'anonymous';
+          document.head.appendChild(link);
+        });
       });
     }
 

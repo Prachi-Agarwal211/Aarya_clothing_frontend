@@ -122,12 +122,20 @@ const EnhancedHeader = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Navigate to search page when debounced query changes
-  useEffect(() => {
-    if (debouncedSearchQuery.trim()) {
-      router.push(`/search?q=${encodeURIComponent(debouncedSearchQuery.trim())}`);
+  // Search query is submitted manually via Enter key or button click.
+  // The debounced value is used for potential autocomplete in the future,
+  // but we do NOT auto-navigate on debounce to avoid rapid route changes.
+
+  /**
+   * Submit search — navigates to search page.
+   */
+  const handleSearchSubmit = useCallback((query) => {
+    const trimmed = (query || searchQuery).trim();
+    if (trimmed) {
+      router.push(`/search?q=${encodeURIComponent(trimmed)}`);
+      setSearchQuery('');
     }
-  }, [debouncedSearchQuery, router]);
+  }, [searchQuery, router]);
 
   /**
    * Smooth scroll to an anchor section on the landing page.
@@ -292,7 +300,7 @@ const EnhancedHeader = () => {
                 <label htmlFor="search-input" className="sr-only">
                   Search products
                 </label>
-                <input
+              <input
                   id="search-input"
                   suppressHydrationWarning
                   type="search"
@@ -300,8 +308,9 @@ const EnhancedHeader = () => {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter' && searchQuery.trim()) {
-                      router.push(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleSearchSubmit();
                     }
                   }}
                   className="w-full px-4 py-2 bg-transparent border border-[#3D322C] rounded-lg text-[#EAE0D5] placeholder-[#8B7D77] focus:outline-none focus:border-[#F2C29A] transition-all duration-300"
@@ -352,10 +361,10 @@ const EnhancedHeader = () => {
       <div
         id="mobile-menu"
         className={cn(
-          "fixed inset-0 z-[90] flex flex-col items-center justify-center transition-all duration-500 md:hidden",
+          "fixed inset-0 z-[90] flex flex-col items-center justify-center transition-all duration-400 md:hidden",
           isMobileMenuOpen
-            ? "opacity-100 pointer-events-auto"
-            : "opacity-0 pointer-events-none"
+            ? "opacity-100 pointer-events-auto translate-y-0"
+            : "opacity-0 pointer-events-none translate-y-4"
         )}
         role="dialog"
         aria-modal="true"
@@ -407,8 +416,30 @@ const EnhancedHeader = () => {
               }}
             >
               {link.name}
-            </Link>
+              </Link>
           ))}
+
+          {/* Mobile Search Input */}
+          <div className="w-full max-w-xs mt-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#8B7D77]" />
+              <input
+                type="search"
+                placeholder="Search products..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    setIsMobileMenuOpen(false);
+                    handleSearchSubmit();
+                  }
+                }}
+                className="w-full pl-10 pr-4 py-3 bg-[#0B0608]/60 border border-[#3D322C] rounded-xl text-[#EAE0D5] placeholder-[#8B7D77] focus:outline-none focus:border-[#F2C29A] transition-all duration-300 text-base"
+                aria-label="Search products"
+              />
+            </div>
+          </div>
           <div className="flex gap-8 mt-8" role="navigation" aria-label="Mobile account actions">
             <button
               onClick={() => {

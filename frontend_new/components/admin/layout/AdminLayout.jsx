@@ -17,6 +17,7 @@ export default function AdminLayout({ children }) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [authReady, setAuthReady] = useState(false); // true after auth context has had time to resolve
   const sidebarRef = useRef(null);
   const logoutTimeoutRef = useRef(null);
   const mainContentRef = useRef(null);
@@ -99,55 +100,73 @@ export default function AdminLayout({ children }) {
     localStorage.setItem(SIDEBAR_COLLAPSED_KEY, JSON.stringify(newState));
   }, []);
 
-  // Handle authentication and authorization
+  // Mark auth as "ready" once loading is done.
+  // We give the auth context a brief grace period (500ms) to handle
+  // cookie-based session restoration that may need a network request.
+  // This prevents the false redirect to /auth/login when opening a
+  // new tab (e.g. "Full Edit" with target="_blank").
   useEffect(() => {
     if (!loading) {
-      if (isLoggingOut) {
-        logoutTimeoutRef.current = setTimeout(() => {
-          if (isLoggingOut) {
-            logger.warn('Logout navigation took too long, forcing redirect');
-            router.push('/auth/login');
-          }
-        }, 5000);
-        return;
+      // If already authenticated, mark ready immediately
+      if (isAuthenticated) {
+        setAuthReady(true);
+      } else {
+        // Give cookies/session a moment to be parsed before concluding "not authenticated"
+        const timer = setTimeout(() => setAuthReady(true), 600);
+        return () => clearTimeout(timer);
       }
+    }
+  }, [loading, isAuthenticated]);
 
-      if (logoutTimeoutRef.current) {
-        clearTimeout(logoutTimeoutRef.current);
-        logoutTimeoutRef.current = null;
-      }
+  // Handle authentication and authorization — only act when authReady
+  useEffect(() => {
+    if (!authReady) return;
 
-      if (!isAuthenticated) {
-        router.push(`/auth/login?redirect_url=${encodeURIComponent(pathname)}`);
-        return;
-      }
-
-      if (pathname === '/admin' || pathname === '/admin/') {
-        if (user?.role === 'super_admin') {
-          router.push('/admin/super');
-          return;
+    if (isLoggingOut) {
+      logoutTimeoutRef.current = setTimeout(() => {
+        if (isLoggingOut) {
+          logger.warn('Logout navigation took too long, forcing redirect');
+          router.push('/auth/login');
         }
-        if (user?.role === 'staff') {
-          router.push('/admin/staff');
-          return;
-        }
-      }
+      }, 5000);
+      return;
+    }
 
-      if (user?.role !== 'super_admin' && pathname.startsWith('/admin/super')) {
-        const target = user?.role === 'staff' ? '/admin/staff' : '/admin';
-        router.push(target);
+    if (logoutTimeoutRef.current) {
+      clearTimeout(logoutTimeoutRef.current);
+      logoutTimeoutRef.current = null;
+    }
+
+    if (!isAuthenticated) {
+      router.push(`/auth/login?redirect_url=${encodeURIComponent(pathname)}`);
+      return;
+    }
+
+    if (pathname === '/admin' || pathname === '/admin/') {
+      if (user?.role === 'super_admin') {
+        router.push('/admin/super');
         return;
       }
-
-      if (!isStaff()) {
-        router.push('/');
+      if (user?.role === 'staff') {
+        router.push('/admin/staff');
         return;
       }
     }
-  }, [loading, isAuthenticated, isStaff, isAdmin, user, router, pathname, isLoggingOut]);
 
-  // Show loading state while checking auth
-  if (loading) {
+    if (user?.role !== 'super_admin' && pathname.startsWith('/admin/super')) {
+      const target = user?.role === 'staff' ? '/admin/staff' : '/admin';
+      router.push(target);
+      return;
+    }
+
+    if (!isStaff()) {
+      router.push('/');
+      return;
+    }
+  }, [authReady, isAuthenticated, isStaff, isAdmin, user, router, pathname, isLoggingOut]);
+
+  // Show loading state while checking auth or waiting for auth resolution
+  if (loading || !authReady) {
     return (
       <div className="min-h-screen bg-[#050203] flex items-center justify-center">
         <div className="text-center">

@@ -2170,59 +2170,13 @@ button:disabled,
 
 /* ============================================================
    HEADER OVERLAP FIX - Page Layout Utilities
+   NOTE: .header-spacing, .page-wrapper, scroll-padding-top, and
+   scroll-margin-top are already defined earlier in this file.
+   This section only adds touch scrolling which is not duplicated.
    ============================================================ */
 
-/* Page wrapper to prevent header overlap */
-.page-wrapper {
-  position: relative;
-  z-index: 1;
-  min-height: 100vh;
-}
-
-/* Header spacing utility - adds top margin to compensate for fixed header */
-.header-spacing {
-  margin-top: 80px;
-}
-
-@media (max-width: 768px) {
-  .header-spacing {
-    margin-top: 60px;
-  }
-}
-
-@media (min-width: 1920px) {
-  .header-spacing {
-    margin-top: 100px;
-  }
-}
-
-/* Scroll anchor prevention - prevents header from covering anchor targets */
+/* iOS momentum scrolling */
 html {
-  scroll-padding-top: 100px;
-}
-
-@media (max-width: 768px) {
-  html {
-    scroll-padding-top: 70px;
-  }
-}
-
-/* Section elements should have scroll margin */
-section[id],
-div[id] {
-  scroll-margin-top: 100px;
-}
-
-@media (max-width: 768px) {
-  section[id],
-  div[id] {
-    scroll-margin-top: 70px;
-  }
-}
-
-/* Smooth scroll */
-html {
-  scroll-behavior: smooth;
   -webkit-overflow-scrolling: touch;
 }
 
@@ -2363,16 +2317,17 @@ main {
   }
 }
 
-/* Data Saver Mode - reduce quality on slow connections */
-.data-saver img,
-.data-saver picture {
-  filter: blur(0.2px);
-  quality: 60;
+/* pb-safe-or-3: 0.75rem bottom padding OR safe-area, whichever is larger */
+.pb-safe-or-3 {
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0px));
 }
 
-.data-saver .next-image-wrapper img {
-  quality: 60;
+/* pt-safe: iOS notch top spacing */
+.pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
 }
+
+/* Data Saver Mode - signal class set by JS; used as CSS selector for image adjustments */
 
 /* Page Hidden - reduce resource usage when tab is hidden */
 .page-hidden .will-animate {

@@ -115,6 +115,60 @@ export function buildUrl(baseUrl, path) {
   return `${normalizedBase}${normalizedPath}`;
 }
 
+/**
+ * Fetch with timeout using AbortController
+ * @param {string} url - The URL to fetch
+ * @param {object} options - Fetch options
+ * @param {number} timeoutMs - Timeout in milliseconds (default: 10000)
+ * @returns {Promise<Response>} - Fetch response
+ */
+export async function fetchWithTimeout(url, options = {}, timeoutMs = 10000) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: options.signal ? AbortSignal.any([options.signal, controller.signal]) : controller.signal,
+    });
+    return response;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+/**
+ * Fetch with retry logic and exponential backoff
+ * @param {Function} fetchFn - Async fetch function to retry
+ * @param {number} maxRetries - Maximum number of retries (default: 2)
+ * @param {number} initialDelayMs - Initial delay in ms (default: 1000)
+ * @returns {Promise<any>} - Result of fetch function
+ */
+export async function fetchWithRetry(fetchFn, maxRetries = 2, initialDelayMs = 1000) {
+  let lastError;
+  let delay = initialDelayMs;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fetchFn();
+    } catch (error) {
+      lastError = error;
+      // Don't retry on abort errors
+      if (error.name === 'AbortError') {
+        throw error;
+      }
+      // Don't retry on the last attempt
+      if (attempt < maxRetries) {
+        logger.warn(`Fetch failed (attempt ${attempt + 1}/${maxRetries + 1}), retrying in ${delay}ms...`, error.message);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        delay *= 2; // Exponential backoff
+      }
+    }
+  }
+
+  throw lastError;
+}
+
 // BaseApiClient class for advanced usage
 const REQUEST_OPTION_KEYS = new Set(['params', 'headers', 'credentials', 'signal', 'cache', 'mode', 'redirect', 'referrer', 'integrity', 'keepalive']);
 
@@ -143,6 +197,8 @@ export class BaseApiClient {
   constructor(baseUrl, options = {}) {
     this.baseUrl = normalizeBaseUrl(baseUrl);
     this.includeCredentials = options.includeCredentials !== false;
+    this.timeout = options.timeout ?? 10000; // Default 10 second timeout
+    this.maxRetries = options.maxRetries ?? 2;
     this._refreshing = null;
   }
 
@@ -219,40 +275,44 @@ export class BaseApiClient {
       ...(options.headers || {}),
     };
 
-    let response;
-    try {
-      response = await fetch(url, {
-        ...options,
-        headers,
-        ...(this.includeCredentials && { credentials: 'include' }),
-      });
-    } catch (e) {
-      const error = new Error(e.message || 'Network error');
-      error.status = 0;
-      error.isNetworkError = true;
-      throw error;
-    }
-
-    const data = await parseResponse(response);
-
-    if (!response.ok) {
-      if (response.status === 401 && typeof window !== 'undefined' && !_isRetry) {
-        const refreshed = await this._tryRefreshToken();
-        if (refreshed) {
-          return this.fetch(path, options, true);
-        }
-        clearAuthData();
+    // Wrap fetch in retry logic
+    return fetchWithRetry(async () => {
+      let response;
+      try {
+        response = await fetchWithTimeout(url, {
+          ...options,
+          headers,
+          ...(this.includeCredentials && { credentials: 'include' }),
+        }, this.timeout);
+      } catch (e) {
+        const error = new Error(e.message || 'Network error');
+        error.status = 0;
+        error.isNetworkError = true;
+        error.name = e.name === 'AbortError' ? 'TimeoutError' : e.name;
+        throw error;
       }
 
-      const errorDetail = (data && (data.error?.message || data.detail || data.message)) || `Request failed with status ${response.status}`;
-      const detail = typeof errorDetail === 'object' ? JSON.stringify(errorDetail) : errorDetail;
-      const error = new Error(detail);
-      error.status = response.status;
-      error.data = data;
-      throw error;
-    }
+      const data = await parseResponse(response);
 
-    return data;
+      if (!response.ok) {
+        if (response.status === 401 && typeof window !== 'undefined' && !_isRetry) {
+          const refreshed = await this._tryRefreshToken();
+          if (refreshed) {
+            return this.fetch(path, options, true);
+          }
+          clearAuthData();
+        }
+
+        const errorDetail = (data && (data.error?.message || data.detail || data.message)) || `Request failed with status ${response.status}`;
+        const detail = typeof errorDetail === 'object' ? JSON.stringify(errorDetail) : errorDetail;
+        const error = new Error(detail);
+        error.status = response.status;
+        error.data = data;
+        throw error;
+      }
+
+      return data;
+    }, this.maxRetries);
   }
 
   _buildPathWithParams(path, params = {}) {
@@ -365,10 +425,23 @@ export function getCoreBaseUrl() {
   // Exception: dev frontend port 6004 routes through nginx on 6005.
   if (typeof window !== 'undefined') {
     const origin = window.location.origin;
-    if (origin.includes(':6004')) return 'http://localhost:6005';
+    // Production: use the same origin (nginx handles proxying)
+    if (origin.includes('aaryaclothing.in')) {
+      return origin;
+    }
+    // Dev: port 6004 routes through nginx on 6005
+    if (origin.includes(':6004')) {
+      return 'http://localhost:6005';
+    }
+    // Local development fallback
     return origin;
   }
-  // SSR: use env var (internal Docker URL) or fallback
+  // SSR in Docker: use internal Docker network service names for direct communication
+  // This avoids going through nginx and reduces latency
+  if (typeof process !== 'undefined' && process.env?.DOCKER_ENV === 'true') {
+    return 'http://commerce:5002';
+  }
+  // SSR: use the public API URL (nginx serves both internal and external traffic via HTTPS)
   if (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_API_URL) {
     return process.env.NEXT_PUBLIC_API_URL;
   }

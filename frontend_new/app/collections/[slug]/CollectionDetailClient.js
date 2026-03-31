@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -11,10 +11,11 @@ import {
   X,
   Grid,
   List,
+  RefreshCw,
 } from 'lucide-react';
 import EnhancedHeader from '@/components/landing/EnhancedHeader';
 import Footer from '@/components/landing/Footer';
-import { wishlistApi } from '@/lib/customerApi';
+import { wishlistApi, productsApi, collectionsApi } from '@/lib/customerApi';
 import { useCart } from '@/lib/cartContext';
 import { useAuth } from '@/lib/authContext';
 import { useToast } from '@/components/ui/Toast';
@@ -39,6 +40,11 @@ const PRICE_RANGES = [
   { value: '1000+', label: 'Above ₹1000' },
 ];
 
+// Timeout and retry constants
+const API_TIMEOUT_MS = 10000;
+const MAX_RETRIES = 2;
+const INITIAL_RETRY_DELAY = 1000;
+
 export default function CollectionDetailClient({ initialCollection, initialProducts, slug }) {
   const router = useRouter();
   const { addItem, openCart } = useCart();
@@ -54,6 +60,50 @@ export default function CollectionDetailClient({ initialCollection, initialProdu
     sort: 'newest',
     search: '',
   });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [retryCount, setRetryCount] = useState(0);
+
+  // Fetch products for collection with timeout and retry
+  const fetchProducts = useCallback(async (isRetry = false, currentRetryCount = retryCount) => {
+    if (!isRetry) {
+      setLoading(true);
+    }
+    setError(null);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
+
+    try {
+      // Fetch products filtered by category_id (collection.id)
+      const categoryId = category?.id || null;
+      const data = await productsApi.list({ category_id: categoryId, limit: 100 });
+      clearTimeout(timeoutId);
+
+      const allProducts = Array.isArray(data) ? data : (data?.items || data?.products || []);
+
+      setProducts(allProducts);
+    } catch (fetchError) {
+      clearTimeout(timeoutId);
+
+      // Check if we should retry
+      const shouldRetry = !isRetry && currentRetryCount < MAX_RETRIES;
+
+      if (shouldRetry) {
+        const delay = INITIAL_RETRY_DELAY * Math.pow(2, currentRetryCount);
+        logger.warn(`Collection products fetch failed (attempt ${currentRetryCount + 1}/${MAX_RETRIES}), retrying in ${delay}ms...`, fetchError.message);
+        setRetryCount(prev => prev + 1);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return fetchProducts(true, currentRetryCount + 1);
+      }
+
+      // Max retries reached
+      logger.error('Failed to fetch collection products after retries:', fetchError);
+      setError('Failed to load products. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  }, [category, retryCount]);
 
   // Handle add to cart
   const handleAddToCart = async (productData) => {
@@ -310,7 +360,31 @@ export default function CollectionDetailClient({ initialCollection, initialProdu
             </div>
 
             {/* Products Grid */}
-            {filteredProducts.length === 0 ? (
+            {error ? (
+              <div className="text-center py-16 bg-[#0B0608]/40 rounded-2xl border border-red-500/20">
+                <p className="text-red-400 mb-4">{error}</p>
+                <button
+                  onClick={() => {
+                    setRetryCount(0);
+                    fetchProducts();
+                  }}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#7A2F57]/30 text-[#F2C29A] rounded-xl hover:bg-[#7A2F57]/50 transition-colors"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  Try Again
+                </button>
+              </div>
+            ) : loading ? (
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-5">
+                {[...Array(8)].map((_, i) => (
+                  <div key={i} className="animate-pulse">
+                    <div className="aspect-[3/4] bg-[#B76E79]/10 rounded-2xl mb-3" />
+                    <div className="h-4 bg-[#B76E79]/10 rounded w-3/4 mb-2" />
+                    <div className="h-4 bg-[#B76E79]/10 rounded w-1/2" />
+                  </div>
+                ))}
+              </div>
+            ) : filteredProducts.length === 0 ? (
               <div className="text-center py-16">
                 <p className="text-[#EAE0D5]/50 mb-4">No products found in this collection</p>
                 {hasActiveFilters && (

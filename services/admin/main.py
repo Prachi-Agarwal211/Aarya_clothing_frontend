@@ -147,19 +147,17 @@ async def lifespan(app: FastAPI):
     order_handler = OrderCreatedHandler()
     event_bus.register_handler(order_handler)
 
-    # Validate AI API key at startup (fail fast if not configured)
+    # Validate AI provider config at startup (no network call — avoids blocking startup)
     from service.ai_service import _get_active_provider
     try:
         provider = _get_active_provider()
-        from openai import OpenAI
-        client = OpenAI(api_key=provider["key"], base_url=provider["base_url"])
-        # Simple test call
-        client.models.list()
-        logger.info(f"AI API key validated successfully - AI service ready (Provider: {provider['name']}, Model: {provider['model']})")
+        if not provider.get("key") or not provider.get("base_url"):
+            raise ValueError("Provider key or base_url missing")
+        logger.info(f"AI service ready (Provider: {provider['name']}, Model: {provider['model']})")
     except ValueError as e:
         logger.warning(f"AI service disabled: {e}")
     except Exception as e:
-        logger.error(f"AI API key validation failed: {e}. AI features may not work.")
+        logger.warning(f"AI provider config check failed: {e}. AI features may not work.")
 
     yield
 

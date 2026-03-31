@@ -103,21 +103,7 @@ export default function RootLayout({ children }) {
         {/* Preload critical resources */}
         <link rel="preload" href="https://pub-7846c786f7154610b57735df47899fa0.r2.dev/logo.png" as="image" />
         
-        {/* Preload critical fonts to prevent layout shift */}
-        <link 
-          rel="preload" 
-          as="font" 
-          href="https://fonts.gstatic.com/s/cinzel/v20/8vUv7XzY3xXJZvXXXXXXXXXX.woff2" 
-          type="font/woff2" 
-          crossOrigin="anonymous"
-        />
-        <link 
-          rel="preload" 
-          as="font" 
-          href="https://fonts.gstatic.com/s/playfairdisplay/v30/nuFvD-vYSZviVYUb_rj3ij__anPXJzDwcbpjWBi2RF2Y.woff2" 
-          type="font/woff2" 
-          crossOrigin="anonymous"
-        />
+
         
         <script
           type="application/ld+json"
@@ -308,8 +294,7 @@ export default function RootLayout({ children }) {
           </AuthProvider>
         </ErrorBoundary>
 
-        {/* Razorpay SDK - preload for faster checkout */}
-        <link rel="preconnect" href="https://checkout.razorpay.com" />
+
         <Script id="clear-old-sw" strategy="afterInteractive">
           {`
             // Register service worker for offline support and caching

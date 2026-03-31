@@ -132,7 +132,7 @@ const NewArrivals = ({
                     hover:shadow-[0_12px_40px_rgba(0,0,0,0.4)]
                   "
                 >
-                  <ProductCard product={product} />
+                  <ProductCard product={product} priority={index < 2} />
                 </div>
               </div>
             ))}

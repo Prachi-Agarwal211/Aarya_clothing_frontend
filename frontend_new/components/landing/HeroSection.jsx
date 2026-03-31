@@ -251,8 +251,8 @@ const HeroSection = ({
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-[#B76E79]/5 rounded-full blur-[120px] opacity-30" />
       </div>
 
-      {/* Tagline and Buttons Container - Positioned at bottom together */}
-      <div className="absolute bottom-16 sm:bottom-20 left-0 right-0 z-30 w-full px-4">
+      {/* Tagline and Buttons Container - bottom-24 on mobile clears the 64px bottom nav */}
+      <div className="absolute bottom-24 sm:bottom-20 left-0 right-0 z-30 w-full px-4">
         {/* Tagline - Just above the buttons */}
         <div
           ref={taglineRef}

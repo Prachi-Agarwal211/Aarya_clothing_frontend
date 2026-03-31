@@ -33,6 +33,11 @@ const SORT_OPTIONS = [
 
 const PAGE_SIZE = 24;
 
+// Timeout and retry constants
+const API_TIMEOUT_MS = 10000;
+const MAX_RETRIES = 2;
+const INITIAL_RETRY_DELAY = 1000;
+
 function ProductsContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -64,6 +69,7 @@ function ProductsContent() {
   const [error, setError] = useState(null);
   const [viewMode, setViewMode] = useState('grid');
   const [showFilters, setShowFilters] = useState(false);
+  const [retryCount] = useState(0); // kept for reference, not used in deps
 
   const [filters, setFilters] = useState({
     collection_id: searchParams.get('collection_id') || '',
@@ -86,40 +92,65 @@ function ProductsContent() {
     }
   }, []);
 
-  const fetchProducts = useCallback(async (activeFilters) => {
+  const fetchProducts = useCallback(async (activeFilters, isRetry = false, attempt = 0) => {
     try {
-      setLoading(true);
+      if (!isRetry) {
+        setLoading(true);
+      }
       setError(null);
 
-      const [sortField, sortOrder] = (activeFilters.sort || 'created_at:desc').split(':');
+      // Create abort controller for timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
 
-      const params = {
-        page: activeFilters.page || 1,
-        limit: PAGE_SIZE,
-        sort: sortField,
-        order: sortOrder || 'desc',
-      };
+      try {
+        const [sortField, sortOrder] = (activeFilters.sort || 'created_at:desc').split(':');
 
-      if (activeFilters.search) params.search = activeFilters.search;
-      if (activeFilters.collection_id) params.category_id = parseInt(activeFilters.collection_id);
-      if (activeFilters.minPrice) params.min_price = parseFloat(activeFilters.minPrice);
-      if (activeFilters.maxPrice) params.max_price = parseFloat(activeFilters.maxPrice);
+        const params = {
+          page: activeFilters.page || 1,
+          limit: PAGE_SIZE,
+          sort: sortField,
+          order: sortOrder || 'desc',
+        };
 
-      const data = await productsApi.list(params);
+        if (activeFilters.search) params.search = activeFilters.search;
+        if (activeFilters.collection_id) params.category_id = parseInt(activeFilters.collection_id);
+        if (activeFilters.minPrice) params.min_price = parseFloat(activeFilters.minPrice);
+        if (activeFilters.maxPrice) params.max_price = parseFloat(activeFilters.maxPrice);
 
-      const items = Array.isArray(data) ? data : (data?.items || data?.products || []);
-      const total = data?.total ?? items.length;
+        const data = await productsApi.list(params);
 
-      setProducts(items);
-      setTotalProducts(total);
+        clearTimeout(timeoutId);
+
+        const items = Array.isArray(data) ? data : (data?.items || data?.products || []);
+        const total = data?.total ?? items.length;
+
+        setProducts(items);
+        setTotalProducts(total);
+      } catch (fetchError) {
+        clearTimeout(timeoutId);
+        throw fetchError;
+      }
     } catch (err) {
-      logger.error('Error fetching products:', err);
+      // Check if we should retry (use local attempt counter, NOT state)
+      const shouldRetry = !isRetry && attempt < MAX_RETRIES;
+
+      if (shouldRetry) {
+        // Exponential backoff: 1s, 2s, 4s...
+        const delay = INITIAL_RETRY_DELAY * Math.pow(2, attempt);
+        logger.warn(`Products fetch failed (attempt ${attempt + 1}/${MAX_RETRIES}), retrying in ${delay}ms...`, err?.message);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return fetchProducts(activeFilters, true, attempt + 1);
+      }
+
+      // Max retries reached - show error
+      logger.error('Error fetching products after retries:', err);
       setError(err?.message || 'Failed to load products. Please try again.');
       setProducts([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, []); // No dependencies — stable reference
 
   useEffect(() => {
     fetchCollections();
@@ -350,7 +381,10 @@ function ProductsContent() {
                   <div className="text-center py-12 bg-[#0B0608]/40 rounded-2xl border border-red-500/20">
                     <p className="text-red-400 mb-3">{error}</p>
                     <button
-                      onClick={() => fetchProducts(filters)}
+                      onClick={() => {
+                        setRetryCount(0);
+                        fetchProducts(filters);
+                      }}
                       className="px-4 py-2 bg-[#7A2F57]/30 text-[#F2C29A] rounded-lg hover:bg-[#7A2F57]/50 transition-colors text-sm"
                     >
                       Try Again

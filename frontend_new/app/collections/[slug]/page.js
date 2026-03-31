@@ -4,46 +4,60 @@ import { collectionsApi, productsApi } from '@/lib/customerApi';
 import { generateBreadcrumbSchema, generateItemListSchema } from '@/lib/structuredData';
 import CollectionDetailClient from './CollectionDetailClient';
 
+// Timeout for API calls (10 seconds)
+const API_TIMEOUT_MS = 10000;
+
 // Generate metadata dynamically
 export async function generateMetadata({ params }) {
   try {
     const slug = await params.slug;
-    const collection = await collectionsApi.getBySlug(slug);
+    
+    // Fetch with timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
+    
+    try {
+      const collection = await collectionsApi.getBySlug(slug);
+      clearTimeout(timeoutId);
 
-    if (!collection) {
+      if (!collection) {
+        return {
+          title: 'Collection Not Found | Aarya Clothing',
+          robots: { index: false, follow: false },
+        };
+      }
+
+      const title = `${collection.name} | Aarya Clothing`;
+      const description = collection.description || `Explore our ${collection.name.toLowerCase()} collection at Aarya Clothing. Premium ethnic wear with free shipping across India.`;
+      const imageUrl = collection.image_url || 'https://pub-7846c786f7154610b57735df47899fa0.r2.dev/logo.png';
+
       return {
-        title: 'Collection Not Found | Aarya Clothing',
-        robots: { index: false, follow: false },
+        title,
+        description,
+        keywords: [collection.name.toLowerCase(), 'ethnic wear', 'Indian fashion', 'Aarya Clothing', ...(collection.name.includes('Saree') ? ['sarees', 'saree collection'] : []), ...(collection.name.includes('Kurti') ? ['kurtis', 'kurti designs'] : []), ...(collection.name.includes('Lehenga') ? ['lehengas', 'lehenga collection'] : [])],
+        authors: [{ name: 'Aarya Clothing' }],
+        creator: 'Aarya Clothing',
+        publisher: 'Aarya Clothing',
+        robots: { index: true, follow: true },
+        alternates: { canonical: `https://aaryaclothing.in/collections/${slug}` },
+        openGraph: {
+          title,
+          description,
+          url: `https://aaryaclothing.in/collections/${slug}`,
+          type: 'website',
+          images: [{ url: imageUrl, width: 1200, height: 630, alt: collection.name }],
+        },
+        twitter: {
+          card: 'summary_large_image',
+          title,
+          description,
+          images: [imageUrl],
+        },
       };
+    } catch (fetchError) {
+      clearTimeout(timeoutId);
+      throw fetchError;
     }
-
-    const title = `${collection.name} | Aarya Clothing`;
-    const description = collection.description || `Explore our ${collection.name.toLowerCase()} collection at Aarya Clothing. Premium ethnic wear with free shipping across India.`;
-    const imageUrl = collection.image_url || 'https://pub-7846c786f7154610b57735df47899fa0.r2.dev/logo.png';
-
-    return {
-      title,
-      description,
-      keywords: [collection.name.toLowerCase(), 'ethnic wear', 'Indian fashion', 'Aarya Clothing', ...(collection.name.includes('Saree') ? ['sarees', 'saree collection'] : []), ...(collection.name.includes('Kurti') ? ['kurtis', 'kurti designs'] : []), ...(collection.name.includes('Lehenga') ? ['lehengas', 'lehenga collection'] : [])],
-      authors: [{ name: 'Aarya Clothing' }],
-      creator: 'Aarya Clothing',
-      publisher: 'Aarya Clothing',
-      robots: { index: true, follow: true },
-      alternates: { canonical: `https://aaryaclothing.in/collections/${slug}` },
-      openGraph: {
-        title,
-        description,
-        url: `https://aaryaclothing.in/collections/${slug}`,
-        type: 'website',
-        images: [{ url: imageUrl, width: 1200, height: 630, alt: collection.name }],
-      },
-      twitter: {
-        card: 'summary_large_image',
-        title,
-        description,
-        images: [imageUrl],
-      },
-    };
   } catch (error) {
     console.error('Error generating metadata:', error);
     return {
@@ -53,32 +67,33 @@ export async function generateMetadata({ params }) {
   }
 }
 
-// Fetch collection and products server-side
+// Fetch collection and products server-side with timeout
 async function getCollectionData(slug) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
+
   try {
-    const [collection, productsResponse] = await Promise.all([
-      collectionsApi.getBySlug(slug),
-      productsApi.list({ category_id: null, limit: 100 }).catch(() => ({ items: [] }))
-    ]);
+    const collection = await collectionsApi.getBySlug(slug);
+
+    clearTimeout(timeoutId);
 
     if (!collection) {
       return null;
     }
 
-    // Filter products by collection_id client-side since we can't pass it to the API call above
+    // Fetch products filtered by category_id (collection.id)
+    const productsResponse = await productsApi.list({ category_id: collection.id, limit: 100 }).catch(() => ({ items: [] }));
+
     const allProducts = Array.isArray(productsResponse)
       ? productsResponse
       : (productsResponse?.items || productsResponse?.products || []);
 
-    const collectionProducts = allProducts.filter(
-      product => product.collection_id === collection.id || product.category === collection.name
-    );
-
     return {
       collection,
-      products: collectionProducts.length > 0 ? collectionProducts : allProducts
+      products: allProducts
     };
   } catch (error) {
+    clearTimeout(timeoutId);
     console.error('Error fetching collection data:', error);
     return null;
   }

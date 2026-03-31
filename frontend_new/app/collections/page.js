@@ -47,15 +47,30 @@ function generateStructuredData(categories) {
   };
 }
 
-// Fetch collections data server-side
+// Fetch collections data server-side with retry
 async function getCollections() {
-  try {
-    const data = await collectionsApi.list();
-    return Array.isArray(data) ? data : (data?.items || data?.collections || []);
-  } catch (error) {
-    console.error('Failed to load collections:', error);
-    return [];
+  const MAX_RETRIES = 2;
+
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const data = await collectionsApi.list();
+      const items = Array.isArray(data) ? data : (data?.items || data?.collections || []);
+      return items;
+    } catch (error) {
+      console.error(`[Collections] Fetch failed (attempt ${attempt + 1}/${MAX_RETRIES + 1}):`, error?.message || error);
+
+      if (attempt < MAX_RETRIES) {
+        // Wait before retry: 500ms, 1000ms
+        await new Promise(r => setTimeout(r, 500 * (attempt + 1)));
+        continue;
+      }
+
+      // All retries exhausted
+      return [];
+    }
   }
+
+  return [];
 }
 
 export default async function CollectionsPage() {

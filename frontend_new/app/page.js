@@ -56,14 +56,14 @@ const Footer = dynamic(() => import('@/components/landing/Footer'), {
 
 /**
  * Landing Page Component
- * 
+ *
  * ARCHITECTURE: Frontend fetches ready-to-use data from backend API.
  * - Backend is the SINGLE SOURCE OF TRUTH
  * - All R2 URLs are constructed by backend
  * - All data transformation happens in backend
  * - All default values come from backend/database
  * - Frontend just displays data as-is
- * 
+ *
  * No hard-coded data, no direct R2 access, no transformation logic here.
  */
 
@@ -71,8 +71,7 @@ const Footer = dynamic(() => import('@/components/landing/Footer'), {
 const ERROR_FALLBACK_DATA = {
   hero: {
     tagline: "",
-    slides: [],
-    buttons: []
+    slides: []
   },
   newArrivals: {
     title: "",
@@ -91,47 +90,87 @@ const ERROR_FALLBACK_DATA = {
   }
 };
 
+// Timeout for API calls (10 seconds)
+const API_TIMEOUT_MS = 10000;
+// Max retries with exponential backoff
+const MAX_RETRIES = 2;
+// Initial retry delay in ms
+const INITIAL_RETRY_DELAY = 1000;
+
 export default function Home() {
   const [showLanding, setShowLanding] = useState(false);
   const [isClient, setIsClient] = useState(false);
   const [landingData, setLandingData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
 
-  // Fetch landing page data from backend
+  // Fetch landing page data from backend with timeout and retry
   // Backend returns fully formatted, ready-to-use data
-  const fetchLandingData = useCallback(async () => {
+  const fetchLandingData = useCallback(async (isRetry = false, currentRetryCount = 0) => {
     try {
-      setIsLoading(true);
+      if (!isRetry) {
+        setIsLoading(true);
+      }
       setHasError(false);
 
-      // Backend returns data in exact format needed by components
-      // No transformation required on frontend
-      const response = await getLandingAll();
+      // Create abort controller for timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
 
-      if (response) {
-        // Direct assignment - backend has already:
-        // - Constructed all R2 URLs
-        // - Applied default values
-        // - Sorted and formatted data
-        // - Transformed config into component-ready format
-        setLandingData(response);
-        logger.log('Landing data loaded from backend');
-      } else {
-        // Empty response - use error fallback
-        setLandingData(ERROR_FALLBACK_DATA);
-        setHasError(true);
-        logger.warn('Empty response from landing API');
+      try {
+        // Backend returns data in exact format needed by components
+        // No transformation required on frontend
+        const response = await getLandingAll();
+
+        clearTimeout(timeoutId);
+
+        if (response) {
+          // Direct assignment - backend has already:
+          // - Constructed all R2 URLs
+          // - Applied default values
+          // - Sorted and formatted data
+          // - Transformed config into component-ready format
+          setLandingData(response);
+          logger.log('Landing data loaded from backend');
+        } else {
+          // Empty response - use error fallback
+          setLandingData(ERROR_FALLBACK_DATA);
+          setHasError(true);
+          logger.warn('Empty response from landing API');
+        }
+      } catch (fetchError) {
+        clearTimeout(timeoutId);
+        throw fetchError;
       }
     } catch (error) {
-      // API error - use error fallback for graceful degradation
-      logger.error('Failed to fetch landing data:', error.message);
+      // Check if we should retry
+      const isTimeoutError = error.name === 'AbortError' || error.message?.includes('timeout');
+      const shouldRetry = !isRetry && currentRetryCount < MAX_RETRIES;
+
+      if (shouldRetry) {
+        // Exponential backoff: 1s, 2s, 4s...
+        const delay = INITIAL_RETRY_DELAY * Math.pow(2, currentRetryCount);
+        logger.warn(`Landing data fetch failed (attempt ${currentRetryCount + 1}/${MAX_RETRIES}), retrying in ${delay}ms...`, error.message);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return fetchLandingData(true, currentRetryCount + 1);
+      }
+
+      // Max retries reached or non-retryable error - use error fallback for graceful degradation
+      logger.error('Failed to fetch landing data after retries:', error.message);
       setLandingData(ERROR_FALLBACK_DATA);
       setHasError(true);
     } finally {
       setIsLoading(false);
     }
   }, []);
+
+  // Initial data fetch - triggers when component mounts and landing should show
+  useEffect(() => {
+    if (showLanding && !landingData) {
+      fetchLandingData();
+    }
+  }, [showLanding, landingData, fetchLandingData]);
 
   useEffect(() => {
     setIsClient(true);
@@ -149,15 +188,33 @@ export default function Home() {
       : null;
     const isSlow = conn && (conn.saveData || conn.effectiveType === '2g' || conn.effectiveType === 'slow-2g' || conn.effectiveType === '3g');
 
+    // Set timeout for video loading - if video doesn't load in 5 seconds, skip it
+    const videoTimeout = setTimeout(() => {
+      if (!showLanding) {
+        logger.warn('Video intro timeout - skipping to landing page');
+        setShowLanding(true);
+        fetchLandingData();
+      }
+    }, 5000);
+
     if (hasSeenSession || hasSeenRecently || isSlow) {
       // Skip video — fetch data immediately
       setShowLanding(true);
       fetchLandingData();
+      clearTimeout(videoTimeout);
     } else {
       // Video will play — delay fetch by 1s so video buffers first on fast networks
-      setTimeout(fetchLandingData, 1000);
+      // But if video fails or takes too long, timeout will trigger
+      setTimeout(() => {
+        if (!showLanding) {
+          fetchLandingData();
+        }
+      }, 1000);
     }
-  }, [fetchLandingData]);
+
+    // Cleanup
+    return () => clearTimeout(videoTimeout);
+  }, [fetchLandingData, showLanding]);
 
   const handleVideoEnd = () => {
     setShowLanding(true);
@@ -199,8 +256,17 @@ export default function Home() {
     return null;
   }
 
-  // Show loading state
+  // Show loading state — but only AFTER intro video is done
+  // If video is still playing, let IntroVideo handle the visual
   if (isLoading || !landingData) {
+    if (!showLanding) {
+      // Intro video is still playing — show it instead of spinner
+      return (
+        <main id="main-content" className="min-h-screen bg-[#050203]" role="main">
+          <IntroVideo onVideoEnd={handleVideoEnd} />
+        </main>
+      );
+    }
     return (
       <main
         id="main-content"
@@ -211,6 +277,18 @@ export default function Home() {
         <div className="flex flex-col items-center gap-4" role="status" aria-live="polite">
           <div className="w-16 h-16 border-2 border-[#B76E79]/20 border-t-[#F2C29A] rounded-full animate-spin" />
           <p className="text-[#F2C29A]/60 text-sm uppercase tracking-[0.3em] font-light" style={{ fontFamily: 'Cinzel, serif' }}>Aarya Clothing</p>
+          {hasError && (
+            <button
+              onClick={() => {
+                setRetryCount(0);
+                fetchLandingData();
+              }}
+              className="mt-2 px-4 py-2 bg-[#7A2F57]/30 text-[#F2C29A] rounded-lg hover:bg-[#7A2F57]/50 transition-colors text-sm"
+              type="button"
+            >
+              Retry
+            </button>
+          )}
         </div>
       </main>
     );
@@ -218,7 +296,7 @@ export default function Home() {
 
   return (
     <>
-      {/* Intro Video Overlay */}
+      {/* Intro Video Overlay — only if landing data is loaded but video hasn't ended */}
       {!showLanding && (
         <IntroVideo onVideoEnd={handleVideoEnd} />
       )}

@@ -62,6 +62,7 @@ export default function EditProductPage() {
   const fetchProduct = async () => {
     try {
       setLoadingProduct(true);
+      setError(null);
       const product = await productsApi.get(productId);
       setForm({
         name: product.name || '',
@@ -82,7 +83,9 @@ export default function EditProductPage() {
       setExistingImages(product.images || []);
     } catch (err) {
       logger.error('Error fetching product:', err);
-      router.push('/admin/products');
+      // Show error with retry instead of redirecting — the user may have
+      // just opened a new tab and auth hasn't propagated yet.
+      setError(err?.message || 'Failed to load product. The product may not exist or you may need to re-authenticate.');
     } finally {
       setLoadingProduct(false);
     }
@@ -282,6 +285,30 @@ export default function EditProductPage() {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <RefreshCw className="w-8 h-8 animate-spin text-[#B76E79]" />
+      </div>
+    );
+  }
+
+  if (error && !form.name) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
+        <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl max-w-md text-center">
+          <p className="text-red-400 text-sm mb-4">{error}</p>
+          <div className="flex gap-3 justify-center">
+            <button
+              onClick={() => fetchProduct()}
+              className="px-4 py-2 bg-gradient-to-r from-[#7A2F57] to-[#B76E79] text-white rounded-xl hover:opacity-90 transition-opacity text-sm flex items-center gap-2"
+            >
+              <RefreshCw className="w-4 h-4" /> Retry
+            </button>
+            <Link
+              href="/admin/products"
+              className="px-4 py-2 border border-[#B76E79]/30 text-[#EAE0D5]/70 rounded-xl hover:bg-[#B76E79]/10 transition-colors text-sm"
+            >
+              Back to Products
+            </Link>
+          </div>
+        </div>
       </div>
     );
   }

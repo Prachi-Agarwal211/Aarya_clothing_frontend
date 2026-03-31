@@ -2548,6 +2548,8 @@ async def cancel_return_request(
 
 
 # ==================== Product Sorting & Filtering ====================
+# IMPORTANT: /browse route MUST come before /{product_id}/related to avoid route matching conflicts
+# FastAPI matches routes in order, and "browse" would be interpreted as a product_id otherwise
 
 @app.get("/api/v1/products/browse", tags=["Products"])
 async def browse_products(
@@ -2566,7 +2568,7 @@ async def browse_products(
 ):
     """Browse products with advanced filtering, sorting, and pagination."""
     user_role = current_user.get("role") if current_user else None
-    
+
     query = db.query(Product).filter(Product.is_active == True)
 
     # Category filter (by ID or slug)

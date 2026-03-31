@@ -33,14 +33,23 @@ function hasSeenIntroRecently() {
   try {
     const ts = localStorage.getItem('introVideoLastSeen');
     if (!ts) return false;
-    return Date.now() - parseInt(ts, 10) < 24 * 60 * 60 * 1000;
-  } catch { return false; }
+    const parsed = parseInt(ts, 10);
+    if (isNaN(parsed)) return false;
+    return Date.now() - parsed < 24 * 60 * 60 * 1000;
+  } catch (e) { 
+    logger.warn('Failed to check intro video status:', e);
+    return false; 
+  }
 }
 function markIntroSeen() {
   try {
-    localStorage.setItem('introVideoLastSeen', Date.now().toString());
+    const now = Date.now().toString();
+    localStorage.setItem('introVideoLastSeen', now);
     sessionStorage.setItem('hasSeenIntroVideo', 'true');
-  } catch {}
+    logger.log('Intro video marked as seen:', new Date(parseInt(now, 10)).toISOString());
+  } catch (e) {
+    logger.warn('Failed to mark intro as seen:', e);
+  }
 }
 
 export default function IntroVideo({ onVideoEnd }) {
@@ -71,14 +80,28 @@ export default function IntroVideo({ onVideoEnd }) {
 
   // Skip if already seen recently, disabled, slow network, reduced motion, OR MOBILE
   useEffect(() => {
+    const seenRecently = hasSeenIntroRecently();
+    const seenInSession = !!sessionStorage.getItem('hasSeenIntroVideo');
     const skip =
       isMobile ||  // ALWAYS skip on mobile for better performance
-      hasSeenIntroRecently() ||
-      !!sessionStorage.getItem('hasSeenIntroVideo') ||
+      seenRecently ||
+      seenInSession ||
       introVideo.enabled === false ||
       shouldSkipForNetwork() ||
       prefersReducedMotion;
+    
+    logger.log('IntroVideo skip check:', { 
+      isMobile, 
+      seenRecently, 
+      seenInSession, 
+      enabled: introVideo.enabled, 
+      slowNetwork: shouldSkipForNetwork(), 
+      reducedMotion: prefersReducedMotion,
+      willSkip: skip 
+    });
+    
     if (skip) {
+      logger.log('Skipping intro video');
       setIsVideoEnded(true);
       onVideoEnd?.();
     }

@@ -398,7 +398,7 @@ async def get_featured_products(
 ):
     """Get featured products."""
     user_role = current_user.get("role") if current_user else None
-    
+
     products = db.query(Product).options(
         joinedload(Product.collection),
         selectinload(Product.images),
@@ -408,6 +408,81 @@ async def get_featured_products(
         Product.is_featured == True
     ).order_by(Product.created_at.desc()).limit(limit).all()
     return [_enrich_product(p, db, user_role) for p in products]
+
+
+# IMPORTANT: /browse route MUST come before /{product_id} to avoid route matching conflicts
+# FastAPI matches routes in order, and "browse" would be interpreted as a product_id otherwise
+@router.get("/browse")
+async def browse_products(
+    category_id: Optional[int] = None,
+    category_slug: Optional[str] = None,
+    min_price: Optional[float] = None,
+    max_price: Optional[float] = None,
+    sort_by: str = Query("newest", regex="^(newest|price_low|price_high|popular|name_asc|name_desc)$"),
+    size: Optional[str] = None,
+    color: Optional[str] = None,
+    in_stock_only: bool = True,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(24, ge=1, le=100),
+    db: Session = Depends(get_db),
+    current_user: Optional[dict] = Depends(get_current_user_optional)
+):
+    """Browse products with advanced filtering, sorting, and pagination."""
+    from models.inventory import Inventory as _Inv
+    
+    user_role = current_user.get("role") if current_user else None
+
+    query = db.query(Product).filter(Product.is_active == True)
+
+    # Category filter (by ID or slug)
+    if category_id:
+        query = query.filter(Product.category_id == category_id)
+    elif category_slug:
+        cat = db.query(Collection).filter(Collection.slug == category_slug).first()
+        if cat:
+            query = query.filter(Product.category_id == cat.id)
+
+    # Price range filter
+    if min_price is not None:
+        query = query.filter(Product.base_price >= min_price)
+    if max_price is not None:
+        query = query.filter(Product.base_price <= max_price)
+
+    # In-stock filter
+    if in_stock_only:
+        in_stock_ids = db.query(_Inv.product_id).filter(_Inv.quantity > 0).subquery()
+        query = query.filter(Product.id.in_(in_stock_ids))
+
+    # Sorting
+    if sort_by == "price_low":
+        query = query.order_by(Product.base_price.asc())
+    elif sort_by == "price_high":
+        query = query.order_by(Product.base_price.desc())
+    elif sort_by == "popular":
+        query = query.order_by(Product.average_rating.desc())  # Proxy for popularity
+    elif sort_by == "name_asc":
+        query = query.order_by(Product.name.asc())
+    elif sort_by == "name_desc":
+        query = query.order_by(Product.name.desc())
+    else:  # newest
+        query = query.order_by(Product.created_at.desc())
+
+    total = query.count()
+    products = query.offset(skip).limit(limit).all()
+
+    return {
+        "products": [_enrich_product(p, db, user_role) for p in products],
+        "total": total,
+        "page": skip // limit + 1,
+        "total_pages": (total + limit - 1) // limit,
+        "sort_by": sort_by,
+        "filters": {
+            "category_id": category_id,
+            "min_price": min_price,
+            "max_price": max_price,
+            "in_stock_only": in_stock_only,
+        }
+    }
 
 
 @router.get("/slug/{slug}")

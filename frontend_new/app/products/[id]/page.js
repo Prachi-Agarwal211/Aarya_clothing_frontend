@@ -7,7 +7,7 @@ import ProductDetailClient from './ProductDetailClient';
 // Generate metadata dynamically
 export async function generateMetadata({ params }) {
   try {
-    const id = await params.id;
+    const { id } = await params;
     let product;
 
     try {
@@ -135,7 +135,7 @@ async function getProductData(id) {
 }
 
 export default async function ProductDetailPage({ params }) {
-  const id = await params.id;
+  const { id } = await params;
   const data = await getProductData(id);
 
   if (!data || !data.product) {

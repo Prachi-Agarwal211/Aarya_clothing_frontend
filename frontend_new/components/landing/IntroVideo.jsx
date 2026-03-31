@@ -107,6 +107,14 @@ export default function IntroVideo({ onVideoEnd }) {
     }
   }, [onVideoEnd, introVideo.enabled, isMobile]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // iOS Safari: React doesn't reliably apply the `muted` attribute via JSX.
+  // Set it imperatively on the DOM element as soon as the video mounts.
+  useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.muted = true;
+    }
+  }, [videoUrl]);
+
   const startVideo = useCallback(() => {
     setShowPreloader(false);
     setVideoStarted(true);
@@ -334,7 +342,7 @@ export default function IntroVideo({ onVideoEnd }) {
             key={videoUrl}
             muted
             playsInline
-            preload="metadata"
+            preload="auto"
             onEnded={handleVideoEnd}
             onError={handleVideoError}
             onCanPlay={handleVideoCanPlay}

@@ -153,8 +153,8 @@ export async function fetchWithRetry(fetchFn, maxRetries = 2, initialDelayMs = 1
       return await fetchFn();
     } catch (error) {
       lastError = error;
-      // Don't retry on abort errors
-      if (error.name === 'AbortError') {
+      // Don't retry on abort errors or 4xx client errors (they won't succeed)
+      if (error.name === 'AbortError' || error.noRetry) {
         throw error;
       }
       // Don't retry on the last attempt
@@ -275,7 +275,7 @@ export class BaseApiClient {
       ...(options.headers || {}),
     };
 
-    // Wrap fetch in retry logic
+    // Wrap fetch in retry logic — only retry network/5xx errors, never 4xx
     return fetchWithRetry(async () => {
       let response;
       try {
@@ -308,6 +308,8 @@ export class BaseApiClient {
         const error = new Error(detail);
         error.status = response.status;
         error.data = data;
+        // Do NOT retry 4xx client errors — they won't succeed on retry
+        error.noRetry = response.status >= 400 && response.status < 500;
         throw error;
       }
 

@@ -49,18 +49,6 @@ export const metadata = {
   publisher: 'Aarya Clothing',
   robots: { index: true, follow: true },
   alternates: { canonical: 'https://aaryaclothing.in' },
-  viewport: {
-    width: 'device-width',
-    initialScale: 1,
-    maximumScale: 5,
-    userScalable: true,
-    viewportFit: 'cover',
-  },
-  themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#F5F0ED' },
-    { media: '(prefers-color-scheme: dark)', color: '#0B0608' },
-    { color: '#0B0608' },
-  ],
   openGraph: {
     type: 'website',
     locale: 'en_IN',
@@ -78,6 +66,19 @@ export const metadata = {
   },
   // Performance metadata
   manifest: '/manifest.json',
+};
+
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+  userScalable: true,
+  viewportFit: 'cover',
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#F5F0ED' },
+    { media: '(prefers-color-scheme: dark)', color: '#0B0608' },
+    { color: '#0B0608' },
+  ],
 };
 
 export default function RootLayout({ children }) {

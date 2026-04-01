@@ -7,7 +7,6 @@ import { Lock, Eye, EyeOff, CheckCircle, XCircle } from 'lucide-react';
 import Link from 'next/link';
 import { authApi } from '../../../lib/customerApi';
 import { useLogo } from '../../../lib/siteConfigContext';
-import logger from '../../../lib/logger';
 
 export default function ChangePasswordPage() {
   const logoUrl = useLogo();
@@ -53,7 +52,7 @@ export default function ChangePasswordPage() {
       });
       setStatus('Password changed successfully.');
     } catch (err) {
-      logger.error('Change password failed:', err);
+      console.error('Change password failed:', err);
       setError(err.message || 'Failed to change password.');
     } finally {
       setIsSubmitting(false);

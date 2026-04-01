@@ -421,32 +421,53 @@ export class BaseApiClient {
   }
 }
 
-// Pre-configured clients
+/**
+ * Get the core API base URL from environment configuration.
+ * 
+ * This is the single source of truth for all API base URLs in the application.
+ * Provides graceful fallback to prevent crashes when environment variable is missing.
+ * 
+ * Priority order:
+ * 1. NEXT_PUBLIC_API_URL environment variable
+ * 2. Browser window location origin (client-side only)
+ * 3. Safe fallback for SSR (logs warning, returns default)
+ * 
+ * @returns {string} The base URL for API requests
+ * 
+ * @example
+ * const baseUrl = getCoreBaseUrl();
+ * // Returns: 'https://aaryaclothing.in' (production with env set)
+ * // Returns: window.location.origin (browser fallback)
+ * // Returns: 'http://localhost:6005' (SSR fallback with warning)
+ */
 export function getCoreBaseUrl() {
-  // Browser: always use current origin so prod never calls localhost.
-  // Exception: dev frontend port 6004 routes through nginx on 6005.
-  if (typeof window !== 'undefined') {
-    const origin = window.location.origin;
-    // Production: use the same origin (nginx handles proxying)
-    if (origin.includes('aaryaclothing.in')) {
-      return origin;
-    }
-    // Dev: port 6004 routes through nginx on 6005
-    if (origin.includes(':6004')) {
-      return 'http://localhost:6005';
-    }
-    // Local development fallback
-    return origin;
-  }
-  // SSR in Docker: use internal Docker network service names for direct communication
-  // This avoids going through nginx and reduces latency
-  if (typeof process !== 'undefined' && process.env?.DOCKER_ENV === 'true') {
-    return 'http://commerce:5002';
-  }
-  // SSR: use the public API URL (nginx serves both internal and external traffic via HTTPS)
+  // Priority 1: Environment variable (works in all environments)
   if (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_API_URL) {
-    return process.env.NEXT_PUBLIC_API_URL;
+    const url = process.env.NEXT_PUBLIC_API_URL.trim();
+    
+    // Validate URL format but don't throw - just warn
+    try {
+      new URL(url);
+      return url;
+    } catch (error) {
+      console.warn('[baseApi] Invalid NEXT_PUBLIC_API_URL format:', url);
+      // Continue to fallback instead of throwing
+    }
   }
+
+  // Priority 2: Browser environment - use current origin
+  if (typeof window !== 'undefined') {
+    return window.location.origin;
+  }
+
+  // Priority 3: SSR fallback - return safe default with warning
+  // This prevents crashes during SSR/build if env var is missing
+  console.warn(
+    '[baseApi] NEXT_PUBLIC_API_URL not configured. ' +
+    'Using current origin or default. ' +
+    'For production, set NEXT_PUBLIC_API_URL in environment variables.'
+  );
+  
   return 'http://localhost:6005';
 }
 

@@ -22,6 +22,7 @@ import {
 import { chatApi } from '@/lib/adminApi';
 import { getCommerceBaseUrl } from '@/lib/baseApi';
 import logger from '@/lib/logger';
+import { getErrorMessage, logError } from '@/lib/errorHandlers';
 
 export default function ChatPage() {
   const [rooms, setRooms] = useState([]);
@@ -176,8 +177,16 @@ export default function ChatPage() {
       });
       setUnreadMap(unreadCounts);
     } catch (err) {
-      logger.error('Error fetching rooms:', err);
-      setError('Failed to load chat rooms. Please try again.');
+      logError('AdminChat', 'loading chat rooms', err, { 
+        endpoint: '/api/v1/admin/chat/rooms'
+      });
+      
+      setError(getErrorMessage(err, 'load chat rooms', {
+        authMsg: 'Your session has expired. Please log in again.',
+        permissionMsg: 'You do not have permission to view chat rooms.',
+        notFoundMsg: 'No chat rooms found.',
+        networkMsg: 'Cannot connect to server. Please check your connection.'
+      }));
       setRooms([]);
     } finally {
       if (showLoading) setLoading(false);
@@ -190,7 +199,10 @@ export default function ChatPage() {
       const data = await chatApi.getMessages(roomId);
       setMessages(data.messages || []);
     } catch (err) {
-      logger.error('Error fetching messages:', err);
+      logError('AdminChat', 'loading messages', err, { 
+        endpoint: `/api/v1/admin/chat/rooms/${roomId}/messages`,
+        roomId
+      });
       setMessages([]);
     }
   };

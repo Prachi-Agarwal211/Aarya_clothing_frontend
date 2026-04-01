@@ -13,10 +13,10 @@ import { OrderStatusBadge } from '@/components/admin/shared/StatusBadge';
 import Breadcrumb from '@/components/admin/shared/Breadcrumb';
 import { ErrorBoundary, ErrorDisplay } from '@/components/admin/shared/ErrorBoundary';
 import { dashboardApi, ordersApi, inventoryApi } from '@/lib/adminApi';
+import { logError } from '@/lib/errorHandlers';
 import { useAuth } from '@/lib/authContext';
 import { isAdmin } from '@/lib/roles';
 import { cn } from '@/lib/utils';
-import logger from '@/lib/logger';
 
 const fmt = (n) =>
   new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(n || 0);
@@ -49,7 +49,7 @@ function DashboardContent() {
       setDashboardData(dashboard);
       setLowStockItems(lowStock.items || []);
     } catch (err) {
-      logger.error('Failed to load dashboard:', err);
+      logError('AdminDashboard', 'loading dashboard data', err);
       const msg = err.message || '';
       if (msg.includes('401') || msg.includes('Not authenticated') || msg.includes('Unauthorized')) {
         setError('Please log in to access the admin dashboard');

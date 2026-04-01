@@ -14,7 +14,6 @@ import {
 import EnhancedHeader from '@/components/landing/EnhancedHeader';
 import Footer from '@/components/landing/Footer';
 import { commerceClient } from '@/lib/baseApi';
-import logger from '@/lib/logger';
 
 const STATUS_CONFIG = {
   confirmed:  { label: 'Order Confirmed',  icon: Package,     color: 'text-blue-400',   bg: 'bg-blue-500/10',   border: 'border-blue-500/20' },
@@ -38,7 +37,7 @@ export default function GuestOrderTrackingPage() {
         const data = await commerceClient.get(`/api/v1/orders/track/${token}`);
         setOrder(data);
       } catch (err) {
-        logger.error('Failed to load guest order:', err);
+        console.error('Failed to load guest order:', err);
         setError('Order not found. Please check your tracking link.');
       } finally {
         setLoading(false);

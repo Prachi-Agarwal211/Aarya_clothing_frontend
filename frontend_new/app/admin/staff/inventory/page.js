@@ -13,6 +13,7 @@ import {
 import DataTable from '@/components/admin/shared/DataTable';
 import { inventoryApi } from '@/lib/adminApi';
 import logger from '@/lib/logger';
+import { getErrorMessage, logError } from '@/lib/errorHandlers';
 
 export default function StaffInventoryPage() {
   const [inventory, setInventory] = useState([]);
@@ -40,8 +41,17 @@ export default function StaffInventoryPage() {
 
       setInventory(data.items || data || []);
     } catch (err) {
-      logger.error('Error fetching inventory:', err);
-      setError('Failed to load inventory');
+      logError('StaffInventory', 'loading inventory', err, { 
+        endpoint: '/api/v1/admin/inventory',
+        filter
+      });
+      
+      setError(getErrorMessage(err, 'load inventory', {
+        authMsg: 'Your session has expired. Please log in again.',
+        permissionMsg: 'You do not have permission to view inventory.',
+        notFoundMsg: 'No inventory items found.',
+        networkMsg: 'Cannot connect to server. Please check your connection.'
+      }));
     } finally {
       setLoading(false);
     }
@@ -62,8 +72,18 @@ export default function StaffInventoryPage() {
       await fetchInventory();
       setEditingId(null);
     } catch (err) {
-      logger.error('Failed to adjust stock:', err);
-      setError('Failed to update stock');
+      logError('StaffInventory', 'adjusting stock', err, { 
+        productId,
+        variantId,
+        adjustment
+      });
+      
+      setError(getErrorMessage(err, 'update stock', {
+        authMsg: 'Your session has expired. Please log in again.',
+        permissionMsg: 'You do not have permission to adjust stock.',
+        notFoundMsg: 'Product not found.',
+        networkMsg: 'Cannot connect to server. Please check your connection.'
+      }));
     } finally {
       setSaving(false);
     }

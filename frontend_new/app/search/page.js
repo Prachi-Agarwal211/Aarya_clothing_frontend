@@ -14,7 +14,6 @@ import {
 import EnhancedHeader from '@/components/landing/EnhancedHeader';
 import Footer from '@/components/landing/Footer';
 import { productsApi, collectionsApi } from '@/lib/customerApi';
-import logger from '@/lib/logger';
 
 const PAGE_SIZE = 24;
 
@@ -78,7 +77,7 @@ function SearchContent() {
       setProducts(items);
       setTotal(totalCount);
     } catch (err) {
-      logger.error('Search failed:', err);
+      console.error('Search failed:', err);
       setProducts([]);
       setTotal(0);
     } finally {

@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { X, Ruler, MessageCircle, Info } from 'lucide-react';
 import Modal from '../ui/Modal';
-import logger from '@/lib/logger';
 import { getCoreBaseUrl } from '@/lib/baseApi';
 
 /**
@@ -36,7 +35,7 @@ export default function SizeGuideModal({ isOpen, onClose, category = 'kurta' }) 
         setSizeData(data);
       }
     } catch (error) {
-      logger.error('Error fetching size guide:', error);
+      console.error('Error fetching size guide:', error);
     } finally {
       setLoading(false);
     }

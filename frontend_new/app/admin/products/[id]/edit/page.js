@@ -50,6 +50,7 @@ export default function EditProductPage() {
   const [newImages, setNewImages] = useState([]);
   const [errors, setErrors] = useState({});
   const [isDragging, setIsDragging] = useState(false);
+  const [authError, setAuthError] = useState(false);
 
   useEffect(() => {
     if (productId) {
@@ -63,7 +64,23 @@ export default function EditProductPage() {
     try {
       setLoadingProduct(true);
       setError(null);
+      setAuthError(false);
+      
+      // Validate product ID before making API call
+      if (!productId || productId === 'undefined' || productId === 'null') {
+        throw new Error(`Invalid product ID: ${productId}. The URL might be malformed.`);
+      }
+      
+      logger.info(`[EditProduct] Fetching product with ID: ${productId}`);
       const product = await productsApi.get(productId);
+      
+      logger.info(`[EditProduct] Product fetched successfully:`, { 
+        id: product.id, 
+        name: product.name,
+        hasImages: !!product.images?.length,
+        hasVariants: !!product.inventory?.length 
+      });
+      
       setForm({
         name: product.name || '',
         slug: product.slug || '',
@@ -83,9 +100,31 @@ export default function EditProductPage() {
       setExistingImages(product.images || []);
     } catch (err) {
       logger.error('Error fetching product:', err);
+      
+      // Check if this is an authentication error
+      if (err.status === 401) {
+        setAuthError(true);
+        logger.warn('[EditProduct] Authentication failed - user needs to re-authenticate');
+      }
+      
+      // Build detailed error message based on error type
+      let errorMessage = 'Failed to load product. ';
+      
+      if (err.status === 404) {
+        errorMessage = `Product with ID "${productId}" was not found in the database. It may have been deleted or the URL is incorrect.`;
+      } else if (err.status === 401) {
+        errorMessage = 'Your session has expired or you are not authenticated. Please log in again in the main admin panel.';
+      } else if (err.status === 403) {
+        errorMessage = 'You do not have permission to edit this product. Please contact an administrator.';
+      } else if (err.status === 0 || err.isNetworkError) {
+        errorMessage = 'Cannot connect to the server. Please check if the admin service is running.';
+      } else {
+        errorMessage = err?.message || 'Failed to load product. The product may not exist or you may need to re-authenticate.';
+      }
+      
       // Show error with retry instead of redirecting — the user may have
       // just opened a new tab and auth hasn't propagated yet.
-      setError(err?.message || 'Failed to load product. The product may not exist or you may need to re-authenticate.');
+      setError(errorMessage);
     } finally {
       setLoadingProduct(false);
     }
@@ -284,7 +323,15 @@ export default function EditProductPage() {
   if (loadingProduct) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <RefreshCw className="w-8 h-8 animate-spin text-[#B76E79]" />
+        <div className="text-center">
+          <RefreshCw className="w-8 h-8 animate-spin text-[#B76E79] mx-auto mb-3" />
+          <p className="text-[#EAE0D5]/60 text-sm">Loading product details...</p>
+          {process.env.NODE_ENV === 'development' && (
+            <p className="text-[#EAE0D5]/40 text-xs mt-2 font-mono">
+              Product ID: {productId}
+            </p>
+          )}
+        </div>
       </div>
     );
   }
@@ -292,8 +339,35 @@ export default function EditProductPage() {
   if (error && !form.name) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] gap-4">
-        <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-2xl max-w-md text-center">
-          <p className="text-red-400 text-sm mb-4">{error}</p>
+        <div className="p-6 bg-red-500/10 border border-red-500/20 rounded-2xl max-w-md text-center">
+          <p className="text-red-400 font-medium mb-2">Failed to Load Product</p>
+          <p className="text-red-400/80 text-sm mb-4">{error}</p>
+          
+          {/* Special handling for authentication errors */}
+          {authError && (
+            <div className="mb-4 p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-xl">
+              <p className="text-yellow-400 text-sm mb-3">
+                Authentication required. Please log in again.
+              </p>
+              <Link
+                href="/auth/login?redirect_url=/admin/products"
+                className="px-4 py-2 bg-gradient-to-r from-[#7A2F57] to-[#B76E79] text-white rounded-xl hover:opacity-90 transition-opacity text-sm inline-flex items-center gap-2"
+              >
+                Go to Login
+              </Link>
+            </div>
+          )}
+          
+          {/* Debug info for development */}
+          {process.env.NODE_ENV === 'development' && (
+            <div className="mb-4 p-3 bg-black/20 rounded-lg text-left">
+              <p className="text-xs text-[#EAE0D5]/50 font-mono mb-1">Debug Info:</p>
+              <p className="text-xs text-[#EAE0D5]/70 font-mono">Product ID: <span className="text-white">{productId || 'undefined'}</span></p>
+              <p className="text-xs text-[#EAE0D5]/70 font-mono">URL Path: <span className="text-white">/admin/products/{productId}/edit</span></p>
+              <p className="text-xs text-[#EAE0D5]/70 font-mono">Error Status: <span className="text-white">{error?.status || 'N/A'}</span></p>
+            </div>
+          )}
+          
           <div className="flex gap-3 justify-center">
             <button
               onClick={() => fetchProduct()}

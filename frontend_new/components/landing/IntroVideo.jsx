@@ -74,6 +74,15 @@ export default function IntroVideo({ onVideoEnd }) {
     ? (introVideo.mobile || introVideo.desktop)
     : (introVideo.desktop || introVideo.mobile);
 
+  // Log missing video URL for debugging
+  if (!videoUrl) {
+    logger.error('Intro video URL is missing!', {
+      introVideo,
+      isMobile,
+      videoConfig: JSON.stringify(introVideo)
+    });
+  }
+
   const prefersReducedMotion =
     typeof window !== 'undefined' &&
     window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -267,7 +276,8 @@ export default function IntroVideo({ onVideoEnd }) {
   return (
     <div
       ref={containerRef}
-      className={`fixed inset-0 z-[100] transition-opacity duration-600 ${isFadingOut ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
+      // z-[200] ensures intro video appears above all other overlays (modals, nav, etc.)
+      className={`fixed inset-0 z-[200] transition-opacity duration-600 ${isFadingOut ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
       style={{ background: '#050203' }}
       role="dialog"
       aria-label="Intro video. Press Escape to skip."

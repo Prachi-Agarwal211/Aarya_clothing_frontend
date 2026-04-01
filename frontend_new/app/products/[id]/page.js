@@ -103,20 +103,18 @@ async function getProductData(id) {
     }
 
     // Derive sizes & colors from inventory if not provided
-    if (!product.sizes || product.sizes.length === 0) {
-      const sizesFromInv = [...new Set(
-        (product.inventory || []).map(i => i.size).filter(Boolean)
-      )];
-      product.sizes = sizesFromInv;
-    }
-    if (!product.colors || product.colors.length === 0) {
-      const colorsFromInv = [...new Map(
-        (product.inventory || [])
-          .filter(i => i.color)
-          .map(i => [i.color, { name: i.color, hex: '#B76E79' }])
-      ).values()];
-      product.colors = colorsFromInv;
-    }
+    // Create new arrays instead of mutating the original object
+    const sizes = (product.sizes && product.sizes.length > 0) 
+      ? product.sizes 
+      : [...new Set((product.inventory || []).map(i => i.size).filter(Boolean))];
+    
+    const colors = (product.colors && product.colors.length > 0)
+      ? product.colors
+      : [...new Map(
+          (product.inventory || [])
+            .filter(i => i.color)
+            .map(i => [i.color, { name: i.color, hex: '#B76E79' }])
+        ).values()];
 
     // Fetch reviews
     let reviews = [];
@@ -127,7 +125,15 @@ async function getProductData(id) {
       console.error('Error fetching reviews:', err);
     }
 
-    return { product, reviews };
+    // Return a clean serializable object
+    return { 
+      product: {
+        ...product,
+        sizes,
+        colors
+      }, 
+      reviews 
+    };
   } catch (error) {
     console.error('Error fetching product data:', error);
     return null;

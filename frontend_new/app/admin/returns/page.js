@@ -15,6 +15,7 @@ import {
 } from '@/lib/returnConstants';
 import logger from '@/lib/logger';
 import { useAlertToast } from '@/lib/useAlertToast';
+import { getErrorMessage, logError } from '@/lib/errorHandlers';
 
 export default function AdminReturnsPage() {
   const router = useRouter();
@@ -41,8 +42,14 @@ export default function AdminReturnsPage() {
       const data = await returnsApi.list(filters);
       setReturns(data.returns || data || []);
     } catch (err) {
-      logger.error('Error fetching returns:', err);
-      setError('Failed to load returns. Please try again.');
+      logError('AdminReturns', 'fetching returns', err, { filters });
+      const errorMessage = getErrorMessage(err, 'load returns', {
+        authMsg: 'Your session has expired. Please log in again.',
+        permissionMsg: 'You do not have permission to view returns.',
+        networkMsg: 'Cannot connect to server. Please check your connection.'
+      });
+      setError(errorMessage);
+      showAlert(errorMessage, 'error');
     } finally {
       setLoading(false);
     }

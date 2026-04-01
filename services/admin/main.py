@@ -5084,6 +5084,13 @@ async def admin_get_product(
     product_id: int, db: Session = Depends(get_db), user: dict = Depends(require_admin)
 ):
     """Get a single product by ID with images and inventory (admin only)."""
+    logger = logging.getLogger(__name__)
+
+    # Sanitize user input to prevent log injection attacks
+    import re
+    safe_sub = re.sub(r'[\n\r\t]', '', str(user.get('sub', 'unknown')))
+    logger.info(f"[AdminProduct] Fetching product ID={product_id} for user={safe_sub}")
+    
     row = db.execute(
         text("""
         SELECT p.id, p.name, p.slug, p.base_price, p.mrp, p.short_description,
@@ -5102,8 +5109,13 @@ async def admin_get_product(
         """),
         {"id": product_id},
     ).fetchone()
+    
     if not row:
+        logger.warning(f"[AdminProduct] Product ID={product_id} not found in database")
         raise HTTPException(status_code=404, detail="Product not found")
+    
+    logger.info(f"[AdminProduct] Product found: {row[1]} (ID={row[0]})")
+    
     images = db.execute(
         text("SELECT id, image_url, alt_text, is_primary, display_order FROM product_images WHERE product_id = :pid ORDER BY is_primary DESC, display_order"),
         {"pid": product_id},
@@ -5122,6 +5134,8 @@ async def admin_get_product(
         return f"{r2_base}/{path.lstrip('/')}" if r2_base else path
 
     primary_img = next((full_url(img[1]) for img in images if img[3]), None) or (full_url(images[0][1]) if images else None)
+    logger.info(f"[AdminProduct] Returning product with {len(images)} images and {len(inventory)} variants")
+    
     return {
         "id": row[0],
         "name": row[1],

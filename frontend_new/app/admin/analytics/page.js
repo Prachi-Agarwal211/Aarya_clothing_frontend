@@ -8,7 +8,7 @@ import {
   Activity, Zap, Clock, Target
 } from 'lucide-react';
 import { dashboardApi } from '@/lib/adminApi';
-import logger from '@/lib/logger';
+import { logError } from '@/lib/errorHandlers';
 
 const fmt = (n) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(n);
 
@@ -137,13 +137,13 @@ export default function AnalyticsPage() {
         setRevenueChartData(chartData);
       }
       
-      setLastUpdated(new Date().toLocaleTimeString('en-IN', { 
-        hour: '2-digit', 
-        minute: '2-digit' 
+      setLastUpdated(new Date().toLocaleTimeString('en-IN', {
+        hour: '2-digit',
+        minute: '2-digit'
       }));
     } catch (err) {
-      logger.error('Analytics fetch error:', err);
-      
+      logError('AnalyticsPage', 'fetching analytics', err, { period });
+
       const errorMessage = err.message || '';
       if (errorMessage.includes('401') || errorMessage.includes('Not authenticated') || errorMessage.includes('Unauthorized')) {
         setError('Please log in to view analytics');

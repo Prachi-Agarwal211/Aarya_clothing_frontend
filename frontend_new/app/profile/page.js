@@ -6,7 +6,6 @@ import { useRouter } from 'next/navigation';
 import { User, Mail, Phone, Calendar, Edit2, Camera, Save, AlertCircle } from 'lucide-react';
 import { userApi } from '@/lib/customerApi';
 import { useAuth } from '@/lib/authContext';
-import logger from '@/lib/logger';
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -47,7 +46,7 @@ export default function ProfilePage() {
       updateUser(data);
       setEditing(false);
     } catch (err) {
-      logger.error('Error saving profile:', err);
+      console.error('Error saving profile:', err);
       setError('Failed to save profile. Please try again.');
     } finally {
       setSaving(false);

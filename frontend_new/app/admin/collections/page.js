@@ -8,6 +8,7 @@ import {
   Star, GripVertical, Tag,
 } from 'lucide-react';
 import { collectionsApi } from '@/lib/adminApi';
+import { getErrorMessage, logError } from '@/lib/errorHandlers';
 
 // ─── Modal: Add / Edit Collection ────────────────────────────────────────
 function CollectionModal({ collection, onClose, onSaved }) {
@@ -54,7 +55,16 @@ function CollectionModal({ collection, onClose, onSaved }) {
       }
       onSaved();
     } catch (err) {
-      setError(err?.message || 'Failed to save collection');
+      logError('CollectionModal', 'saving collection', err, { 
+        collectionId: collection?.id,
+        isEdit
+      });
+      setError(getErrorMessage(err, 'save collection', {
+        authMsg: 'Your session has expired. Please log in again.',
+        permissionMsg: 'You do not have permission to save collections.',
+        notFoundMsg: 'Collection not found.',
+        networkMsg: 'Cannot connect to server. Please check your connection.'
+      }));
     } finally {
       setSaving(false);
     }
@@ -177,7 +187,17 @@ export default function CollectionsPage() {
       setLoading(true); setError(null);
       const data = await collectionsApi.list({ active_only: false });
       setCollections(Array.isArray(data) ? data : (data?.collections || data?.items || []));
-    } catch { setError('Failed to load collections.'); }
+    } catch (err) {
+      logError('Collections', 'loading collections', err, { 
+        endpoint: '/api/v1/admin/collections'
+      });
+      setError(getErrorMessage(err, 'load collections', {
+        authMsg: 'Your session has expired. Please log in again.',
+        permissionMsg: 'You do not have permission to view collections.',
+        notFoundMsg: 'No collections found.',
+        networkMsg: 'Cannot connect to server. Please check your connection.'
+      }));
+    }
     finally { setLoading(false); }
   };
 
@@ -204,7 +224,18 @@ export default function CollectionsPage() {
   const handleDelete = async (c) => {
     if (!confirm(`Delete collection "${c.name}"? Products in this collection will be unassigned.`)) return;
     try { await collectionsApi.delete(c.id); fetchData(); }
-    catch (err) { setError(err?.message || 'Failed to delete collection.'); }
+    catch (err) {
+      logError('Collections', 'deleting collection', err, { 
+        collectionId: c.id,
+        collectionName: c.name
+      });
+      setError(getErrorMessage(err, 'delete collection', {
+        authMsg: 'Your session has expired. Please log in again.',
+        permissionMsg: 'You do not have permission to delete collections.',
+        notFoundMsg: 'Collection not found.',
+        networkMsg: 'Cannot connect to server. Please check your connection.'
+      }));
+    }
   };
 
   const handleReorder = async (id, newOrder) => {

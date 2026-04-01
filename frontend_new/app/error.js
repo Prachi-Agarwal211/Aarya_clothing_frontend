@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import logger from '@/lib/logger';
 import Link from 'next/link';
 import { AlertTriangle, RefreshCw, Mail, Phone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -15,7 +14,7 @@ export default function Error({ error, reset }) {
     if (error) {
       setLastError(error);
       // Log error to monitoring service
-      logger.error('Page error:', error);
+      console.error('Page error:', error);
     }
   }, [error]);
 

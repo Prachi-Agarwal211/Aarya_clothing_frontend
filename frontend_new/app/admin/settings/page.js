@@ -6,7 +6,6 @@ import {
   Settings, Info, Truck, Video, Globe, Mail, Phone, MapPin
 } from 'lucide-react';
 import { siteConfigApi } from '@/lib/adminApi';
-import logger from '@/lib/logger';
 
 const inputCls = 'w-full px-4 py-2.5 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-xl text-[#EAE0D5] placeholder:text-[#EAE0D5]/30 focus:outline-none focus:border-[#B76E79]/50 transition-colors text-sm';
 
@@ -34,7 +33,7 @@ export default function SettingsPage() {
       });
       setConfig(parsedConfig);
     } catch (err) {
-      logger.error('fetchSettings error:', err);
+      console.error('fetchSettings error:', err);
       setError('Failed to load settings.');
     } finally {
       setLoading(false);

@@ -3,7 +3,6 @@
 import React, { useState } from 'react';
 import { Bell, Lock, Eye, EyeOff, Shield, Save, Check } from 'lucide-react';
 import { userApi } from '@/lib/customerApi';
-import logger from '@/lib/logger';
 import { useAlertToast } from '@/lib/useAlertToast';
 
 export default function SettingsPage() {
@@ -47,7 +46,7 @@ export default function SettingsPage() {
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (err) {
-      logger.error('Error changing password:', err);
+      console.error('Error changing password:', err);
       setError(err?.message || 'Failed to update password. Please try again.');
     } finally {
       setSaving(false);

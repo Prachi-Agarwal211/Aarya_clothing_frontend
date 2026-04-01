@@ -9,7 +9,6 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { authApi } from '../../../lib/customerApi';
 import { useLogo } from '../../../lib/siteConfigContext';
-import logger from '../../../lib/logger';
 import { validatePassword } from '../../../lib/authHelpers';
 
 // Total steps in the flow
@@ -114,7 +113,7 @@ function ResetPasswordForm() {
         setStatus('Password reset successfully!');
       }
     } catch (err) {
-      logger.error('Reset password failed:', err);
+      console.error('Reset password failed:', err);
       // Fix #9: Handle rate limit errors (429)
       if (err.status === 429) {
         setError('Too many requests. Please try again later.');

@@ -1315,6 +1315,80 @@ async def check_in_my_wishlist(
     return {"in_wishlist": in_wishlist}
 
 
+@app.post("/api/v1/wishlist/check-multiple", tags=["Wishlist"])
+async def check_multiple_in_wishlist(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Check if multiple products are in the user's wishlist.
+    
+    This endpoint is optimized for batch checking wishlist status,
+    avoiding the need to fetch the entire wishlist.
+    
+    Request body:
+    {
+        "product_ids": [1, 2, 3, ...]
+    }
+    
+    Response:
+    {
+        "wishlist_status": {
+            "1": true,
+            "2": false,
+            "3": true
+        }
+    }
+    """
+    from sqlalchemy import text
+    
+    user_id = current_user["user_id"]
+    
+    # Parse request body
+    try:
+        body = await request.json()
+        product_ids = body.get("product_ids", [])
+    except Exception as e:
+        logger.error(f"[Wishlist] Invalid request body: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid request body. Expected: {'product_ids': [...]}"
+        )
+    
+    # Validate input
+    if not product_ids or not isinstance(product_ids, list):
+        return {"wishlist_status": {}}
+    
+    # Filter to valid integers only
+    valid_ids = [pid for pid in product_ids if isinstance(pid, int) and pid > 0]
+    
+    if not valid_ids:
+        return {"wishlist_status": {}}
+    
+    # Query wishlist in a single database call
+    placeholders = ", ".join([f":id_{i}" for i in range(len(valid_ids))])
+    params = {f"id_{i}": pid for i, pid in enumerate(valid_ids)}
+    params["uid"] = user_id
+    
+    query = text(f"""
+        SELECT product_id 
+        FROM wishlist 
+        WHERE user_id = :uid 
+        AND product_id IN ({placeholders})
+    """)
+    
+    result = db.execute(query, params).fetchall()
+    wishlist_product_ids = set(row[0] for row in result)
+    
+    # Build response map
+    wishlist_status = {}
+    for pid in product_ids:
+        wishlist_status[str(pid)] = pid in wishlist_product_ids
+    
+    return {"wishlist_status": wishlist_status}
+
+
 # ==================== Wishlist Routes (Legacy/Admin) ====================
 
 @app.get("/api/v1/wishlist/{user_id}", response_model=WishlistResponse,
@@ -3110,7 +3184,8 @@ async def get_landing_all(db: Session = Depends(get_db)):
         result["site"] = {
             "logo": config_dict.get("logo_url") or (f"{r2_public}/logo.png" if r2_public else "/logo.png"),
             "video": {
-                "intro": config_dict.get("intro_video_url") or (f"{r2_public}/Create_a_video_202602141450_ub9p5.mp4" if r2_public else "/Create_a_video_202602141450_ub9p5.mp4"),
+                "desktop": config_dict.get("intro_video_url_desktop") or config_dict.get("intro_video_url") or (f"{r2_public}/Create_a_video_202602141450_ub9p5.mp4" if r2_public else "/Create_a_video_202602141450_ub9p5.mp4"),
+                "mobile": config_dict.get("intro_video_url_mobile") or config_dict.get("intro_video_url") or (f"{r2_public}/Create_a_video_202602141450_ub9p5.mp4" if r2_public else "/Create_a_video_202602141450_ub9p5.mp4"),
                 "enabled": config_dict.get("intro_video_enabled", "true").lower() == "true"
             },
             "brand_name": config_dict.get("brand_name", "Aarya Clothing")

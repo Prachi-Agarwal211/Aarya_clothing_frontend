@@ -5,11 +5,10 @@ import { Tag, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import EnhancedHeader from '@/components/landing/EnhancedHeader';
 import Footer from '@/components/landing/Footer';
-import logger from '@/lib/logger';
 
 export default function CollectionsError({ error, reset }) {
   useEffect(() => {
-    logger.error('Collections page error:', error);
+    console.error('Collections page error:', error);
   }, [error]);
 
   return (

@@ -9,6 +9,7 @@ import { wishlistApi } from '@/lib/customerApi';
 import { useCart } from '@/lib/cartContext';
 import { useAuth } from '@/lib/authContext';
 import logger from '@/lib/logger';
+import { getErrorMessage, logError } from '@/lib/errorHandlers';
 
 export default function WishlistPage() {
   const router = useRouter();
@@ -37,8 +38,16 @@ export default function WishlistPage() {
       const data = await wishlistApi.list();
       setWishlist(data.items || []);
     } catch (err) {
-      logger.error('Error fetching wishlist:', err);
-      setError('Failed to load wishlist. Please try again.');
+      logError('Wishlist', 'loading wishlist', err, { 
+        endpoint: '/api/v1/customer/wishlist'
+      });
+      
+      setError(getErrorMessage(err, 'load wishlist', {
+        authMsg: 'Your session has expired. Please log in again.',
+        permissionMsg: 'You do not have permission to view this data.',
+        notFoundMsg: 'Your wishlist is empty.',
+        networkMsg: 'Cannot connect to server. Please check your connection.'
+      }));
     } finally {
       setLoading(false);
     }
@@ -49,8 +58,16 @@ export default function WishlistPage() {
       await wishlistApi.remove(productId);
       setWishlist(prev => prev.filter(item => item.product_id !== productId));
     } catch (err) {
-      logger.error('Error removing from wishlist:', err);
-      setError('Failed to remove item. Please try again.');
+      logError('Wishlist', 'removing item from wishlist', err, { 
+        productId
+      });
+      
+      setError(getErrorMessage(err, 'remove item', {
+        authMsg: 'Your session has expired. Please log in again.',
+        permissionMsg: 'You do not have permission to perform this action.',
+        notFoundMsg: 'Item not found in wishlist.',
+        networkMsg: 'Cannot connect to server. Please check your connection.'
+      }));
     }
   };
 
@@ -59,8 +76,16 @@ export default function WishlistPage() {
       await addItem(item.product_id, 1);
       openCart();
     } catch (err) {
-      logger.error('Error adding to cart:', err);
-      setError('Failed to add to cart. Please try again.');
+      logError('Wishlist', 'adding item to cart', err, { 
+        productId: item.product_id
+      });
+      
+      setError(getErrorMessage(err, 'add to cart', {
+        authMsg: 'Your session has expired. Please log in again.',
+        permissionMsg: 'You do not have permission to perform this action.',
+        notFoundMsg: 'Product not found.',
+        networkMsg: 'Cannot connect to server. Please check your connection.'
+      }));
     }
   };
 

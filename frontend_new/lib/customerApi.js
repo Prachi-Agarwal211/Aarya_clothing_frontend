@@ -171,6 +171,25 @@ export const wishlistApi = {
 
   check: (productId) =>
     commerceClient.get(`/api/v1/wishlist/check/${productId}`),
+
+  // Batch check multiple products for wishlist status - O(1) API call
+  checkMultiple: (productIds) => {
+    if (!productIds || productIds.length === 0) return Promise.resolve({});
+    
+    // Use dedicated batch endpoint for O(1) performance
+    return commerceClient.post('/api/v1/wishlist/check-multiple', {
+      product_ids: productIds
+    })
+    .then(response => response.wishlist_status || {})
+    .catch((error) => {
+      // Log error for debugging
+      console.warn('[wishlistApi.checkMultiple] Failed to check wishlist status:', error.message);
+      // Return all false on error
+      const emptyMap = {};
+      productIds.forEach(id => { emptyMap[id] = false; });
+      return emptyMap;
+    });
+  },
 };
 
 // ==================== Reviews API ====================

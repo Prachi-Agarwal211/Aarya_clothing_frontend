@@ -20,7 +20,6 @@ import {
   Layers,
 } from 'lucide-react';
 import { useAuth } from '@/lib/authContext';
-import logger from '@/lib/logger';
 
 const navigation = [
   { name: 'Dashboard', href: '/admin/super', icon: LayoutDashboard },
@@ -57,7 +56,7 @@ export default function SuperAdminSidebar({ collapsed, onToggle, onClose }) {
       await logout();
       router.push('/auth/login');
     } catch (error) {
-      logger.error('SuperAdmin logout failed:', error);
+      console.error('SuperAdmin logout failed:', error);
       // Still redirect to login even if logout API fails
       router.push('/auth/login');
     } finally {

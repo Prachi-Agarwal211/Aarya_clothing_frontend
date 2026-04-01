@@ -1,10 +1,12 @@
 import { redirect } from 'next/navigation';
+import { getCoreBaseUrl } from '@/lib/baseApi';
 
-const INTERNAL_API = process.env.INTERNAL_API_URL || 'http://commerce:5002';
+// Use centralized URL configuration for all API calls
+const API_BASE = getCoreBaseUrl();
 
 async function getProductSlug(id) {
   try {
-    const res = await fetch(`${INTERNAL_API}/api/v1/products/${id}`, {
+    const res = await fetch(`${API_BASE}/api/v1/products/${id}`, {
       next: { revalidate: 3600 },
     });
     if (!res.ok) return null;

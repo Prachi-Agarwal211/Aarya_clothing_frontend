@@ -5,6 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { gsap, ScrollTrigger } from '@/lib/gsapConfig';
 import { ArrowRight } from 'lucide-react';
+import { getCoreBaseUrl } from '@/lib/baseApi';
 
 /**
  * Collections - Modern section with overlapping cards
@@ -14,7 +15,7 @@ import { ArrowRight } from 'lucide-react';
  *
  * Features:
  * - Overlapping card layout
- * - GSAP scroll-triggered animations
+ * - GSAP scroll-triggered animations with dynamic will-change
  * - Staggered reveal effects
  * - Glass morphism styling
  *
@@ -38,7 +39,8 @@ const Collections = ({
 
     // Use gsap.context for proper cleanup - only kills THIS component's animations
     let ctx = gsap.context(() => {
-      // Title animation
+      // Title animation with dynamic will-change
+      gsap.set(title, { willChange: "transform, opacity" });
       gsap.fromTo(title,
         { y: 60, opacity: 0, scale: 0.95 },
         {
@@ -50,34 +52,61 @@ const Collections = ({
           scrollTrigger: {
             trigger: section,
             start: "top 80%",
-          }
+          },
+          onComplete: () => gsap.set(title, { willChange: "auto" })
         }
       );
 
-      // Cards staggered reveal - simple fade up
-      cards.forEach((card, index) => {
-        gsap.fromTo(card,
-          {
-            y: 50,
-            opacity: 0,
-            scale: 0.95
-          },
+      // Cards staggered reveal - SINGLE TIMELINE for better performance
+      if (cards.length > 0) {
+        gsap.timeline({
+          scrollTrigger: {
+            trigger: section,
+            start: "top 80%",
+            scrub: 1,
+            onInterrupt: () => {
+              // Clean up will-change if animation is interrupted (prevents memory leak)
+              cards.forEach(el => {
+                if (el) gsap.set(el, { willChange: "auto" });
+              });
+            }
+          }
+        })
+        .fromTo(cards,
+          { y: 50, opacity: 0, scale: 0.95 },
           {
             y: 0,
             opacity: 1,
             scale: 1,
+            stagger: 0.1,
             duration: 0.8,
             ease: "power3.out",
-            scrollTrigger: {
-              trigger: card,
-              start: "top 85%",
+            onStart: () => {
+              // Add will-change at animation start
+              cards.forEach(el => {
+                if (el) gsap.set(el, { willChange: "transform, opacity" });
+              });
+            },
+            onComplete: () => {
+              // Remove will-change after animation completes
+              cards.forEach(el => {
+                if (el) gsap.set(el, { willChange: "auto" });
+              });
             }
           }
         );
-      });
+      }
     });
 
-    return () => ctx.revert(); // Only kills this component's GSAP animations
+    return () => {
+      // Force cleanup on unmount - prevent memory leaks
+      if (cards.length > 0) {
+        cards.forEach(el => {
+          if (el) gsap.set(el, { willChange: "auto" });
+        });
+      }
+      ctx.revert();
+    };
   }, []);
 
   return (
@@ -135,9 +164,9 @@ const CollectionCard = ({ category, size = 'medium', index }) => {
   };
 
   const ensureFullUrl = (url) => {
-    if (!url) return '/placeholder-collection.jpg'; // Return placeholder if null/undefined
+    if (!url) return '/placeholder-collection.jpg';
     if (url.startsWith('http://') || url.startsWith('https://')) return url;
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:6005';
+    const baseUrl = getCoreBaseUrl();
     return `${baseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
   };
 

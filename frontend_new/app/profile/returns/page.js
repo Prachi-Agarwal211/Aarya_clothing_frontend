@@ -6,7 +6,6 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { RotateCcw, Package, ChevronRight, Eye, Clock, CheckCircle, XCircle, Truck, AlertCircle, Plus, Video } from 'lucide-react';
 import { returnsApi } from '@/lib/customerApi';
 import { useAuth } from '@/lib/authContext';
-import logger from '@/lib/logger';
 import { 
   STATUS_CONFIG, 
   REASON_LABELS, 
@@ -54,7 +53,7 @@ function ReturnsContent() {
       const data = await returnsApi.list();
       setReturns(data.returns || data || []);
     } catch (err) {
-      logger.error('Error fetching returns:', err);
+      console.error('Error fetching returns:', err);
       setError('Failed to load returns. Please try again.');
     } finally {
       setLoading(false);

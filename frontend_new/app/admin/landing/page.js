@@ -9,7 +9,7 @@ import {
   Info
 } from 'lucide-react';
 import { landingApi, productsApi, siteConfigApi, uploadApi } from '@/lib/adminApi';
-import logger from '@/lib/logger';
+import { logError } from '@/lib/errorHandlers';
 
 const SECTIONS = [
   { id: 'hero',        name: 'Hero',         description: 'Laptop/Phone images + tagline', icon: '🎬' },
@@ -119,7 +119,7 @@ export default function LandingPageConfig() {
         throw new Error('All data requests failed');
       }
     } catch (err) {
-      logger.error('fetchData error:', err);
+      logError('LandingPage', 'fetching landing page data', err);
       setError('Failed to load. Please check connection and retry.');
     } finally {
       setLoading(false);

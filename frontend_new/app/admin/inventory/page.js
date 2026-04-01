@@ -8,7 +8,7 @@ import {
   X, ArrowUpDown, History, CheckCircle, Loader2,
 } from 'lucide-react';
 import { inventoryApi, productsApi } from '@/lib/adminApi';
-import logger from '@/lib/logger';
+import { logError } from '@/lib/errorHandlers';
 
 const TABS = ['All', 'Low Stock', 'Out of Stock', 'Movements'];
 
@@ -277,7 +277,7 @@ export default function InventoryPage() {
         setStats({ total, lowStock: low, outOfStock: oos });
       }
     } catch (err) {
-      logger.error('Inventory fetch error:', err);
+      logError('InventoryPage', 'fetching inventory', err, { activeTab });
       setError(err?.message || 'Failed to load inventory.');
     } finally {
       setLoading(false);

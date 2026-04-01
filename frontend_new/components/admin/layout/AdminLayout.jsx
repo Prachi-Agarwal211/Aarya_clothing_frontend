@@ -6,7 +6,6 @@ import { useRouter, usePathname } from 'next/navigation';
 import AdminSidebar from './AdminSidebar';
 import AdminHeader from './AdminHeader';
 import { useAuth } from '../../../lib/authContext';
-import logger from '../../../lib/logger';
 import '@/styles/admin-globals.css';
 
 const SIDEBAR_COLLAPSED_KEY = 'aarya_admin_sidebar_collapsed';
@@ -125,7 +124,7 @@ export default function AdminLayout({ children }) {
     if (isLoggingOut) {
       logoutTimeoutRef.current = setTimeout(() => {
         if (isLoggingOut) {
-          logger.warn('Logout navigation took too long, forcing redirect');
+          console.warn('Logout navigation took too long, forcing redirect');
           router.push('/auth/login');
         }
       }, 5000);

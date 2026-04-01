@@ -5,7 +5,6 @@ import { Search, Bell, User, ChevronDown, Menu, LogOut, Settings } from 'lucide-
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '../../../lib/authContext';
-import logger from '../../../lib/logger';
 
 export default function AdminHeader({ onMenuClick, user, mobileMenuOpen = false }) {
   const [searchQuery, setSearchQuery] = useState('');
@@ -57,7 +56,7 @@ export default function AdminHeader({ onMenuClick, user, mobileMenuOpen = false 
       await logout();
       router.push('/auth/login');
     } catch (error) {
-      logger.error('Admin header logout failed:', error);
+      console.error('Admin header logout failed:', error);
       router.push('/auth/login');
     } finally {
       setIsLoggingOut(false);

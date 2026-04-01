@@ -1093,13 +1093,12 @@ input[type="checkbox"]:focus {
    PERFORMANCE OPTIMIZATION LAYER
    ============================================ */
 
-/* GPU Layer Promotion for Animated Elements */
+/* GPU Layer Promotion for Animated Elements - will-change applied dynamically via JS */
 .animated-on-scroll,
 .parallax-layer,
 .product-card,
 .collection-card {
   transform: translateZ(0);
-  will-change: transform, opacity;
   contain: layout style paint;
 }
 
@@ -2274,14 +2273,7 @@ main {
   contain-intrinsic-size: 0 500px;
 }
 
-/* GPU Acceleration for animations */
-.will-animate {
-  will-change: transform, opacity;
-}
-
-.will-transform {
-  will-change: transform;
-}
+/* GPU Acceleration for animations - will-change applied dynamically via JS */
 
 /* CSS Containment for isolated components */
 .contain-strict {
@@ -2448,9 +2440,8 @@ main {
    ============================================ */
 
 @media (max-width: 768px) {
-  /* PERFORMANCE: GPU acceleration for parallax layers */
+  /* PERFORMANCE: GPU acceleration for parallax layers - will-change applied dynamically via JS */
   .parallax-layer {
-    will-change: transform;
     contain: layout style paint;
   }
 

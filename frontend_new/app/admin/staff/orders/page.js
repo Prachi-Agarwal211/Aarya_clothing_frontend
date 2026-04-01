@@ -3,15 +3,15 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { 
-  Search, 
+import {
+  Search,
   Eye,
   Package,
 } from 'lucide-react';
 import DataTable from '@/components/admin/shared/DataTable';
 import { OrderStatusBadge } from '@/components/admin/shared/StatusBadge';
 import { ordersApi } from '@/lib/adminApi';
-import logger from '@/lib/logger';
+import { getErrorMessage, logError } from '@/lib/errorHandlers';
 
 const STATUS_OPTIONS = [
   { value: '', label: 'All Status' },
@@ -57,15 +57,24 @@ export default function StaffOrdersPage() {
       };
 
       const data = await ordersApi.list(params);
-      
+
       setOrders(data.orders || data || []);
       setPagination(prev => ({
         ...prev,
         total: data.total || data.length || 0,
       }));
     } catch (err) {
-      logger.error('Error fetching orders:', err);
-      setError('Failed to load orders');
+      logError('StaffOrders', 'loading orders', err, { 
+        endpoint: '/api/v1/admin/orders',
+        params: JSON.stringify(params)
+      });
+      
+      setError(getErrorMessage(err, 'load orders', {
+        authMsg: 'Your session has expired. Please log in again.',
+        permissionMsg: 'You do not have permission to view orders.',
+        notFoundMsg: 'No orders found.',
+        networkMsg: 'Cannot connect to server. Please check your connection.'
+      }));
     } finally {
       setLoading(false);
     }

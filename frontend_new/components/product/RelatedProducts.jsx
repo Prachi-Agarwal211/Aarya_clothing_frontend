@@ -6,6 +6,14 @@ import Image from 'next/image';
 import { productsApi } from '@/lib/customerApi';
 import logger from '@/lib/logger';
 
+/**
+ * Validate product ID before making API calls.
+ * Prevents 404 errors from undefined, null, or empty string IDs.
+ */
+const isValidId = (id) => {
+  return id && id !== 'undefined' && id !== 'null' && id !== '';
+};
+
 function formatCurrency(amount) {
   return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(amount || 0);
 }
@@ -15,7 +23,13 @@ export default function RelatedProducts({ productId, collectionId }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!productId) return;
+    // Validate productId before making API call
+    if (!isValidId(productId)) {
+      logger.warn('[RelatedProducts] Invalid productId:', productId);
+      setLoading(false);
+      return;
+    }
+
     let mounted = true;
     const controller = new AbortController();
     (async () => {

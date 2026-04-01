@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useRef, useEffect, memo } from 'react';
+import React, { useRef, useEffect, memo, useState } from 'react';
 import { gsap, ScrollTrigger } from '@/lib/gsapConfig';
 import ProductCard from '../common/ProductCard';
+import { wishlistApi } from '@/lib/customerApi';
 
 /**
  * NewArrivals - Simplified section showing products directly on landing page
@@ -12,8 +13,9 @@ import ProductCard from '../common/ProductCard';
  *
  * Features:
  * - Horizontal scroll product display
- * - GSAP scroll-triggered animations
+ * - GSAP scroll-triggered animations with dynamic will-change
  * - Glass card containers
+ * - Batch wishlist API calls for performance
  * - No separate CTA button - products are inline on landing page
  *
  * PERFORMANCE: Wrapped with React.memo to prevent unnecessary re-renders
@@ -27,6 +29,17 @@ const NewArrivals = ({
   const sectionRef = useRef(null);
   const headerRef = useRef(null);
   const productRefs = useRef([]);
+  const [wishlistStatus, setWishlistStatus] = useState({});
+
+  // Batch wishlist check for all products
+  useEffect(() => {
+    if (products.length > 0) {
+      const productIds = products.map(p => p.id);
+      wishlistApi.checkMultiple(productIds)
+        .then(setWishlistStatus)
+        .catch(e => console.warn('Batch wishlist check failed:', e.message));
+    }
+  }, [products]);
 
   useEffect(() => {
     const section = sectionRef.current;
@@ -35,7 +48,8 @@ const NewArrivals = ({
 
     // Use gsap.context for proper cleanup - only kills THIS component's animations
     let ctx = gsap.context(() => {
-      // Header entrance animation
+      // Header entrance animation with dynamic will-change
+      gsap.set(header, { willChange: "transform, opacity" });
       gsap.fromTo(header,
         { y: 60, opacity: 0 },
         {
@@ -46,38 +60,61 @@ const NewArrivals = ({
           scrollTrigger: {
             trigger: section,
             start: "top 80%",
-          }
+          },
+          onComplete: () => gsap.set(header, { willChange: "auto" })
         }
       );
 
-      // Products entrance animations only (no horizontal scroll pinning)
+      // Products entrance animations - SINGLE TIMELINE for better performance
       if (productRefs.current.length > 0) {
-        productRefs.current.forEach((product, index) => {
-          gsap.fromTo(product,
-            {
-              y: 50,
-              opacity: 0,
-              scale: 0.95
-            },
-            {
-              y: 0,
-              opacity: 1,
-              scale: 1,
-              duration: 0.8,
-              delay: index * 0.1,
-              ease: "power3.out",
-              scrollTrigger: {
-                trigger: product,
-                start: "top 85%",
-                toggleActions: "play none none reverse"
-              }
+        gsap.timeline({
+          scrollTrigger: {
+            trigger: section,
+            start: "top 80%",
+            scrub: 1,
+            onInterrupt: () => {
+              // Clean up will-change if animation is interrupted (prevents memory leak)
+              productRefs.current.forEach(el => {
+                if (el) gsap.set(el, { willChange: "auto" });
+              });
             }
-          );
-        });
+          }
+        })
+        .fromTo(productRefs.current,
+          { y: 50, opacity: 0, scale: 0.95 },
+          {
+            y: 0,
+            opacity: 1,
+            scale: 1,
+            stagger: 0.1,
+            duration: 0.8,
+            ease: "power3.out",
+            onStart: () => {
+              // Add will-change at animation start
+              productRefs.current.forEach(el => {
+                if (el) gsap.set(el, { willChange: "transform, opacity" });
+              });
+            },
+            onComplete: () => {
+              // Remove will-change after animation completes
+              productRefs.current.forEach(el => {
+                if (el) gsap.set(el, { willChange: "auto" });
+              });
+            }
+          }
+        );
       }
     });
 
-    return () => ctx.revert(); // Only kills this component's GSAP animations
+    return () => {
+      // Force cleanup on unmount - prevent memory leaks
+      if (productRefs.current.length > 0) {
+        productRefs.current.forEach(el => {
+          if (el) gsap.set(el, { willChange: "auto" });
+        });
+      }
+      ctx.revert();
+    };
   }, [products]);
 
   return (
@@ -132,7 +169,11 @@ const NewArrivals = ({
                     hover:shadow-[0_12px_40px_rgba(0,0,0,0.4)]
                   "
                 >
-                  <ProductCard product={product} priority={index < 2} />
+                  <ProductCard 
+                    product={product} 
+                    priority={index < 2}
+                    isWishlisted={wishlistStatus[product.id] ?? false}
+                  />
                 </div>
               </div>
             ))}

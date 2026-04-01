@@ -27,7 +27,6 @@ import {
   Menu,
 } from 'lucide-react';
 import { useAuth } from '../../../lib/authContext';
-import logger from '../../../lib/logger';
 
 const SIDEBAR_COLLAPSED_KEY = 'aarya_admin_sidebar_collapsed';
 
@@ -94,7 +93,7 @@ export default function AdminSidebar({ collapsed, onToggle, isMobile = false, on
       await logout();
       router.push('/auth/login');
     } catch (error) {
-      logger.error('Admin logout failed:', error);
+      console.error('Admin logout failed:', error);
       router.push('/auth/login');
     } finally {
       setIsLoggingOut(false);

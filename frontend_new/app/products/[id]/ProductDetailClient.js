@@ -29,6 +29,14 @@ import { useAuth } from '@/lib/authContext';
 import logger from '@/lib/logger';
 import { useAlertToast } from '@/lib/useAlertToast';
 
+/**
+ * Validate product ID before making API calls.
+ * Prevents 404 errors from undefined, null, or empty string IDs.
+ */
+const isValidId = (id) => {
+  return id && id !== 'undefined' && id !== 'null' && id !== '';
+};
+
 export default function ProductDetailClient({ initialProduct, initialReviews, productId }) {
   const params = useParams();
   const router = useRouter();
@@ -45,22 +53,50 @@ export default function ProductDetailClient({ initialProduct, initialReviews, pr
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewComment, setReviewComment] = useState('');
   const [submittingReview, setSubmittingReview] = useState(false);
+  // Initialize loading to false if we have server-fetched data
+  const [loading, setLoading] = useState(!initialProduct);
+  const [error, setError] = useState(null);
 
   const handleSubmitReview = async () => {
-    if (!isAuthenticated) { showAlert('Please sign in to write a review', 'error'); return; }
-    if (!reviewComment.trim()) { showAlert('Please write a comment', 'error'); return; }
+    // Validate authentication
+    if (!isAuthenticated) {
+      showAlert('Please sign in to write a review', 'error');
+      return;
+    }
+
+    // Validate comment is not empty
+    if (!reviewComment.trim()) {
+      showAlert('Please write a comment', 'error');
+      return;
+    }
+
+    // Set submitting state
     setSubmittingReview(true);
+
     try {
-      await reviewsApi.create(product.id, { rating: reviewRating, comment: reviewComment.trim() });
+      // Call backend API to create review
+      await reviewsApi.create(product.id, {
+        rating: reviewRating,
+        comment: reviewComment.trim(),
+      });
+
+      // Show success message
       showAlert('Review submitted successfully!', 'success');
+
+      // Reset form
       setReviewComment('');
       setReviewRating(5);
       setShowReviewForm(false);
+
+      // Refresh reviews list to show new review (pending approval)
       const reviewsData = await reviewsApi.list(product.id);
       setReviews(reviewsData.reviews || reviewsData || []);
+
     } catch (err) {
+      // Show error message
       showAlert(err?.message || 'Failed to submit review', 'error');
     } finally {
+      // Reset submitting state
       setSubmittingReview(false);
     }
   };
@@ -78,8 +114,6 @@ export default function ProductDetailClient({ initialProduct, initialReviews, pr
       showAlert('Link copied to clipboard!', 'success');
     }
   };
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const [selectedImage, setSelectedImage] = useState(0);
   const [selectedSize, setSelectedSize] = useState('');
   const [selectedColor, setSelectedColor] = useState(null);
@@ -106,7 +140,24 @@ export default function ProductDetailClient({ initialProduct, initialReviews, pr
 
   useEffect(() => {
     fetchProduct();
-  }, [productId]);
+  }, [resolvedProductId, initialProduct]);
+
+  // Check wishlist status when product loads or user authenticates
+  useEffect(() => {
+    if (!isAuthenticated || !isValidId(product?.id)) return;
+
+    const checkWishlist = async () => {
+      try {
+        const wishlistCheck = await wishlistApi.check(product.id);
+        setIsWishlisted(wishlistCheck.in_wishlist);
+      } catch (err) {
+        logger.warn('Wishlist check failed:', err.message);
+        // Don't swallow errors silently - log for debugging
+      }
+    };
+
+    checkWishlist();
+  }, [product?.id, isAuthenticated]);
 
   // Update selected variant when size or color changes
   useEffect(() => {
@@ -121,7 +172,14 @@ export default function ProductDetailClient({ initialProduct, initialReviews, pr
   const fetchProduct = async () => {
     // Skip fetch if we already have initial data from server
     if (initialProduct) {
-      setLoading(false); // ✅ Fix: End loading state when using server data
+      return;
+    }
+
+    // Validate product ID before making API call
+    if (!isValidId(resolvedProductId)) {
+      logger.warn('[ProductDetailClient] Invalid product ID:', resolvedProductId);
+      setError('Invalid product ID');
+      setLoading(false);
       return;
     }
 
@@ -181,15 +239,7 @@ export default function ProductDetailClient({ initialProduct, initialReviews, pr
       if (product.sizes?.length > 0) setSelectedSize(product.sizes[0]);
       if (product.colors?.length > 0) setSelectedColor(product.colors[0]);
 
-      // Check if in wishlist
-      if (isAuthenticated) {
-        try {
-          const wishlistCheck = await wishlistApi.check(product.id);
-          setIsWishlisted(wishlistCheck.in_wishlist);
-        } catch (err) {
-          // Ignore wishlist check errors
-        }
-      }
+      // Wishlist check moved to separate useEffect to run even when initialProduct exists
     } catch (err) {
       logger.error('Error fetching product:', err);
       setError('Failed to load product. Please try again.');

@@ -5,11 +5,10 @@ import { ShoppingBag, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import EnhancedHeader from '@/components/landing/EnhancedHeader';
 import Footer from '@/components/landing/Footer';
-import logger from '@/lib/logger';
 
 export default function ProductsError({ error, reset }) {
   useEffect(() => {
-    logger.error('Products page error:', error);
+    console.error('Products page error:', error);
   }, [error]);
 
   return (

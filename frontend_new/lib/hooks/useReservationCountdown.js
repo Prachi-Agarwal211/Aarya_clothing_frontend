@@ -5,7 +5,6 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import logger from '@/lib/logger';
 
 export function useReservationCountdown(expiresAt) {
   const [timeRemaining, setTimeRemaining] = useState(null);
@@ -22,7 +21,7 @@ export function useReservationCountdown(expiresAt) {
 
     // Validate parsed date
     if (isNaN(expiry)) {
-      logger.error('[ReservationCountdown] Invalid expiresAt format:', expiresAt);
+      console.error('[ReservationCountdown] Invalid expiresAt format:', expiresAt);
       return null;
     }
 

@@ -172,50 +172,6 @@ export default function Home() {
     }
   }, [showLanding, landingData, fetchLandingData]);
 
-  useEffect(() => {
-    setIsClient(true);
-
-    // Check if user can skip the intro video
-    const hasSeenSession = !!sessionStorage.getItem('hasSeenIntroVideo');
-    const hasSeenRecently = (() => {
-      try {
-        const ts = localStorage.getItem('introVideoLastSeen');
-        return ts && Date.now() - parseInt(ts, 10) < 24 * 60 * 60 * 1000;
-      } catch { return false; }
-    })();
-    const conn = typeof navigator !== 'undefined'
-      ? (navigator.connection || navigator.mozConnection || navigator.webkitConnection)
-      : null;
-    const isSlow = conn && (conn.saveData || conn.effectiveType === '2g' || conn.effectiveType === 'slow-2g' || conn.effectiveType === '3g');
-
-    // Set timeout for video loading - if video doesn't load in 5 seconds, skip it
-    const videoTimeout = setTimeout(() => {
-      if (!showLanding) {
-        logger.warn('Video intro timeout - skipping to landing page');
-        setShowLanding(true);
-        fetchLandingData();
-      }
-    }, 5000);
-
-    if (hasSeenSession || hasSeenRecently || isSlow) {
-      // Skip video — fetch data immediately
-      setShowLanding(true);
-      fetchLandingData();
-      clearTimeout(videoTimeout);
-    } else {
-      // Video will play — delay fetch by 1s so video buffers first on fast networks
-      // But if video fails or takes too long, timeout will trigger
-      setTimeout(() => {
-        if (!showLanding) {
-          fetchLandingData();
-        }
-      }, 1000);
-    }
-
-    // Cleanup
-    return () => clearTimeout(videoTimeout);
-  }, [fetchLandingData, showLanding]);
-
   const handleVideoEnd = () => {
     setShowLanding(true);
   };

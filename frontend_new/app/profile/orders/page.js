@@ -10,6 +10,7 @@ import { useAuth } from '@/lib/authContext';
 import { useCart } from '@/lib/cartContext';
 import logger from '@/lib/logger';
 import { useAlertToast } from '@/lib/useAlertToast';
+import { getErrorMessage, logError } from '@/lib/errorHandlers';
 
 const STATUS_CONFIG = {
   confirmed: { label: 'Processing Your Order', color: 'text-purple-400', bg: 'bg-purple-400/10', icon: Clock },
@@ -45,8 +46,16 @@ export default function OrdersPage() {
       const data = await ordersApi.list();
       setOrders(data.items || data.orders || []);
     } catch (err) {
-      logger.error('Error fetching orders:', err);
-      setError('Failed to load orders. Please try again.');
+      logError('ProfileOrders', 'loading orders', err, { 
+        endpoint: '/api/v1/customer/orders'
+      });
+      
+      setError(getErrorMessage(err, 'load orders', {
+        authMsg: 'Your session has expired. Please log in again.',
+        permissionMsg: 'You do not have permission to view orders.',
+        notFoundMsg: 'No orders found.',
+        networkMsg: 'Cannot connect to server. Please check your connection.'
+      }));
     } finally {
       setLoading(false);
     }
@@ -87,8 +96,15 @@ export default function OrdersPage() {
 
       openCart();
     } catch (err) {
-      logger.error('Error reordering:', err);
-      showAlert('Failed to add items to cart. Some products might be out of stock.');
+      logError('ProfileOrders', 'reordering items', err, { 
+        orderId: order.id
+      });
+      showAlert(getErrorMessage(err, 'reorder items', {
+        authMsg: 'Your session has expired. Please log in again.',
+        permissionMsg: 'You do not have permission to perform this action.',
+        notFoundMsg: 'Some products are no longer available.',
+        networkMsg: 'Cannot connect to server. Please check your connection.'
+      }));
     } finally {
       setReordering(null);
     }
@@ -116,8 +132,16 @@ export default function OrdersPage() {
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
     } catch (error) {
-      logger.error('Error downloading invoice:', error);
-      showAlert('Failed to download invoice. Please try again.', 'error');
+      logError('ProfileOrders', 'downloading invoice', error, { 
+        orderId,
+        invoiceNumber
+      });
+      showAlert(getErrorMessage(error, 'download invoice', {
+        authMsg: 'Your session has expired. Please log in again.',
+        permissionMsg: 'You do not have permission to download this invoice.',
+        notFoundMsg: 'Invoice not found.',
+        networkMsg: 'Cannot connect to server. Please check your connection.'
+      }), 'error');
     }
   };
 
@@ -142,8 +166,15 @@ export default function OrdersPage() {
         };
       }
     } catch (error) {
-      logger.error('Error printing invoice:', error);
-      showAlert('Failed to print invoice. Please try again.', 'error');
+      logError('ProfileOrders', 'printing invoice', error, { 
+        orderId
+      });
+      showAlert(getErrorMessage(error, 'print invoice', {
+        authMsg: 'Your session has expired. Please log in again.',
+        permissionMsg: 'You do not have permission to print this invoice.',
+        notFoundMsg: 'Invoice not found.',
+        networkMsg: 'Cannot connect to server. Please check your connection.'
+      }), 'error');
     }
   };
 

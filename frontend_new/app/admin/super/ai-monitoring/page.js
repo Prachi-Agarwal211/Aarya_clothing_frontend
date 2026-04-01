@@ -10,7 +10,6 @@ import {
   Filter,
 } from 'lucide-react';
 import { aiMonitoringApi } from '@/lib/adminApi';
-import logger from '@/lib/logger';
 
 export default function SuperAdminAiMonitoring() {
   const [loading, setLoading] = useState(true);
@@ -24,7 +23,7 @@ export default function SuperAdminAiMonitoring() {
       const data = await aiMonitoringApi.get(days);
       setMonitoringData(data);
     } catch (err) {
-      logger.error('Failed to load AI monitoring:', err);
+      console.error('Failed to load AI monitoring:', err);
       setError(err.message || 'Failed to load monitoring data');
     } finally {
       setLoading(false);

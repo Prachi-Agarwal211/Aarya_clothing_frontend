@@ -45,7 +45,7 @@ const HeroSection = ({
   // Detect mobile for responsive image source
   const { isMobile } = useViewport();
 
-  // Auto-rotate slides with proper cleanup
+  // Auto-rotate slides with proper cleanup and scroll-based pause
   const nextSlide = useCallback(() => {
     if (!isMountedRef.current) return;
 
@@ -70,10 +70,10 @@ const HeroSection = ({
 
     const inAnim = gsap.fromTo(incomingSlide,
       { opacity: 0, y: 50 }, // Translate instead of scale
-      { 
-        opacity: 1, 
-        y: 0, 
-        duration: 1, 
+      {
+        opacity: 1,
+        y: 0,
+        duration: 1,
         ease: 'power2.out',
         force3D: true // GPU acceleration
       }
@@ -84,8 +84,46 @@ const HeroSection = ({
   }, [slides.length]);
 
   useEffect(() => {
-    // OPTIMIZATION: Increased interval to 8000ms for better mobile battery life
-    autoPlayRef.current = setInterval(nextSlide, 8000);
+    // OPTIMIZATION: Increased interval to 15000ms for better user experience
+    autoPlayRef.current = setInterval(nextSlide, 15000);
+
+    // ScrollTrigger to pause auto-rotation when out of view
+    const ctx = gsap.context(() => {
+      ScrollTrigger.create({
+        trigger: sectionRef.current,
+        start: "top -50%",
+        onLeave: () => {
+          if (autoPlayRef.current) {
+            clearInterval(autoPlayRef.current);
+            autoPlayRef.current = null;
+          }
+        },
+        onEnterBack: () => {
+          if (!autoPlayRef.current) {
+            autoPlayRef.current = setInterval(nextSlide, 15000);
+          }
+        }
+      });
+    });
+
+    // ENHANCEMENT: Pause auto-rotation on hover for better desktop UX
+    const section = sectionRef.current;
+    const handleMouseEnter = () => {
+      if (autoPlayRef.current) {
+        clearInterval(autoPlayRef.current);
+        autoPlayRef.current = null;
+      }
+    };
+    const handleMouseLeave = () => {
+      if (!autoPlayRef.current) {
+        autoPlayRef.current = setInterval(nextSlide, 15000);
+      }
+    };
+    
+    if (section) {
+      section.addEventListener('mouseenter', handleMouseEnter);
+      section.addEventListener('mouseleave', handleMouseLeave);
+    }
 
     return () => {
       if (autoPlayRef.current) {
@@ -97,6 +135,12 @@ const HeroSection = ({
         if (anim && anim.kill) anim.kill();
       });
       slideAnimationRefs.current = [];
+      // Remove event listeners
+      if (section) {
+        section.removeEventListener('mouseenter', handleMouseEnter);
+        section.removeEventListener('mouseleave', handleMouseLeave);
+      }
+      ctx.revert();
     };
   }, [nextSlide]);
 

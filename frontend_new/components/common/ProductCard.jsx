@@ -11,19 +11,24 @@ import { useToast } from '@/components/ui/Toast';
 import { useViewport } from '@/lib/hooks/useViewport';
 import { AddToCartButton } from '@/components/cart/CartAnimation';
 import { wishlistApi } from '@/lib/customerApi';
-import logger from '@/lib/logger';
+import { getCoreBaseUrl } from '@/lib/baseApi';
 
 /**
  * Ensure image URL is usable. Backend returns full R2 URLs.
  */
 const ensureFullUrl = (url) => {
-  if (!url) return '/placeholder-image.jpg'; // Return placeholder if null/undefined
+  if (!url) return '/placeholder-image.jpg';
   if (url.startsWith('http://') || url.startsWith('https://')) return url;
-  const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:6005';
+  const baseUrl = getCoreBaseUrl();
   return `${baseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
 };
 
-const ProductCard = ({ product, className, priority = false }) => {
+const ProductCard = ({ 
+  product, 
+  className, 
+  priority = false, 
+  isWishlisted: initialWishlistStatus 
+}) => {
   // Support both old shape {id,name,price,image,category,isNew,originalPrice}
   // and new DB-driven shape {id,name,price,mrp,image_url,collection_name,is_new_arrival,discount_percentage}
   const id = product.id;
@@ -33,32 +38,44 @@ const ProductCard = ({ product, className, priority = false }) => {
   const category = product.collection_name || product.category || '';
   const isNew = product.is_new_arrival ?? product.isNew ?? false;
   const originalPrice = product.mrp || product.originalPrice;
-  const { isMobile } = useViewport();
-  const [isWishlisted, setIsWishlisted] = useState(false);
+  
+  // Support both controlled (parent-managed) and uncontrolled (self-managed) modes
+  const [internalWishlistStatus, setInternalWishlistStatus] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Use prop if provided, otherwise manage internally
+  const isWishlisted = initialWishlistStatus !== undefined 
+    ? initialWishlistStatus 
+    : internalWishlistStatus;
+
+  const { isMobile } = useViewport();
   const { addItem, openCart } = useCart();
   const { isAuthenticated } = useAuth();
   const toast = useToast();
 
-  // Check initial wishlist status on mount
+  // Internal wishlist check (fallback when prop not provided)
   useEffect(() => {
+    // If parent provides wishlist status, don't check internally
+    if (initialWishlistStatus !== undefined) {
+      return;
+    }
+
     // Only check wishlist if user is authenticated
     if (!isAuthenticated) {
-      setIsWishlisted(false);
+      setInternalWishlistStatus(false);
       return;
     }
 
     const checkWishlist = async () => {
       try {
         const result = await wishlistApi.check(id);
-        setIsWishlisted(result.is_wishlisted || result.in_wishlist || false);
+        setInternalWishlistStatus(result.is_wishlisted || result.in_wishlist || false);
       } catch (e) {
-        // User not logged in or API error - ignore
-        logger.warn('Wishlist check failed:', e.message);
+        console.warn('[ProductCard] Wishlist check failed:', e.message);
       }
     };
     checkWishlist();
-  }, [id, isAuthenticated]);
+  }, [id, isAuthenticated, initialWishlistStatus]);
 
   const handleAddToCart = async (productData) => {
     if (!isAuthenticated) {
@@ -105,7 +122,6 @@ const ProductCard = ({ product, className, priority = false }) => {
         toast.success('Added to Wishlist', `${name} added to your wishlist`);
       }
     } catch (error) {
-      logger.error('Wishlist error:', error);
       // Fall back to local state toggle if API fails
       setIsWishlisted(!isWishlisted);
       toast.error('Error', error.message || 'Failed to update wishlist. Please login to use wishlist.');

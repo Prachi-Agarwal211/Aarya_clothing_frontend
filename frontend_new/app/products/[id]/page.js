@@ -246,11 +246,13 @@ export default async function ProductDetailPage({ params }) {
       />
 
       {/* Pass SERIALIZED data to client component - prevents Date object serialization errors */}
-      <ProductDetailClient
-        initialProduct={serializedProduct}
-        initialReviews={serializedReviews}
-        productId={id}
-      />
+      <ErrorBoundary>
+        <ProductDetailClient
+          initialProduct={serializedProduct}
+          initialReviews={serializedReviews}
+          productId={id}
+        />
+      </ErrorBoundary>
     </>
   );
 }

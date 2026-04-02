@@ -53,34 +53,52 @@ export default function EditProductPage() {
   const [authError, setAuthError] = useState(false);
 
   useEffect(() => {
-    if (productId) {
+    if (productSlugOrId) {
       fetchProduct();
       fetchCategories();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [productId]);
+  }, [productSlugOrId]);
 
   const fetchProduct = async () => {
     try {
       setLoadingProduct(true);
       setError(null);
       setAuthError(false);
+
+      // Validate product identifier
+      if (!productSlugOrId || productSlugOrId === 'undefined' || productSlugOrId === 'null') {
+        throw new Error(`Invalid product identifier: ${productSlugOrId}. The URL might be malformed.`);
+      }
+
+      logger.info(`[EditProduct] Fetching product with identifier: ${productSlugOrId}`);
       
-      // Validate product ID before making API call
-      if (!productId || productId === 'undefined' || productId === 'null') {
-        throw new Error(`Invalid product ID: ${productId}. The URL might be malformed.`);
+      // Fetch product - try slug endpoint first via customer API
+      let product;
+      try {
+        // Use fetch directly with slug endpoint
+        const response = await fetch(`/api/v1/products/slug/${productSlugOrId}`, {
+          credentials: 'include',
+        });
+        if (response.ok) {
+          product = await response.json();
+        } else {
+          // Fallback to numeric ID
+          product = await productsApi.get(productSlugOrId);
+        }
+      } catch (err) {
+        // Final fallback to admin API with numeric ID
+        product = await productsApi.get(productSlugOrId);
       }
       
-      logger.info(`[EditProduct] Fetching product with ID: ${productId}`);
-      const product = await productsApi.get(productId);
-      
-      logger.info(`[EditProduct] Product fetched successfully:`, { 
-        id: product.id, 
+      logger.info(`[EditProduct] Product fetched successfully:`, {
+        id: product.id,
         name: product.name,
+        slug: product.slug,
         hasImages: !!product.images?.length,
-        hasVariants: !!product.inventory?.length 
+        hasVariants: !!product.inventory?.length
       });
-      
+
       setForm({
         name: product.name || '',
         slug: product.slug || '',
@@ -109,9 +127,9 @@ export default function EditProductPage() {
       
       // Build detailed error message based on error type
       let errorMessage = 'Failed to load product. ';
-      
+
       if (err.status === 404) {
-        errorMessage = `Product with ID "${productId}" was not found in the database. It may have been deleted or the URL is incorrect.`;
+        errorMessage = `Product "${productSlugOrId}" was not found in the database. It may have been deleted or the URL is incorrect.`;
       } else if (err.status === 401) {
         errorMessage = 'Your session has expired or you are not authenticated. Please log in again in the main admin panel.';
       } else if (err.status === 403) {
@@ -300,10 +318,11 @@ export default function EditProductPage() {
 
       logger.info('Updating product with data:', { productId, productData });
 
-      // 1. Update Product
+      // Update Product
+      const productId = product.id; // Use numeric ID for update
       await productsApi.update(productId, productData);
 
-      // 2. Upload New Images
+      // Upload New Images
       if (newImages.length > 0) {
         const isFirstPrimary = existingImages.length === 0;
         for (let i = 0; i < newImages.length; i++) {
@@ -362,8 +381,8 @@ export default function EditProductPage() {
           {process.env.NODE_ENV === 'development' && (
             <div className="mb-4 p-3 bg-black/20 rounded-lg text-left">
               <p className="text-xs text-[#EAE0D5]/50 font-mono mb-1">Debug Info:</p>
-              <p className="text-xs text-[#EAE0D5]/70 font-mono">Product ID: <span className="text-white">{productId || 'undefined'}</span></p>
-              <p className="text-xs text-[#EAE0D5]/70 font-mono">URL Path: <span className="text-white">/admin/products/{productId}/edit</span></p>
+              <p className="text-xs text-[#EAE0D5]/70 font-mono">Product Slug/ID: <span className="text-white">{productSlugOrId || 'undefined'}</span></p>
+              <p className="text-xs text-[#EAE0D5]/70 font-mono">URL Path: <span className="text-white">/admin/products/{productSlugOrId}/edit</span></p>
               <p className="text-xs text-[#EAE0D5]/70 font-mono">Error Status: <span className="text-white">{error?.status || 'N/A'}</span></p>
             </div>
           )}

@@ -315,7 +315,7 @@ function EditProductModal({ product, collections, onClose, onSaved }) {
             <p className="text-xs text-[#EAE0D5]/50 mt-0.5 truncate max-w-[240px]">{product.name}</p>
           </div>
           <div className="flex items-center gap-2">
-            <Link href={`/admin/products/${product.id}/edit`}
+            <Link href={`/admin/products/${product.slug}/edit`}
               className="hidden sm:flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-[#B76E79]/20 text-[#EAE0D5]/50 hover:text-[#EAE0D5] hover:border-[#B76E79]/40 text-xs transition-colors"
               title="Open full edit page">
               Full Edit <ArrowRight className="w-3 h-3" />

@@ -212,19 +212,24 @@ export default async function ProductDetailPage({ params }) {
 
   const { product, reviews } = data;
 
+  // CRITICAL: Serialize data to ensure all Date objects are converted to strings
+  // This MUST happen before passing to client component to prevent hydration errors
+  const serializedProduct = JSON.parse(JSON.stringify(product));
+  const serializedReviews = JSON.parse(JSON.stringify(reviews));
+
   // Validate product URL for structured data - prevent null/undefined URLs
-  const productUrl = product.slug || (product.id ? String(product.id) : '');
+  const productUrl = serializedProduct.slug || (serializedProduct.id ? String(serializedProduct.id) : '');
   const productPath = productUrl ? `/products/${productUrl}` : '/products';
 
   // Generate structured data
   const breadcrumbSchema = generateBreadcrumbSchema([
     { name: 'Home', url: '/' },
     { name: 'Collections', url: '/collections' },
-    ...(product.collection_slug ? [{ name: product.collection_name || product.category, url: `/collections/${product.collection_slug}` }] : []),
-    { name: product.name, url: productPath }
+    ...(serializedProduct.collection_slug ? [{ name: serializedProduct.collection_name || serializedProduct.category, url: `/collections/${serializedProduct.collection_slug}` }] : []),
+    { name: serializedProduct.name, url: productPath }
   ]);
 
-  const productSchema = generateProductSchema(product, reviews);
+  const productSchema = generateProductSchema(serializedProduct, serializedReviews);
 
   return (
     <>
@@ -240,11 +245,10 @@ export default async function ProductDetailPage({ params }) {
         key="product-schema"
       />
 
-      {/* Pass initial data to client component for interactivity */}
-      {/* JSON round-trip to ensure all Date objects are serialized */}
+      {/* Pass SERIALIZED data to client component - prevents Date object serialization errors */}
       <ProductDetailClient
-        initialProduct={JSON.parse(JSON.stringify(product))}
-        initialReviews={reviews}
+        initialProduct={serializedProduct}
+        initialReviews={serializedReviews}
         productId={id}
       />
     </>

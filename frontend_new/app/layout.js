@@ -299,6 +299,9 @@ export default function RootLayout({ children }) {
         <Script id="clear-old-sw" strategy="afterInteractive">
           {`
             // Register service worker for offline support and caching
+            // TEMPORARILY DISABLED - causing caching issues with product pages
+            // To re-enable: Uncomment the registration code below
+            /*
             if ('serviceWorker' in navigator) {
               // First, unregister any old service workers
               navigator.serviceWorker.getRegistrations().then(function(regs) {
@@ -321,6 +324,7 @@ export default function RootLayout({ children }) {
                   });
               });
             }
+            */
             
             // Performance: Monitor connection speed and adjust image quality
             if ('connection' in navigator) {

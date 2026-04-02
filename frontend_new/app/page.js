@@ -34,6 +34,16 @@ const Collections = dynamic(() => import('@/components/landing/Collections'), {
   ),
 });
 
+const WholesaleSection = dynamic(() => import('@/components/landing/WholesaleSection'), {
+  loading: () => (
+    <section aria-label="Loading wholesale section" className="py-16 sm:py-20 md:py-24">
+      <div className="container mx-auto px-4">
+        <div className="skeleton h-64 rounded-2xl" />
+      </div>
+    </section>
+  ),
+});
+
 const AboutSection = dynamic(() => import('@/components/landing/AboutSection'), {
   loading: () => (
     <section aria-label="Loading about section" className="py-16 sm:py-20 md:py-24">
@@ -298,6 +308,8 @@ export default function Home() {
               categories={landingData.collections?.categories}
             />
           </LazyLoad>
+
+          <WholesaleSection />
 
           <LazyLoad skeletonHeight="600px">
             <AboutSection

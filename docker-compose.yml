@@ -387,16 +387,16 @@ services:
       context: ./frontend_new
       dockerfile: Dockerfile
       args:
-        # Use relative URL for API calls - nginx will proxy to correct backend
-        # This prevents internal Docker hostnames from leaking to the browser
-        - NEXT_PUBLIC_API_URL=
+        # SSR uses internal Docker URL, client uses window.location.origin
+        - NEXT_PUBLIC_API_URL=http://nginx:80
         - NEXT_PUBLIC_INTERNAL_COMMERCE_URL=http://commerce:5002
     container_name: aarya_frontend
     environment:
       - NODE_ENV=production
       - DOCKER_ENV=true
-      # Empty value = use relative URLs (/api/v1/...) which nginx will proxy
-      - NEXT_PUBLIC_API_URL=
+      # SSR needs absolute URL for Node.js fetch() - nginx will proxy to backend
+      # Client-side code uses window.location.origin (CSP compliant)
+      - NEXT_PUBLIC_API_URL=http://nginx:80
       - NEXT_PUBLIC_INTERNAL_COMMERCE_URL=http://commerce:5002
     ports:
       - "6004:3000"

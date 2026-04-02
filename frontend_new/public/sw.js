@@ -33,10 +33,12 @@ const STATIC_PATTERNS = [
   '/fonts/**',
 ];
 
-// Image patterns (R2 CDN)
+// Image patterns (R2 CDN) - EXCLUDED from SW caching due to CSP
+// R2 images are already CDN-cached and load directly with CSP img-src 'self' https:
 const IMAGE_PATTERNS = [
-  'https://pub-*.r2.dev/**',
-  'https://*.r2.cloudflarestorage.com/**',
+  // R2 CDN excluded - let browser handle these directly
+  // 'https://pub-*.r2.dev/**',
+  // 'https://*.r2.cloudflarestorage.com/**',
 ];
 
 // API patterns
@@ -107,6 +109,14 @@ self.addEventListener('fetch', (event) => {
   }
   
   // Determine cache strategy based on request type
+  const url = event.request.url;
+  
+  // Skip R2 CDN images - let browser handle them directly (CSP compliant)
+  if (url.includes('pub-7846c786f7154610b57735df47899fa0.r2.dev') || 
+      url.includes('r2.cloudflarestorage.com')) {
+    return; // Don't intercept R2 images
+  }
+  
   if (isImageRequest(request)) {
     // Images: Stale-while-revalidate
     event.respondWith(handleImageRequest(request));

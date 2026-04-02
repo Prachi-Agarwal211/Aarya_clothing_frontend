@@ -1,33 +1,14 @@
-import { redirect } from 'next/navigation';
-import { getCommerceBaseUrl } from '@/lib/baseApi';
+/**
+ * Product Detail Layout
+ * 
+ * Note: Canonical redirect logic has been moved to page.js to prevent
+ * double-fetching and navigation jitter. This layout now simply renders
+ * children without any redirects.
+ * 
+ * See: https://nextjs.org/docs/app/building-your-application/rendering/edge-and-nodejs-runtimes
+ * See: https://nextjs.org/docs/app/building-your-application/data-fetching/fetching
+ */
 
-async function getProductSlug(id) {
-  try {
-    const API_BASE = getCommerceBaseUrl();
-    const res = await fetch(`${API_BASE}/api/v1/products/${id}`, {
-      next: { revalidate: 3600 },
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
-    // Handle both wrapped ({product: ...}) and direct response formats
-    const product = data?.product || data;
-    return product?.slug || null;
-  } catch (err) {
-    // Return null on error - don't log to avoid noise
-    return null;
-  }
-}
-
-export default async function ProductDetailLayout({ children, params }) {
-  const { id } = await params;
-
-  // Canonical redirect: /products/123 → /products/my-slug (numeric IDs only)
-  if (/^\d+$/.test(id)) {
-    const slug = await getProductSlug(id);
-    if (slug && slug !== id) {
-      redirect(`/products/${slug}`);
-    }
-  }
-
+export default function ProductDetailLayout({ children }) {
   return <>{children}</>;
 }

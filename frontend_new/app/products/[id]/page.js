@@ -1,11 +1,31 @@
 import { Metadata } from 'next';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { productsApi, reviewsApi } from '@/lib/customerApi';
 import { generateBreadcrumbSchema, generateProductSchema } from '@/lib/structuredData';
 import ProductDetailClient from './ProductDetailClient';
+import { getCommerceBaseUrl } from '@/lib/baseApi';
 
 // Force dynamic rendering - API is not available during build time
 export const dynamic = 'force-dynamic';
+
+/**
+ * Fetch product slug for canonical redirect (numeric ID → slug)
+ * This is done server-side to prevent client-side navigation jitter
+ */
+async function getProductSlug(id) {
+  try {
+    const API_BASE = getCommerceBaseUrl();
+    const res = await fetch(`${API_BASE}/api/v1/products/${id}`, {
+      next: { revalidate: 3600 },
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const product = data?.product || data;
+    return product?.slug || null;
+  } catch (err) {
+    return null;
+  }
+}
 
 // Generate metadata dynamically
 export async function generateMetadata({ params }) {
@@ -174,6 +194,16 @@ async function getProductData(id) {
 
 export default async function ProductDetailPage({ params }) {
   const { id } = await params;
+  
+  // Canonical redirect: /products/123 → /products/my-slug (numeric IDs only)
+  // This happens server-side BEFORE rendering, preventing client-side jitter
+  if (/^\d+$/.test(id)) {
+    const slug = await getProductSlug(id);
+    if (slug && slug !== id) {
+      redirect(`/products/${slug}`);
+    }
+  }
+  
   const data = await getProductData(id);
 
   if (!data || !data.product) {

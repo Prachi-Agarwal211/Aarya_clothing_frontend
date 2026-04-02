@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import React, { useState, useEffect } from 'react';
+import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import {
@@ -64,6 +64,94 @@ export default function ProductDetailClient({ initialProduct, initialReviews, pr
   useEffect(() => {
     setIsMounted(true);
   }, []);
+
+  /**
+   * Fetch product data from API
+   * Used for initial load and retry on error
+   */
+  const fetchProduct = async () => {
+    // Skip fetch entirely if we have server-fetched initial data
+    // The server already fetched product and reviews, so no client fetch needed
+    if (initialProduct) {
+      logger.debug('[ProductDetailClient] Using server-fetched initialProduct, skipping client fetch');
+      return;
+    }
+
+    // Validate product ID before making API call
+    if (!isValidId(resolvedProductId)) {
+      logger.warn('[ProductDetailClient] Invalid product ID:', resolvedProductId);
+      setError('Invalid product ID');
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      let productData;
+      try {
+        // Try fetching by ID (if productId is a number)
+        if (!isNaN(resolvedProductId)) {
+          productData = await productsApi.get(resolvedProductId);
+        } else {
+          // If not a number, try by slug directly
+          productData = await productsApi.getBySlug(resolvedProductId);
+        }
+      } catch (err) {
+        // If ID fetch fails or wasn't a number, try by slug
+        try {
+          productData = await productsApi.getBySlug(resolvedProductId);
+        } catch (slugErr) {
+          if (slugErr.status === 404 || err?.status === 404) {
+            throw new Error('Product not found');
+          }
+          throw slugErr;
+        }
+      }
+
+      const productDataNormalized = productData.product || productData;
+
+      // Derive sizes & colors from inventory if not provided as top-level arrays
+      if (!productDataNormalized.sizes || productDataNormalized.sizes.length === 0) {
+        const sizesFromInv = [...new Set(
+          (productDataNormalized.inventory || []).map(i => i.size).filter(Boolean)
+        )];
+        productDataNormalized.sizes = sizesFromInv;
+      }
+      if (!productDataNormalized.colors || productDataNormalized.colors.length === 0) {
+        const colorsFromInv = [...new Map(
+          (productDataNormalized.inventory || [])
+            .filter(i => i.color)
+            .map(i => [i.color, { name: i.color, hex: '#B76E79' }])
+        ).values()];
+        productDataNormalized.colors = colorsFromInv;
+      }
+
+      setProduct(productDataNormalized);
+
+      // Fetch reviews
+      const reviewsData = await reviewsApi.list(productDataNormalized.id);
+      setReviews(reviewsData.reviews || reviewsData || []);
+
+      // Auto-select first available size/color
+      if (productDataNormalized.sizes?.length > 0) setSelectedSize(productDataNormalized.sizes[0]);
+      if (productDataNormalized.colors?.length > 0) setSelectedColor(productDataNormalized.colors[0]);
+
+    } catch (err) {
+      logger.error('Error fetching product:', err);
+      setError('Failed to load product. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Initial fetch on mount (only if no server data)
+  useEffect(() => {
+    if (!initialProduct) {
+      fetchProduct();
+    }
+  }, [initialProduct]);
 
   const handleSubmitReview = async () => {
     // Validate authentication
@@ -145,98 +233,6 @@ export default function ProductDetailClient({ initialProduct, initialReviews, pr
     );
     setTouchStartX(null);
   };
-
-  // Memoize fetchProduct to prevent recreation on every render
-  const fetchProduct = useCallback(async () => {
-    // Skip fetch if we already have initial data from server
-    if (initialProduct) {
-      return;
-    }
-
-    // Validate product ID before making API call
-    if (!isValidId(resolvedProductId)) {
-      logger.warn('[ProductDetailClient] Invalid product ID:', resolvedProductId);
-      setError('Invalid product ID');
-      setLoading(false);
-      return;
-    }
-
-    try {
-      setLoading(true);
-      setError(null);
-
-      let productData;
-      try {
-        // Try fetching by ID (if productId is a number)
-        if (!isNaN(resolvedProductId)) {
-          productData = await productsApi.get(resolvedProductId);
-        } else {
-          // If not a number, try by slug directly
-          productData = await productsApi.getBySlug(resolvedProductId);
-        }
-      } catch (err) {
-        // If ID fetch fails or wasn't a number, try by slug — wrap in try-catch
-        try {
-          productData = await productsApi.getBySlug(resolvedProductId);
-        } catch (slugErr) {
-          // Both ID and slug fetch failed
-          if (slugErr.status === 404 || err.status === 404) {
-            throw new Error('Product not found');
-          }
-          throw slugErr;
-        }
-      }
-
-      const product = productData.product || productData;
-
-      // Derive sizes & colors from inventory if not provided as top-level arrays
-      if (!product.sizes || product.sizes.length === 0) {
-        const sizesFromInv = [...new Set(
-          (product.inventory || []).map(i => i.size).filter(Boolean)
-        )];
-        product.sizes = sizesFromInv;
-      }
-      if (!product.colors || product.colors.length === 0) {
-        const colorsFromInv = [...new Map(
-          (product.inventory || [])
-            .filter(i => i.color)
-            .map(i => [i.color, { name: i.color, hex: '#B76E79' }])
-        ).values()];
-        product.colors = colorsFromInv;
-      }
-
-      setProduct(product);
-
-      // Canonical redirect: if accessed by numeric ID and product has a non-numeric slug, redirect to slug URL
-      const isNumericId = /^\d+$/.test(String(resolvedProductId));
-      if (product.slug && isNumericId && String(product.id) === String(resolvedProductId) && product.slug !== String(resolvedProductId)) {
-        // Validate slug before redirect - prevent null/undefined URLs
-        const redirectSlug = typeof product.slug === 'string' && product.slug.length > 0 ? product.slug : null;
-        if (redirectSlug) {
-          router.replace(`/products/${redirectSlug}`, { scroll: false });
-        }
-      }
-
-      // Fetch reviews
-      const reviewsData = await reviewsApi.list(product.id);
-      setReviews(reviewsData.reviews || reviewsData || []);
-
-      // Auto-select first available size/color
-      if (product.sizes?.length > 0) setSelectedSize(product.sizes[0]);
-      if (product.colors?.length > 0) setSelectedColor(product.colors[0]);
-
-      // Wishlist check moved to separate useEffect to run even when initialProduct exists
-    } catch (err) {
-      logger.error('Error fetching product:', err);
-      setError('Failed to load product. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  }, [initialProduct, resolvedProductId, router]);
-
-  useEffect(() => {
-    fetchProduct();
-  }, [fetchProduct]);
 
   // Check wishlist status when product loads or user authenticates
   useEffect(() => {

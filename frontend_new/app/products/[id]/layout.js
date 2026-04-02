@@ -13,8 +13,7 @@ async function getProductSlug(id) {
     const product = data?.product || data;
     return product?.slug || null;
   } catch (err) {
-    // Log error for debugging but don't crash
-    console.error(`[ProductLayout] Error fetching product slug for ${id}:`, err?.message || err);
+    // Return null on error - don't log to avoid noise
     return null;
   }
 }

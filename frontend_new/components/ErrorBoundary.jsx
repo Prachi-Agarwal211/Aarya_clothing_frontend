@@ -1,109 +1,85 @@
 'use client';
 
-import React, { Component } from 'react';
-
-
+import React from 'react';
 
 /**
- * ErrorBoundary - Catches JavaScript errors in child components
- * 
- * Features:
- * - Prevents entire app crash on component errors
- * - Shows user-friendly fallback UI
- * - Logs errors for debugging
- * - Provides retry mechanism
+ * Error Boundary Component - Catches client-side rendering errors
+ * Displays actual error message instead of generic error page
  */
-class ErrorBoundary extends Component {
-  constructor(props) {
-    super(props);
-    this.state = { hasError: false, error: null, errorInfo: null };
-  }
+export default function ErrorBoundary({ children, fallback }) {
+  const [hasError, setHasError] = React.useState(false);
+  const [errorDetails, setErrorDetails] = React.useState(null);
 
-  static getDerivedStateFromError(error) {
-    // Update state so the next render will show the fallback UI
-    return { hasError: true };
-  }
-
-  componentDidCatch(error, errorInfo) {
-    // Log error to console in development
-    if (process.env.NODE_ENV === 'development') {
-      console.error('ErrorBoundary caught an error:', error, errorInfo);
-    }
-
-    // Store error info for display
-    this.setState({
-      error: error,
-      errorInfo: errorInfo
-    });
-
-    // Here you could also log to an error reporting service
-    // e.g., logErrorToService(error, errorInfo);
-  }
-
-  handleRetry = () => {
-    this.setState({ hasError: false, error: null, errorInfo: null });
-  };
-
-  handleGoHome = () => {
-    window.location.href = '/';
-  };
-
-  render() {
-    if (this.state.hasError) {
-      // Custom fallback UI
-      if (this.props.fallback) {
-        return this.props.fallback;
+  React.useEffect(() => {
+    // Override console.error to catch errors
+    const originalError = console.error;
+    console.error = (...args) => {
+      originalError(...args);
+      if (args[0]?.message || args[0]?.stack) {
+        setHasError(true);
+        setErrorDetails({
+          message: args[0]?.message || String(args[0]),
+          stack: args[0]?.stack,
+        });
       }
+    };
 
-      return (
-        <div className="min-h-screen flex items-center justify-center bg-[#050203] text-[#EAE0D5] p-4">
-          <div className="max-w-md w-full text-center">
-            {/* Logo */}
-            <div className="mb-8 h-20" />
+    return () => {
+      console.error = originalError;
+    };
+  }, []);
 
-            {/* Error Message */}
-            <h1
-              className="text-2xl md:text-3xl text-[#F2C29A] mb-4"
-              style={{ fontFamily: 'Cinzel, serif' }}
-            >
-              Something went wrong
-            </h1>
+  // Error UI
+  if (hasError) {
+    return fallback || (
+      <div className="min-h-screen flex items-center justify-center bg-[#050203] p-4">
+        <div className="max-w-2xl w-full bg-[#0B0608] border border-red-500/30 rounded-2xl p-6 sm:p-8">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center">
+              <svg className="w-6 h-6 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <h1 className="text-xl font-bold text-red-400">Component Error</h1>
+          </div>
 
-            <p className="text-[#EAE0D5]/70 mb-8">
-              We apologize for the inconvenience. Please try again or return to the home page.
-            </p>
+          <div className="space-y-4">
+            <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl">
+              <p className="text-red-400 font-mono text-sm break-all">
+                {errorDetails?.message || 'Unknown error occurred'}
+              </p>
+            </div>
 
-            {/* Error Details (Development Only) */}
-            {process.env.NODE_ENV === 'development' && this.state.error && (
-              <div className="mb-8 p-4 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-xl text-left overflow-auto max-h-40">
-                <p className="text-red-400 text-sm font-mono">
-                  {this.state.error.toString()}
-                </p>
-              </div>
+            {errorDetails?.stack && (
+              <details className="group">
+                <summary className="text-sm text-[#EAE0D5]/70 cursor-pointer hover:text-[#EAE0D5]">
+                  Show Error Stack (click to expand)
+                </summary>
+                <pre className="mt-2 p-3 bg-black/40 rounded-lg overflow-x-auto text-xs text-red-300 font-mono whitespace-pre-wrap">
+                  {errorDetails.stack}
+                </pre>
+              </details>
             )}
 
-            {/* Action Buttons */}
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <div className="flex gap-3 pt-4">
               <button
-                onClick={this.handleRetry}
-                className="px-6 py-3 bg-gradient-to-r from-[#7A2F57] to-[#B76E79] text-white rounded-xl hover:opacity-90 transition-opacity"
+                onClick={() => window.location.reload()}
+                className="flex-1 py-2.5 bg-gradient-to-r from-[#7A2F57] to-[#B76E79] text-white rounded-xl hover:opacity-90 transition-opacity text-sm font-medium"
               >
-                Try Again
+                Reload Page
               </button>
               <button
-                onClick={this.handleGoHome}
-                className="px-6 py-3 border border-[#B76E79]/30 text-[#EAE0D5] rounded-xl hover:border-[#B76E79]/50 transition-colors"
+                onClick={() => window.history.back()}
+                className="flex-1 py-2.5 border border-[#B76E79]/30 text-[#EAE0D5] rounded-xl hover:bg-[#B76E79]/10 transition-colors text-sm font-medium"
               >
-                Go to Home
+                Go Back
               </button>
             </div>
           </div>
         </div>
-      );
-    }
-
-    return this.props.children;
+      </div>
+    );
   }
-}
 
-export default ErrorBoundary;
+  return children;
+}

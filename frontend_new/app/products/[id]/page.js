@@ -241,8 +241,9 @@ export default async function ProductDetailPage({ params }) {
       />
 
       {/* Pass initial data to client component for interactivity */}
+      {/* JSON round-trip to ensure all Date objects are serialized */}
       <ProductDetailClient
-        initialProduct={product}
+        initialProduct={JSON.parse(JSON.stringify(product))}
         initialReviews={reviews}
         productId={id}
       />

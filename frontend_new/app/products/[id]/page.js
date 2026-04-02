@@ -3,6 +3,7 @@ import { notFound, redirect } from 'next/navigation';
 import { productsApi, reviewsApi } from '@/lib/customerApi';
 import { generateBreadcrumbSchema, generateProductSchema } from '@/lib/structuredData';
 import ProductDetailClient from './ProductDetailClient';
+import ErrorBoundary from '@/components/ErrorBoundary';
 import { getCommerceBaseUrl } from '@/lib/baseApi';
 
 // Force dynamic rendering - API is not available during build time

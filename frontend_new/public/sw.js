@@ -96,27 +96,25 @@ self.addEventListener('activate', (event) => {
 // Fetch event - serve from cache with network fallback
 self.addEventListener('fetch', (event) => {
   const { request } = event;
-  const url = new URL(request.url);
-  
+  const requestUrl = new URL(request.url);
+
   // Skip non-GET requests
   if (request.method !== 'GET') {
     return;
   }
-  
+
   // Skip chrome-extension and other non-http requests
-  if (!url.protocol.startsWith('http')) {
+  if (!requestUrl.protocol.startsWith('http')) {
     return;
   }
-  
-  // Determine cache strategy based on request type
-  const url = event.request.url;
-  
+
   // Skip R2 CDN images - let browser handle them directly (CSP compliant)
-  if (url.includes('pub-7846c786f7154610b57735df47899fa0.r2.dev') || 
-      url.includes('r2.cloudflarestorage.com')) {
+  if (requestUrl.hostname.includes('pub-7846c786f7154610b57735df47899fa0.r2.dev') ||
+      requestUrl.hostname.includes('r2.cloudflarestorage.com')) {
     return; // Don't intercept R2 images
   }
-  
+
+  // Determine cache strategy based on request type
   if (isImageRequest(request)) {
     // Images: Stale-while-revalidate
     event.respondWith(handleImageRequest(request));

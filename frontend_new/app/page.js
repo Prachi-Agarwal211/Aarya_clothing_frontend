@@ -165,12 +165,18 @@ export default function Home() {
     }
   }, []);
 
-  // Initial data fetch - triggers when component mounts and landing should show
+  // Set isClient flag on mount to enable client-side rendering
   useEffect(() => {
-    if (showLanding && !landingData) {
+    setIsClient(true);
+  }, []);
+
+  // Initial data fetch - start fetching immediately when component mounts
+  // This ensures landing data is ready by the time the intro video ends
+  useEffect(() => {
+    if (!landingData) {
       fetchLandingData();
     }
-  }, [showLanding, landingData, fetchLandingData]);
+  }, [landingData, fetchLandingData]);
 
   const handleVideoEnd = () => {
     setShowLanding(true);

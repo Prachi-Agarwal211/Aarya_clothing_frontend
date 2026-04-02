@@ -4,6 +4,9 @@ import { collectionsApi, productsApi } from '@/lib/customerApi';
 import { generateBreadcrumbSchema, generateItemListSchema } from '@/lib/structuredData';
 import CollectionDetailClient from './CollectionDetailClient';
 
+// Force dynamic rendering - API is not available during build time
+export const dynamic = 'force-dynamic';
+
 // Timeout for API calls (10 seconds)
 const API_TIMEOUT_MS = 10000;
 

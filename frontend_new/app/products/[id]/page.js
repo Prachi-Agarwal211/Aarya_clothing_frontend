@@ -4,21 +4,38 @@ import { productsApi, reviewsApi } from '@/lib/customerApi';
 import { generateBreadcrumbSchema, generateProductSchema } from '@/lib/structuredData';
 import ProductDetailClient from './ProductDetailClient';
 
+// Force dynamic rendering - API is not available during build time
+export const dynamic = 'force-dynamic';
+
 // Generate metadata dynamically
 export async function generateMetadata({ params }) {
   try {
     const { id } = await params;
     let product;
 
-    try {
-      if (!isNaN(id)) {
-        const data = await productsApi.get(Number(id));
+    // Check if ID is a valid number first
+    const numericId = Number(id);
+    if (!isNaN(numericId)) {
+      // Try fetching by numeric ID
+      try {
+        const data = await productsApi.get(numericId);
         product = data.product || data;
-      } else {
-        product = await productsApi.getBySlug(id);
+      } catch (err) {
+        // If not found, try by slug — wrap in try-catch to handle slug errors
+        try {
+          product = await productsApi.getBySlug(id);
+        } catch (slugErr) {
+          // Product not found by ID or slug
+          product = null;
+        }
       }
-    } catch (err) {
-      product = await productsApi.getBySlug(id);
+    } else {
+      // ID is a slug, fetch directly by slug
+      try {
+        product = await productsApi.getBySlug(id);
+      } catch (err) {
+        product = null;
+      }
     }
 
     if (!product) {
@@ -82,17 +99,28 @@ async function getProductData(id) {
   try {
     let productData;
 
-    try {
-      if (!isNaN(id)) {
-        productData = await productsApi.get(Number(id));
-      } else {
-        productData = await productsApi.getBySlug(id);
+    // Check if ID is a valid number first
+    const numericId = Number(id);
+    if (!isNaN(numericId)) {
+      // Try fetching by numeric ID
+      try {
+        productData = await productsApi.get(numericId);
+      } catch (err) {
+        // If not found, fallback to slug — wrap in try-catch to handle slug errors
+        try {
+          productData = await productsApi.getBySlug(id);
+        } catch (slugErr) {
+          console.error('Error fetching product by slug:', slugErr);
+          return null;
+        }
       }
-    } catch (err) {
-      if (isNaN(id) || err.status === 404) {
+    } else {
+      // ID is a slug, fetch directly by slug
+      try {
         productData = await productsApi.getBySlug(id);
-      } else {
-        throw err;
+      } catch (err) {
+        console.error('Error fetching product by slug:', err);
+        return null;
       }
     }
 

@@ -386,11 +386,18 @@ services:
     build:
       context: ./frontend_new
       dockerfile: Dockerfile
+      args:
+        # Use relative URL for API calls - nginx will proxy to correct backend
+        # This prevents internal Docker hostnames from leaking to the browser
+        - NEXT_PUBLIC_API_URL=
+        - NEXT_PUBLIC_INTERNAL_COMMERCE_URL=http://commerce:5002
     container_name: aarya_frontend
     environment:
       - NODE_ENV=production
       - DOCKER_ENV=true
-      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:6005}
+      # Empty value = use relative URLs (/api/v1/...) which nginx will proxy
+      - NEXT_PUBLIC_API_URL=
+      - NEXT_PUBLIC_INTERNAL_COMMERCE_URL=http://commerce:5002
     ports:
       - "6004:3000"
     depends_on:

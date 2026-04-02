@@ -88,12 +88,12 @@ def init_products_index():
         # Typo tolerance configuration
         index.update_typo_tolerance({
             "enabled": True,
-            "min_word_size_for_typos": {
-                "one_typo": 5,
-                "two_typos": 9
+            "minWordSizeForTypos": {
+                "oneTypo": 5,
+                "twoTypos": 9
             },
-            "disable_on_words": [],
-            "disable_on_attributes": ["sku"]
+            "disableOnWords": [],
+            "disableOnAttributes": ["sku"]
         })
 
         # Pagination settings

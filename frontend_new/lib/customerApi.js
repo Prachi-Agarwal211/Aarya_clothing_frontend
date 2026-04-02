@@ -10,13 +10,11 @@ import {
   getCoreBaseUrl,
   getCommerceBaseUrl,
   getPaymentBaseUrl,
+  coreClient,
+  commerceClient,
+  paymentClient,
 } from './baseApi';
 import { sanitizeSearch } from './sanitize';
-
-// Create client instances for different services
-const coreClient = new BaseApiClient(getCoreBaseUrl());
-const commerceClient = new BaseApiClient(getCommerceBaseUrl());
-const paymentClient = new BaseApiClient(getPaymentBaseUrl());
 
 // ==================== Products API ====================
 export const productsApi = {

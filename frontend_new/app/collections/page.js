@@ -7,6 +7,9 @@ import Footer from '@/components/landing/Footer';
 import { collectionsApi } from '@/lib/customerApi';
 import { generateBreadcrumbSchema, generateItemListSchema } from '@/lib/structuredData';
 
+// Force dynamic rendering - API is not available during build time
+export const dynamic = 'force-dynamic';
+
 // SEO Metadata
 export const metadata = {
   title: 'Collections | Aarya Clothing - Curated Ethnic Wear Categories',

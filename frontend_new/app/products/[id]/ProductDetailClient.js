@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -45,6 +45,9 @@ export default function ProductDetailClient({ initialProduct, initialReviews, pr
   const { addItem, openCart } = useCart();
   const { user, isAuthenticated, isStaff } = useAuth();
   const isAdminUser = isStaff();
+  
+  // Track mounted state to prevent hydration mismatch for admin-only UI
+  const [isMounted, setIsMounted] = useState(false);
 
   // Initialize state with server-fetched data if available
   const [product, setProduct] = useState(initialProduct || null);
@@ -56,6 +59,11 @@ export default function ProductDetailClient({ initialProduct, initialReviews, pr
   // Initialize loading to false if we have server-fetched data
   const [loading, setLoading] = useState(!initialProduct);
   const [error, setError] = useState(null);
+
+  // Set mounted state after hydration
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   const handleSubmitReview = async () => {
     // Validate authentication
@@ -138,38 +146,8 @@ export default function ProductDetailClient({ initialProduct, initialReviews, pr
     setTouchStartX(null);
   };
 
-  useEffect(() => {
-    fetchProduct();
-  }, [resolvedProductId, initialProduct]);
-
-  // Check wishlist status when product loads or user authenticates
-  useEffect(() => {
-    if (!isAuthenticated || !isValidId(product?.id)) return;
-
-    const checkWishlist = async () => {
-      try {
-        const wishlistCheck = await wishlistApi.check(product.id);
-        setIsWishlisted(wishlistCheck.in_wishlist);
-      } catch (err) {
-        logger.warn('Wishlist check failed:', err.message);
-        // Don't swallow errors silently - log for debugging
-      }
-    };
-
-    checkWishlist();
-  }, [product?.id, isAuthenticated]);
-
-  // Update selected variant when size or color changes
-  useEffect(() => {
-    if (product && product.inventory) {
-      const variant = product.inventory.find(
-        (inv) => inv.size === selectedSize && (!selectedColor || inv.color === selectedColor.name)
-      );
-      setSelectedVariant(variant);
-    }
-  }, [selectedSize, selectedColor, product]);
-
-  const fetchProduct = async () => {
+  // Memoize fetchProduct to prevent recreation on every render
+  const fetchProduct = useCallback(async () => {
     // Skip fetch if we already have initial data from server
     if (initialProduct) {
       return;
@@ -197,11 +175,15 @@ export default function ProductDetailClient({ initialProduct, initialReviews, pr
           productData = await productsApi.getBySlug(resolvedProductId);
         }
       } catch (err) {
-        // If ID fetch fails or wasn't a number, try by slug
-        if (isNaN(resolvedProductId) || err.status === 404) {
+        // If ID fetch fails or wasn't a number, try by slug — wrap in try-catch
+        try {
           productData = await productsApi.getBySlug(resolvedProductId);
-        } else {
-          throw err;
+        } catch (slugErr) {
+          // Both ID and slug fetch failed
+          if (slugErr.status === 404 || err.status === 404) {
+            throw new Error('Product not found');
+          }
+          throw slugErr;
         }
       }
 
@@ -246,7 +228,38 @@ export default function ProductDetailClient({ initialProduct, initialReviews, pr
     } finally {
       setLoading(false);
     }
-  };
+  }, [initialProduct, resolvedProductId, router]);
+
+  useEffect(() => {
+    fetchProduct();
+  }, [fetchProduct]);
+
+  // Check wishlist status when product loads or user authenticates
+  useEffect(() => {
+    if (!isAuthenticated || !isValidId(product?.id)) return;
+
+    const checkWishlist = async () => {
+      try {
+        const wishlistCheck = await wishlistApi.check(product.id);
+        setIsWishlisted(wishlistCheck.in_wishlist);
+      } catch (err) {
+        logger.warn('Wishlist check failed:', err.message);
+        // Don't swallow errors silently - log for debugging
+      }
+    };
+
+    checkWishlist();
+  }, [product?.id, isAuthenticated]);
+
+  // Update selected variant when size or color changes
+  useEffect(() => {
+    if (product && product.inventory) {
+      const variant = product.inventory.find(
+        (inv) => inv.size === selectedSize && (!selectedColor || inv.color === selectedColor.name)
+      );
+      setSelectedVariant(variant);
+    }
+  }, [selectedSize, selectedColor, product, selectedColor?.name]);
 
   const handleAddToCart = async () => {
     if (!isAuthenticated) {
@@ -312,8 +325,8 @@ export default function ProductDetailClient({ initialProduct, initialReviews, pr
     }).format(amount);
   };
 
-  // Calculate discount percentage
-  const discountPercent = product?.mrp > product?.price
+  // Calculate discount percentage - safe null/zero checks
+  const discountPercent = product && product.mrp && product.price && product.mrp > product.price
     ? Math.round(((product.mrp - product.price) / product.mrp) * 100)
     : 0;
 
@@ -571,8 +584,8 @@ export default function ProductDetailClient({ initialProduct, initialReviews, pr
                 </div>
               </div>
 
-              {/* Quantity - Admin Only */}
-              {isAdminUser && (
+              {/* Quantity - Admin Only (only render after mount to prevent hydration mismatch) */}
+              {isMounted && isAdminUser && (
               <div>
                 <p className="text-sm text-[#EAE0D5]/70 mb-2">Quantity</p>
                 <div className="flex items-center gap-3">

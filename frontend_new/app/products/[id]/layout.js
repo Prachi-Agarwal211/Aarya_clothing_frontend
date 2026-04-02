@@ -1,18 +1,20 @@
 import { redirect } from 'next/navigation';
-import { getCoreBaseUrl } from '@/lib/baseApi';
-
-// Use centralized URL configuration for all API calls
-const API_BASE = getCoreBaseUrl();
+import { getCommerceBaseUrl } from '@/lib/baseApi';
 
 async function getProductSlug(id) {
   try {
+    const API_BASE = getCommerceBaseUrl();
     const res = await fetch(`${API_BASE}/api/v1/products/${id}`, {
       next: { revalidate: 3600 },
     });
     if (!res.ok) return null;
     const data = await res.json();
-    return (data?.product || data)?.slug || null;
-  } catch {
+    // Handle both wrapped ({product: ...}) and direct response formats
+    const product = data?.product || data;
+    return product?.slug || null;
+  } catch (err) {
+    // Log error for debugging but don't crash
+    console.error(`[ProductLayout] Error fetching product slug for ${id}:`, err?.message || err);
     return null;
   }
 }

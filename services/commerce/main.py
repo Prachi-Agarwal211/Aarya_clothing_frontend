@@ -24,7 +24,7 @@ from fastapi import FastAPI, Depends, HTTPException, status, Request, UploadFile
 from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
-from sqlalchemy import text
+from sqlalchemy import text, func
 from typing import Optional, List
 from decimal import Decimal
 from pydantic import BaseModel
@@ -2357,7 +2357,7 @@ async def create_review(
 
 @app.get("/api/v1/products/{product_id}/reviews", response_model=List[ReviewResponse],
          tags=["Reviews"])
-async def get_product_reviews(
+async def get_product_reviews_main(
     product_id: int,
     approved_only: bool = True,
     skip: int = Query(0, ge=0),
@@ -2626,7 +2626,7 @@ async def cancel_return_request(
 # FastAPI matches routes in order, and "browse" would be interpreted as a product_id otherwise
 
 @app.get("/api/v1/products/browse", tags=["Products"])
-async def browse_products(
+async def browse_products_main(
     category_id: Optional[int] = None,
     category_slug: Optional[str] = None,
     min_price: Optional[float] = None,
@@ -2698,7 +2698,7 @@ async def browse_products(
 
 
 @app.get("/api/v1/products/{product_id}/related", tags=["Products"])
-async def get_related_products(
+async def get_related_products_main(
     product_id: int,
     limit: int = Query(8, ge=1, le=20),
     db: Session = Depends(get_db),

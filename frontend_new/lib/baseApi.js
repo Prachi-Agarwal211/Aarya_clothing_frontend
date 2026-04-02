@@ -112,6 +112,10 @@ export function normalizeBaseUrl(url) {
 export function buildUrl(baseUrl, path) {
   const normalizedBase = normalizeBaseUrl(baseUrl);
   const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  // Handle empty base URL (relative URL case for SSR behind nginx)
+  if (!normalizedBase) {
+    return normalizedPath;
+  }
   return `${normalizedBase}${normalizedPath}`;
 }
 
@@ -423,55 +427,56 @@ export class BaseApiClient {
 
 /**
  * Get the core API base URL from environment configuration.
- * 
- * This is the single source of truth for all API base URLs in the application.
- * Provides graceful fallback to prevent crashes when environment variable is missing.
- * 
+ *
+ * SINGLE SOURCE OF TRUTH for all API base URLs in the application.
+ * Uses lazy evaluation to ensure correct URL at call time (critical for SSR).
+ *
  * Priority order:
- * 1. NEXT_PUBLIC_API_URL environment variable
- * 2. Browser window location origin (client-side only)
- * 3. Safe fallback for SSR (logs warning, returns default)
- * 
+ * 1. Browser environment - use current origin (CSP compliant)
+ * 2. Server-side - use NEXT_PUBLIC_API_URL (including internal Docker hostnames like nginx)
+ * 3. Relative URL fallback for production behind nginx
+ *
+ * IMPORTANT: Internal Docker hostnames (nginx, core, commerce, etc.) are VALID for SSR.
+ * They are only blocked when returned to the browser (client-side).
+ *
  * @returns {string} The base URL for API requests
- * 
- * @example
- * const baseUrl = getCoreBaseUrl();
- * // Returns: 'https://aaryaclothing.in' (production with env set)
- * // Returns: window.location.origin (browser fallback)
- * // Returns: 'http://localhost:6005' (SSR fallback with warning)
  */
 export function getCoreBaseUrl() {
-  // Priority 1: Environment variable (works in all environments)
-  if (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_API_URL) {
-    const url = process.env.NEXT_PUBLIC_API_URL.trim();
-    
-    // Validate URL format but don't throw - just warn
-    try {
-      new URL(url);
-      return url;
-    } catch (error) {
-      console.warn('[baseApi] Invalid NEXT_PUBLIC_API_URL format:', url);
-      // Continue to fallback instead of throwing
-    }
-  }
-
-  // Priority 2: Browser environment - use current origin
+  // Priority 1: Browser environment - use current origin (CSP compliant)
   if (typeof window !== 'undefined') {
     return window.location.origin;
   }
 
-  // Priority 3: SSR fallback - return safe default with warning
-  // This prevents crashes during SSR/build if env var is missing
-  console.warn(
-    '[baseApi] NEXT_PUBLIC_API_URL not configured. ' +
-    'Using current origin or default. ' +
-    'For production, set NEXT_PUBLIC_API_URL in environment variables.'
-  );
-  
-  return 'http://localhost:6005';
+  // Priority 2: Server-side - use NEXT_PUBLIC_API_URL
+  // Internal Docker hostnames (nginx, core, commerce) are VALID for SSR
+  if (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_API_URL) {
+    const url = process.env.NEXT_PUBLIC_API_URL.trim();
+    if (url && url.length > 0) {
+      try {
+        new URL(url);
+        return url;  // Return as-is (including internal Docker hostnames for SSR)
+      } catch (error) {
+        console.warn('[baseApi] Invalid NEXT_PUBLIC_API_URL format:', url, '- using relative URL');
+      }
+    }
+  }
+
+  // Priority 3: Relative URL fallback (nginx will proxy /api/v1/* to backend)
+  return '';
 }
 
 export function getCommerceBaseUrl() {
+  // Client-side: use same origin (nginx will proxy to commerce service)
+  if (typeof window !== 'undefined') {
+    return window.location.origin;
+  }
+  
+  // Server-side: use internal URL for direct service-to-service calls
+  if (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_INTERNAL_COMMERCE_URL) {
+    return process.env.NEXT_PUBLIC_INTERNAL_COMMERCE_URL.trim();
+  }
+  
+  // Fallback to core base URL
   return getCoreBaseUrl();
 }
 
@@ -483,10 +488,28 @@ export function getPaymentBaseUrl() {
   return getCoreBaseUrl();
 }
 
-// Export singleton instances
-export const coreClient = new BaseApiClient(getCoreBaseUrl());
-export const commerceClient = new BaseApiClient(getCommerceBaseUrl());
-export const adminClient = new BaseApiClient(getAdminBaseUrl());
-export const paymentClient = new BaseApiClient(getPaymentBaseUrl());
+/**
+ * Lazy client factory - creates fresh BaseApiClient instances on each call.
+ * This is critical for SSR because the URL must be resolved at request time,
+ * not at module load time. In Next.js standalone output, environment variables
+ * are available at runtime but the module is cached.
+ * 
+ * Usage: Instead of `commerceClient.get(...)`, use `getCommerceClient().get(...)`
+ * Or import `commerceClient` which is now a getter that returns a fresh client.
+ */
+
+// Proxy-based lazy clients that create fresh instances on each access
+const createLazyClientHandler = (baseUrlGetter) => ({
+  get: (_, prop) => {
+    const client = new BaseApiClient(baseUrlGetter());
+    return client[prop]?.bind(client);
+  }
+});
+
+// Export lazy getters for all client types
+export const coreClient = new Proxy({}, createLazyClientHandler(getCoreBaseUrl));
+export const commerceClient = new Proxy({}, createLazyClientHandler(getCommerceBaseUrl));
+export const adminClient = new Proxy({}, createLazyClientHandler(getAdminBaseUrl));
+export const paymentClient = new Proxy({}, createLazyClientHandler(getPaymentBaseUrl));
 
 export default BaseApiClient;

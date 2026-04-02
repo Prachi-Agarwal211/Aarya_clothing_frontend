@@ -2,8 +2,9 @@ import { getCoreBaseUrl } from '@/lib/baseApi';
 
 const BASE_URL = 'https://aaryaclothing.in';
 
-// Use centralized URL configuration for all API calls
-const API_BASE = getCoreBaseUrl();
+// Use hardcoded URL for sitemap generation to avoid build-time issues
+// getCoreBaseUrl() may return empty string during static generation
+const API_BASE = BASE_URL;  // Use public URL for sitemap
 
 async function fetchJson(url) {
   try {

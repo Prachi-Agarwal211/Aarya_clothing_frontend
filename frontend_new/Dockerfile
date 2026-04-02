@@ -1,6 +1,9 @@
 # Frontend Dockerfile for Aarya Clothing
 FROM node:18-alpine AS base
 
+# Accept build argument for API URL
+ARG NEXT_PUBLIC_API_URL
+
 # Install dependencies only when needed
 FROM base AS deps
 RUN apk add --no-cache libc6-compat
@@ -20,6 +23,10 @@ FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+
+# Accept build argument for API URL and set as environment variable for build
+ARG NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 
 # Next.js collects completely anonymous telemetry data about general usage.
 # Learn more here: https://nextjs.org/telemetry
@@ -55,6 +62,11 @@ EXPOSE 3000
 
 ENV PORT 3000
 ENV HOSTNAME "0.0.0.0"
+
+# Next.js standalone output reads environment variables at runtime
+# These can be overridden by Docker Compose or Kubernetes
+ENV NEXT_PUBLIC_API_URL=""
+ENV NEXT_PUBLIC_INTERNAL_COMMERCE_URL=""
 
 # server.js is created by next build from the standalone output
 # https://nextjs.org/docs/pages/api-reference/next-config-js/output

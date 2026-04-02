@@ -41,7 +41,10 @@ class Product(Base):
     # SEO
     meta_title = Column(String(255), nullable=True)
     meta_description = Column(Text, nullable=True)
-    
+
+    # Search tags
+    tags = Column(String(500), nullable=True)  # Comma-separated tags for search
+
     # Timestamps
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))

@@ -84,54 +84,69 @@ function ProductsContent() {
 
   const fetchCollections = useCallback(async () => {
     try {
-      const data = await collectionsApi.list();
+      logger.info('[ProductsPage] Fetching collections...');
+      
+      // Use Promise.race to ensure timeout works
+      const fetchPromise = collectionsApi.list();
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Collections request timeout')), API_TIMEOUT_MS);
+      });
+
+      const data = await Promise.race([fetchPromise, timeoutPromise]);
       const items = Array.isArray(data) ? data : (data?.items || data?.collections || []);
       setCollections(items);
+      logger.info('[ProductsPage] Collections loaded:', items.length);
     } catch (err) {
       logger.warn('Failed to load collections for filter:', err?.message);
+      // Don't block page - collections are optional for filtering
+      setCollections([]);
     }
   }, []);
 
   const fetchProducts = useCallback(async (activeFilters, isRetry = false, attempt = 0) => {
+    // ALWAYS ensure loading is set to false in finally block
+    // This is critical to prevent infinite loading state
     try {
       if (!isRetry) {
         setLoading(true);
       }
       setError(null);
 
-      // Create abort controller for timeout
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
+      logger.info('[ProductsPage] Fetching products with filters:', activeFilters);
 
-      try {
-        const [sortField, sortOrder] = (activeFilters.sort || 'created_at:desc').split(':');
+      const [sortField, sortOrder] = (activeFilters.sort || 'created_at:desc').split(':');
 
-        const params = {
-          page: activeFilters.page || 1,
-          limit: PAGE_SIZE,
-          sort: sortField,
-          order: sortOrder || 'desc',
-        };
+      const params = {
+        page: activeFilters.page || 1,
+        limit: PAGE_SIZE,
+        sort: sortField,
+        order: sortOrder || 'desc',
+      };
 
-        if (activeFilters.search) params.search = activeFilters.search;
-        if (activeFilters.collection_id) params.category_id = parseInt(activeFilters.collection_id);
-        if (activeFilters.minPrice) params.min_price = parseFloat(activeFilters.minPrice);
-        if (activeFilters.maxPrice) params.max_price = parseFloat(activeFilters.maxPrice);
+      if (activeFilters.search) params.search = activeFilters.search;
+      if (activeFilters.collection_id) params.category_id = parseInt(activeFilters.collection_id);
+      if (activeFilters.minPrice) params.min_price = parseFloat(activeFilters.minPrice);
+      if (activeFilters.maxPrice) params.max_price = parseFloat(activeFilters.maxPrice);
 
-        const data = await productsApi.list(params);
+      logger.info('[ProductsPage] Calling productsApi.list with params:', params);
+      
+      // Use Promise.race to ensure timeout works even if API client timeout fails
+      const fetchPromise = productsApi.list(params);
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Request timeout - server did not respond within 10 seconds')), API_TIMEOUT_MS);
+      });
 
-        clearTimeout(timeoutId);
+      const data = await Promise.race([fetchPromise, timeoutPromise]);
+      logger.info('[ProductsPage] Products API response received:', data);
 
-        const items = Array.isArray(data) ? data : (data?.items || data?.products || []);
-        const total = data?.total ?? items.length;
+      const items = Array.isArray(data) ? data : (data?.items || data?.products || []);
+      const total = data?.total ?? items.length;
 
-        setProducts(items);
-        setTotalProducts(total);
-      } catch (fetchError) {
-        clearTimeout(timeoutId);
-        throw fetchError;
-      }
+      logger.info('[ProductsPage] Processed products:', items.length, 'Total:', total);
+      setProducts(items);
+      setTotalProducts(total);
     } catch (err) {
+      logger.error('[ProductsPage] Caught error in fetchProducts:', err);
       // Check if we should retry (use local attempt counter, NOT state)
       const shouldRetry = !isRetry && attempt < MAX_RETRIES;
 
@@ -148,6 +163,7 @@ function ProductsContent() {
       setError(err?.message || 'Failed to load products. Please try again.');
       setProducts([]);
     } finally {
+      logger.info('[ProductsPage] Setting loading to false');
       setLoading(false);
     }
   }, []); // No dependencies — stable reference

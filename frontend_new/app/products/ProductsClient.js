@@ -37,16 +37,20 @@ const PAGE_SIZE = 24;
 async function fetchProductsAPI(params = {}) {
   const queryString = new URLSearchParams(params).toString();
   const url = `/api/v1/products/browse${queryString ? '?' + queryString : ''}`;
-  
+
+  console.log('[fetchProductsAPI] Fetching:', url);
+
   const response = await fetch(url, {
     credentials: 'include',
     headers: { 'Accept': 'application/json' },
   });
-  
+
+  console.log('[fetchProductsAPI] Response status:', response.status);
+
   if (!response.ok) {
     throw new Error(`API error: ${response.status}`);
   }
-  
+
   return response.json();
 }
 
@@ -117,6 +121,7 @@ export default function ProductsContent({ initialFilters }) {
   }, []);
 
   const fetchProducts = useCallback(async (activeFilters, isRetry = false, attempt = 0) => {
+    console.log('[ProductsClient] fetchProducts called', { activeFilters, isRetry, attempt });
     try {
       if (!isRetry) {
         setLoading(true);
@@ -137,13 +142,18 @@ export default function ProductsContent({ initialFilters }) {
       if (activeFilters.minPrice) params.min_price = parseFloat(activeFilters.minPrice);
       if (activeFilters.maxPrice) params.max_price = parseFloat(activeFilters.maxPrice);
 
+      console.log('[ProductsClient] Fetching from URL:', `/api/v1/products/browse?${new URLSearchParams(params).toString()}`);
+      
       const data = await fetchProductsAPI(params);
+      console.log('[ProductsClient] Fetch successful, received:', data);
       const items = Array.isArray(data) ? data : (data?.items || data?.products || []);
       const total = data?.total ?? items.length;
 
       setProducts(items);
       setTotalProducts(total);
+      console.log('[ProductsClient] State updated:', { items: items.length, total });
     } catch (err) {
+      console.error('[ProductsClient] Fetch error:', err);
       const shouldRetry = !isRetry && attempt < 2;
 
       if (shouldRetry) {
@@ -158,6 +168,7 @@ export default function ProductsContent({ initialFilters }) {
       setProducts([]);
     } finally {
       setLoading(false);
+      console.log('[ProductsClient] Loading set to false');
     }
   }, []);
 

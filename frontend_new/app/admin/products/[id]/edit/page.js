@@ -51,6 +51,10 @@ export default function EditProductPage() {
   const [errors, setErrors] = useState({});
   const [isDragging, setIsDragging] = useState(false);
   const [authError, setAuthError] = useState(false);
+  const [error, setError] = useState(null);
+
+  // Use productId from useParams - this can be either a slug or numeric ID
+  const productSlugOrId = productId;
 
   useEffect(() => {
     if (productSlugOrId) {

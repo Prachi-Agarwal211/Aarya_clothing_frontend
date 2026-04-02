@@ -37,7 +37,7 @@ export function generateItemListSchema(items, listType = 'Product') {
     "itemListElement": items.slice(0, 50).map((item, index) => ({
       "@type": "ListItem",
       "position": index + 1,
-      "url": item.url || `${BASE_URL}/products/${item.slug || item.id}`,
+      "url": item.url || (item.id ? `${BASE_URL}/products/${item.slug || item.id}` : `${BASE_URL}/products`),
       "item": {
         "@type": listType,
         "name": item.name,
@@ -73,6 +73,10 @@ export function generateProductSchema(product, reviews = []) {
     "worstRating": "1"
   } : null;
 
+  // Validate product URL - prevent null/undefined URLs
+  const productUrl = product.slug || (product.id ? String(product.id) : '');
+  const productPath = productUrl ? `/products/${productUrl}` : '/products';
+
   return {
     "@context": "https://schema.org",
     "@type": "Product",
@@ -86,7 +90,7 @@ export function generateProductSchema(product, reviews = []) {
     },
     "offers": {
       "@type": "Offer",
-      "url": `${BASE_URL}/products/${product.slug || product.id}`,
+      "url": `${BASE_URL}${productPath}`,
       "priceCurrency": "INR",
       "price": product.price,
       "priceValidUntil": new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],

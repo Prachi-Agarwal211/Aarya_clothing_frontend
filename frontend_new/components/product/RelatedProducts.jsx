@@ -68,10 +68,13 @@ export default function RelatedProducts({ productId, collectionId }) {
                   <div className="h-4 bg-[#B76E79]/10 rounded w-1/2" />
                 </div>
               ))
-            : products.map(product => (
+            : products.map(product => {
+                // Validate product ID to prevent null/undefined URLs
+                const productHref = product.id ? `/products/${product.slug || product.id}` : '/products';
+                return (
                 <Link
                   key={product.id}
-                  href={`/products/${product.slug || product.id}`}
+                  href={productHref}
                   className="group"
                 >
                   <div className="bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl overflow-hidden hover:border-[#B76E79]/30 hover:shadow-[0_0_30px_rgba(183,110,121,0.1)] transition-all duration-300">
@@ -98,7 +101,8 @@ export default function RelatedProducts({ productId, collectionId }) {
                     </div>
                   </div>
                 </Link>
-              ))}
+              );
+            })}
         </div>
       </div>
     </section>

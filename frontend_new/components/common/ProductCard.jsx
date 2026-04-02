@@ -130,12 +130,15 @@ const ProductCard = ({
     }
   };
 
+  // Validate product ID - prevent null/undefined URLs
+  const productHref = id ? `/products/${id}` : '/products';
+  
   return (
     <>
       <div className={cn("group relative w-full product-card-enhanced", className)}>
         <div className="relative aspect-[3/4] overflow-hidden bg-[#1A1A1A] rounded-2xl">
           {/* Tappable image area — navigates to product on mobile */}
-          <Link href={`/products/${id}`} className="absolute inset-0 z-10 lg:pointer-events-none" aria-label={`View ${name}`} />
+          <Link href={productHref} className="absolute inset-0 z-10 lg:pointer-events-none" aria-label={`View ${name}`} />
 
           {/* Premium New Badge with Animation */}
           {isNew && (
@@ -218,7 +221,7 @@ const ProductCard = ({
         {/* Premium Product Info */}
         <div className="mt-4 text-center">
           <p className="text-xs text-[#B76E79] uppercase tracking-[0.2em] mb-2 font-medium">{category}</p>
-          <Link href={`/products/${id}`}>
+          <Link href={productHref}>
             <h3 className="text-lg font-cinzel text-[#EAE0D5] group-hover:text-[#F2C29A] transition-colors duration-300 truncate px-2 hover:drop-shadow-[0_0_10px_rgba(242,194,154,0.3)]">
               {name}
             </h3>

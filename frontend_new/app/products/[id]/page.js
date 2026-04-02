@@ -45,6 +45,10 @@ export async function generateMetadata({ params }) {
       };
     }
 
+    // Validate product ID/slug for URL generation - prevent null/undefined URLs
+    const productUrl = product.slug || (product.id ? String(product.id) : null);
+    const canonicalUrl = productUrl ? `https://aaryaclothing.in/products/${productUrl}` : 'https://aaryaclothing.in/products';
+    
     const title = `${product.name} | Aarya Clothing`;
     const description = product.description || `Buy ${product.name} at Aarya Clothing. Premium ethnic wear with free shipping across India.`;
     const imageUrl = product.primary_image || product.image_url || 'https://pub-7846c786f7154610b57735df47899fa0.r2.dev/logo.png';
@@ -65,11 +69,11 @@ export async function generateMetadata({ params }) {
       creator: 'Aarya Clothing',
       publisher: 'Aarya Clothing',
       robots: { index: true, follow: true },
-      alternates: { canonical: `https://aaryaclothing.in/products/${product.slug || product.id}` },
+      alternates: { canonical: canonicalUrl },
       openGraph: {
         title,
         description,
-        url: `https://aaryaclothing.in/products/${product.slug || product.id}`,
+        url: canonicalUrl,
         type: 'product',
         images: [{ url: imageUrl, width: 1200, height: 630, alt: product.name }],
         price: {
@@ -178,12 +182,16 @@ export default async function ProductDetailPage({ params }) {
 
   const { product, reviews } = data;
 
+  // Validate product URL for structured data - prevent null/undefined URLs
+  const productUrl = product.slug || (product.id ? String(product.id) : '');
+  const productPath = productUrl ? `/products/${productUrl}` : '/products';
+
   // Generate structured data
   const breadcrumbSchema = generateBreadcrumbSchema([
     { name: 'Home', url: '/' },
     { name: 'Collections', url: '/collections' },
     ...(product.collection_slug ? [{ name: product.collection_name || product.category, url: `/collections/${product.collection_slug}` }] : []),
-    { name: product.name, url: `/products/${product.slug || product.id}` }
+    { name: product.name, url: productPath }
   ]);
 
   const productSchema = generateProductSchema(product, reviews);

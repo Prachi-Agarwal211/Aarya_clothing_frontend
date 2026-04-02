@@ -438,10 +438,13 @@ export default function ProductsContent({ initialFilters }) {
                       grid gap-4 md:gap-6
                       ${viewMode === 'grid' ? 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4' : 'grid-cols-1'}
                     `}>
-                      {products.map(product => (
+                      {products.map(product => {
+                      // Validate product ID to prevent null/undefined URLs
+                      const productHref = product.id ? `/products/${product.slug || product.id}` : '/products';
+                      return (
                         <Link
-                          key={product.id}
-                          href={`/products/${product.slug || product.id}`}
+                          key={product.id || `product-${product.sku || Math.random()}`}
+                          href={productHref}
                           className="group"
                         >
                           <div className={`
@@ -530,7 +533,8 @@ export default function ProductsContent({ initialFilters }) {
                             </div>
                           </div>
                         </Link>
-                      ))}
+                      );
+                    })}
                     </div>
 
                     {/* Pagination */}

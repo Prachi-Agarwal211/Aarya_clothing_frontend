@@ -210,7 +210,11 @@ export default function ProductDetailClient({ initialProduct, initialReviews, pr
       // Canonical redirect: if accessed by numeric ID and product has a non-numeric slug, redirect to slug URL
       const isNumericId = /^\d+$/.test(String(resolvedProductId));
       if (product.slug && isNumericId && String(product.id) === String(resolvedProductId) && product.slug !== String(resolvedProductId)) {
-        router.replace(`/products/${product.slug}`, { scroll: false });
+        // Validate slug before redirect - prevent null/undefined URLs
+        const redirectSlug = typeof product.slug === 'string' && product.slug.length > 0 ? product.slug : null;
+        if (redirectSlug) {
+          router.replace(`/products/${redirectSlug}`, { scroll: false });
+        }
       }
 
       // Fetch reviews

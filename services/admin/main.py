@@ -991,14 +991,15 @@ async def create_variant(
 ):
     result = db.execute(
         text(
-            "INSERT INTO inventory (product_id, sku, size, color, quantity, reserved_quantity, created_at, updated_at) "
-            "VALUES (:pid, :sku, :size, :color, :qty, 0, :now, :now) RETURNING id"
+            "INSERT INTO inventory (product_id, sku, size, color, color_hex, quantity, reserved_quantity, created_at, updated_at) "
+            "VALUES (:pid, :sku, :size, :color, :color_hex, :qty, 0, :now, :now) RETURNING id"
         ),
         {
             "pid": product_id,
             "sku": data.sku,
             "size": data.size,
             "color": data.color,
+            "color_hex": data.color_hex,
             "qty": data.quantity,
             "now": datetime.now(timezone.utc),
         },
@@ -1024,6 +1025,9 @@ async def update_variant(
     if data.color is not None:
         sets.append("color = :color")
         params["color"] = data.color
+    if data.color_hex is not None:
+        sets.append("color_hex = :color_hex")
+        params["color_hex"] = data.color_hex
     if data.quantity is not None:
         sets.append("quantity = :qty")
         params["qty"] = data.quantity
@@ -5206,14 +5210,15 @@ async def admin_create_product_variant(
         )
     result = db.execute(
         text("""
-        INSERT INTO inventory (product_id, sku, size, color, quantity, low_stock_threshold, created_at, updated_at)
-        VALUES (:pid, :sku, :size, :color, :qty, 5, :now, :now) RETURNING id
+        INSERT INTO inventory (product_id, sku, size, color, color_hex, quantity, low_stock_threshold, created_at, updated_at)
+        VALUES (:pid, :sku, :size, :color, :color_hex, :qty, 5, :now, :now) RETURNING id
     """),
         {
             "pid": product_id,
             "sku": data.sku,
             "size": data.size,
             "color": data.color,
+            "color_hex": data.color_hex,
             "qty": data.quantity,
             "now": datetime.now(timezone.utc),
         },
@@ -5251,6 +5256,9 @@ async def admin_update_product_variant(
     if data.color is not None:
         sets.append("color = :color")
         params["color"] = data.color
+    if data.color_hex is not None:
+        sets.append("color_hex = :color_hex")
+        params["color_hex"] = data.color_hex
     if data.quantity is not None:
         sets.append("quantity = :qty")
         params["qty"] = data.quantity

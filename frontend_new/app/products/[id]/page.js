@@ -28,6 +28,7 @@ import { useCart } from '@/lib/cartContext';
 import { useAuth } from '@/lib/authContext';
 import logger from '@/lib/logger';
 import { useAlertToast } from '@/lib/useAlertToast';
+import { getHexFromName } from '@/lib/colorMap';
 
 export default function ProductDetailPage() {
   const params = useParams();
@@ -129,7 +130,7 @@ export default function ProductDetailPage() {
         const colorsFromInv = [...new Map(
           (product.inventory || [])
             .filter(i => i.color)
-            .map(i => [i.color, { name: i.color, hex: '#B76E79' }])
+            .map(i => [i.color, { name: i.color, hex: i.color_hex || getHexFromName(i.color) }])
         ).values()];
         product.colors = colorsFromInv;
       }

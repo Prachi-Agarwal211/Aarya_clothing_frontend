@@ -278,6 +278,7 @@ CREATE TABLE IF NOT EXISTS inventory (
     sku VARCHAR(100) NOT NULL,
     size VARCHAR(50),
     color VARCHAR(50),
+    color_hex VARCHAR(7),
     quantity INTEGER DEFAULT 0,
     reserved_quantity INTEGER DEFAULT 0,
     low_stock_threshold INTEGER DEFAULT 10,

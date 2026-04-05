@@ -126,6 +126,12 @@ def _enrich_product(product, db: Session = None, user_role: str = None) -> dict:
     colors = sorted({inv.color for inv in inventory_list if inv.color})
     is_admin_user = is_staff(user_role) if user_role else False
 
+    # Build color hex map from inventory data
+    color_hex_map = {}
+    for inv in inventory_list:
+        if inv.color and getattr(inv, 'color_hex', None):
+            color_hex_map[inv.color] = inv.color_hex
+
     return {
         "id": product.id,
         "name": product.name,
@@ -147,7 +153,7 @@ def _enrich_product(product, db: Session = None, user_role: str = None) -> dict:
         "images": _enrich_images(product.images),
         "inventory": _enrich_inventory(inventory_list, user_role),
         "sizes": sizes,
-        "colors": [{"name": c, "hex": "#888888"} for c in colors],
+        "colors": [{"name": c, "hex": color_hex_map.get(c, "#888888")} for c in colors],
         "is_active": product.is_active,
         "is_featured": product.is_featured,
         "is_new_arrival": product.is_new_arrival,

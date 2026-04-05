@@ -556,8 +556,19 @@ export default function InventoryPage() {
                         <td className="px-4 py-4 text-sm text-[#EAE0D5]/70 hidden sm:table-cell">
                           {item.size || <span className="text-[#EAE0D5]/30">—</span>}
                         </td>
-                        <td className="px-4 py-4 text-sm text-[#EAE0D5]/70 hidden sm:table-cell">
-                          {item.color || <span className="text-[#EAE0D5]/30">—</span>}
+                        <td className="px-4 py-4 text-sm hidden sm:table-cell">
+                          {item.color ? (
+                            <div className="flex items-center gap-2">
+                              <div
+                                className="w-4 h-4 rounded-full border border-white/20 flex-shrink-0"
+                                style={{ backgroundColor: item.color_hex || '#888888' }}
+                                title={item.color}
+                              />
+                              <span className="text-[#EAE0D5]/70">{item.color}</span>
+                            </div>
+                          ) : (
+                            <span className="text-[#EAE0D5]/30">—</span>
+                          )}
                         </td>
                         <td className="px-4 py-4 text-center">
                           {item.quantity !== null && item.quantity !== undefined ? (

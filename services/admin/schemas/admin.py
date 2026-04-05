@@ -120,6 +120,7 @@ class VariantCreate(BaseModel):
     sku: str
     size: Optional[str] = None
     color: Optional[str] = None
+    color_hex: Optional[str] = None
     quantity: int = 0
     price: Optional[float] = None
     barcode: Optional[str] = None
@@ -127,6 +128,7 @@ class VariantCreate(BaseModel):
 class VariantUpdate(BaseModel):
     size: Optional[str] = None
     color: Optional[str] = None
+    color_hex: Optional[str] = None
     quantity: Optional[int] = None
     price: Optional[float] = None
     barcode: Optional[str] = None

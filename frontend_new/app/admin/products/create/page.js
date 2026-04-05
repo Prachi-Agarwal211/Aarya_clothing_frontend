@@ -15,6 +15,8 @@ import {
   Star,
 } from 'lucide-react';
 import { productsApi, categoriesApi } from '@/lib/adminApi';
+import ColorPicker from '@/components/ui/ColorPicker';
+import { getHexFromName } from '@/lib/colorMap';
 import logger from '@/lib/logger';
 
 const INITIAL_FORM = {
@@ -84,7 +86,7 @@ export default function CreateProductPage() {
   };
 
   const addVariant = () => {
-    setVariants(prev => [...prev, { size: '', color: '', quantity: '', sku: '', low_stock_threshold: '10' }]);
+    setVariants(prev => [...prev, { size: '', color: '', color_hex: '', quantity: '', sku: '', low_stock_threshold: '10' }]);
   };
 
   const removeVariant = (index) => {
@@ -185,6 +187,7 @@ export default function CreateProductPage() {
             sku: v.sku || autoSku,
             size: v.size || 'Standard',
             color: v.color || 'Standard',
+            color_hex: v.color_hex || null,
             quantity: parseInt(v.quantity) || 0,
             low_stock_threshold: parseInt(v.low_stock_threshold) || 10,
           });
@@ -506,14 +509,14 @@ export default function CreateProductPage() {
                           className="w-full px-3 py-2 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-lg text-[#EAE0D5] placeholder-[#EAE0D5]/40 focus:outline-none focus:border-[#B76E79]/40 text-sm"
                         />
                       </div>
-                      <div className="col-span-3">
-                        <label className="text-xs text-[#EAE0D5]/50 block mb-1">Color</label>
-                        <input
-                          type="text"
-                          placeholder="Red, Blue"
-                          value={variant.color}
-                          onChange={(e) => updateVariant(index, 'color', e.target.value)}
-                          className="w-full px-3 py-2 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-lg text-[#EAE0D5] placeholder-[#EAE0D5]/40 focus:outline-none focus:border-[#B76E79]/40 text-sm"
+                      <div className="col-span-5 sm:col-span-3">
+                        <ColorPicker
+                          value={variant.color_hex || (variant.color ? getHexFromName(variant.color) : null)}
+                          onChange={(hex, name) => {
+                            updateVariant(index, 'color', name);
+                            updateVariant(index, 'color_hex', hex);
+                          }}
+                          label="Color"
                         />
                       </div>
                       <div className="col-span-2">

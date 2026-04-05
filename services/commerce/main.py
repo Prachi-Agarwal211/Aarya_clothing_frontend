@@ -161,8 +161,12 @@ def _enrich_product(product, user_role: str = None) -> dict:
     sizes = sorted(list(set(inv.size for inv in (product.inventory or []) if inv.size)))
     colors = sorted(list(set(inv.color for inv in (product.inventory or []) if inv.color)))
 
-    # Build color objects with hex codes (if stored) or just names
-    color_objects = [{"name": c, "hex": "#888888"} for c in colors]  # Default hex, can be enhanced
+    # Build color objects with hex codes from inventory data
+    color_hex_map = {}
+    for inv in (product.inventory or []):
+        if inv.color and getattr(inv, 'color_hex', None):
+            color_hex_map[inv.color] = inv.color_hex
+    color_objects = [{"name": c, "hex": color_hex_map.get(c, "#888888")} for c in colors]
 
     images = [
         {"id": img.id, "image_url": _r2_url(img.image_url),

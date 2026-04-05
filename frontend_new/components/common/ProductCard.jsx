@@ -226,6 +226,22 @@ const ProductCard = ({
               {name}
             </h3>
           </Link>
+          {/* Color dots */}
+          {product.colors && product.colors.length > 0 && (
+            <div className="flex items-center justify-center gap-1.5 mt-2">
+              {product.colors.slice(0, 4).map((color) => (
+                <div
+                  key={color.name}
+                  className="w-3 h-3 rounded-full border border-white/20"
+                  style={{ backgroundColor: color.hex || '#888888' }}
+                  title={color.name}
+                />
+              ))}
+              {product.colors.length > 4 && (
+                <span className="text-xs text-[#EAE0D5]/40">+{product.colors.length - 4}</span>
+              )}
+            </div>
+          )}
           <div className="mt-2 flex items-center justify-center gap-2">
             <p className="font-playfair text-[#F2C29A] text-lg font-medium tracking-wide">
               ₹{price?.toLocaleString()}

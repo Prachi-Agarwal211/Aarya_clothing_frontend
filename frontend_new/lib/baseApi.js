@@ -256,10 +256,13 @@ export class BaseApiClient {
         return false;
       } catch (e) {
         logger.error('[TokenRefresh] Refresh request failed:', e.message);
-        // Clear stale tokens on error
-        if (typeof window !== 'undefined') {
-          clearAuthData();
-          clearStoredTokens();
+        // Only clear tokens on explicit 401 (invalid/expired refresh token)
+        // Network errors or 5xx should NOT clear auth — retry on next request
+        if (e.status === 401) {
+          if (typeof window !== 'undefined') {
+            clearAuthData();
+            clearStoredTokens();
+          }
         }
         return false;
       } finally {
@@ -304,7 +307,9 @@ export class BaseApiClient {
           if (refreshed) {
             return this.fetch(path, options, true);
           }
-          clearAuthData();
+          // _tryRefreshToken already cleared auth if it was a genuine 401.
+          // If it returned false due to a network error, don't clear — let the
+          // error propagate and the proactive refresh will retry later.
         }
 
         const errorDetail = (data && (data.error?.message || data.detail || data.message)) || `Request failed with status ${response.status}`;

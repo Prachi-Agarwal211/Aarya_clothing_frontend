@@ -100,6 +100,46 @@ export function AuthProvider({ children }) {
   }, [checkAuth]);
 
   /**
+   * Proactive token refresh every 45 minutes (before 60-min access token expiry).
+   * Extends the session window silently without user interaction.
+   */
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const REFRESH_INTERVAL_MS = 45 * 60 * 1000; // 45 minutes
+
+    const intervalId = setInterval(async () => {
+      try {
+        const response = await apiFetch('/api/v1/auth/refresh', {
+          method: 'POST',
+          credentials: 'include',
+        });
+        // Refresh succeeded — session window extended.
+        // New access token is set as HttpOnly cookie by backend.
+        logger.debug('Proactive token refresh succeeded');
+      } catch (err) {
+        if (err.status === 401) {
+          // Refresh token expired or invalid — session is truly dead
+          logger.warn('Proactive refresh returned 401 — clearing auth state');
+          clearAuthData();
+          clearStoredTokens();
+          setUser(null);
+          setIsAuthenticated(false);
+          // Redirect to login
+          if (typeof window !== 'undefined') {
+            window.location.href = '/auth/login';
+          }
+        } else {
+          // Network error or server error — don't clear auth, retry next interval
+          logger.warn('Proactive refresh failed (network/server error), will retry:', err.message);
+        }
+      }
+    }, REFRESH_INTERVAL_MS);
+
+    return () => clearInterval(intervalId);
+  }, [isAuthenticated]);
+
+  /**
    * Login function with error handling
    */
   const login = useCallback(async (credentials) => {

@@ -180,7 +180,7 @@ def set_auth_cookies(response: Response, auth_data: dict, remember_me: bool = Fa
         secure=settings.COOKIE_SECURE,
         samesite=settings.COOKIE_SAMESITE,
         max_age=refresh_max_age,
-        path="/api/v1/auth/refresh",
+        path="/",
         domain=cookie_domain  # FIX: Added for cross-subdomain session support
     )
 
@@ -205,7 +205,7 @@ def clear_auth_cookies(response: Response):
     
     # Delete cookies with domain to ensure they're cleared across subdomains
     response.delete_cookie("access_token", path="/", domain=cookie_domain)
-    response.delete_cookie("refresh_token", path="/api/v1/auth/refresh", domain=cookie_domain)
+    response.delete_cookie("refresh_token", path="/", domain=cookie_domain)
     response.delete_cookie("session_id", path="/", domain=cookie_domain)
 
 
@@ -684,12 +684,12 @@ async def refresh_token(
         )
     
     tokens = auth_service.refresh_access_token(refresh_token)
-    
+
     # FIX: Add domain for cross-subdomain session support
     env = getattr(settings, 'ENVIRONMENT', '').lower() if hasattr(settings, 'ENVIRONMENT') else ''
     is_prod = 'production' in env or 'prod' in env or env == 'prod'
     cookie_domain = ".aaryaclothing.in" if is_prod else None
-    
+
     # Set new access token cookie
     response.set_cookie(
         key="access_token",
@@ -701,7 +701,20 @@ async def refresh_token(
         path="/",
         domain=cookie_domain  # FIX: Added for cross-subdomain session support
     )
-    
+
+    # If a new refresh token was issued (rotation), update the cookie
+    if tokens.get("refresh_token"):
+        response.set_cookie(
+            key="refresh_token",
+            value=tokens["refresh_token"],
+            httponly=settings.COOKIE_HTTPONLY,
+            secure=settings.COOKIE_SECURE,
+            samesite=settings.COOKIE_SAMESITE,
+            max_age=settings.REFRESH_TOKEN_EXPIRE_MINUTES * 60,
+            path="/",
+            domain=cookie_domain
+        )
+
     return Token(**tokens)
 
 

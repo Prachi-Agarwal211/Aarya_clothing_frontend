@@ -133,8 +133,13 @@ class AuthService:
         """
         Refresh an access token using a refresh token.
 
+        Smart rotation: Only issues a new refresh token when the current one
+        has less than 1 hour remaining. Otherwise returns only a new access_token,
+        keeping the existing refresh token valid.
+
         Returns:
-            Dict with new access_token and refresh_token, or None if invalid.
+            Dict with access_token (always) and refresh_token (only when rotating),
+            or None if invalid.
         """
         payload = self.decode_token(refresh_token)
 
@@ -165,6 +170,23 @@ class AuthService:
 
         role = user.role.value
 
+        # Smart rotation: check if refresh token has > 1 hour remaining
+        exp_timestamp = payload.get("exp")
+        if exp_timestamp:
+            from datetime import datetime, timezone
+            remaining_seconds = exp_timestamp - datetime.now(timezone.utc).timestamp()
+            one_hour = 3600  # seconds
+
+            if remaining_seconds > one_hour:
+                # Refresh token still has plenty of time — only issue new access token
+                new_access_token = self.create_access_token(user_id, role)
+                return {
+                    "access_token": new_access_token,
+                    "token_type": "bearer",
+                    "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+                }
+
+        # Refresh token is expiring soon (< 1 hour) — rotate both tokens
         new_access_token = self.create_access_token(user_id, role)
         new_refresh_token = self.create_refresh_token(user_id, role)
 

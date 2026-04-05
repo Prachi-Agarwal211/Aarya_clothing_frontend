@@ -111,7 +111,7 @@ export default function AdminLayout({ children }) {
         setAuthReady(true);
       } else {
         // Give cookies/session a moment to be parsed before concluding "not authenticated"
-        const timer = setTimeout(() => setAuthReady(true), 600);
+        const timer = setTimeout(() => setAuthReady(true), 2000);
         return () => clearTimeout(timer);
       }
     }

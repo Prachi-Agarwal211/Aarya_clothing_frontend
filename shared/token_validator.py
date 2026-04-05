@@ -102,19 +102,20 @@ class TokenValidator:
 
         Returns:
             True if token is blacklisted, False otherwise
-        
-        Security: Fails closed - if Redis is unavailable, treats token as blacklisted
+
+        Availability: Fails open - if Redis is unavailable, skip blacklist check
+        to avoid locking out all users during Redis outages.
         """
         if not self.redis_client:
-            logger.warning("Redis client not available - failing closed for security")
-            return True
+            logger.warning("Redis client not available - failing open, skipping blacklist check")
+            return False
 
         try:
             return self.redis_client.client.exists(f"blacklist:{token}") > 0
         except Exception as e:
-            logger.error(f"Error checking token blacklist: {str(e)} - failing closed for security")
-            # CRITICAL: Fail closed - if we can't verify blacklist, deny the token
-            return True
+            logger.error(f"Error checking token blacklist: {str(e)} - failing open, allowing token")
+            # FAIL OPEN: if we can't reach Redis, allow the token through
+            return False
 
     def get_user_id(self, token: str, expected_type: Optional[str] = None) -> int:
         """

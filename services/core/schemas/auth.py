@@ -12,14 +12,14 @@ class VerificationMethod(str, Enum):
 
     ACTIVE (Supported):
     - link: Email link verification (recommended, industry standard)
-    - otp_whatsapp: WhatsApp OTP verification (6-digit code)
+    - otp_sms: SMS OTP verification (6-digit code)
     - otp_email: Email OTP verification (6-digit code)
 
     User selects one method during registration. System routes verification accordingly.
     """
     link = "link"  # Email link (recommended, default)
     otp_email = "otp_email"  # Email OTP (6-digit code)
-    otp_whatsapp = "otp_whatsapp"  # WhatsApp OTP (6-digit code)
+    otp_sms = "otp_sms"  # SMS OTP (6-digit code)
 
 
 # ==================== User Schemas ====================
@@ -131,7 +131,7 @@ class ChangePasswordRequest(BaseModel):
 class ForgotPasswordRequest(BaseModel):
     """Schema for requesting password reset."""
     identifier: str = Field(..., description="Email address or phone number")
-    otp_type: str = Field(default="WHATSAPP", description="EMAIL or WHATSAPP")
+    otp_type: str = Field(default="SMS", description="EMAIL or SMS")
 
 
 class PasswordResetRequest(BaseModel):
@@ -150,14 +150,14 @@ class ResetPasswordWithOtpRequest(BaseModel):
     identifier: str = Field(..., description="Email or phone number")
     otp_code: str = Field(..., min_length=6, max_length=6, description="6-digit OTP code")
     new_password: str = Field(..., min_length=8, description="New password")
-    otp_type: str = Field(default="WHATSAPP", description="EMAIL or WHATSAPP")
+    otp_type: str = Field(default="SMS", description="EMAIL or SMS")
 
 
 class VerifyResetOtpRequest(BaseModel):
     """Schema for verifying OTP before password reset (Fix #1)."""
     identifier: str = Field(..., description="Email or phone number")
     otp_code: str = Field(..., min_length=6, max_length=6, description="6-digit OTP code")
-    otp_type: str = Field(default="WHATSAPP", description="EMAIL or WHATSAPP")
+    otp_type: str = Field(default="SMS", description="EMAIL or SMS")
 
 
 class VerifyResetOtpResponse(BaseModel):

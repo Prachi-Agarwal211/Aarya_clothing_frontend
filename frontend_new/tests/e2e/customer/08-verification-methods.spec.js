@@ -1,10 +1,10 @@
 /**
- * Email OTP & WhatsApp OTP Verification E2E Tests
+ * Email OTP & SMS OTP Verification E2E Tests
  *
  * Test Suite: Verification Method Selection
  * Coverage:
  * - Email OTP registration flow
- * - WhatsApp OTP registration flow
+ * - SMS OTP registration flow
  * - Verification method selector UI
  * - OTP verification for both methods
  * - Resend OTP for both methods
@@ -22,16 +22,16 @@ test.describe('Verification Method Selection', () => {
   });
 
   test.describe('Verification Method Selector UI', () => {
-    test('should display both Email OTP and WhatsApp OTP options', async ({ page }) => {
+    test('should display both Email OTP and SMS OTP options', async ({ page }) => {
       // Both buttons should be visible
       await expect(registrationPage.emailOtpButton).toBeVisible();
-      await expect(registrationPage.whatsappOtpButton).toBeVisible();
+      await expect(registrationPage.smsOtpButton).toBeVisible();
     });
 
-    test('should have WhatsApp OTP selected by default', async ({ page }) => {
-      // WhatsApp button should have active styling
-      const whatsappButton = registrationPage.whatsappOtpButton;
-      const isActive = await whatsappButton.evaluate(el => 
+    test('should have SMS OTP selected by default', async ({ page }) => {
+      // SMS button should have active styling
+      const smsButton = registrationPage.smsOtpButton;
+      const isActive = await smsButton.evaluate(el => 
         el.classList.contains('border-[#F2C29A]/60') || 
         el.style.borderColor.includes('F2C29A')
       );
@@ -49,23 +49,23 @@ test.describe('Verification Method Selection', () => {
       expect(isActive).toBeTruthy();
     });
 
-    test('should switch to WhatsApp OTP when clicked', async ({ page }) => {
-      // First select email, then switch back to whatsapp
+    test('should switch to SMS OTP when clicked', async ({ page }) => {
+      // First select email, then switch back to sms
       await registrationPage.selectVerificationMethod('email');
-      await registrationPage.selectVerificationMethod('whatsapp');
-      
-      // WhatsApp button should be active
-      const whatsappButton = registrationPage.whatsappOtpButton;
-      const isActive = await whatsappButton.evaluate(el => 
+      await registrationPage.selectVerificationMethod('sms');
+
+      // SMS button should be active
+      const smsButton = registrationPage.smsOtpButton;
+      const isActive = await smsButton.evaluate(el =>
         el.classList.contains('border-[#F2C29A]/60')
       );
       expect(isActive).toBeTruthy();
     });
 
     test('should show method-specific notice', async ({ page }) => {
-      // WhatsApp notice
-      const whatsappNotice = page.locator('text=WhatsApp number');
-      await expect(whatsappNotice).toBeVisible();
+      // SMS notice
+      const smsNotice = page.locator('text=phone number');
+      await expect(smsNotice).toBeVisible();
 
       // Switch to Email
       await registrationPage.selectVerificationMethod('email');
@@ -130,19 +130,19 @@ test.describe('Verification Method Selection', () => {
     });
   });
 
-  test.describe('WhatsApp OTP Registration Flow', () => {
-    test('should register with WhatsApp OTP verification', async ({ page }) => {
+  test.describe('SMS OTP Registration Flow', () => {
+    test('should register with SMS OTP verification', async ({ page }) => {
       const timestamp = Date.now();
-      const testEmail = `test.whatsapp.${timestamp}@aaryaclothing.com`;
+      const testEmail = `test.sms.${timestamp}@aaryaclothing.com`;
       const testPhone = '9876543210';
-      
-      // WhatsApp OTP should be selected by default, but explicitly select it
-      await registrationPage.selectVerificationMethod('whatsapp');
-      
+
+      // SMS OTP should be selected by default, but explicitly select it
+      await registrationPage.selectVerificationMethod('sms');
+
       // Fill registration form
       await registrationPage.registerWithEmail(
         'Test',
-        'WhatsApp User',
+        'SMS User',
         testEmail,
         'TestPassword123!',
         testPhone
@@ -161,16 +161,16 @@ test.describe('Verification Method Selection', () => {
       await expect(phoneHeading).toBeVisible();
     });
 
-    test('should show resend via WhatsApp option', async ({ page }) => {
+    test('should show resend via SMS option', async ({ page }) => {
       const timestamp = Date.now();
-      const testEmail = `test.wa.resend.${timestamp}@aaryaclothing.com`;
+      const testEmail = `test.sms.resend.${timestamp}@aaryaclothing.com`;
       const testPhone = '9876543210';
-      
-      // Register with WhatsApp OTP
-      await registrationPage.selectVerificationMethod('whatsapp');
+
+      // Register with SMS OTP
+      await registrationPage.selectVerificationMethod('sms');
       await registrationPage.registerWithEmail(
         'Test',
-        'WA Resend User',
+        'SMS Resend User',
         testEmail,
         'TestPassword123!',
         testPhone
@@ -179,8 +179,8 @@ test.describe('Verification Method Selection', () => {
       // Wait for resend cooldown to expire (30 seconds)
       await page.waitForTimeout(31000);
 
-      // Resend button should show "Resend via WhatsApp"
-      const resendButton = page.locator('button:has-text("Resend via WhatsApp")');
+      // Resend button should show "Resend via SMS"
+      const resendButton = page.locator('button:has-text("Resend via SMS")');
       await expect(resendButton).toBeVisible();
     });
   });
@@ -241,13 +241,13 @@ test.describe('Verification Method Selection', () => {
       const mailIcon = page.locator('[aria-label="mail"], svg:has(path)');
       await expect(mailIcon).toBeVisible();
 
-      // Go back and try WhatsApp
+      // Go back and try SMS
       await page.goto('/auth/register');
-      await registrationPage.selectVerificationMethod('whatsapp');
+      await registrationPage.selectVerificationMethod('sms');
       await registrationPage.registerWithEmail(
         'Test',
-        'WA Icon User',
-        `test.wa.icon.${Date.now()}@aaryaclothing.com`,
+        'SMS Icon User',
+        `test.sms.icon.${Date.now()}@aaryaclothing.com`,
         'TestPassword123!',
         '9876543210'
       );
@@ -272,7 +272,7 @@ test.describe('Verification Method Selection', () => {
       // Switch methods multiple times
       await registrationPage.selectVerificationMethod('email');
       await page.waitForTimeout(500);
-      await registrationPage.selectVerificationMethod('whatsapp');
+      await registrationPage.selectVerificationMethod('sms');
       await page.waitForTimeout(500);
       await registrationPage.selectVerificationMethod('email');
 

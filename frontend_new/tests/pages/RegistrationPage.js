@@ -21,7 +21,7 @@ class RegistrationPage {
 
     // Verification method selector
     this.emailOtpButton = page.locator('button:has-text("EMAIL OTP"), [role="button"]:has-text("Email OTP")');
-    this.whatsappOtpButton = page.locator('button:has-text("WHATSAPP OTP"), [role="button"]:has-text("WhatsApp OTP")');
+    this.smsOtpButton = page.locator('button:has-text("SMS OTP"), [role="button"]:has-text("SMS OTP")');
 
     // Terms and conditions
     this.termsCheckbox = page.locator('input[type="checkbox"], #terms, input[name="terms"]');
@@ -85,8 +85,8 @@ class RegistrationPage {
   async selectVerificationMethod(method) {
     if (method === 'email') {
       await this.emailOtpButton.click();
-    } else if (method === 'whatsapp') {
-      await this.whatsappOtpButton.click();
+    } else if (method === 'sms') {
+      await this.smsOtpButton.click();
     }
   }
 
@@ -96,8 +96,8 @@ class RegistrationPage {
   async verifyVerificationMethod(method) {
     if (method === 'email') {
       await expect(this.emailOtpButton).toBeVisible();
-    } else if (method === 'whatsapp') {
-      await expect(this.whatsappOtpButton).toBeVisible();
+    } else if (method === 'sms') {
+      await expect(this.smsOtpButton).toBeVisible();
     }
   }
 

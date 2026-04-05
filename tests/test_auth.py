@@ -267,13 +267,13 @@ class TestForgotPasswordFlow:
         assert "message" in data
 
     @pytest.mark.integration
-    def test_forgot_password_request_whatsapp_otp(self, core_client, verified_user):
-        """Test requesting password reset OTP via WhatsApp."""
+    def test_forgot_password_request_sms_otp(self, core_client, verified_user):
+        """Test requesting password reset OTP via SMS."""
         phone = verified_user["profile"]["phone"]
-        
+
         response = core_client.session.post(
             f"{core_client.base_url}/api/v1/auth/forgot-password-otp",
-            json={"identifier": phone, "otp_type": "WHATSAPP"}
+            json={"identifier": phone, "otp_type": "SMS"}
         )
         
         # Should succeed (or return generic message if user doesn't exist)

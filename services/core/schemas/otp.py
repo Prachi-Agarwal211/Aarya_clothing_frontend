@@ -1,4 +1,4 @@
-"""OTP schemas for email and WhatsApp verification."""
+"""OTP schemas for email and SMS verification."""
 from pydantic import BaseModel, field_validator
 from typing import Optional
 from enum import Enum
@@ -7,7 +7,7 @@ from enum import Enum
 class OTPType(str, Enum):
     """OTP delivery method."""
     EMAIL = "EMAIL"
-    WHATSAPP = "WHATSAPP"
+    SMS = "SMS"
 
 
 class OTPSendRequest(BaseModel):
@@ -28,9 +28,9 @@ class OTPSendRequest(BaseModel):
     @field_validator('phone')
     @classmethod
     def validate_phone_required(cls, v, info):
-        """Validate phone is provided when OTP type is WHATSAPP."""
-        if info.data.get('otp_type') == OTPType.WHATSAPP and not v:
-            raise ValueError("Phone number is required for WHATSAPP OTP")
+        """Validate phone is provided when OTP type is SMS."""
+        if info.data.get('otp_type') == OTPType.SMS and not v:
+            raise ValueError("Phone number is required for SMS OTP")
         return v
 
 
@@ -69,9 +69,9 @@ class OTPResendRequest(BaseModel):
     @field_validator('phone')
     @classmethod
     def validate_phone_required(cls, v, info):
-        """Validate phone is provided when OTP type is WHATSAPP."""
-        if info.data.get('otp_type') == OTPType.WHATSAPP and not v:
-            raise ValueError("Phone number is required for WHATSAPP OTP")
+        """Validate phone is provided when OTP type is SMS."""
+        if info.data.get('otp_type') == OTPType.SMS and not v:
+            raise ValueError("Phone number is required for SMS OTP")
         return v
 
 

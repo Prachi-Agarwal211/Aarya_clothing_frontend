@@ -2,7 +2,7 @@
 Core Service Configuration for Aarya Clothing.
 
 This module extends the shared BaseSettings with Core service-specific settings
-for authentication, OTP, email, and WhatsApp integration.
+for authentication, OTP, email, and SMS integration.
 """
 
 from typing import Optional
@@ -55,24 +55,23 @@ class Settings(SharedBaseSettings):
     EMAIL_FROM: str = "noreply@aaryaclothings.com"
     EMAIL_FROM_NAME: str = "Aarya Clothings"
     
-    # ==================== WhatsApp Business API ====================
-    WHATSAPP_BUSINESS_ACCOUNT_ID: Optional[str] = None
-    WHATSAPP_PHONE_NUMBER_ID: Optional[str] = None
-    WHATSAPP_ACCESS_TOKEN: Optional[str] = None
-    WHATSAPP_API_VERSION: str = "v18.0"
-    
+    # ==================== Twilio SMS API ====================
+    TWILIO_ACCOUNT_SID: Optional[str] = None
+    TWILIO_AUTH_TOKEN: Optional[str] = None
+    TWILIO_PHONE_NUMBER: Optional[str] = None
+
     # ==================== Password Reset Settings ====================
     PASSWORD_RESET_TOKEN_EXPIRE_HOURS: int = 24
     PASSWORD_RESET_RATE_LIMIT: int = 3
     PASSWORD_RESET_RATE_WINDOW: int = 3600  # 1 hour
-    
+
     @property
-    def whatsapp_enabled(self) -> bool:
-        """Check if WhatsApp integration is enabled."""
+    def sms_enabled(self) -> bool:
+        """Check if Twilio SMS integration is enabled."""
         return bool(
-            self.WHATSAPP_BUSINESS_ACCOUNT_ID and
-            self.WHATSAPP_PHONE_NUMBER_ID and
-            self.WHATSAPP_ACCESS_TOKEN
+            self.TWILIO_ACCOUNT_SID and
+            self.TWILIO_AUTH_TOKEN and
+            self.TWILIO_PHONE_NUMBER
         )
     
     @property

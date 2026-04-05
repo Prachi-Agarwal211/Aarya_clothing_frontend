@@ -643,13 +643,13 @@ class AuthService:
 
         Args:
             identifier: Email or phone number
-            otp_type: "EMAIL" or "WHATSAPP"
+            otp_type: "EMAIL" or "SMS"
 
         Returns:
             Dict with success message
-        
+
         Fix #2: When otp_type="EMAIL", search only by email.
-                When otp_type="WHATSAPP", search only by phone.
+                When otp_type="SMS", search only by phone.
                 This prevents sending OTP to wrong user.
         """
         # Find user by email or phone based on otp_type (Fix #2)
@@ -659,8 +659,8 @@ class AuthService:
         if otp_type == "EMAIL":
             # Search ONLY by email for EMAIL OTP
             user = self.db.query(User).filter(User.email == identifier).first()
-        elif otp_type == "WHATSAPP":
-            # Search ONLY by phone for WHATSAPP OTP
+        elif otp_type == "SMS":
+            # Search ONLY by phone for SMS OTP
             user = (
                 self.db.query(User)
                 .join(UserProfile, User.id == UserProfile.user_id)
@@ -681,9 +681,9 @@ class AuthService:
         request = OTPSendRequest(
             email=user.email if otp_type == "EMAIL" else None,
             phone=user.profile.phone
-            if otp_type == "WHATSAPP" and user.profile
+            if otp_type == "SMS" and user.profile
             else None,
-            otp_type=OTPType.EMAIL if otp_type == "EMAIL" else OTPType.WHATSAPP,
+            otp_type=OTPType.EMAIL if otp_type == "EMAIL" else OTPType.SMS,
             purpose="password_reset",
         )
 
@@ -704,7 +704,7 @@ class AuthService:
             identifier: Email or phone number (already verified via OTP)
             otp_code: OTP code received (kept for API compatibility, not re-verified)
             new_password: New password to set
-            otp_type: "EMAIL" or "WHATSAPP"
+            otp_type: "EMAIL" or "SMS"
 
         Returns:
             True if password reset successfully

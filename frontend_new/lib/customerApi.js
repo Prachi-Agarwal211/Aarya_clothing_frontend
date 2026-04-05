@@ -369,16 +369,16 @@ export const authApi = {
   logout: () =>
     coreClient.post('/api/v1/auth/logout'),
 
-  forgotPassword: (identifier, otpType = 'WHATSAPP') =>
+  forgotPassword: (identifier, otpType = 'SMS') =>
     coreClient.post('/api/v1/auth/forgot-password-otp', { identifier, otp_type: otpType }),
 
-  verifyResetOtp: (identifier, otpCode, otpType = 'WHATSAPP') =>
+  verifyResetOtp: (identifier, otpCode, otpType = 'SMS') =>
     coreClient.post('/api/v1/auth/verify-reset-otp', { identifier, otp_code: otpCode, otp_type: otpType }),
 
   resetPassword: (token, password) =>
     coreClient.post('/api/v1/auth/reset-password', { token, password }),
 
-  resetPasswordWithOtp: (identifier, otpCode, newPassword, otpType = 'WHATSAPP') =>
+  resetPasswordWithOtp: (identifier, otpCode, newPassword, otpType = 'SMS') =>
     coreClient.post('/api/v1/auth/reset-password-with-otp', {
       identifier,
       otp_code: otpCode,

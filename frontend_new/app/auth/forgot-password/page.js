@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Mail, Phone, MessageCircle, CheckCircle, RefreshCw } from 'lucide-react';
+import { Mail, Phone, Smartphone, CheckCircle, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -27,7 +27,7 @@ export default function ForgotPasswordPage() {
 
   // Form state
   const [identifier, setIdentifier] = useState('');
-  // FIX: Default to email OTP since WhatsApp is not configured in production
+  // FIX: Default to email OTP since SMS is not configured in production
   const [verificationMethod, setVerificationMethod] = useState('otp_email');
 
   // OTP state
@@ -104,7 +104,7 @@ export default function ForgotPasswordPage() {
         return;
       }
     } else {
-      // WhatsApp - validate phone
+      // SMS - validate phone
       const phoneValidation = validatePhone(identifier);
       if (!phoneValidation.valid) {
         setError(phoneValidation.message);
@@ -114,7 +114,7 @@ export default function ForgotPasswordPage() {
     }
 
     try {
-      const otpType = verificationMethod === 'otp_email' ? 'EMAIL' : 'WHATSAPP';
+      const otpType = verificationMethod === 'otp_email' ? 'EMAIL' : 'SMS';
 
       // Fix #3: Use identifier field (not email) to match backend ForgotPasswordRequest schema
       // Fix #5: Use authApi.forgotPassword() instead of raw apiFetch
@@ -156,7 +156,7 @@ export default function ForgotPasswordPage() {
     }
 
     try {
-      const otpType = verificationMethod === 'otp_email' ? 'EMAIL' : 'WHATSAPP';
+      const otpType = verificationMethod === 'otp_email' ? 'EMAIL' : 'SMS';
 
       // Fix #4: Add OTP verification step - call new /api/v1/auth/verify-reset-otp endpoint
       // Fix #5: Use authApi.verifyResetOtp() instead of raw apiFetch
@@ -217,13 +217,13 @@ export default function ForgotPasswordPage() {
     setStatus('');
 
     try {
-      const otpType = verificationMethod === 'otp_email' ? 'EMAIL' : 'WHATSAPP';
+      const otpType = verificationMethod === 'otp_email' ? 'EMAIL' : 'SMS';
 
       // Fix #5: Use authApi.forgotPassword() instead of raw apiFetch
       await authApi.forgotPassword(identifier.trim(), otpType);
 
       setOtpDigits(['', '', '', '', '', '']);
-      setStatus(`New code sent to ${verificationMethod === 'otp_email' ? 'email' : 'WhatsApp'}.`);
+      setStatus(`New code sent to ${verificationMethod === 'otp_email' ? 'email' : 'SMS'}.`);
       startOtpTimers();
       setTimeout(() => otpRefs.current[0]?.focus(), 100);
     } catch (err) {
@@ -359,16 +359,16 @@ export default function ForgotPasswordPage() {
 
                 <button
                   type="button"
-                  onClick={() => setVerificationMethod('otp_whatsapp')}
+                  onClick={() => setVerificationMethod('otp_sms')}
                   className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all duration-300 ${
-                    verificationMethod === 'otp_whatsapp'
+                    verificationMethod === 'otp_sms'
                       ? 'bg-[#7A2F57]/20 border-[#F2C29A]/60 shadow-[0_0_20px_rgba(242,194,154,0.15)]'
                       : 'bg-[#7A2F57]/10 border-[#B76E79]/30 hover:border-[#F2C29A]/40'
                   }`}
                 >
-                  <MessageCircle className={`w-6 h-6 transition-colors ${verificationMethod === 'otp_whatsapp' ? 'text-[#F2C29A]' : 'text-[#B76E79]'}`} />
-                  <p className="text-xs text-[#EAE0D5]/90 font-bold tracking-widest">WHATSAPP OTP</p>
-                  <p className="text-[10px] text-[#EAE0D5]/50 text-center">6-digit code via WhatsApp</p>
+                  <Smartphone className={`w-6 h-6 transition-colors ${verificationMethod === 'otp_sms' ? 'text-[#F2C29A]' : 'text-[#B76E79]'}`} />
+                  <p className="text-xs text-[#EAE0D5]/90 font-bold tracking-widest">SMS OTP</p>
+                  <p className="text-[10px] text-[#EAE0D5]/50 text-center">6-digit code via SMS</p>
                 </button>
               </div>
             </div>
@@ -398,11 +398,11 @@ export default function ForgotPasswordPage() {
               {verificationMethod === 'otp_email' ? (
                 <Mail className="w-5 h-5 text-[#F2C29A] flex-shrink-0" />
               ) : (
-                <MessageCircle className="w-5 h-5 text-[#F2C29A] flex-shrink-0" />
+                <Smartphone className="w-5 h-5 text-[#F2C29A] flex-shrink-0" />
               )}
               <p className="text-[#EAE0D5]/70 text-sm">
                 We&apos;ll send a <strong className="text-[#F2C29A]">6-digit code</strong> to your{' '}
-                {verificationMethod === 'otp_email' ? 'email address' : 'WhatsApp number'} to verify your identity.
+                {verificationMethod === 'otp_email' ? 'email address' : 'phone number'} to verify your identity.
               </p>
             </div>
 
@@ -455,14 +455,14 @@ export default function ForgotPasswordPage() {
               {verificationMethod === 'otp_email' ? (
                 <Mail className="w-8 h-8 text-[#F2C29A]" />
               ) : (
-                <MessageCircle className="w-8 h-8 text-[#F2C29A]" />
+                <Smartphone className="w-8 h-8 text-[#F2C29A]" />
               )}
             </div>
             <h2 className="text-2xl sm:text-3xl text-white/90 font-body">
               Verify Your {verificationMethod === 'otp_email' ? 'Email' : 'Phone Number'}
             </h2>
             <p className="text-white/70 text-sm sm:text-base">
-              Code sent to {verificationMethod === 'otp_email' ? 'Email' : 'WhatsApp'}:{' '}
+              Code sent to {verificationMethod === 'otp_email' ? 'Email' : 'SMS'}:{' '}
               <strong className="text-[#F2C29A]">{identifier}</strong>
             </p>
             <p className="text-white/50 text-xs">Enter the 6-digit code below</p>
@@ -540,7 +540,7 @@ export default function ForgotPasswordPage() {
                 className="flex items-center gap-2 mx-auto text-[#C27A4E] hover:text-[#F2C29A] transition-colors text-sm font-bold tracking-widest uppercase disabled:opacity-50"
               >
                 {isResending ? <RefreshCw className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-                Resend via {verificationMethod === 'otp_email' ? 'Email' : 'WhatsApp'}
+                Resend via {verificationMethod === 'otp_email' ? 'Email' : 'SMS'}
               </button>
             )}
           </div>

@@ -2,6 +2,7 @@
 import hashlib
 import hmac
 import json
+import requests
 from typing import Dict, Any, Optional
 from decimal import Decimal
 import razorpay
@@ -209,17 +210,88 @@ class RazorpayClient:
     def get_payment_methods(self) -> Dict[str, Any]:
         """
         Get available payment methods.
-        
+
         Returns:
             Available payment methods
         """
         try:
             methods = self.client.payment.method()
             return methods
-            
+
         except Exception as e:
             logger.error(f"Failed to fetch payment methods: {str(e)}")
             raise ValueError(f"Payment methods fetch failed: {str(e)}")
+
+    def create_qr_code(self, amount: int, description: str, close_by: int,
+                      notes: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
+        """
+        Create a UPI QR code for payment.
+
+        Args:
+            amount: Amount in smallest currency unit (paise for INR)
+            description: Payment description
+            close_by: Unix timestamp when QR code expires (max 30 minutes from now)
+            notes: Additional notes
+
+        Returns:
+            QR code response with image_url
+        """
+        try:
+            qr_data = {
+                "type": "upi_qr",
+                "name": description,
+                "amount": amount,
+                "close_by": close_by,
+            }
+
+            if notes:
+                qr_data["notes"] = notes
+
+            logger.info(f"Creating QR code with amount={amount}, description={description}")
+
+            # Razorpay QR codes API is not in the official SDK, use direct HTTP call
+            url = "https://api.razorpay.com/v1/payments/qr_codes"
+            auth = (settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET)
+            response = requests.post(url, json=qr_data, auth=auth, timeout=10)
+            response.raise_for_status()
+            qr_response = response.json()
+
+            logger.info(f"QR code created: id={qr_response.get('id')}, image_url present={bool(qr_response.get('image_url'))}")
+            return qr_response
+
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Failed to create QR code: {str(e)}")
+            raise ValueError(f"QR code creation failed: {str(e)}")
+        except Exception as e:
+            logger.error(f"Failed to create QR code: {str(e)}")
+            raise ValueError(f"QR code creation failed: {str(e)}")
+
+    def fetch_qr_code(self, qr_code_id: str) -> Dict[str, Any]:
+        """
+        Fetch QR code details from Razorpay.
+
+        Args:
+            qr_code_id: QR code ID
+
+        Returns:
+            QR code details including payment status
+        """
+        try:
+            url = f"https://api.razorpay.com/v1/payments/qr_codes/{qr_code_id}"
+            auth = (settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET)
+            response = requests.get(url, auth=auth, timeout=10)
+            response.raise_for_status()
+            qr_data = response.json()
+
+            logger.info(f"QR code fetched: id={qr_data.get('id')}, status={qr_data.get('status')}")
+            return qr_data
+
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Failed to fetch QR code: {str(e)}")
+            raise ValueError(f"QR code fetch failed: {str(e)}")
+        except Exception as e:
+            logger.error(f"Failed to fetch QR code: {str(e)}")
+            raise ValueError(f"QR code fetch failed: {str(e)}")
     
     def verify_webhook_signature(self, webhook_body: str, 
                                 webhook_signature: str) -> bool:

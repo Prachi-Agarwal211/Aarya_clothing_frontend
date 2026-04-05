@@ -122,10 +122,10 @@ export function getErrorMessage(message, context = 'general') {
     }
     // Handle specific OTP delivery errors
     if (msg.includes('smtp') || msg.includes('email')) {
-      return 'Failed to send email. Please check your email address or try WhatsApp instead.';
+      return 'Failed to send email. Please check your email address or try SMS instead.';
     }
-    if (msg.includes('whatsapp')) {
-      return 'Failed to send WhatsApp message. Please try email instead or contact support.';
+    if (msg.includes('sms')) {
+      return 'Failed to send SMS message. Please try email instead or contact support.';
     }
     if (msg.includes('network') || msg.includes('timeout')) {
       return 'Network error. Please check your connection and try again.';
@@ -139,8 +139,8 @@ export function getErrorMessage(message, context = 'general') {
   if (msg.includes('smtp') || msg.includes('connection')) {
     return 'Email service temporarily unavailable. Please try again later or contact support.';
   }
-  if (msg.includes('whatsapp') && msg.includes('not configured')) {
-    return 'WhatsApp OTP is not available. Please use email verification instead.';
+  if (msg.includes('sms') && msg.includes('not configured')) {
+    return 'SMS OTP is not available. Please use email verification instead.';
   }
   if (msg.includes('network') || msg.includes('timeout')) {
     return 'Network error. Please check your connection and try again.';

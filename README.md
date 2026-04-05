@@ -10,7 +10,7 @@ A modern, production-ready e-commerce platform built with Next.js 15, React 19, 
 - **AI-Powered Chat** - Customer support chatbot
 - **Video Uploads** - Cloudflare R2 storage integration
 - **Dual Payment** - Razorpay + Cashfree integration
-- **OTP Authentication** - Email and WhatsApp verification
+- **OTP Authentication** - Email and SMS verification
 - **Admin Dashboard** - Complete inventory and order management
 - **E2E Tests** - Playwright test suite
 

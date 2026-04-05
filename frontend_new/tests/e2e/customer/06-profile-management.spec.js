@@ -274,12 +274,12 @@ test.describe('Profile Management', () => {
       }
     });
 
-    test('should toggle WhatsApp notifications', async ({ page }) => {
+    test('should toggle SMS notifications', async ({ page }) => {
       await page.goto('/profile/settings');
-      
-      const whatsappToggle = page.locator('input[type="checkbox"][name*="whatsapp"], [data-testid="whatsapp-notifications"]');
-      if (await whatsappToggle.isVisible()) {
-        await whatsappToggle.click();
+
+      const smsToggle = page.locator('input[type="checkbox"][name*="sms"], [data-testid="sms-notifications"]');
+      if (await smsToggle.isVisible()) {
+        await smsToggle.click();
         await page.waitForTimeout(500);
       }
     });

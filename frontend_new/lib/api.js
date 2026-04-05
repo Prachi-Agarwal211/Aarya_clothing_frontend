@@ -68,7 +68,7 @@ export const register = async (data) => {
   return authApi.register(data);
 };
 
-export const forgotPassword = async (identifier, otpType = 'WHATSAPP') => {
+export const forgotPassword = async (identifier, otpType = 'SMS') => {
   return authApi.forgotPassword(identifier, otpType);
 };
 

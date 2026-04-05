@@ -18,7 +18,7 @@ function getLoginErrorMessage(err) {
   if (err.status === 400 || err.status === 401) {
     const msg = err.message || '';
     if (msg.toLowerCase().includes('verification') || msg.toLowerCase().includes('verify')) {
-      return 'Please verify your email before logging in. Check your inbox or WhatsApp for the verification code.';
+      return 'Please verify your email before logging in. Check your inbox for the verification code.';
     }
     if (msg.toLowerCase().includes('locked')) return msg;
     if (msg.toLowerCase().includes('deactivated')) return 'Your account has been disabled. Please contact support.';

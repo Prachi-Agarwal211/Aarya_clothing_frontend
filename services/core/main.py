@@ -6,7 +6,7 @@ This service handles:
 - User registration and management
 - Authentication (JWT + Refresh Tokens)
 - Cookie-based sessions (24-hour login)
-- OTP verification (Email/WhatsApp)
+- OTP verification (Email/SMS)
 - Session management
 - Profile management
 """
@@ -319,18 +319,18 @@ async def register(
             otp_service.send_otp(otp_request)
             message = "Account created successfully. Please check your email for the verification code."
         
-        elif user_data.verification_method == "otp_whatsapp":
-            # WhatsApp OTP verification
+        elif user_data.verification_method == "otp_sms":
+            # SMS OTP verification
             from service.otp_service import OTPService
             from schemas.otp import OTPSendRequest, OTPType
             otp_service = OTPService(db)
             otp_request = OTPSendRequest(
                 phone=user_response_data['profile']['phone'],
-                otp_type=OTPType.WHATSAPP,
+                otp_type=OTPType.SMS,
                 purpose="registration"
             )
             otp_service.send_otp(otp_request)
-            message = "Account created successfully. Please check WhatsApp for the verification code."
+            message = "Account created successfully. Please check your phone for the verification code."
 
         return {
             "message": message,
@@ -414,7 +414,7 @@ async def verify_otp_registration(
 ):
     """
     Verify OTP for registration and auto-login user.
-    Supports both EMAIL and WHATSAPP OTP verification.
+    Supports both EMAIL and SMS OTP verification.
     """
     import logging
     logger = logging.getLogger(__name__)
@@ -435,9 +435,9 @@ async def verify_otp_registration(
     otp_service = OTPService(db)
     otp_request = OTPVerifyRequest(
         email=email if otp_type == "EMAIL" else None,
-        phone=phone if otp_type == "WHATSAPP" else None,
+        phone=phone if otp_type == "SMS" else None,
         otp_code=otp_code,
-        otp_type=OTPType.EMAIL if otp_type == "EMAIL" else OTPType.WHATSAPP,
+        otp_type=OTPType.EMAIL if otp_type == "EMAIL" else OTPType.SMS,
         purpose="registration"
     )
 
@@ -523,22 +523,22 @@ async def send_verification_otp(
 ):
     """
     Send or resend OTP for registration verification.
-    Supports both EMAIL and WHATSAPP OTP.
+    Supports both EMAIL and SMS OTP.
     """
     if not email and not phone:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Either email or phone must be provided"
         )
-    
+
     from service.otp_service import OTPService
     from schemas.otp import OTPSendRequest, OTPType
-    
+
     otp_service = OTPService(db)
     otp_request = OTPSendRequest(
         email=email if otp_type == "EMAIL" else None,
-        phone=phone if otp_type == "WHATSAPP" else None,
-        otp_type=OTPType.EMAIL if otp_type == "EMAIL" else OTPType.WHATSAPP,
+        phone=phone if otp_type == "SMS" else None,
+        otp_type=OTPType.EMAIL if otp_type == "EMAIL" else OTPType.SMS,
         purpose="registration"
     )
     
@@ -911,9 +911,9 @@ async def forgot_password_otp(
 ):
     """
     Request password reset via OTP.
-    Supports both Email and WhatsApp OTP.
+    Supports both Email and SMS OTP.
     identifier: email or phone number
-    otp_type: "EMAIL" or "WHATSAPP"
+    otp_type: "EMAIL" or "SMS"
     """
     # Rate limiting
     identifier = request_data.identifier  # Use identifier field
@@ -932,7 +932,7 @@ async def forgot_password_otp(
         logger.warning(f"Rate limiting error (skipping): {e}")
 
     auth_service = AuthService(db)
-    otp_type = getattr(request_data, 'otp_type', 'WHATSAPP')
+    otp_type = getattr(request_data, 'otp_type', 'SMS')
     try:
         result = auth_service.request_password_reset_otp(identifier, otp_type)
         return result
@@ -950,7 +950,7 @@ async def reset_password_with_otp(
     identifier: email or phone number
     otp_code: 6-digit OTP code
     new_password: New password
-    otp_type: "EMAIL" or "WHATSAPP"
+    otp_type: "EMAIL" or "SMS"
     """
     auth_service = AuthService(db)
     try:
@@ -991,9 +991,9 @@ async def verify_reset_otp(
     # Create OTP verify request
     otp_request = OTPVerifyRequest(
         email=request_data.identifier if request_data.otp_type == "EMAIL" else None,
-        phone=request_data.identifier if request_data.otp_type == "WHATSAPP" else None,
+        phone=request_data.identifier if request_data.otp_type == "SMS" else None,
         otp_code=request_data.otp_code,
-        otp_type=OTPType.EMAIL if request_data.otp_type == "EMAIL" else OTPType.WHATSAPP,
+        otp_type=OTPType.EMAIL if request_data.otp_type == "EMAIL" else OTPType.SMS,
         purpose="password_reset"
     )
 

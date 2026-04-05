@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Mail, Lock, Eye, EyeOff, Phone, User, MessageCircle, CheckCircle, RefreshCw } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, Phone, User, Smartphone, CheckCircle, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { authApi } from '../../../lib/customerApi';
@@ -27,7 +27,7 @@ export default function RegisterPage() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [otpDigits, setOtpDigits] = useState(['', '', '', '', '', '']);
-  // FIX: Default to email OTP since WhatsApp is not configured in production
+  // FIX: Default to email OTP since SMS is not configured in production
   const [verificationMethod, setVerificationMethod] = useState('otp_email');
   
   const otpRefs = useRef([]);
@@ -172,7 +172,7 @@ export default function RegisterPage() {
     }
 
     try {
-      const otpType = verificationMethod === 'otp_email' ? 'EMAIL' : 'WHATSAPP';
+      const otpType = verificationMethod === 'otp_email' ? 'EMAIL' : 'SMS';
       const identifier = verificationMethod === 'otp_email' ? email : phone;
 
       const response = await authApi.verifyOtpRegistration({
@@ -210,16 +210,16 @@ export default function RegisterPage() {
     setStatus('');
 
     try {
-      const otpType = verificationMethod === 'otp_email' ? 'EMAIL' : 'WHATSAPP';
+      const otpType = verificationMethod === 'otp_email' ? 'EMAIL' : 'SMS';
       const identifier = verificationMethod === 'otp_email' ? email : phone;
 
       await authApi.resendVerificationOtp({
         ...(verificationMethod === 'otp_email' ? { email } : { phone }),
         otp_type: otpType,
       });
-      
+
       setOtpDigits(['', '', '', '', '', '']);
-      setStatus(`New code sent to ${verificationMethod === 'otp_email' ? 'email' : 'WhatsApp'}.`);
+      setStatus(`New code sent to ${verificationMethod === 'otp_email' ? 'email' : 'SMS'}.`);
       startOtpTimers();
       setTimeout(() => otpRefs.current[0]?.focus(), 100);
     } catch (err) {
@@ -486,16 +486,16 @@ export default function RegisterPage() {
 
                 <button
                   type="button"
-                  onClick={() => setVerificationMethod('otp_whatsapp')}
+                  onClick={() => setVerificationMethod('otp_sms')}
                   className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all duration-300 ${
-                    verificationMethod === 'otp_whatsapp'
+                    verificationMethod === 'otp_sms'
                       ? 'bg-[#7A2F57]/20 border-[#F2C29A]/60 shadow-[0_0_20px_rgba(242,194,154,0.15)]'
                       : 'bg-[#7A2F57]/10 border-[#B76E79]/30 hover:border-[#F2C29A]/40'
                   }`}
                 >
-                  <MessageCircle className={`w-6 h-6 transition-colors ${verificationMethod === 'otp_whatsapp' ? 'text-[#F2C29A]' : 'text-[#B76E79]'}`} />
-                  <p className="text-xs text-[#EAE0D5]/90 font-bold tracking-widest">WHATSAPP OTP</p>
-                  <p className="text-[10px] text-[#EAE0D5]/50 text-center">6-digit code via WhatsApp</p>
+                  <Smartphone className={`w-6 h-6 transition-colors ${verificationMethod === 'otp_sms' ? 'text-[#F2C29A]' : 'text-[#B76E79]'}`} />
+                  <p className="text-xs text-[#EAE0D5]/90 font-bold tracking-widest">SMS OTP</p>
+                  <p className="text-[10px] text-[#EAE0D5]/50 text-center">6-digit code via SMS</p>
                 </button>
               </div>
             </div>
@@ -505,11 +505,11 @@ export default function RegisterPage() {
               {verificationMethod === 'otp_email' ? (
                 <Mail className="w-5 h-5 text-[#F2C29A] flex-shrink-0" />
               ) : (
-                <MessageCircle className="w-5 h-5 text-[#F2C29A] flex-shrink-0" />
+                <Smartphone className="w-5 h-5 text-[#F2C29A] flex-shrink-0" />
               )}
               <p className="text-[#EAE0D5]/70 text-sm">
                 We'll send a <strong className="text-[#F2C29A]">6-digit code</strong> to your{' '}
-                {verificationMethod === 'otp_email' ? 'email address' : 'WhatsApp number'} to verify your account.
+                {verificationMethod === 'otp_email' ? 'email address' : 'phone number'} to verify your account.
               </p>
             </div>
 
@@ -553,14 +553,14 @@ export default function RegisterPage() {
               {verificationMethod === 'otp_email' ? (
                 <Mail className="w-8 h-8 text-[#F2C29A]" />
               ) : (
-                <MessageCircle className="w-8 h-8 text-[#F2C29A]" />
+                <Smartphone className="w-8 h-8 text-[#F2C29A]" />
               )}
             </div>
             <h2 className="text-2xl sm:text-3xl text-white/90 font-body">
               Verify Your {verificationMethod === 'otp_email' ? 'Email' : 'Phone Number'}
             </h2>
             <p className="text-white/70 text-sm sm:text-base">
-              Code sent to {verificationMethod === 'otp_email' ? 'Email' : 'WhatsApp'}:{' '}
+              Code sent to {verificationMethod === 'otp_email' ? 'Email' : 'SMS'}:{' '}
               <strong className="text-[#F2C29A]">
                 {verificationMethod === 'otp_email' ? email : phone}
               </strong>
@@ -640,7 +640,7 @@ export default function RegisterPage() {
                 className="flex items-center gap-2 mx-auto text-[#C27A4E] hover:text-[#F2C29A] transition-colors text-sm font-bold tracking-widest uppercase disabled:opacity-50"
               >
                 {isResending ? <RefreshCw className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-                Resend via {verificationMethod === 'otp_email' ? 'Email' : 'WhatsApp'}
+                Resend via {verificationMethod === 'otp_email' ? 'Email' : 'SMS'}
               </button>
             )}
           </div>

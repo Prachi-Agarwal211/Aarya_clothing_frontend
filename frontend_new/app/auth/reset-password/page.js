@@ -38,7 +38,7 @@ function ResetPasswordForm() {
   // Support both URL params (legacy) and sessionStorage (new secure method)
   const isOtpFlow = searchParams.get('verified') !== null || storedVerification?.verified;
   const verifiedIdentifier = searchParams.get('verified') || storedVerification?.identifier;
-  const otpType = searchParams.get('otp_type') || storedVerification?.otpType || 'WHATSAPP';
+  const otpType = searchParams.get('otp_type') || storedVerification?.otpType || 'SMS';
   
   // For OTP code, prefer sessionStorage (secure) over URL param (legacy)
   const otpCode = storedVerification?.otpCode || 

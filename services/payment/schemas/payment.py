@@ -65,6 +65,36 @@ class RazorpayPaymentVerification(BaseModel):
     razorpay_signature: str
 
 
+# ==================== QR Code Schemas ====================
+
+class QrCodeCreateRequest(BaseModel):
+    """Request to create a UPI QR code."""
+    amount: Decimal = Field(..., gt=0, description="Amount in smallest currency unit (paise)")
+    description: str = Field(..., min_length=1, max_length=255, description="Payment description")
+    notes: Optional[Dict[str, str]] = None
+
+
+class QrCodeCreateResponse(BaseModel):
+    """QR code creation response."""
+    success: bool
+    qr_code_id: str
+    image_url: str
+    amount: Decimal
+    currency: str
+    expires_at: int  # Unix timestamp
+    transaction_id: Optional[str] = None
+
+
+class QrCodeStatusResponse(BaseModel):
+    """QR code status response."""
+    qr_code_id: str
+    status: str  # active, paid, expired
+    amount: Decimal
+    payment_id: Optional[str] = None
+    paid_at: Optional[int] = None
+    expires_at: int
+
+
 # ==================== Payment Schemas ====================
 
 class PaymentRequest(BaseModel):

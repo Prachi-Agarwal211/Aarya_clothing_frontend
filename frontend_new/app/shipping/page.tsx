@@ -204,7 +204,6 @@ export default function ShippingPolicyPage() {
               <ul className="list-disc list-inside space-y-2 ml-4">
                 <li>Email notification with tracking number and courier details</li>
                 <li>SMS with tracking link to your registered mobile number</li>
-                <li>Real-time tracking updates via WhatsApp (if opted in)</li>
                 <li>Access to tracking information in your account dashboard</li>
               </ul>
               <p>

@@ -30,7 +30,7 @@ class OTPService:
         return f"{otp_type}:{identifier}"
     
     def send_otp(self, request) -> dict:
-        """Send OTP via email or WhatsApp."""
+        """Send OTP via email or SMS."""
         email = request.email
         phone = request.phone
         otp_type = request.otp_type
@@ -83,21 +83,21 @@ class OTPService:
                 # Delete the stored OTP since delivery failed
                 redis_client.delete_otp(otp_key)
                 raise ValueError(f"Failed to send OTP via email: {str(e)}")
-        elif phone and otp_type == "WHATSAPP":
-            if not getattr(settings, 'whatsapp_enabled', False):
+        elif phone and otp_type == "SMS":
+            if not getattr(settings, 'sms_enabled', False):
                 # Delete the stored OTP since delivery failed
                 redis_client.delete_otp(otp_key)
-                raise ValueError("WhatsApp OTP is not configured. Please use email instead or contact support.")
+                raise ValueError("SMS OTP is not configured. Please use email instead or contact support.")
 
-            from service.whatsapp_service import whatsapp_service
+            from service.sms_service import sms_service
 
-            if whatsapp_service is None:
+            if sms_service is None:
                 # Delete the stored OTP since delivery failed
                 redis_client.delete_otp(otp_key)
-                raise ValueError("WhatsApp service is not available. Please use email instead.")
+                raise ValueError("SMS service is not available. Please use email instead.")
 
             try:
-                result = whatsapp_service.send_otp(
+                result = sms_service.send_otp(
                     phone_number=phone,
                     otp_code=otp_code,
                     purpose=purpose or "verification"
@@ -107,15 +107,15 @@ class OTPService:
                     # Delete the stored OTP since delivery failed
                     redis_client.delete_otp(otp_key)
                     error_msg = result.get('error', 'Unknown error')
-                    logger.error(f"[OTP Service] WhatsApp OTP delivery failed to {phone}: {error_msg}")
-                    raise ValueError(f"Failed to send WhatsApp OTP: {error_msg}")
+                    logger.error(f"[OTP Service] SMS OTP delivery failed to {phone}: {error_msg}")
+                    raise ValueError(f"Failed to send SMS OTP: {error_msg}")
 
                 delivery_target = phone
             except Exception as e:
                 # Delete the stored OTP since delivery failed
                 redis_client.delete_otp(otp_key)
-                logger.error(f"[OTP Service] WhatsApp service exception for {phone}: {str(e)}")
-                raise ValueError(f"Failed to send WhatsApp OTP: {str(e)}")
+                logger.error(f"[OTP Service] SMS service exception for {phone}: {str(e)}")
+                raise ValueError(f"Failed to send SMS OTP: {str(e)}")
         else:
             raise ValueError(f"Invalid OTP type '{otp_type}' or missing email/phone")
         

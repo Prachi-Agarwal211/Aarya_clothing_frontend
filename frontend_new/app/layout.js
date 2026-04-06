@@ -56,6 +56,13 @@ export default function RootLayout({ children }) {
         <link rel="preconnect" href="https://pub-7846c786f7154610b57735df47899fa0.r2.dev" />
         <link rel="dns-prefetch" href="https://api.aaryaclothing.com" />
         <link rel="dns-prefetch" href="https://aaryaclothing.in" />
+        {/* Preload intro video for faster playback */}
+        <link
+          rel="preload"
+          href="https://pub-7846c786f7154610b57735df47899fa0.r2.dev/Create_a_video_202602141450_ub9p5.mp4"
+          as="video"
+          type="video/mp4"
+        />
       </head>
       <body className="relative font-sans">
         {/* Skip Links for Accessibility */}

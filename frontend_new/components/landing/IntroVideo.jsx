@@ -21,11 +21,9 @@ function shouldSkipForNetwork() {
   return q === 'save-data' || q === 'slow';
 }
 function getPreloaderDuration() {
-  const q = getNetworkQuality();
-  if (q === 'save-data') return 0;
-  if (q === 'slow') return 800;
-  if (q === 'medium') return 1100;
-  return 1400;
+  // No artificial delay - start loading immediately
+  // Preloader only shows during actual buffering (onWaiting event)
+  return 0;
 }
 
 // ── localStorage with 24h TTL ────────────────────────────────────────────────
@@ -125,28 +123,45 @@ export default function IntroVideo({ onVideoEnd }) {
   }, [videoUrl]);
 
   const startVideo = useCallback(() => {
-    setShowPreloader(false);
-    setVideoStarted(true);
     const video = videoRef.current;
-    if (video) {
-      video.muted = true;
+    if (!video) return;
+
+    video.muted = true;
+
+    // If video is already loaded and can play, play it immediately
+    if (video.readyState >= 3) {
+      setShowPreloader(false);
+      setVideoStarted(true);
       video.play()
         .then(() => {
-          logger.log('Video started playing successfully');
+          logger.log('Video started playing immediately');
           setAutoplayFailed(false);
         })
         .catch((err) => {
           logger.warn('Video autoplay failed:', err.message, err.name);
           setAutoplayFailed(true);
         });
+      return;
     }
+
+    // Otherwise wait for canplay event
+    setShowPreloader(true);
+    setVideoStarted(false);
   }, []);
 
+  // Start downloading the video immediately - no artificial delay
+  // Preloader shows during actual buffering, not as a timer
   useEffect(() => {
-    if (isVideoEnded) return;
-    preloaderTimerRef.current = setTimeout(startVideo, getPreloaderDuration());
-    return () => clearTimeout(preloaderTimerRef.current);
-  }, [isVideoEnded, startVideo]);
+    if (isVideoEnded || !videoUrl) return;
+
+    const video = videoRef.current;
+    if (video) {
+      // Start downloading immediately
+      video.load();
+    }
+
+    return () => {};
+  }, [isVideoEnded, videoUrl]);
 
   useEffect(() => {
     if (!videoStarted) return;
@@ -240,14 +255,23 @@ export default function IntroVideo({ onVideoEnd }) {
   }, [handleVideoEnd]);
 
   const handleVideoCanPlay = useCallback(() => {
-    logger.log('Video can play - clearing preloader');
-    if (preloaderTimerRef.current && showPreloader) {
-      clearTimeout(preloaderTimerRef.current);
-      preloaderTimerRef.current = null;
-      setShowPreloader(false);
-      setVideoStarted(true);
+    logger.log('Video can play - starting playback');
+    setShowPreloader(false);
+    setVideoStarted(true);
+
+    const video = videoRef.current;
+    if (video) {
+      video.play()
+        .then(() => {
+          logger.log('Video started playing');
+          setAutoplayFailed(false);
+        })
+        .catch((err) => {
+          logger.warn('Video autoplay failed:', err.message);
+          setAutoplayFailed(true);
+        });
     }
-  }, [showPreloader]);
+  }, []);
 
   // Keyboard: Escape = skip — placed after handleSkip to avoid TDZ
   useEffect(() => {
@@ -352,13 +376,19 @@ export default function IntroVideo({ onVideoEnd }) {
             key={videoUrl}
             muted
             playsInline
-            preload="auto"
+            preload="metadata"
             onEnded={handleVideoEnd}
             onError={handleVideoError}
             onCanPlay={handleVideoCanPlay}
             onProgress={handleProgress}
-            onWaiting={() => logger.log('Video waiting (buffering)')}
-            onPlaying={() => logger.log('Video started playing')}
+            onWaiting={() => {
+              logger.log('Video buffering...');
+              setShowPreloader(true);
+            }}
+            onPlaying={() => {
+              logger.log('Video playing');
+              setShowPreloader(false);
+            }}
             onPause={() => logger.log('Video paused')}
             className="absolute inset-0 w-full h-full object-cover"
             src={videoUrl}

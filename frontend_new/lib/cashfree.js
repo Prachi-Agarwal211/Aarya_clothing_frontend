@@ -30,8 +30,9 @@ export function loadCashfreeSDK() {
     const script = document.createElement('script');
     script.src = 'https://sdk.cashfree.com/js/v3/cashfree.js';
     script.async = true;
-    script.crossOrigin = 'anonymous';
-    
+    // NOTE: Do NOT set crossOrigin='anonymous' - Cashfree SDK server doesn't send CORS headers
+    // Setting crossOrigin causes the browser to block the script with CORS error
+
     script.onload = () => {
       if (window.Cashfree) {
         resolve(window.Cashfree);
@@ -39,11 +40,12 @@ export function loadCashfreeSDK() {
         reject(new Error('Cashfree SDK loaded but Cashfree object not found'));
       }
     };
-    
-    script.onerror = () => {
+
+    script.onerror = (e) => {
+      console.error('Cashfree SDK script failed to load:', e);
       reject(new Error('Failed to load Cashfree SDK script. Please check your internet connection or disable ad blockers.'));
     };
-    
+
     document.body.appendChild(script);
   });
 

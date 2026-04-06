@@ -18,14 +18,16 @@ import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { ScrollToPlugin } from 'gsap/ScrollToPlugin';
 import { Draggable } from 'gsap/Draggable';
+import { MotionPathPlugin } from 'gsap/MotionPathPlugin';
 
 // Register plugins only on client side
 if (typeof window !== 'undefined') {
-  gsap.registerPlugin(ScrollTrigger, ScrollToPlugin, Draggable);
-  
+  gsap.registerPlugin(ScrollTrigger, ScrollToPlugin, Draggable, MotionPathPlugin);
+
   // PERFORMANCE: Global GSAP performance settings
+  // NOTE: force3D is deprecated in GSAP 3.12+ (now automatic)
+  // Using gsap.ticker.fps() for performance instead
   gsap.defaults({
-    force3D: true, // GPU acceleration for all animations
     lazy: true, // Lazy load animations
   });
 }
@@ -68,7 +70,7 @@ export const animationConfig = {
   mobileContext: {
     durationMultiplier: 1.2, // Slightly slower on mobile for battery
     reduceMotion: false, // Keep animations but optimize them
-    force3D: true, // Always use GPU acceleration
+    // NOTE: force3D removed - GSAP 3.12+ handles GPU acceleration automatically
   },
 };
 
@@ -86,11 +88,10 @@ export function createScrollAnimation(element, fromVars, toVars, scrollConfig = 
   // PERFORMANCE: Apply mobile optimizations if needed
   const isMobileDevice = isMobile();
   const durationMultiplier = isMobileDevice ? animationConfig.mobileContext.durationMultiplier : 1;
-  
+
   return gsap.fromTo(element, fromVars, {
     ...toVars,
     duration: (toVars.duration || 1) * durationMultiplier,
-    force3D: animationConfig.mobileContext.force3D,
     scrollTrigger: {
       trigger: element,
       ...animationConfig.scrollTrigger,
@@ -110,11 +111,10 @@ export function createStaggerAnimation(elements, fromVars, toVars, staggerType =
   // PERFORMANCE: Apply mobile optimizations
   const isMobileDevice = isMobile();
   const durationMultiplier = isMobileDevice ? animationConfig.mobileContext.durationMultiplier : 1;
-  
+
   return gsap.fromTo(elements, fromVars, {
     ...toVars,
     duration: (toVars.duration || 1) * durationMultiplier,
-    force3D: animationConfig.mobileContext.force3D,
     stagger: animationConfig.stagger[staggerType],
   });
 }

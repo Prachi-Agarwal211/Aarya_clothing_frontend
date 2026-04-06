@@ -58,24 +58,21 @@ const HeroSection = ({
     gsap.killTweensOf([outgoingSlide, incomingSlide]);
 
     // Create new animations and track them
-    // OPTIMIZATION: Use opacity + translate instead of scale for better mobile performance
-    // force3D: true ensures GPU acceleration
+    // GPU acceleration is automatic in GSAP 3.12+
     const outAnim = gsap.to(outgoingSlide, {
       opacity: 0,
-      y: -50, // Translate instead of scale
+      y: -50,
       duration: 1,
-      ease: 'power2.inOut',
-      force3D: true // GPU acceleration
+      ease: 'power2.inOut'
     });
 
     const inAnim = gsap.fromTo(incomingSlide,
-      { opacity: 0, y: 50 }, // Translate instead of scale
+      { opacity: 0, y: 50 },
       {
         opacity: 1,
         y: 0,
         duration: 1,
-        ease: 'power2.out',
-        force3D: true // GPU acceleration
+        ease: 'power2.out'
       }
     );
 
@@ -150,28 +147,30 @@ const HeroSection = ({
     let ctx = gsap.context(() => {
       const tl = gsap.timeline({ delay: 0.3 });
 
-      // First slide entrance - OPTIMIZED with force3D and translate instead of scale
+      // First slide entrance
       if (slideRefs.current[0]) {
         tl.fromTo(slideRefs.current[0],
-          { opacity: 0, y: 50 }, // Translate instead of scale
-          { opacity: 1, y: 0, duration: 1.2, ease: 'power3.out', force3D: true }
+          { opacity: 0, y: 50 },
+          { opacity: 1, y: 0, duration: 1.2, ease: 'power3.out' }
         );
       }
 
-      // Tagline entrance (from top) - OPTIMIZED with force3D
+      // Tagline entrance (from top)
       if (taglineRef.current) {
         tl.fromTo(taglineRef.current,
           { y: -30, opacity: 0 },
-          { y: 0, opacity: 1, duration: 0.8, ease: 'power3.out', force3D: true },
+          { y: 0, opacity: 1, duration: 0.8, ease: 'power3.out' },
           "-=0.6"
         );
       }
 
-      // Buttons entrance (staggered, from bottom) - OPTIMIZED with force3D
+      // Buttons entrance (staggered, from bottom)
+      // NOTE: Convert HTMLCollection to Array to fix GSAP "target not found" warning
       if (buttonContainerRef.current) {
-        tl.fromTo(buttonContainerRef.current.children,
+        const buttons = Array.from(buttonContainerRef.current.children);
+        tl.fromTo(buttons,
           { y: 40, opacity: 0 },
-          { y: 0, opacity: 1, duration: 0.8, stagger: 0.15, ease: 'power3.out', force3D: true },
+          { y: 0, opacity: 1, duration: 0.8, stagger: 0.15, ease: 'power3.out' },
           "-=0.4"
         );
       }

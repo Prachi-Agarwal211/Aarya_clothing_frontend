@@ -1,14 +1,15 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { CreditCard, ChevronRight, Lock, Shield, Check, AlertCircle, ShoppingBag, X, RotateCcw, RefreshCw, ExternalLink } from 'lucide-react';
+import { CreditCard, ChevronRight, Lock, Shield, Check, AlertCircle, ShoppingBag, X, RotateCcw, RefreshCw, ExternalLink, QrCode, Clock, Timer, Cancel } from 'lucide-react';
 import { paymentApi, cartApi, userApi } from '@/lib/customerApi';
 import { useCart } from '@/lib/cartContext';
 import { useAuth } from '@/lib/authContext';
 import logger from '@/lib/logger';
 import { initializeCashfree, loadCashfreeSDK } from '@/lib/cashfree';
+import Image from 'next/image';
 
 // Razorpay configuration
 const LOGO_URL = 'https://pub-7846c786f7154610b57735df47899fa0.r2.dev/logo.png';
@@ -36,6 +37,16 @@ export default function CheckoutPaymentPage() {
   const [cashfreeLoading, setCashfreeLoading] = useState(false);
   const cachedKeyIdRef = React.useRef(null);
   const cachedConfigIdRef = React.useRef(null);
+
+  // QR Code payment states
+  const [qrPaymentState, setQrPaymentState] = useState('idle'); // 'idle', 'generating', 'waiting', 'paid', 'expired', 'error'
+  const [qrCodeData, setQrCodeData] = useState(null);
+  const [qrTransactionId, setQrTransactionId] = useState(null);
+  const [qrExpiresAt, setQrExpiresAt] = useState(null);
+  const [timeRemaining, setTimeRemaining] = useState(null);
+  const [qrError, setQrError] = useState(null);
+  const pollingRef = useRef(null);
+  const timerRef = useRef(null);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -311,7 +322,7 @@ export default function CheckoutPaymentPage() {
       let orderData;
       try {
         orderData = await paymentApi.createCashfreeOrder({
-          amount: cart.total || 0,
+          amount: Math.round((cart.total || 0) * 100),
           currency: 'INR',
           receipt: `cart_${Date.now()}`,
         });
@@ -359,7 +370,13 @@ export default function CheckoutPaymentPage() {
         
       } catch (sdkErr) {
         logger.error('Cashfree SDK error:', sdkErr);
-        setError('Payment could not be opened. Please try again or use Razorpay.');
+        logger.error('Cashfree SDK error details:', {
+          message: sdkErr.message,
+          name: sdkErr.name,
+          stack: sdkErr.stack,
+          sessionId: orderData?.session_id,
+        });
+        setError(`Payment could not be opened. Please try again or use Razorpay. (Error: ${sdkErr.message || 'Unknown'})`);
         setRedirectProcessing(false);
         setCashfreeLoading(false);
         return;
@@ -371,6 +388,183 @@ export default function CheckoutPaymentPage() {
       setRedirectProcessing(false);
       setCashfreeLoading(false);
     }
+  };
+
+  // ==================== QR Code Payment Functions ====================
+
+  /**
+   * Start QR code payment - creates QR code and starts polling
+   */
+  const handleQrPayment = async () => {
+    try {
+      setQrPaymentState('generating');
+      setQrError(null);
+
+      // Validate stock
+      try {
+        const stockValidation = await cartApi.validateStock();
+        if (stockValidation?.out_of_stock?.length > 0) {
+          setStockError({ items: stockValidation.out_of_stock });
+          setQrPaymentState('idle');
+          return;
+        }
+      } catch (stockErr) {
+        setQrError(stockErr.message || 'Items in your cart are out of stock.');
+        setQrPaymentState('idle');
+        return;
+      }
+
+      const addressId = sessionStorage.getItem('checkout_address_id');
+      if (!addressId) {
+        setQrError('Please select a delivery address');
+        router.push('/checkout');
+        return;
+      }
+
+      const amountInPaise = Math.round((cart.total || 0) * 100);
+
+      // Create QR code
+      const qrResponse = await paymentApi.createQrCode({
+        amount: amountInPaise,
+        description: `Aarya Clothing Order - ${user?.email || 'Customer'}`,
+        notes: {
+          order_id: '0',  // Will be updated when order is created
+          user_id: user?.id?.toString() || '0',
+          cart_total: cart.total?.toString() || '0'
+        }
+      });
+
+      if (!qrResponse?.qr_code_id || !qrResponse?.image_url) {
+        throw new Error('Invalid QR code response from server');
+      }
+
+      setQrCodeData(qrResponse);
+      setQrTransactionId(qrResponse.transaction_id);
+      setQrExpiresAt(qrResponse.expires_at);
+      setQrPaymentState('waiting');
+
+      // Start polling for payment status
+      startQrPolling(qrResponse.qr_code_id);
+
+      // Start countdown timer
+      startQrTimer(qrResponse.expires_at);
+
+      logger.info('QR code payment started:', qrResponse.qr_code_id);
+
+    } catch (err) {
+      logger.error('QR payment error:', err);
+      setQrError(err.message || 'Failed to generate QR code. Please try again.');
+      setQrPaymentState('error');
+    }
+  };
+
+  /**
+   * Poll QR code status every 3 seconds
+   */
+  const startQrPolling = (qrCodeId) => {
+    // Clear any existing polling
+    stopQrPolling();
+
+    pollingRef.current = setInterval(async () => {
+      try {
+        const status = await paymentApi.checkQrStatus(qrCodeId);
+
+        if (status.status === 'paid') {
+          stopQrPolling();
+          stopQrTimer();
+          setQrPaymentState('paid');
+
+          // Redirect to confirmation after short delay
+          setTimeout(() => {
+            router.push(`/checkout/confirm?payment_id=${status.payment_id}&qr_code_id=${qrCodeId}`);
+          }, 1500);
+        } else if (status.status === 'expired') {
+          stopQrPolling();
+          stopQrTimer();
+          setQrPaymentState('expired');
+        }
+      } catch (err) {
+        logger.error('QR status poll error:', err);
+        // Don't stop polling on transient errors
+      }
+    }, 3000); // Poll every 3 seconds
+  };
+
+  /**
+   * Stop QR polling
+   */
+  const stopQrPolling = () => {
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current);
+      pollingRef.current = null;
+    }
+  };
+
+  /**
+   * Start countdown timer for QR expiry
+   */
+  const startQrTimer = (expiresAtTimestamp) => {
+    stopQrTimer();
+
+    const updateTimer = () => {
+      const now = Math.floor(Date.now() / 1000);
+      const remaining = expiresAtTimestamp - now;
+
+      if (remaining <= 0) {
+        stopQrTimer();
+        setTimeRemaining(0);
+        return;
+      }
+
+      setTimeRemaining(remaining);
+    };
+
+    updateTimer(); // Update immediately
+    timerRef.current = setInterval(updateTimer, 1000);
+  };
+
+  /**
+   * Stop QR timer
+   */
+  const stopQrTimer = () => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+  };
+
+  /**
+   * Cancel QR payment
+   */
+  const cancelQrPayment = () => {
+    stopQrPolling();
+    stopQrTimer();
+    setQrPaymentState('idle');
+    setQrCodeData(null);
+    setQrTransactionId(null);
+    setQrExpiresAt(null);
+    setTimeRemaining(null);
+    setQrError(null);
+  };
+
+  /**
+   * Cleanup polling and timer on unmount
+   */
+  useEffect(() => {
+    return () => {
+      stopQrPolling();
+      stopQrTimer();
+    };
+  }, []);
+
+  /**
+   * Format time remaining for display
+   */
+  const formatTimeRemaining = (seconds) => {
+    if (!seconds || seconds <= 0) return '00:00';
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
   return (
@@ -477,6 +671,36 @@ export default function CheckoutPaymentPage() {
               </div>
             </button>
           )}
+
+          {/* UPI QR Code Option */}
+          <button
+            onClick={() => setSelectedGateway('upi_qr')}
+            className={`w-full p-4 border-2 rounded-xl transition-all text-left ${
+              selectedGateway === 'upi_qr'
+                ? 'border-[#F2C29A] bg-[#F2C29A]/10'
+                : 'border-[#B76E79]/30 hover:border-[#F2C29A]/40'
+            }`}
+          >
+            <div className="flex items-start gap-3">
+              <input
+                type="radio"
+                name="gateway"
+                checked={selectedGateway === 'upi_qr'}
+                onChange={() => setSelectedGateway('upi_qr')}
+                className="w-4 h-4 mt-1"
+              />
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <QrCode className="w-5 h-5 text-[#F2C29A]" />
+                  <p className="font-semibold text-[#F2C29A]">UPI QR Code</p>
+                </div>
+                <p className="text-sm text-[#EAE0D5]/60 mt-1">Scan with any UPI app (30 min expiry)</p>
+              </div>
+              {selectedGateway === 'upi_qr' && (
+                <Check className="w-5 h-5 text-[#F2C29A]" />
+              )}
+            </div>
+          </button>
         </div>
       </div>
 
@@ -572,39 +796,168 @@ export default function CheckoutPaymentPage() {
         </div>
       )}
 
-      {/* Pay Button - Direct Redirect to Selected Gateway */}
-      <div className="space-y-3">
-        <button
-          onClick={() => {
-            if (selectedGateway === 'cashfree') {
-              handleCashfreePayment();
-            } else {
-              handleDirectPayment();
-            }
-          }}
-          disabled={processing || redirectProcessing || cashfreeLoading}
-          className="w-full flex items-center justify-center gap-2 px-8 py-3.5 bg-gradient-to-r from-[#7A2F57] to-[#B76E79] text-white font-semibold rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50"
-        >
-          {redirectProcessing || cashfreeLoading ? (
-            <>
-              <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
+      {/* QR Code Payment UI */}
+      {selectedGateway === 'upi_qr' && (
+        <div className="p-6 bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl">
+          <h2 className="text-xl font-semibold text-[#F2C29A] mb-4 flex items-center gap-2">
+            <QrCode className="w-5 h-5" />
+            UPI QR Code Payment
+          </h2>
+
+          {/* Generating State */}
+          {qrPaymentState === 'generating' && (
+            <div className="text-center py-8">
+              <svg className="animate-spin w-12 h-12 mx-auto mb-4 text-[#F2C29A]" viewBox="0 0 24 24" fill="none">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8h4z"/>
               </svg>
-              {cashfreeLoading ? 'Loading Cashfree...' : 'Processing...'}
-            </>
-          ) : (
-            <>
-              <CreditCard className="w-4 h-4" />
-              {`Pay ${formatCurrency(cart?.total)} with ${selectedGateway === 'razorpay' ? 'Razorpay' : 'Cashfree'}`}
-              <ChevronRight className="w-4 h-4" />
-            </>
+              <p className="text-[#EAE0D5]/70">Generating QR code...</p>
+            </div>
           )}
-        </button>
-        <p className="text-center text-xs text-[#EAE0D5]/40">
-          Secure checkout powered by {selectedGateway === 'razorpay' ? 'Razorpay' : 'Cashfree'} • UPI, Cards, Net Banking, Wallets
-        </p>
-      </div>
+
+          {/* Waiting for Payment State */}
+          {qrPaymentState === 'waiting' && qrCodeData && (
+            <div className="space-y-6">
+              {/* QR Code Display */}
+              <div className="flex flex-col items-center">
+                <div className="p-6 bg-white rounded-xl mb-4">
+                  <Image
+                    src={qrCodeData.image_url}
+                    alt="UPI QR Code"
+                    width={280}
+                    height={280}
+                    unoptimized
+                    priority
+                  />
+                </div>
+                <p className="text-[#EAE0D5]/70 text-sm text-center">
+                  Scan with any UPI app (Google Pay, PhonePe, Paytm, etc.)
+                </p>
+              </div>
+
+              {/* Timer Display */}
+              {timeRemaining !== null && timeRemaining > 0 && (
+                <div className="flex items-center justify-center gap-2 p-4 bg-[#7A2F57]/20 border border-[#B76E79]/30 rounded-xl">
+                  <Timer className="w-5 h-5 text-[#F2C29A]" />
+                  <span className="text-[#F2C29A] font-mono text-lg">
+                    {formatTimeRemaining(timeRemaining)}
+                  </span>
+                  <span className="text-[#EAE0D5]/60 text-sm">remaining</span>
+                </div>
+              )}
+
+              {/* Payment Status */}
+              <div className="flex items-center justify-center gap-2 p-3 bg-blue-500/10 border border-blue-500/20 rounded-xl">
+                <Clock className="w-5 h-5 text-blue-400 animate-pulse" />
+                <p className="text-blue-300 text-sm">Waiting for payment...</p>
+              </div>
+
+              {/* Cancel Button */}
+              <button
+                onClick={cancelQrPayment}
+                className="w-full px-6 py-3 bg-red-500/10 border border-red-500/30 text-red-400 font-medium rounded-xl hover:bg-red-500/20 transition-colors flex items-center justify-center gap-2"
+              >
+                <X className="w-4 h-4" />
+                Cancel Payment
+              </button>
+            </div>
+          )}
+
+          {/* Paid State */}
+          {qrPaymentState === 'paid' && (
+            <div className="text-center py-8">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-green-500/20 flex items-center justify-center">
+                <Check className="w-8 h-8 text-green-400" />
+              </div>
+              <h3 className="text-xl font-semibold text-green-400 mb-2">Payment Successful!</h3>
+              <p className="text-[#EAE0D5]/70">Redirecting to confirmation...</p>
+            </div>
+          )}
+
+          {/* Expired State */}
+          {qrPaymentState === 'expired' && (
+            <div className="text-center py-8">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-yellow-500/20 flex items-center justify-center">
+                <Clock className="w-8 h-8 text-yellow-400" />
+              </div>
+              <h3 className="text-xl font-semibold text-yellow-400 mb-2">QR Code Expired</h3>
+              <p className="text-[#EAE0D5]/70 mb-4">The QR code has expired. Please generate a new one.</p>
+              <button
+                onClick={handleQrPayment}
+                className="px-6 py-3 bg-gradient-to-r from-[#7A2F57] to-[#B76E79] text-white font-medium rounded-xl hover:opacity-90 transition-opacity"
+              >
+                Generate New QR Code
+              </button>
+            </div>
+          )}
+
+          {/* Error State */}
+          {qrPaymentState === 'error' && (
+            <div className="text-center py-8">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-500/20 flex items-center justify-center">
+                <AlertCircle className="w-8 h-8 text-red-400" />
+              </div>
+              <h3 className="text-xl font-semibold text-red-400 mb-2">Payment Failed</h3>
+              <p className="text-[#EAE0D5]/70 mb-4">{qrError || 'An error occurred during payment'}</p>
+              <button
+                onClick={cancelQrPayment}
+                className="px-6 py-3 bg-gradient-to-r from-[#7A2F57] to-[#B76E79] text-white font-medium rounded-xl hover:opacity-90 transition-opacity"
+              >
+                Try Again
+              </button>
+            </div>
+          )}
+
+          {/* Idle State - Show Pay Button */}
+          {qrPaymentState === 'idle' && (
+            <button
+              onClick={handleQrPayment}
+              disabled={processing}
+              className="w-full flex items-center justify-center gap-2 px-8 py-3.5 bg-gradient-to-r from-[#7A2F57] to-[#B76E79] text-white font-semibold rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50"
+            >
+              <QrCode className="w-5 h-5" />
+              Generate QR Code - {formatCurrency(cart?.total)}
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Pay Button - Direct Redirect to Selected Gateway (Non-QR) */}
+      {selectedGateway !== 'upi_qr' && (
+        <div className="space-y-3">
+          <button
+            onClick={() => {
+              if (selectedGateway === 'cashfree') {
+                handleCashfreePayment();
+              } else {
+                handleDirectPayment();
+              }
+            }}
+            disabled={processing || redirectProcessing || cashfreeLoading}
+            className="w-full flex items-center justify-center gap-2 px-8 py-3.5 bg-gradient-to-r from-[#7A2F57] to-[#B76E79] text-white font-semibold rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50"
+          >
+            {redirectProcessing || cashfreeLoading ? (
+              <>
+                <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8h4z"/>
+                </svg>
+                {cashfreeLoading ? 'Loading Cashfree...' : 'Processing...'}
+              </>
+            ) : (
+              <>
+                <CreditCard className="w-4 h-4" />
+                {`Pay ${formatCurrency(cart?.total)} with ${selectedGateway === 'razorpay' ? 'Razorpay' : 'Cashfree'}`}
+                <ChevronRight className="w-4 h-4" />
+              </>
+            )}
+          </button>
+          <p className="text-center text-xs text-[#EAE0D5]/40">
+            Secure checkout powered by {selectedGateway === 'razorpay' ? 'Razorpay' : 'Cashfree'} • UPI, Cards, Net Banking, Wallets
+          </p>
+        </div>
+      )}
     </div>
   );
 }

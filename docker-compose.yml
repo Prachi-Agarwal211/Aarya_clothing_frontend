@@ -140,10 +140,10 @@ services:
       - COOKIE_SECURE=${COOKIE_SECURE:-false}
       - COOKIE_HTTPONLY=true
       - COOKIE_SAMESITE=lax
-      # Twilio SMS API
-      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID:-}
-      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN:-}
-      - TWILIO_PHONE_NUMBER=${TWILIO_PHONE_NUMBER:-}
+      # MSG91 SMS API
+      - MSG91_AUTH_KEY=${MSG91_AUTH_KEY:-}
+      - MSG91_TEMPLATE_ID=${MSG91_TEMPLATE_ID:-}
+      - MSG91_SENDER_ID=${MSG91_SENDER_ID:-}
       # SMTP Configuration - Hostinger
       - SMTP_HOST=smtp.hostinger.com
       - SMTP_PORT=465
@@ -275,9 +275,10 @@ services:
       - RAZORPAY_WEBHOOK_SECRET
       - RAZORPAY_CHECKOUT_CONFIG_ID
       # Cashfree (alternative payment gateway)
-      - CASHFREE_APP_ID=${CASHFREE_APP_ID:-}
-      - CASHFREE_SECRET_KEY=${CASHFREE_SECRET_KEY:-}
-      - CASHFREE_ENV=${CASHFREE_ENV:-production}
+      # FIXED: Hardcoded credentials to avoid system env var conflicts
+      - CASHFREE_APP_ID=REDACTED_CASHFREE_APP_ID
+      - CASHFREE_SECRET_KEY=REDACTED_CASHFREE_SECRET_KEY
+      - CASHFREE_ENV=production
       # Payment Settings
       - PAYMENT_TIMEOUT_SECONDS=30
       - MAX_RETRY_ATTEMPTS=3

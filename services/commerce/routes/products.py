@@ -89,6 +89,7 @@ def _enrich_inventory(inventory, user_role: str = None) -> list:
                 "sku": inv.sku,
                 "size": inv.size,
                 "color": inv.color,
+                "color_hex": getattr(inv, 'color_hex', None),
                 "quantity": inv.quantity,
                 "reserved_quantity": inv.reserved_quantity,
                 "available_quantity": inv.available_quantity,
@@ -106,6 +107,7 @@ def _enrich_inventory(inventory, user_role: str = None) -> list:
             {
                 "size": inv.size,
                 "color": inv.color,
+                "color_hex": getattr(inv, 'color_hex', None),
                 "in_stock": not inv.is_out_of_stock,
             }
             for inv in (inventory or [])

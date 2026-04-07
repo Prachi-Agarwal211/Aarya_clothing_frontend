@@ -3,17 +3,16 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { X, Minus, Plus, ShoppingBag, Trash2, AlertCircle, Clock } from 'lucide-react';
+import { X, Minus, Plus, ShoppingBag, Trash2, AlertCircle } from 'lucide-react';
 import { useCart } from '@/lib/cartContext';
 import { useAuth } from '@/lib/authContext';
-import { useReservationCountdown } from '@/lib/hooks/useReservationCountdown';
 import { useStockStream } from '@/lib/hooks/useStockStream';
 
 export default function CartDrawer() {
   const { cart, loading, isOpen, closeCart, updateQuantity, removeItem, itemCount } = useCart();
-  const { isStaff } = useAuth();
+  const { isStaff, isAuthenticated, loading: authLoading } = useAuth();
   const isAdminUser = isStaff();
-  const [stockErrors, setStockErrors] = useState({}); // Track stock validation errors per item (admin only)
+  const [stockErrors, setStockErrors] = useState({});
   const [removingId, setRemovingId] = useState(null);
 
   const handleRemoveItem = (productId, variantId) => {
@@ -32,11 +31,6 @@ export default function CartDrawer() {
       updateQuantity(item.product_id, item.quantity - 1, item.variant_id);
     }
   };
-  
-  // Reservation countdown timer
-  const { formattedTime, isExpiringSoon, isExpired } = useReservationCountdown(
-    cart?.reservation_expires_at
-  );
   
   // Real-time stock updates via SSE
   const { checkStock } = useStockStream(isOpen && cart?.items?.length > 0);
@@ -102,20 +96,6 @@ export default function CartDrawer() {
             </span>
           </div>
           
-          {/* Reservation Countdown Timer */}
-          {formattedTime && (
-            <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium ${
-              isExpired 
-                ? 'bg-red-500/20 text-red-400 border border-red-500/30' 
-                : isExpiringSoon 
-                  ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 animate-pulse'
-                  : 'bg-[#7A2F57]/30 text-[#F2C29A] border border-[#B76E79]/30'
-            }`}>
-              <Clock className="w-3.5 h-3.5" />
-              <span>{isExpired ? 'Expired' : `${formattedTime} left`}</span>
-            </div>
-          )}
-          
           <button
             onClick={closeCart}
             className="p-2 text-[#EAE0D5]/50 hover:text-[#EAE0D5] transition-colors"
@@ -126,7 +106,39 @@ export default function CartDrawer() {
 
         {/* Cart Items */}
         <div className="flex-1 overflow-y-auto p-4">
-          {loading ? (
+          {authLoading ? (
+            <div className="space-y-4">
+              {[...Array(2)].map((_, i) => (
+                <div key={i} className="animate-pulse flex gap-4">
+                  <div className="w-20 h-24 bg-[#B76E79]/10 rounded-lg" />
+                  <div className="flex-1 space-y-2 pt-2">
+                    <div className="h-4 bg-[#B76E79]/10 rounded w-3/4" />
+                    <div className="h-4 bg-[#B76E79]/10 rounded w-1/2" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : !isAuthenticated ? (
+            <div className="flex flex-col items-center justify-center h-full text-center px-6">
+              <ShoppingBag className="w-16 h-16 text-[#B76E79]/30 mb-4" />
+              <h3 className="text-lg font-semibold text-[#F2C29A] mb-2">Sign in to view your cart</h3>
+              <p className="text-[#EAE0D5]/50 text-sm mb-6">Login to save items and checkout</p>
+              <Link
+                href="/auth/login"
+                onClick={closeCart}
+                className="w-full py-3 bg-gradient-to-r from-[#7A2F57] to-[#B76E79] text-white text-center font-semibold rounded-xl hover:opacity-90 transition-opacity mb-3"
+              >
+                Sign In
+              </Link>
+              <Link
+                href="/auth/register"
+                onClick={closeCart}
+                className="w-full py-2.5 text-center text-[#B76E79] border border-[#B76E79]/30 rounded-xl hover:bg-[#B76E79]/10 transition-colors text-sm"
+              >
+                Create Account
+              </Link>
+            </div>
+          ) : loading ? (
             <div className="space-y-4">
               {[...Array(3)].map((_, i) => (
                 <div key={i} className="animate-pulse flex gap-4">
@@ -249,22 +261,6 @@ export default function CartDrawer() {
         {/* Footer */}
         {cart?.items?.length > 0 && (
           <div className="border-t border-[#B76E79]/15 p-4 space-y-4">
-            {/* Reservation Expiry Warning */}
-            {(isExpiringSoon || isExpired) && (
-              <div className={`p-3 rounded-lg text-sm flex items-center gap-2 ${
-                isExpired 
-                  ? 'bg-red-500/10 border border-red-500/30 text-red-400'
-                  : 'bg-yellow-500/10 border border-yellow-500/30 text-yellow-400'
-              }`}>
-                <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                <span>
-                  {isExpired 
-                    ? 'Your cart reservations have expired. Some items may no longer be available.' 
-                    : `Your cart reservations expire in ${formattedTime}. Checkout soon to secure your items.`}
-                </span>
-              </div>
-            )}
-            
             {/* Totals */}
             <div className="space-y-2">
               <div className="flex justify-between text-sm">

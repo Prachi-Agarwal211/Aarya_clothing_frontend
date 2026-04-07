@@ -180,7 +180,7 @@ class CartService:
         sku = inventory.sku if inventory else None
         price = inventory.effective_price if inventory else float(product.price)
         
-        # Check stock availability
+        # Check stock availability (no reservation — stock deducted atomically at order time)
         if inventory:
             available = inventory.available_quantity
             if available < quantity:
@@ -188,17 +188,6 @@ class CartService:
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"Only {available} items available"
                 )
-            
-            # Reserve stock
-            try:
-                self.inventory_service.reserve_stock(inventory.sku, quantity, user_id=user_id)
-            except Exception as e:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=str(e)
-                )
-
-            # Note: Redis reservation tracking removed - DB reservation is authoritative source
         
         # Get current cart
         cart = self.get_cart(user_id)
@@ -211,10 +200,10 @@ class CartService:
         )
         
         if existing_item:
-            # Stock was already reserved for the quantity already in cart.
-            # reserve_stock was called above for `quantity` (the delta being added).
             existing_item["quantity"] += quantity
         else:
+            # Use variant-specific image if set, otherwise fall back to product primary image
+            variant_image = getattr(inventory, 'image_url', None) if inventory else None
             cart["items"].append({
                 "product_id": product_id,
                 "variant_id": variant_id,
@@ -222,7 +211,7 @@ class CartService:
                 "price": price,
                 "quantity": quantity,
                 "sku": sku,
-                "image": _r2_url(product.primary_image),
+                "image": _r2_url(variant_image) if variant_image else _r2_url(product.primary_image),
                 "size": inventory.size if inventory else None,
                 "color": inventory.color if inventory else None,
                 "hsn_code": product.hsn_code or None,
@@ -290,19 +279,15 @@ class CartService:
         old_quantity = item["quantity"]
         quantity_diff = new_quantity - old_quantity
         
-        # Update reservation if needed
-        if item.get("sku") and quantity_diff != 0:
-            try:
-                if quantity_diff > 0:
-                    self.inventory_service.reserve_stock(item["sku"], quantity_diff, user_id=user_id)
-                else:
-                    self.inventory_service.release_stock(item["sku"], abs(quantity_diff), user_id=user_id)
-            except Exception as e:
+        # Stock check for increases (no reservation — deducted at order time)
+        if quantity_diff > 0 and item.get("sku"):
+            inventory = self.db.query(Inventory).filter(Inventory.sku == item["sku"]).first() if self.db else None
+            if inventory and inventory.available_quantity < quantity_diff:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=str(e)
+                    detail=f"Only {inventory.available_quantity + old_quantity} items available"
                 )
-        
+
         item["quantity"] = new_quantity
         
         # Recalculate
@@ -329,19 +314,6 @@ class CartService:
                 detail="Item not in cart"
             )
         
-        # Release reservation
-        if item.get("sku"):
-            try:
-                self.inventory_service.release_stock(item["sku"], item["quantity"], user_id=user_id)
-            except (ValueError, KeyError) as e:
-                # Expected errors - log at debug level
-                logger.debug(f"Expected error releasing stock for SKU {item['sku']}: {e}")
-            except Exception as e:
-                # Unexpected error - log at warning level but don't fail the cart operation
-                logger.warning(f"Unexpected error releasing stock for SKU {item['sku']}: {e}", exc_info=True)
-
-        # Note: Redis reservation tracking removed - DB reservation is authoritative source
-
         # Remove from cart
         cart["items"] = [
             i for i in cart["items"]
@@ -357,18 +329,7 @@ class CartService:
         return cart
     
     def clear_cart(self, user_id: int, release_reservations: bool = True) -> Dict:
-        """Clear cart and optionally release all reservations."""
-        if release_reservations:
-            cart = self.get_cart(user_id)
-
-            # Release all reservations
-            for item in cart["items"]:
-                if item.get("sku"):
-                    try:
-                        self.inventory_service.release_stock(item["sku"], item["quantity"], user_id=user_id)
-                    except (ValueError, KeyError, Exception):
-                        pass  # Best effort release
-
+        """Clear cart."""
         # Delete cart
         cart_key = f"{self.CART_KEY_PREFIX}{user_id}"
         redis_client.delete_cache(cart_key)
@@ -409,9 +370,8 @@ class CartService:
     
     def confirm_cart_for_checkout(self, user_id: int) -> bool:
         """
-        Validate cart and confirm all reservations are still valid.
-        Should be called during checkout.
-        Raises HTTPException if any item cannot be reserved.
+        Validate cart stock availability at checkout.
+        Simple availability check — actual deduction happens atomically when order is placed.
         """
         cart = self.get_cart(user_id)
 
@@ -421,29 +381,18 @@ class CartService:
                 detail="Cart is empty"
             )
 
+        if not self.db:
+            return True
+
         for item in cart["items"]:
             if not item.get("sku"):
                 continue
-
-            # Check DB reservation is still PENDING (authoritative source)
-            from models.stock_reservation import StockReservation, ReservationStatus
-            from datetime import datetime, timezone
-            now = datetime.now(timezone.utc)
-            db_reservation = self.db.query(StockReservation).filter(
-                StockReservation.sku == item["sku"],
-                StockReservation.user_id == user_id,
-                StockReservation.status == ReservationStatus.PENDING,
-                StockReservation.expires_at > now
-            ).first()
-
-            if not db_reservation:
-                # DB reservation expired or missing — release any stale rows then re-reserve
-                try:
-                    self.inventory_service.release_stock(item["sku"], item["quantity"], user_id=user_id)
-                except Exception:
-                    pass
-                # This will raise HTTPException if stock is gone — let it propagate
-                self.inventory_service.reserve_stock(item["sku"], item["quantity"], user_id=user_id)
-                # Note: Redis reservation tracking removed - DB reservation is authoritative source
+            inventory = self.db.query(Inventory).filter(Inventory.sku == item["sku"]).first()
+            if not inventory or inventory.available_quantity < item["quantity"]:
+                avail = inventory.available_quantity if inventory else 0
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"'{item.get('name', item['sku'])}' has only {avail} items available. Please update your cart."
+                )
 
         return True

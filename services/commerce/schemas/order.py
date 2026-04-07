@@ -69,10 +69,8 @@ class OrderCreate(BaseModel):
     transaction_id: Optional[str] = None   # alias for payment_id used by route layer
     razorpay_order_id: Optional[str] = None
     razorpay_signature: Optional[str] = None
-    # Cashfree payment details
-    cashfree_order_id: Optional[str] = None
-    cashfree_payment_id: Optional[str] = None
-    cashfree_reference_id: Optional[str] = None
+    # UPI QR payment details
+    qr_code_id: Optional[str] = None
 
 
 class OrderItemResponse(BaseModel):
@@ -88,6 +86,7 @@ class OrderItemResponse(BaseModel):
     quantity: int
     unit_price: Optional[float] = None
     price: float
+    image_url: Optional[str] = None
     
     class Config:
         from_attributes = True

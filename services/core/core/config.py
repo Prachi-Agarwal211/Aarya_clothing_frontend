@@ -55,10 +55,10 @@ class Settings(SharedBaseSettings):
     EMAIL_FROM: str = "noreply@aaryaclothings.com"
     EMAIL_FROM_NAME: str = "Aarya Clothings"
     
-    # ==================== Twilio SMS API ====================
-    TWILIO_ACCOUNT_SID: Optional[str] = None
-    TWILIO_AUTH_TOKEN: Optional[str] = None
-    TWILIO_PHONE_NUMBER: Optional[str] = None
+    # ==================== MSG91 SMS API ====================
+    MSG91_AUTH_KEY: Optional[str] = None
+    MSG91_TEMPLATE_ID: Optional[str] = None
+    MSG91_SENDER_ID: Optional[str] = None
 
     # ==================== Password Reset Settings ====================
     PASSWORD_RESET_TOKEN_EXPIRE_HOURS: int = 24
@@ -67,11 +67,11 @@ class Settings(SharedBaseSettings):
 
     @property
     def sms_enabled(self) -> bool:
-        """Check if Twilio SMS integration is enabled."""
+        """Check if MSG91 SMS integration is enabled."""
         return bool(
-            self.TWILIO_ACCOUNT_SID and
-            self.TWILIO_AUTH_TOKEN and
-            self.TWILIO_PHONE_NUMBER
+            self.MSG91_AUTH_KEY and
+            self.MSG91_TEMPLATE_ID and
+            self.MSG91_SENDER_ID
         )
     
     @property

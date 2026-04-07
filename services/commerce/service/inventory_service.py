@@ -255,6 +255,33 @@ class InventoryService:
         self.db.commit()
         return True
     
+    def deduct_stock_for_order(self, sku: str, quantity: int) -> bool:
+        """
+        Atomically deduct stock when an order is placed.
+        Uses SELECT FOR UPDATE to prevent overselling under concurrent load.
+        Does NOT commit — caller must commit the transaction.
+        """
+        try:
+            inventory = self.get_inventory_by_sku_for_update(sku)
+        except OperationalError:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Inventory is being updated. Please retry."
+            )
+        if not inventory:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Inventory with SKU '{sku}' not found"
+            )
+        if inventory.quantity < quantity:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Insufficient stock for {sku}. Available: {inventory.quantity}, Required: {quantity}"
+            )
+        inventory.quantity -= quantity
+        inventory.reserved_quantity = max(0, inventory.reserved_quantity - quantity)
+        return True
+
     def get_low_stock_items(self) -> List[LowStockItem]:
         """Get all low stock items."""
         low_stock = self.db.query(Inventory).filter(

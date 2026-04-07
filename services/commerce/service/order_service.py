@@ -53,8 +53,12 @@ class OrderService:
         limit: int = 50,
         status: Optional[OrderStatus] = None
     ) -> List[Order]:
-        """Get all orders for a user with pagination."""
-        query = self.db.query(Order).filter(Order.user_id == user_id)
+        """Get all orders for a user with pagination and eager loading."""
+        query = self.db.query(Order).options(
+            selectinload(Order.items).options(
+                joinedload(OrderItem.inventory)
+            )
+        ).filter(Order.user_id == user_id)
         if status:
             query = query.filter(Order.status == status)
         return query.order_by(desc(Order.created_at)).offset(skip).limit(limit).all()
@@ -87,9 +91,7 @@ class OrderService:
         payment_method: str = "razorpay",
         payment_signature: Optional[str] = None,
         razorpay_order_id: Optional[str] = None,
-        cashfree_order_id: Optional[str] = None,
-        cashfree_payment_id: Optional[str] = None,
-        cashfree_reference_id: Optional[str] = None
+        qr_code_id: Optional[str] = None
     ) -> Order:
         """
         Create order from user's cart.
@@ -136,118 +138,125 @@ class OrderService:
         # transaction_id = razorpay payment_id (pay_xxx)
         # razorpay_order_id = razorpay order_id (order_xxx)
         # payment_signature = HMAC signature from Razorpay handler
+        # qr_code_id = for UPI QR payments (no signature needed, payment already completed)
         if payment_method == "razorpay":
-            if not transaction_id:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Payment ID is required for Razorpay orders"
-                )
-            # Verify HMAC signature with payment service if signature provided
-            if not payment_signature or not razorpay_order_id:
-                raise HTTPException(
-                    status_code=status.HTTP_402_PAYMENT_REQUIRED,
-                    detail="Payment signature and Razorpay order ID are required"
-                )
-            
-            logger.info(
-                f"PAYMENT_VERIFY_START: user={user_id} payment_id={transaction_id} "
-                f"razorpay_order_id={razorpay_order_id} sig_len={len(payment_signature) if payment_signature else 0}"
-            )
-            
-            try:
-                import httpx as _httpx
-                import os as _os
-                payment_service_url = _os.getenv("PAYMENT_SERVICE_URL", "http://payment:5003")
-                verify_start = datetime.now(timezone.utc)
-                
-                resp = _httpx.post(
-                    f"{payment_service_url}/api/v1/payments/razorpay/verify-signature",
-                    json={
-                        "razorpay_order_id": razorpay_order_id,
-                        "razorpay_payment_id": transaction_id,
-                        "razorpay_signature": payment_signature,
-                    },
-                    timeout=30.0,  # Increased from 10.0 to 30.0 for reliability
-                )
-                
-                verify_duration = (datetime.now(timezone.utc) - verify_start).total_seconds()
+            # For QR code payments, payment is already verified via QR status polling
+            # No transaction_id or signature needed — just verify the QR code is paid
+            if qr_code_id:
                 logger.info(
-                    f"PAYMENT_VERIFY_RESPONSE: user={user_id} status={resp.status_code} "
-                    f"duration={verify_duration}s response={resp.text[:200]}"
+                    f"PAYMENT_VERIFY_START (QR): user={user_id} "
+                    f"qr_code_id={qr_code_id}"
                 )
-                
-                if resp.status_code != 200:
+                try:
+                    import httpx as _httpx
+                    import os as _os
+                    payment_service_url = _os.getenv("PAYMENT_SERVICE_URL", "http://payment:5003")
+                    resp = _httpx.post(
+                        f"{payment_service_url}/api/v1/payments/razorpay/qr-status/{qr_code_id}",
+                        timeout=15.0,
+                    )
+                    if resp.status_code != 200:
+                        raise HTTPException(
+                            status_code=status.HTTP_402_PAYMENT_REQUIRED,
+                            detail="QR payment verification failed"
+                        )
+                    qr_data = resp.json()
+                    qr_status = qr_data.get("status", "")
+                    # Razorpay returns "closed" for single-use paid QR codes
+                    if qr_status == "closed":
+                        qr_status = "paid"
+                    if qr_status != "paid":
+                        raise HTTPException(
+                            status_code=status.HTTP_402_PAYMENT_REQUIRED,
+                            detail=f"QR payment not completed. Status: {qr_data.get('status')}"
+                        )
+                    # Store the Razorpay payment_id from QR status for the transaction record
+                    transaction_id = qr_data.get("payment_id") or transaction_id
+                    logger.info(
+                        f"✓ PAYMENT_VERIFIED (QR): user={user_id} payment_id={transaction_id} "
+                        f"qr_code_id={qr_code_id}"
+                    )
+                except HTTPException:
+                    raise
+                except Exception as _e:
                     logger.error(
-                        f"PAYMENT_VERIFY_FAILED: user={user_id} payment_id={transaction_id} "
-                        f"status={resp.status_code} response={resp.text[:200]}"
+                        f"PAYMENT_VERIFY_ERROR (QR): user={user_id} qr_code_id={qr_code_id} "
+                        f"error={str(_e)}",
+                        exc_info=True
                     )
                     raise HTTPException(
                         status_code=status.HTTP_402_PAYMENT_REQUIRED,
-                        detail="Payment verification failed — signature invalid"
+                        detail="QR payment verification unavailable — cannot create order"
                     )
-                    
+            else:
+                # Standard Razorpay checkout — verify HMAC signature
+                if not transaction_id:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Payment ID is required for Razorpay orders"
+                    )
+                if not payment_signature or not razorpay_order_id:
+                    raise HTTPException(
+                        status_code=status.HTTP_402_PAYMENT_REQUIRED,
+                        detail="Payment signature and Razorpay order ID are required"
+                    )
+
                 logger.info(
-                    f"✓ PAYMENT_VERIFIED: user={user_id} payment_id={transaction_id} "
-                    f"order_id={razorpay_order_id}"
-                )
-            except HTTPException:
-                raise
-            except Exception as _e:
-                logger.error(
-                    f"PAYMENT_VERIFY_ERROR: user={user_id} payment_id={transaction_id} "
-                    f"error={str(_e)}",
-                    exc_info=True
-                )
-                raise HTTPException(
-                    status_code=status.HTTP_402_PAYMENT_REQUIRED,
-                    detail="Payment verification unavailable — cannot create order"
-                )
-        
-        # Verify Cashfree payment — use payment service to confirm order status via API
-        elif payment_method == "cashfree":
-            if not transaction_id:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Payment ID is required for Cashfree orders"
-                )
-            if not cashfree_order_id:
-                raise HTTPException(
-                    status_code=status.HTTP_402_PAYMENT_REQUIRED,
-                    detail="Cashfree order ID is required"
-                )
-            try:
-                import httpx as _httpx
-                import os as _os
-                payment_service_url = _os.getenv("PAYMENT_SERVICE_URL", "http://payment:5003")
-                # Verify Cashfree payment status via the return handler (confirms order is PAID)
-                resp = _httpx.get(
-                    f"{payment_service_url}/api/v1/payments/cashfree/return",
-                    params={
-                        "order_id": cashfree_order_id,
-                        "reference_id": cashfree_reference_id or transaction_id,
-                        "order_status": "PAID",
-                    },
-                    timeout=30.0,
-                )
-                # Accept 2xx or 3xx (redirect to confirm page means payment passed)
-                if resp.status_code >= 400:
-                    logger.warning(f"Cashfree verification response: {resp.status_code} - {resp.text[:200]}")
-                    raise HTTPException(
-                        status_code=status.HTTP_402_PAYMENT_REQUIRED,
-                        detail="Payment verification failed — Cashfree payment not confirmed"
-                    )
-                logger.info(f"✓ Cashfree payment verified: order={cashfree_order_id}")
-            except HTTPException:
-                raise
-            except Exception as _e:
-                logger.error(f"Cashfree verification call failed: {_e}")
-                raise HTTPException(
-                    status_code=status.HTTP_402_PAYMENT_REQUIRED,
-                    detail="Payment verification unavailable — cannot create order"
+                    f"PAYMENT_VERIFY_START: user={user_id} payment_id={transaction_id} "
+                    f"razorpay_order_id={razorpay_order_id} sig_len={len(payment_signature) if payment_signature else 0}"
                 )
 
+                try:
+                    import httpx as _httpx
+                    import os as _os
+                    payment_service_url = _os.getenv("PAYMENT_SERVICE_URL", "http://payment:5003")
+                    verify_start = datetime.now(timezone.utc)
+
+                    resp = _httpx.post(
+                        f"{payment_service_url}/api/v1/payments/razorpay/verify-signature",
+                        json={
+                            "razorpay_order_id": razorpay_order_id,
+                            "razorpay_payment_id": transaction_id,
+                            "razorpay_signature": payment_signature,
+                        },
+                        timeout=30.0,  # Increased from 10.0 to 30.0 for reliability
+                    )
+
+                    verify_duration = (datetime.now(timezone.utc) - verify_start).total_seconds()
+                    logger.info(
+                        f"PAYMENT_VERIFY_RESPONSE: user={user_id} status={resp.status_code} "
+                        f"duration={verify_duration}s response={resp.text[:200]}"
+                    )
+
+                    if resp.status_code != 200:
+                        logger.error(
+                            f"PAYMENT_VERIFY_FAILED: user={user_id} payment_id={transaction_id} "
+                            f"status={resp.status_code} response={resp.text[:200]}"
+                        )
+                        raise HTTPException(
+                            status_code=status.HTTP_402_PAYMENT_REQUIRED,
+                            detail="Payment verification failed — signature invalid"
+                        )
+
+                    logger.info(
+                        f"✓ PAYMENT_VERIFIED: user={user_id} payment_id={transaction_id} "
+                        f"order_id={razorpay_order_id}"
+                    )
+                except HTTPException:
+                    raise
+                except Exception as _e:
+                    logger.error(
+                        f"PAYMENT_VERIFY_ERROR: user={user_id} payment_id={transaction_id} "
+                        f"error={str(_e)}",
+                        exc_info=True
+                    )
+                    raise HTTPException(
+                        status_code=status.HTTP_402_PAYMENT_REQUIRED,
+                        detail="Payment verification unavailable — cannot create order"
+                    )
+        
         # Compute stored_transaction_id BEFORE the idempotency check that uses it
-        stored_transaction_id = transaction_id or razorpay_order_id or cashfree_payment_id or cashfree_order_id
+        stored_transaction_id = transaction_id or razorpay_order_id
 
         # Check for existing order with same transaction_id (idempotency)
         existing_order = self.db.query(Order).filter(
@@ -358,9 +367,6 @@ class OrderService:
             # Razorpay payment details
             razorpay_order_id=razorpay_order_id,
             razorpay_payment_id=transaction_id if payment_method == "razorpay" else None,
-            # Cashfree payment details
-            cashfree_order_id=cashfree_order_id,
-            cashfree_reference_id=cashfree_reference_id,
         )
         
         self.db.add(order)
@@ -396,13 +402,11 @@ class OrderService:
             
             self.db.add(order_item)
             
-            # Confirm inventory reservation (reduce stock + reserved_quantity)
+            # Atomically deduct stock (SELECT FOR UPDATE — prevents overselling)
             if cart_item.get("sku"):
-                self.inventory_service.confirm_reservation(
+                self.inventory_service.deduct_stock_for_order(
                     cart_item["sku"],
-                    cart_item["quantity"],
-                    user_id=user_id,
-                    order_id=order.id
+                    cart_item["quantity"]
                 )
         
         # Record promotion usage
@@ -413,21 +417,7 @@ class OrderService:
                 order_id=order.id
             )
 
-        # CRITICAL: Mark all PENDING reservations as CONFIRMED BEFORE commit
-        # This ensures atomicity - either both order and reservations succeed or both fail
-        from models.stock_reservation import StockReservation, ReservationStatus
-
-        # Mark all PENDING reservations as CONFIRMED for this user/order
-        reservations = self.db.query(StockReservation).filter(
-            StockReservation.user_id == user_id,
-            StockReservation.status == ReservationStatus.PENDING
-        ).all()
-
-        for res in reservations:
-            res.status = ReservationStatus.CONFIRMED
-            res.order_id = order.id
-
-        # NOW commit everything atomically
+        # Commit everything atomically: order, order_items, stock deductions
         self.db.commit()
         self.db.refresh(order)
 
@@ -442,7 +432,7 @@ class OrderService:
                 )
                 
                 # Insert payment transaction record
-                db.execute(
+                self.db.execute(
                     _text("""
                         INSERT INTO payment_transactions (
                             order_id, user_id, amount, currency, payment_method,
@@ -465,7 +455,7 @@ class OrderService:
                         "transaction_id": transaction_id
                     }
                 )
-                db.commit()
+                self.db.commit()
                 logger.info(
                     f"✓ PAYMENT_TRANSACTION_CREATED: order={order.id} "
                     f"transaction_id={transaction_id}"
@@ -477,46 +467,42 @@ class OrderService:
                 )
                 # Don't rollback - order is already committed successfully
 
-        # Create payment transaction for Cashfree payments as well
-        elif payment_method == "cashfree" and transaction_id:
+        # Cashfree removed — only Razorpay supported
+
+        # For QR payments, the transaction was already created in the payment service
+        # with order_id=NULL. Update it with the order_id and mark as completed.
+        if qr_code_id:
             try:
                 from sqlalchemy import text as _text
                 logger.info(
-                    f"PAYMENT_TRANSACTION_CREATE: order={order.id} user={user_id} "
-                    f"payment_id={transaction_id} cashfree_order_id={cashfree_order_id}"
+                    f"PAYMENT_TRANSACTION_UPDATE (QR): order={order.id} user={user_id} "
+                    f"qr_code_id={qr_code_id} transaction_id={transaction_id}"
                 )
-                
-                db.execute(
+
+                self.db.execute(
                     _text("""
-                        INSERT INTO payment_transactions (
-                            order_id, user_id, amount, currency, payment_method,
-                            cashfree_order_id, cashfree_reference_id,
-                            status, created_at, completed_at, transaction_id
-                        ) VALUES (
-                            :order_id, :user_id, :amount, 'INR', 'cashfree',
-                            :cashfree_order_id, :cashfree_reference_id,
-                            'completed', NOW(), NOW(), :transaction_id
-                        )
-                        ON CONFLICT (transaction_id) DO NOTHING
+                        UPDATE payment_transactions
+                        SET order_id = :order_id,
+                            status = 'completed',
+                            completed_at = NOW()
+                        WHERE razorpay_qr_code_id = :qr_code_id
+                          AND status = 'pending'
                     """),
                     {
                         "order_id": order.id,
-                        "user_id": user_id,
-                        "amount": order.total_amount,
-                        "cashfree_order_id": cashfree_order_id or "",
-                        "cashfree_reference_id": cashfree_reference_id or "",
-                        "transaction_id": transaction_id
+                        "qr_code_id": qr_code_id,
                     }
                 )
-                db.commit()
+                self.db.commit()
                 logger.info(
-                    f"✓ PAYMENT_TRANSACTION_CREATED: order={order.id} "
-                    f"transaction_id={transaction_id}"
+                    f"✓ PAYMENT_TRANSACTION_UPDATED (QR): order={order.id} "
+                    f"qr_code_id={qr_code_id}"
                 )
             except Exception as payment_err:
                 logger.error(
-                    f"⚠ FAILED to create payment transaction for order {order.id}: {payment_err}"
+                    f"⚠ FAILED to update QR payment transaction for order {order.id}: {payment_err}"
                 )
+                # Don't fail the order - transaction update is secondary
 
         # AFTER commit: Clear Redis cart (best effort, non-critical)
         # Order is already committed with reservations confirmed

@@ -519,13 +519,39 @@ class PaymentService:
             transaction = self.db.query(PaymentTransaction).filter(
                 PaymentTransaction.razorpay_payment_id == event_info.get("payment_id")
             ).first()
-            
+
+            # For QR code payments, payment_id may not be available initially
+            # Fall back to matching by amount AND qr_code_id to prevent matching wrong transactions
+            if not transaction:
+                payment_amount = event_info.get("amount")
+                qr_code_id = event_info.get("qr_code_id")
+
+                if payment_amount:
+                    # Convert paise to rupees for comparison
+                    amount_rupees = Decimal(str(payment_amount)) / Decimal('100')
+
+                    # Build query with amount match
+                    query = self.db.query(PaymentTransaction).filter(
+                        PaymentTransaction.status == "pending",
+                        PaymentTransaction.payment_method == "upi_qr",
+                        PaymentTransaction.amount == amount_rupees
+                    )
+
+                    # CRITICAL: If qr_code_id is available, use it to prevent matching wrong transactions
+                    if qr_code_id:
+                        query = query.filter(PaymentTransaction.razorpay_qr_code_id == qr_code_id)
+
+                    transaction = query.order_by(PaymentTransaction.created_at.desc()).first()
+
             if transaction and transaction.status == "pending":
                 transaction.status = "completed"
                 transaction.completed_at = datetime.now(timezone.utc)
                 transaction.gateway_response = event_info
+                # Update payment_id if we got it from webhook
+                if event_info.get("payment_id"):
+                    transaction.razorpay_payment_id = event_info.get("payment_id")
                 self.db.commit()
-                
+
         except Exception as e:
             self.db.rollback()
             logger.error(f"Failed to handle payment captured: {str(e)}")

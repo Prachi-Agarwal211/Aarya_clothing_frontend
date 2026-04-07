@@ -50,6 +50,12 @@ const nextConfig = {
         hostname: '*.r2.cloudflarestorage.com',
         pathname: '/**',
       },
+      // Allow Razorpay QR code images
+      {
+        protocol: 'https',
+        hostname: 'rzp.io',
+        pathname: '/**',
+      },
     ],
 
     // Security settings
@@ -176,7 +182,17 @@ const nextConfig = {
           }
         ]
       },
-      // Cache images for 7 days with revalidation
+      // /_next/static/ chunks — immutable (content-hashed, safe to cache forever)
+      {
+        source: '/_next/static/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable'
+          }
+        ]
+      },
+      // /_next/image optimizer — short-lived cache
       {
         source: '/_next/image/:path*',
         headers: [
@@ -186,23 +202,19 @@ const nextConfig = {
           }
         ]
       },
-      // Cache static JS/CSS - use shorter cache with revalidation for faster updates
+      // All HTML/SSR routes — never cache.
+      // Scoped to exclude /_next/* so static chunks keep their immutable header.
+      // After a rebuild chunk hashes change: cached HTML → old chunk URLs → 404.
       {
-        source: '/_next/static/:path*',
+        source: '/((?!_next/).*)',
         headers: [
           {
             key: 'Cache-Control',
-            value: 'public, max-age=31536000, stale-while-revalidate=86400'
-          }
-        ]
-      },
-      // HTML pages - shorter cache for faster updates
-      {
-        source: '/:path*.html',
-        headers: [
+            value: 'no-cache, no-store, must-revalidate'
+          },
           {
-            key: 'Cache-Control',
-            value: 'public, max-age=0, stale-while-revalidate=3600'
+            key: 'Pragma',
+            value: 'no-cache'
           }
         ]
       },

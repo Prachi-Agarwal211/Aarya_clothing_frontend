@@ -274,10 +274,9 @@ services:
       - RAZORPAY_KEY_SECRET
       - RAZORPAY_WEBHOOK_SECRET
       - RAZORPAY_CHECKOUT_CONFIG_ID
-      # Cashfree (alternative payment gateway)
-      # FIXED: Hardcoded credentials to avoid system env var conflicts
-      - CASHFREE_APP_ID=REDACTED_CASHFREE_APP_ID
-      - CASHFREE_SECRET_KEY=REDACTED_CASHFREE_SECRET_KEY
+      # Cashfree (alternative payment gateway) - credentials from .env
+      - CASHFREE_APP_ID
+      - CASHFREE_SECRET_KEY
       - CASHFREE_ENV=production
       # Payment Settings
       - PAYMENT_TIMEOUT_SECONDS=30

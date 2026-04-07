@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Mail, Lock, Eye, EyeOff, Phone, User, Smartphone, CheckCircle, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { authApi } from '../../../lib/customerApi';
 import { setAuthData } from '../../../lib/baseApi';
 import { useAuth } from '../../../lib/authContext';
@@ -16,7 +16,8 @@ import { validatePhone, validatePassword, formatTime, getErrorMessage } from '..
 const OTP_EXPIRY_SECONDS = 120;
 const RESEND_COOLDOWN_SECONDS = 30;
 
-export default function RegisterPage() {
+function RegisterPageContent() {
+  const searchParams = useSearchParams();
   const [step, setStep] = useState(1);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -49,6 +50,31 @@ export default function RegisterPage() {
   const passwordStrength = passwordValidation?.strength;
   const passwordsMatch = confirmPassword ? password === confirmPassword : null;
   const otpValue = otpDigits.join('');
+
+  // Handle ?step=verify&email= params — unverified users redirected from login page
+  useEffect(() => {
+    const stepParam = searchParams?.get('step');
+    const emailParam = searchParams?.get('email');
+    if (stepParam === 'verify' && emailParam) {
+      setEmail(decodeURIComponent(emailParam));
+      setVerificationMethod('otp_email');
+      // Send OTP to email and jump to verification step
+      const sendOtp = async () => {
+        try {
+          await authApi.resendVerificationOtp({ email: decodeURIComponent(emailParam), otp_type: 'EMAIL' });
+          startOtpTimers();
+          setStep(2);
+        } catch (err) {
+          logger.warn('Failed to send OTP to unverified email:', err?.message);
+          // Still jump to step 2 — user can use resend
+          startOtpTimers();
+          setStep(2);
+        }
+      };
+      sendOtp();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Timer management
   useEffect(() => {
@@ -86,6 +112,7 @@ export default function RegisterPage() {
     }
   }, [loading, isAuthenticated, user, isStaff, router]);
 
+  // eslint-disable-next-line no-unused-vars
   const formatTime = (secs) => `${Math.floor(secs / 60)}:${(secs % 60).toString().padStart(2, '0')}`;
 
   const startOtpTimers = () => {
@@ -671,5 +698,17 @@ export default function RegisterPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={
+      <div className="w-full min-h-[60vh] flex items-center justify-center">
+        <div className="w-12 h-12 border-2 border-[#B76E79]/30 border-t-[#F2C29A] rounded-full animate-spin" />
+      </div>
+    }>
+      <RegisterPageContent />
+    </Suspense>
   );
 }

@@ -12,7 +12,7 @@ import logger from '@/lib/logger';
 export default function CheckoutConfirmPage() {
   const router = useRouter();
   const { cart, clearCart } = useCart();
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, loading: authLoading } = useAuth();
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -25,59 +25,50 @@ export default function CheckoutConfirmPage() {
     return () => { mountedRef.current = false; };
   }, []);
 
-  // Redirect if not authenticated
+  // CRITICAL FIX: Store URL payment params to sessionStorage on mount IMMEDIATELY —
+  // before any auth check or redirect. This prevents params from being lost if
+  // the user gets redirected to login and comes back.
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const urlPaymentId  = params.get('payment_id');
+    const urlOrderId    = params.get('razorpay_order_id');
+    const urlSignature  = params.get('razorpay_signature');
+    const urlQrCodeId   = params.get('qr_code_id');
+    if (urlPaymentId && urlPaymentId !== 'null') sessionStorage.setItem('payment_id', urlPaymentId);
+    if (urlOrderId && urlOrderId !== 'null') sessionStorage.setItem('razorpay_order_id', urlOrderId);
+    if (urlSignature && urlSignature !== 'null') sessionStorage.setItem('payment_signature', urlSignature);
+    if (urlQrCodeId && urlQrCodeId !== 'null') sessionStorage.setItem('qr_code_id', urlQrCodeId);
+  }, []); // Empty deps — runs once on mount
+
+  // Redirect if not authenticated — wait for auth loading to complete first
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
       router.push('/auth/login?redirect_url=/checkout/confirm');
     }
-  }, [isAuthenticated, router]);
+  }, [authLoading, isAuthenticated, router]);
 
   useEffect(() => {
-    if (isAuthenticated) {
-      // Idempotency: if order already created, just fetch it
-      const alreadyCreated = sessionStorage.getItem('order_created');
-      if (alreadyCreated && alreadyCreated !== 'error') {
-        (async () => {
-          try {
-            const existing = await ordersApi.getById(parseInt(alreadyCreated));
-            if (existing && mountedRef.current) setOrder(existing.order || existing);
-          } catch (err) {
-            logger.warn('Failed to fetch existing order:', err?.message);
-          }
-          if (mountedRef.current) setLoading(false);
-        })();
-        return;
-      }
+    if (authLoading || !isAuthenticated) return;
 
-      // For redirect-mode payments, payment details are sent as URL params
-      const params = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
-      
-      // Razorpay params
-      const urlPaymentId  = params.get('payment_id');
-      const urlOrderId    = params.get('razorpay_order_id');
-      const urlSignature  = params.get('razorpay_signature');
-      
-      // Cashfree params (NEW)
-      const cashfreeOrderId = params.get('cashfree_order_id');
-      const cashfreePaymentId = params.get('cashfree_payment_id');
-      const cashfreeReferenceId = params.get('cashfree_reference_id');
-      const cashfreeStatus = params.get('cashfree_status');
-      
-      // Store in session storage for order creation
-      if (urlPaymentId) sessionStorage.setItem('payment_id', urlPaymentId);
-      if (urlOrderId)   sessionStorage.setItem('razorpay_order_id', urlOrderId);
-      if (urlSignature) sessionStorage.setItem('payment_signature', urlSignature);
-      
-      // Store Cashfree params (NEW)
-      if (cashfreeOrderId) sessionStorage.setItem('cashfree_order_id', cashfreeOrderId);
-      if (cashfreePaymentId) sessionStorage.setItem('cashfree_payment_id', cashfreePaymentId);
-      if (cashfreeReferenceId) sessionStorage.setItem('cashfree_reference_id', cashfreeReferenceId);
-      if (cashfreeStatus) sessionStorage.setItem('cashfree_status', cashfreeStatus);
-      
-      createOrder();
+    // Idempotency: if order already created, just fetch it
+    const alreadyCreated = sessionStorage.getItem('order_created');
+    if (alreadyCreated && alreadyCreated !== 'error') {
+      (async () => {
+        try {
+          const existing = await ordersApi.getById(parseInt(alreadyCreated));
+          if (existing && mountedRef.current) setOrder(existing.order || existing);
+        } catch (err) {
+          logger.warn('Failed to fetch existing order:', err?.message);
+        }
+        if (mountedRef.current) setLoading(false);
+      })();
+      return;
     }
+
+    createOrder();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuthenticated]);
+  }, [authLoading, isAuthenticated]);
 
   const createOrder = async () => {
     // Prevent concurrent order creation calls
@@ -94,21 +85,15 @@ export default function CheckoutConfirmPage() {
 
       const addressId = sessionStorage.getItem('checkout_address_id');
 
-      // Razorpay params
+      // Read payment params from sessionStorage (stored on mount, survives login redirect)
       const paymentId = sessionStorage.getItem('payment_id');           // pay_xxx
       const razorpayOrderId = sessionStorage.getItem('razorpay_order_id'); // order_xxx
       const paymentSignature = sessionStorage.getItem('payment_signature'); // HMAC sig
-
-      // Cashfree params (NEW)
-      const cashfreeOrderId = sessionStorage.getItem('cashfree_order_id');
-      const cashfreePaymentId = sessionStorage.getItem('cashfree_payment_id');
-      const cashfreeReferenceId = sessionStorage.getItem('cashfree_reference_id');
-      const cashfreeStatus = sessionStorage.getItem('cashfree_status');
+      const qrCodeId = sessionStorage.getItem('qr_code_id');
 
       // Idempotency guard: prevent double-order on page refresh
       const alreadyCreated = sessionStorage.getItem('order_created');
       if (alreadyCreated && alreadyCreated !== 'error') {
-        // Order was already created — fetch it to show the confirmation
         try {
           const existing = await ordersApi.getById(parseInt(alreadyCreated));
           if (existing) setOrder(existing.order || existing);
@@ -123,62 +108,25 @@ export default function CheckoutConfirmPage() {
         return;
       }
 
-      // Check if we have payment info from either gateway
-      const hasRazorpayPayment = paymentId || razorpayOrderId;
-      const hasCashfreePayment = cashfreeOrderId || cashfreePaymentId;
-
-      if (!hasRazorpayPayment && !hasCashfreePayment) {
+      if (!paymentId && !razorpayOrderId && !qrCodeId) {
         setError('Payment information missing. Please complete payment first.');
         setTimeout(() => router.push('/checkout/payment'), 3000);
         return;
       }
 
-      // ✅ CRITICAL FIX: Clear old payment params BEFORE creating order
-      // This prevents mixing old + new payment data which causes verification failures
-      logger.info('Clearing old payment params before order creation');
-      sessionStorage.removeItem('payment_id');
-      sessionStorage.removeItem('razorpay_order_id');
-      sessionStorage.removeItem('payment_signature');
-      sessionStorage.removeItem('cashfree_order_id');
-      sessionStorage.removeItem('cashfree_payment_id');
-      sessionStorage.removeItem('cashfree_reference_id');
-      sessionStorage.removeItem('cashfree_status');
-
-      // Re-store fresh payment params (they're still in URL)
-      const params = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
-      if (params.get('payment_id')) sessionStorage.setItem('payment_id', params.get('payment_id'));
-      if (params.get('razorpay_order_id')) sessionStorage.setItem('razorpay_order_id', params.get('razorpay_order_id'));
-      if (params.get('razorpay_signature')) sessionStorage.setItem('payment_signature', params.get('razorpay_signature'));
-      if (params.get('cashfree_order_id')) sessionStorage.setItem('cashfree_order_id', params.get('cashfree_order_id'));
-      if (params.get('cashfree_payment_id')) sessionStorage.setItem('cashfree_payment_id', params.get('cashfree_payment_id'));
-      if (params.get('cashfree_reference_id')) sessionStorage.setItem('cashfree_reference_id', params.get('cashfree_reference_id'));
-
-      // Determine payment method and prepare order data
-      const paymentMethod = hasCashfreePayment ? 'cashfree' : 'razorpay';
-
       const orderPayload = {
         address_id: parseInt(addressId),
-        payment_method: paymentMethod,
+        payment_method: 'razorpay',
+        transaction_id: paymentId,
+        razorpay_order_id: razorpayOrderId,
+        razorpay_signature: paymentSignature,
       };
 
-      // Add Razorpay details
-      if (hasRazorpayPayment) {
-        orderPayload.transaction_id = paymentId;
-        orderPayload.razorpay_order_id = razorpayOrderId;
-        orderPayload.razorpay_signature = paymentSignature;
-      }
-
-      // Add Cashfree details (NEW)
-      if (hasCashfreePayment) {
-        orderPayload.transaction_id = cashfreePaymentId;
-        orderPayload.cashfree_order_id = cashfreeOrderId;
-        orderPayload.cashfree_payment_id = cashfreePaymentId;
-        orderPayload.cashfree_reference_id = cashfreeReferenceId;
-      }
+      if (qrCodeId) orderPayload.qr_code_id = qrCodeId;
 
       logger.info(
-        `Creating order: payment_method=${paymentMethod} transaction_id=${orderPayload.transaction_id} ` +
-        `razorpay_order_id=${orderPayload.razorpay_order_id || 'N/A'}`
+        `Creating order: payment_method=razorpay transaction_id=${paymentId || 'N/A'} ` +
+        `razorpay_order_id=${razorpayOrderId || 'N/A'} qr_code_id=${qrCodeId || 'N/A'}`
       );
 
       // Create order — backend verifies payment before recording
@@ -200,10 +148,7 @@ export default function CheckoutConfirmPage() {
       sessionStorage.removeItem('payment_id');
       sessionStorage.removeItem('razorpay_order_id');
       sessionStorage.removeItem('payment_signature');
-      sessionStorage.removeItem('cashfree_order_id');
-      sessionStorage.removeItem('cashfree_payment_id');
-      sessionStorage.removeItem('cashfree_reference_id');
-      sessionStorage.removeItem('cashfree_status');
+      sessionStorage.removeItem('qr_code_id');
     } catch (err) {
       logger.error('Error creating order:', err);
       // Clear the idempotency guard so the user can retry

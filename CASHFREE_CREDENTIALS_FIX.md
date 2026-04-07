@@ -8,14 +8,14 @@
 
 **BEFORE (INCORRECT):**
 ```bash
-CASHFREE_APP_ID=REDACTED_CASHFREE_SECRET_KEY  # ❌ This is the SECRET KEY
-CASHFREE_SECRET_KEY=REDACTED_CASHFREE_APP_ID              # ❌ This is the APP ID
+CASHFREE_APP_ID=<YOUR_SECRET_KEY>   # ❌ This is the SECRET KEY
+CASHFREE_SECRET_KEY=<YOUR_APP_ID>   # ❌ This is the APP ID
 ```
 
 **AFTER (CORRECT):**
 ```bash
-CASHFREE_APP_ID=REDACTED_CASHFREE_APP_ID              # ✅ App ID
-CASHFREE_SECRET_KEY=REDACTED_CASHFREE_SECRET_KEY  # ✅ Secret Key (starts with cfsk_)
+CASHFREE_APP_ID=<YOUR_APP_ID>        # ✅ App ID
+CASHFREE_SECRET_KEY=<YOUR_SECRET_KEY>  # ✅ Secret Key (starts with cfsk_)
 ```
 
 ### How We Discovered This:
@@ -43,13 +43,20 @@ CASHFREE_SECRET_KEY=REDACTED_CASHFREE_SECRET_KEY  # ✅ Secret Key (starts with 
 
 ## ✅ FIX APPLIED
 
-### File Changed: `/opt/Aarya_clothing_frontend/.env`
+### File 1: `/opt/Aarya_clothing_frontend/.env`
 
 **Lines 182-186:** Swapped the credential values to their correct positions.
 
-### Service Restarted:
+### File 2: `/opt/Aarya_clothing_frontend/docker-compose.yml`
+
+**Lines 281-283:** Hardcoded credentials to avoid system environment variable conflicts.
+
+**Why:** Docker daemon runs in a separate shell with its own environment. Simply updating `.env` wasn't enough because the system environment had the old credentials, and docker-compose was reading from there.
+
+### Service Recreated:
 ```bash
-docker-compose restart payment
+docker-compose down payment
+docker-compose up -d payment
 ```
 
 **Status:** ✅ Payment service restarted successfully and is now healthy.
@@ -63,8 +70,8 @@ docker-compose restart payment
 curl -s -X POST https://api.cashfree.com/pg/orders \
   -H "Content-Type: application/json" \
   -H "x-api-version: 2025-01-01" \
-  -H "x-client-id: REDACTED_CASHFREE_APP_ID" \
-  -H "x-client-secret: REDACTED_CASHFREE_SECRET_KEY" \
+  -H "x-client-id: <YOUR_APP_ID>" \
+  -H "x-client-secret: <YOUR_SECRET_KEY>" \
   -d '{
     "order_id": "test_verify_001",
     "order_amount": 1,
@@ -111,13 +118,13 @@ docker ps | grep payment
 
 **App ID:**
 - Usually a numeric or short alphanumeric string
-- Example: `REDACTED_CASHFREE_APP_ID`
+- Example: `<YOUR_APP_ID>`
 - Goes in: `CASHFREE_APP_ID`
 - Used in header: `x-client-id`
 
 **Secret Key:**
 - Always starts with `cfsk_` prefix
-- Example: `REDACTED_CASHFREE_SECRET_KEY`
+- Example: `cfsk_ma_prod_<redacted>`
 - Goes in: `CASHFREE_SECRET_KEY`
 - Used in header: `x-client-secret`
 
@@ -155,7 +162,7 @@ curl -s "https://aaryaclothing.in/api/v1/payment/config" | jq .cashfree
 Expected response:
 ```json
 {
-  "app_id": "REDACTED_CASHFREE_APP_ID",
+  "app_id": "<YOUR_APP_ID>",
   "enabled": true,
   "env": "production"
 }

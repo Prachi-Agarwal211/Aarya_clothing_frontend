@@ -153,7 +153,8 @@ async def create_order(
             transaction_id=transaction_id,
             payment_method=payment_method,
             payment_signature=order_data.payment_signature,
-            razorpay_order_id=razorpay_order_id
+            razorpay_order_id=razorpay_order_id,
+            qr_code_id=order_data.qr_code_id
         )
         logger.info(f"ORDER_CREATE_SUCCESS: order_id={order.id} user={user_id}")
         return _enrich_order_response(order)
@@ -778,6 +779,109 @@ def generate_pdf_from_html(html_content: str) -> BytesIO:
     
     # Return as BytesIO buffer
     return BytesIO(pdf)
+
+
+# ==================== Admin Payment Recovery ====================
+
+@router.get("/admin/payment-recovery", tags=["Admin"])
+async def get_payment_recovery_report(
+    from_timestamp: Optional[int] = Query(None, description="Unix timestamp to fetch payments from"),
+    current_user: dict = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    Fetch all captured Razorpay payments and cross-reference with orders in DB.
+
+    Returns:
+    - matched: payments that have a matching order
+    - missing_orders: payments where no order exists (needs recovery)
+    - total_missing_amount: sum of unrecovered payment amounts
+
+    Admin can then manually review missing_orders and decide whether to recover them.
+    """
+    import os, razorpay
+    from sqlalchemy import text as _text
+
+    key_id = os.getenv("RAZORPAY_KEY_ID", "")
+    key_secret = os.getenv("RAZORPAY_KEY_SECRET", "")
+    if not key_id or not key_secret:
+        raise HTTPException(status_code=503, detail="Razorpay credentials not configured")
+
+    try:
+        client = razorpay.Client(auth=(key_id, key_secret))
+        # Default: last 48 hours if no timestamp given
+        if not from_timestamp:
+            from datetime import timedelta
+            from_timestamp = int((datetime.now(timezone.utc) - timedelta(hours=48)).timestamp())
+
+        payments = client.payment.all({
+            "from": from_timestamp,
+            "count": 100,
+            "expand[]": "order",
+        })
+        items = payments.get("items", [])
+    except Exception as e:
+        logger.error(f"Razorpay payment fetch failed: {e}")
+        raise HTTPException(status_code=502, detail=f"Failed to fetch Razorpay payments: {str(e)}")
+
+    # Get all transaction_ids already in our DB
+    existing_transactions = set(
+        row[0] for row in db.execute(
+            _text("SELECT transaction_id FROM orders WHERE transaction_id IS NOT NULL")
+        ).fetchall()
+    )
+
+    matched = []
+    missing_orders = []
+    total_missing_amount = 0
+
+    for payment in items:
+        payment_id = payment.get("id", "")
+        order_id = payment.get("order_id", "")
+        amount_paise = payment.get("amount", 0)
+        amount_inr = amount_paise / 100
+        pay_status = payment.get("status", "")
+        contact = payment.get("contact", "")
+        email = payment.get("email", "")
+        created_at = payment.get("created_at", 0)
+        method = payment.get("method", "")
+
+        if pay_status != "captured":
+            continue
+
+        if payment_id in existing_transactions or order_id in existing_transactions:
+            matched.append({
+                "payment_id": payment_id,
+                "order_id": order_id,
+                "amount": amount_inr,
+                "email": email,
+                "contact": contact,
+                "created_at": created_at,
+                "status": "matched",
+            })
+        else:
+            total_missing_amount += amount_inr
+            missing_orders.append({
+                "payment_id": payment_id,
+                "razorpay_order_id": order_id,
+                "amount": amount_inr,
+                "email": email,
+                "contact": contact,
+                "method": method,
+                "created_at": created_at,
+                "status": "missing_order",
+            })
+
+    return {
+        "from_timestamp": from_timestamp,
+        "total_payments_fetched": len(items),
+        "total_captured": len(matched) + len(missing_orders),
+        "matched_count": len(matched),
+        "missing_order_count": len(missing_orders),
+        "total_missing_amount_inr": total_missing_amount,
+        "matched": matched,
+        "missing_orders": missing_orders,
+    }
 
 
 def number_to_words(n: int) -> str:

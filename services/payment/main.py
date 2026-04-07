@@ -37,7 +37,8 @@ from schemas.payment import (
     RazorpayOrderRequest, RazorpayOrderResponse, RazorpayPaymentVerification,
     RefundRequest, RefundResponse, RefundStatus,
     WebhookEvent, WebhookResponse, PaymentMethodsResponse,
-    TransactionHistoryRequest
+    TransactionHistoryRequest,
+    QrCodeCreateRequest, QrCodeCreateResponse, QrCodeStatusResponse
 )
 from core.razorpay_client import get_razorpay_client
 from service.payment_service import PaymentService
@@ -118,38 +119,15 @@ async def health_check():
 
 @app.get("/api/v1/payment/config", tags=["Public Payment"])
 async def get_payment_config():
-    """Get public payment configuration for frontend.
-
-    This endpoint returns public payment configuration that frontend needs.
-    Backend is the SINGLE SOURCE OF TRUTH for all configuration.
-
-    Returns:
-        - Razorpay configuration (key ID, enabled status)
-        - Cashfree configuration (app ID, enabled status)
-        - Enabled payment methods
-        - Currency and other public settings
-    """
-    from service.cashfree_service import get_cashfree_service
-    
-    cashfree = get_cashfree_service()
-    
+    """Get public payment configuration for frontend. Razorpay only."""
     return {
         "razorpay": {
             "key_id": settings.RAZORPAY_KEY_ID or "",
             "enabled": bool(settings.RAZORPAY_KEY_ID and settings.RAZORPAY_KEY_SECRET),
             "checkout_config_id": settings.RAZORPAY_CHECKOUT_CONFIG_ID or "",
         },
-        "cashfree": {
-            "app_id": settings.CASHFREE_APP_ID or "",
-            "enabled": cashfree.enabled,
-            "env": settings.CASHFREE_ENV,
-        },
         "currency": "INR",
-        "default_method": "razorpay",  # Can be changed by user
-        "fee_structure": {
-            "razorpay": {"type": "percentage", "rate": 2.0},
-            "cashfree": {"type": "percentage", "rate": 1.9},
-        }
+        "default_method": "razorpay",
     }
 
 
@@ -404,6 +382,160 @@ async def razorpay_redirect_callback(request: Request):
         return RedirectResponse(
             url=f"{frontend_url}/checkout/payment?error=server_error",
             status_code=303,
+        )
+
+
+# ==================== QR Code Payment Routes ====================
+
+@app.post("/api/v1/payments/razorpay/create-qr-code", response_model=QrCodeCreateResponse,
+          tags=["QR Code Payments"])
+async def create_qr_code(
+    request: QrCodeCreateRequest,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Create a UPI QR code for payment.
+
+    Creates a single-use QR code with 30-minute expiry.
+    The QR code image URL is returned and should be displayed to the user.
+    """
+    try:
+        from models.payment import PaymentTransaction
+        import uuid
+
+        # Validate amount (Razorpay requires >= 100 paise)
+        MIN_AMOUNT_PAISE = 100
+        if request.amount < MIN_AMOUNT_PAISE:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Amount too low: {request.amount} paise. Minimum is {MIN_AMOUNT_PAISE} paise."
+            )
+
+        # Calculate expiry time (30 minutes from now)
+        now = int(datetime.now(timezone.utc).timestamp())
+        close_by = now + 1800  # 30 minutes in seconds
+
+        # Create Razorpay QR code
+        razorpay_client = get_razorpay_client()
+        qr_response = razorpay_client.create_qr_code(
+            amount=int(request.amount),
+            description=request.description,
+            close_by=close_by,
+            notes=request.notes
+        )
+
+        qr_code_id = qr_response.get("id")
+        image_url = qr_response.get("image_url")
+
+        if not qr_code_id or not image_url:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to create QR code: missing required fields"
+            )
+
+        # Generate transaction ID
+        transaction_id = f"txn_qr_{now}_{uuid.uuid4().hex[:8]}"
+
+        # Create transaction record
+        # order_id is NULL at this point — the order is created AFTER payment succeeds
+        transaction = PaymentTransaction(
+            order_id=None,
+            user_id=int(request.notes.get("user_id", 0)) if request.notes else 0,
+            amount=request.amount / Decimal('100'),  # Convert paise to rupees
+            currency="INR",
+            payment_method="upi_qr",
+            transaction_id=transaction_id,
+            status="pending",
+            razorpay_qr_code_id=qr_code_id,
+            description=request.description
+        )
+
+        db.add(transaction)
+        db.commit()
+
+        logger.info(f"QR code created: {qr_code_id}, transaction: {transaction_id}")
+
+        return QrCodeCreateResponse(
+            success=True,
+            qr_code_id=qr_code_id,
+            image_url=image_url,
+            amount=request.amount,
+            currency="INR",
+            expires_at=close_by,
+            transaction_id=transaction_id
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Failed to create QR code: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"QR code creation failed: {str(e)}"
+        )
+
+
+@app.post("/api/v1/payments/razorpay/qr-status/{qr_code_id}", response_model=QrCodeStatusResponse,
+          tags=["QR Code Payments"])
+async def check_qr_status(
+    qr_code_id: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Check the status of a QR code payment.
+
+    Fetches current status from Razorpay and updates local transaction.
+    """
+    try:
+        from models.payment import PaymentTransaction
+
+        # Fetch QR status from Razorpay
+        razorpay_client = get_razorpay_client()
+        qr_data = razorpay_client.fetch_qr_code(qr_code_id)
+
+        qr_status = qr_data.get("status", "unknown")
+        # Razorpay returns "closed" for single-use QR codes that have been paid.
+        # Map it to "paid" for consistency with frontend and order service.
+        if qr_status == "closed":
+            qr_status = "paid"
+        payment_id = qr_data.get("payment_id")
+        paid_at = qr_data.get("paid_at")
+        expires_at = qr_data.get("close_by", 0)
+        amount = qr_data.get("amount", 0)
+
+        # Update local transaction if payment was completed
+        if qr_status == "paid" and payment_id:
+            transaction = db.query(PaymentTransaction).filter(
+                PaymentTransaction.razorpay_qr_code_id == qr_code_id
+            ).first()
+
+            if transaction and transaction.status == "pending":
+                transaction.status = "completed"
+                transaction.razorpay_payment_id = payment_id
+                transaction.completed_at = datetime.now(timezone.utc)
+                transaction.gateway_response = qr_data
+                db.commit()
+
+                logger.info(f"QR payment completed: {qr_code_id}, payment_id: {payment_id}")
+
+        return QrCodeStatusResponse(
+            qr_code_id=qr_code_id,
+            status=qr_status,
+            amount=Decimal(str(amount)) / Decimal('100'),  # Convert paise to rupees
+            payment_id=payment_id,
+            paid_at=paid_at,
+            expires_at=expires_at
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to check QR status: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"QR status check failed: {str(e)}"
         )
 
 
@@ -811,6 +943,49 @@ async def verify_cashfree_payment(request: Request):
         )
 
 
+@app.post("/api/v1/payments/cashfree/verify-order", tags=["Cashfree"])
+async def verify_cashfree_order_status(request: Request):
+    """
+    Verify Cashfree order payment status via Cashfree API.
+    Returns JSON — used internally by commerce service before creating orders.
+    Accepts: { cashfree_order_id: str }
+    Returns: { success: bool, status: str, payment_id: str } or 402 if not PAID.
+    """
+    try:
+        body = await request.json()
+        cashfree_order_id = body.get("cashfree_order_id", "")
+        if not cashfree_order_id:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="cashfree_order_id is required")
+
+        from service.cashfree_service import get_cashfree_service
+        cashfree = get_cashfree_service()
+        if not cashfree.enabled:
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Cashfree not configured")
+
+        order_status = await cashfree.verify_order(cashfree_order_id)
+        order_status_value = order_status.get("order_status", "")
+
+        # Only accept PAID or CAPTURED — ACTIVE means order created but NOT yet paid
+        if order_status_value not in ["PAID", "CAPTURED"]:
+            logger.warning(f"Cashfree verify-order: not paid — order={cashfree_order_id} status={order_status_value}")
+            raise HTTPException(
+                status_code=status.HTTP_402_PAYMENT_REQUIRED,
+                detail=f"Payment not confirmed. Status: {order_status_value}"
+            )
+
+        payments = order_status.get("payments", [])
+        payment_id = payments[0].get("payment_id") if payments else ""
+
+        logger.info(f"✓ Cashfree verify-order: order={cashfree_order_id} status={order_status_value} payment={payment_id}")
+        return {"success": True, "status": order_status_value, "payment_id": payment_id}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Cashfree verify-order error: {e}", exc_info=True)
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Verification failed: {str(e)}")
+
+
 @app.get("/api/v1/payments/cashfree/return", tags=["Cashfree"])
 async def cashfree_return_handler(request: Request):
     """
@@ -851,9 +1026,9 @@ async def cashfree_return_handler(request: Request):
         
         order_status = await cashfree.verify_order(order_id)
         
-        # Check if payment was successful
+        # Check if payment was successful — only PAID or CAPTURED, not ACTIVE
         order_status_value = order_status.get("order_status", "")
-        if order_status_value not in ["PAID", "ACTIVE", "CAPTURED"]:
+        if order_status_value not in ["PAID", "CAPTURED"]:
             logger.warning(f"Cashfree return: Payment not completed - status={order_status_value}")
             return RedirectResponse(
                 url=f"{frontend_url}/checkout/payment?error=payment_failed",

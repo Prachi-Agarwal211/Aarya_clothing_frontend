@@ -1,352 +1,178 @@
 /**
  * Service Worker for Aarya Clothing
- * 
- * Features:
- * - Offline support with cached assets
- * - Stale-while-revalidate for images
- * - Cache-first for static assets
- * - Network-first for API requests
- * - Pre-caching for critical resources
- * 
- * Performance Goals:
- * - Instant page loads for cached content
- * - Reduced bandwidth usage
- * - Offline browsing capability
+ *
+ * Cache Strategy:
+ * - HTML / navigation:    NETWORK-ONLY  — must always get fresh HTML with new chunk hashes after rebuild
+ * - /_next/static/:       CACHE-FIRST   — content-hashed filenames, safe to cache forever
+ * - /_next/image:         NETWORK-FIRST — short-lived cache
+ * - /public static files: NETWORK-FIRST — logo, fonts, manifest
+ * - API requests:         NETWORK-ONLY  — never cache auth/cart/order state
+ * - Cross-origin:         BYPASS        — R2 CDN, Razorpay etc. handled by browser
+ *
+ * WHY HTML IS NEVER CACHED:
+ *   After a Docker rebuild, Next.js generates new JS chunk filenames (content hashes change).
+ *   If the browser serves OLD cached HTML, it references OLD chunk URLs → 404 → broken page.
+ *   This is the "works in incognito, broken in normal browser" bug.
+ *   Fix: HTML is always fetched from network. Never put into service worker cache.
+ *
+ * Version string: changes on every rebuild to invalidate old static caches.
  */
 
-const CACHE_NAME = 'aarya-clothing-v1';
-const STATIC_CACHE = 'aarya-static-v1';
-const IMAGE_CACHE = 'aarya-images-v1';
-const API_CACHE = 'aarya-api-v1';
+// Auto-increment version: ISO date ensures new caches on each calendar-day deploy
+// For more granular invalidation, inject __SW_VERSION__ at build time
+const SW_VERSION = typeof __SW_VERSION__ !== 'undefined'
+  ? __SW_VERSION__
+  : new Date().toISOString().slice(0, 13).replace('T', '-'); // e.g. "2026-04-07-19"
 
-// Critical resources to cache immediately
-const CRITICAL_ASSETS = [
-  '/',
-  '/offline',
-  '/manifest.json',
-];
+const STATIC_CACHE = `aarya-static-${SW_VERSION}`;
+const IMAGE_CACHE  = `aarya-images-${SW_VERSION}`;
 
-// Static assets patterns
-const STATIC_PATTERNS = [
-  '/_next/static/**',
-  '/_next/image/**',
-  '/fonts/**',
-];
+const CURRENT_CACHES = [STATIC_CACHE, IMAGE_CACHE];
 
-// Image patterns (R2 CDN) - EXCLUDED from SW caching due to CSP
-// R2 images are already CDN-cached and load directly with CSP img-src 'self' https:
-const IMAGE_PATTERNS = [
-  // R2 CDN excluded - let browser handle these directly
-  // 'https://pub-*.r2.dev/**',
-  // 'https://*.r2.cloudflarestorage.com/**',
-];
-
-// API patterns
-const API_PATTERNS = [
-  '/api/**',
-  'http://localhost:6005/**',
-  'http://backend:6005/**',
-];
-
-// Install event - cache critical assets
+// ─── Install ─────────────────────────────────────────────────────────────────
 self.addEventListener('install', (event) => {
-  console.log('[SW] Installing service worker...');
-  
-  event.waitUntil(
-    caches.open(STATIC_CACHE)
-      .then((cache) => {
-        console.log('[SW] Caching critical assets');
-        return cache.addAll(CRITICAL_ASSETS);
-      })
-      .then(() => {
-        console.log('[SW] Service worker installed');
-        return self.skipWaiting(); // Activate immediately
-      })
-      .catch((error) => {
-        console.error('[SW] Cache failed:', error);
-      })
-  );
+  // Activate immediately — don't wait for old tabs to close
+  self.skipWaiting();
+  console.log(`[SW] v${SW_VERSION} installed`);
 });
 
-// Activate event - clean up old caches
+// ─── Activate ────────────────────────────────────────────────────────────────
 self.addEventListener('activate', (event) => {
-  console.log('[SW] Activating service worker...');
-  
-  const currentCaches = [CACHE_NAME, STATIC_CACHE, IMAGE_CACHE, API_CACHE];
-  
   event.waitUntil(
     caches.keys()
-      .then((cacheNames) => {
-        return Promise.all(
+      .then((cacheNames) =>
+        Promise.all(
           cacheNames
-            .filter((name) => !currentCaches.includes(name))
+            .filter((name) => !CURRENT_CACHES.includes(name))
             .map((name) => {
-              console.log('[SW] Deleting old cache:', name);
+              console.log(`[SW] Deleting stale cache: ${name}`);
               return caches.delete(name);
             })
-        );
-      })
+        )
+      )
       .then(() => {
-        console.log('[SW] Service worker activated');
-        return self.clients.claim(); // Take control of all clients immediately
+        console.log(`[SW] v${SW_VERSION} activated`);
+        return self.clients.claim();
       })
   );
 });
 
-// Fetch event - serve from cache with network fallback
+// ─── Fetch ───────────────────────────────────────────────────────────────────
 self.addEventListener('fetch', (event) => {
   const { request } = event;
-  const requestUrl = new URL(request.url);
 
-  // Skip non-GET requests
-  if (request.method !== 'GET') {
+  // Only intercept same-origin GET requests
+  if (request.method !== 'GET') return;
+  if (!request.url.startsWith(self.location.origin)) return;
+
+  const url = new URL(request.url);
+
+  // 1. API — NETWORK ONLY: never cache auth/cart/order state
+  if (url.pathname.startsWith('/api/')) return;
+
+  // 2. Next.js static chunks — CACHE FIRST (content-hashed, safe forever)
+  if (url.pathname.startsWith('/_next/static/')) {
+    event.respondWith(cacheFirst(request));
     return;
   }
 
-  // Skip chrome-extension and other non-http requests
-  if (!requestUrl.protocol.startsWith('http')) {
+  // 3. Next.js image optimizer — NETWORK FIRST with image cache
+  if (url.pathname.startsWith('/_next/image')) {
+    event.respondWith(networkFirst(request, IMAGE_CACHE));
     return;
   }
 
-  // Skip R2 CDN images - let browser handle them directly (CSP compliant)
-  if (requestUrl.hostname.includes('pub-7846c786f7154610b57735df47899fa0.r2.dev') ||
-      requestUrl.hostname.includes('r2.cloudflarestorage.com')) {
-    return; // Don't intercept R2 images
+  // 4. Public static files (logo, fonts, manifest) — NETWORK FIRST
+  if (
+    url.pathname.startsWith('/fonts/') ||
+    url.pathname === '/manifest.json' ||
+    url.pathname === '/logo.png' ||
+    url.pathname === '/noise.png'
+  ) {
+    event.respondWith(networkFirst(request, STATIC_CACHE));
+    return;
   }
 
-  // Determine cache strategy based on request type
-  if (isImageRequest(request)) {
-    // Images: Stale-while-revalidate
-    event.respondWith(handleImageRequest(request));
-  } else if (isStaticRequest(request)) {
-    // Static assets: Cache-first
-    event.respondWith(handleStaticRequest(request));
-  } else if (isApiRequest(request)) {
-    // API: Network-first with cache fallback
-    event.respondWith(handleApiRequest(request));
-  } else {
-    // HTML/pages: Network-first with cache fallback
-    event.respondWith(handlePageRequest(request));
+  // 5. HTML / navigation — NETWORK ONLY (CRITICAL: never cache HTML)
+  //    Old cached HTML → old chunk URLs → 404 → broken page in returning users
+  if (
+    request.mode === 'navigate' ||
+    (request.headers.get('accept') || '').includes('text/html')
+  ) {
+    event.respondWith(networkOnlyHtml(request));
+    return;
   }
+
+  // 6. Everything else — pass through (network only)
 });
 
-// Image request handler (stale-while-revalidate)
-async function handleImageRequest(request) {
-  const cache = await caches.open(IMAGE_CACHE);
-  
-  try {
-    // Try cache first
-    const cachedResponse = await cache.match(request);
-    
-    // Fetch from network in background
-    const networkFetch = fetch(request)
-      .then((response) => {
-        if (response.ok) {
-          cache.put(request, response.clone());
-        }
-        return response;
-      })
-      .catch(() => null);
-    
-    // Return cached response immediately, update cache in background
-    if (cachedResponse) {
-      return cachedResponse;
-    }
-    
-    // No cache, wait for network
-    const networkResponse = await networkFetch;
-    if (networkResponse) {
-      return networkResponse;
-    }
-    
-    // Fallback to placeholder
-    return await caches.match('/placeholder-image.jpg');
-  } catch (error) {
-    console.error('[SW] Image fetch failed:', error);
-    return await caches.match('/placeholder-image.jpg');
-  }
-}
+// ─── Strategies ──────────────────────────────────────────────────────────────
 
-// Static asset request handler (cache-first)
-async function handleStaticRequest(request) {
+async function cacheFirst(request) {
   const cache = await caches.open(STATIC_CACHE);
-  
+  const cached = await cache.match(request);
+  if (cached) return cached;
+  const response = await fetch(request);
+  if (response.ok) cache.put(request, response.clone());
+  return response;
+}
+
+async function networkFirst(request, cacheName) {
+  const cache = await caches.open(cacheName);
   try {
-    const cachedResponse = await cache.match(request);
-    
-    if (cachedResponse) {
-      return cachedResponse;
-    }
-    
-    const networkResponse = await fetch(request);
-    
-    if (networkResponse.ok) {
-      cache.put(request, networkResponse.clone());
-    }
-    
-    return networkResponse;
-  } catch (error) {
-    console.error('[SW] Static fetch failed:', error);
-    return new Response('Resource not available', { status: 404 });
+    const response = await fetch(request);
+    if (response.ok) cache.put(request, response.clone());
+    return response;
+  } catch {
+    const cached = await cache.match(request);
+    return cached || new Response('', { status: 503 });
   }
 }
 
-// API request handler (network-first with cache fallback)
-async function handleApiRequest(request) {
-  const cache = await caches.open(API_CACHE);
-  
+async function networkOnlyHtml(request) {
   try {
-    const networkResponse = await fetch(request);
-    
-    if (networkResponse.ok) {
-      cache.put(request, networkResponse.clone());
-    }
-    
-    return networkResponse;
-  } catch (error) {
-    console.log('[SW] API fetch failed, trying cache...');
-    
-    const cachedResponse = await cache.match(request);
-    
-    if (cachedResponse) {
-      return cachedResponse;
-    }
-    
-    // Return offline response
-    return new Response(JSON.stringify({ error: 'Offline' }), {
-      status: 503,
-      headers: { 'Content-Type': 'application/json' }
-    });
+    return await fetch(request);
+  } catch {
+    return new Response(
+      `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Aarya Clothing — Offline</title>
+<style>body{font-family:sans-serif;display:flex;align-items:center;justify-content:center;
+min-height:100vh;margin:0;background:#0B0608;color:#EAE0D5;text-align:center}
+h1{color:#F2C29A}a{color:#B76E79}</style></head>
+<body><div><h1>You're offline</h1>
+<p>Please check your connection and <a href="/">try again</a>.</p></div></body></html>`,
+      { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8' } }
+    );
   }
 }
 
-// Page request handler (network-first with cache fallback)
-async function handlePageRequest(request) {
-  const cache = await caches.open(CACHE_NAME);
-  
-  try {
-    const networkResponse = await fetch(request);
-    
-    if (networkResponse.ok) {
-      cache.put(request, networkResponse.clone());
-    }
-    
-    return networkResponse;
-  } catch (error) {
-    console.log('[SW] Page fetch failed, trying cache...');
-    
-    const cachedResponse = await cache.match(request);
-    
-    if (cachedResponse) {
-      return cachedResponse;
-    }
-    
-    // Return offline page
-    return await caches.match('/offline');
-  }
-}
-
-// Helper functions
-function isImageRequest(request) {
-  const url = request.url;
-  const acceptHeader = request.headers.get('accept') || '';
-  
-  return (
-    url.includes('pub-') && url.includes('r2.dev') ||
-    url.includes('r2.cloudflarestorage.com') ||
-    acceptHeader.includes('image/') ||
-    /\.(jpg|jpeg|png|gif|webp|avif|svg|ico)$/i.test(url)
-  );
-}
-
-function isStaticRequest(request) {
-  const url = request.url;
-  
-  return (
-    url.includes('/_next/static/') ||
-    url.includes('/_next/image/') ||
-    url.includes('/fonts/') ||
-    url.endsWith('.js') ||
-    url.endsWith('.css') ||
-    url.endsWith('.woff') ||
-    url.endsWith('.woff2')
-  );
-}
-
-function isApiRequest(request) {
-  const url = request.url;
-  
-  return (
-    url.includes('/api/') ||
-    url.includes('localhost:6005') ||
-    url.includes('backend:6005')
-  );
-}
-
-// Background sync for offline actions
-self.addEventListener('sync', (event) => {
-  console.log('[SW] Sync event:', event.tag);
-  
-  if (event.tag === 'sync-cart' || event.tag === 'sync-wishlist') {
-    event.waitUntil(syncOfflineActions());
+// ─── Messages ────────────────────────────────────────────────────────────────
+self.addEventListener('message', (event) => {
+  if (event.data?.type === 'SKIP_WAITING') self.skipWaiting();
+  if (event.data?.type === 'CLEAR_CACHE') {
+    event.waitUntil(
+      caches.keys().then((names) => Promise.all(names.map((n) => caches.delete(n))))
+    );
   }
 });
 
-async function syncOfflineActions() {
-  // Get pending actions from IndexedDB
-  // This would be implemented with the main app
-  console.log('[SW] Syncing offline actions...');
-}
-
-// Push notifications
+// ─── Push notifications ───────────────────────────────────────────────────────
 self.addEventListener('push', (event) => {
   const data = event.data ? event.data.json() : {};
-  
-  const options = {
-    body: data.body || 'New notification from Aarya Clothing',
-    icon: '/logo.png',
-    badge: '/logo.png',
-    vibrate: [100, 50, 100],
-    data: {
-      url: data.url || '/',
-    },
-  };
-  
   event.waitUntil(
-    self.registration.showNotification(data.title || 'Aarya Clothing', options)
+    self.registration.showNotification(data.title || 'Aarya Clothing', {
+      body: data.body || 'New notification',
+      icon: '/logo.png',
+      badge: '/logo.png',
+      data: { url: data.url || '/' },
+    })
   );
 });
 
-// Notification click handler
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  
-  event.waitUntil(
-    clients.openWindow(event.notification.data.url || '/')
-  );
+  event.waitUntil(clients.openWindow(event.notification.data?.url || '/'));
 });
 
-// Message handler for cache management
-self.addEventListener('message', (event) => {
-  if (event.data && event.data.type === 'SKIP_WAITING') {
-    self.skipWaiting();
-  }
-  
-  if (event.data && event.data.type === 'CLEAR_CACHE') {
-    event.waitUntil(
-      caches.keys().then((names) => {
-        return Promise.all(names.map((name) => caches.delete(name)));
-      })
-    );
-  }
-  
-  if (event.data && event.data.type === 'CACHE_URLS') {
-    event.waitUntil(
-      caches.open(STATIC_CACHE).then((cache) => {
-        return cache.addAll(event.data.urls);
-      })
-    );
-  }
-});
-
-console.log('[SW] Service worker loaded');
+console.log(`[SW] Aarya Clothing v${SW_VERSION} loaded`);

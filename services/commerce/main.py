@@ -151,9 +151,12 @@ def _enrich_product(product, user_role: str = None) -> dict:
             for inv in (product.inventory or [])
         ]
     else:
-        # Limited inventory data for customers - no quantities exposed
+        # Limited inventory data for customers — id/sku needed for variant-specific add-to-cart
         inventory = [
-            {"size": inv.size, "color": inv.color, "in_stock": not inv.is_out_of_stock}
+            {"id": inv.id, "sku": inv.sku, "size": inv.size, "color": inv.color,
+             "color_hex": getattr(inv, 'color_hex', None),
+             "image_url": getattr(inv, 'image_url', None),
+             "in_stock": not inv.is_out_of_stock}
             for inv in (product.inventory or [])
         ]
 
@@ -1672,16 +1675,11 @@ async def create_order(
             address_id=order_data.address_id,
             promo_code=order_data.promo_code,
             order_notes=order_data.notes or order_data.order_notes,
-            # transaction_id = razorpay payment_id (pay_xxx) or cashfree payment id
             transaction_id=order_data.transaction_id or order_data.payment_id,
             payment_method=order_data.payment_method,
-            # Razorpay-specific fields
             razorpay_order_id=order_data.razorpay_order_id,
             payment_signature=order_data.razorpay_signature,
-            # Cashfree-specific fields
-            cashfree_order_id=order_data.cashfree_order_id,
-            cashfree_payment_id=order_data.cashfree_payment_id,
-            cashfree_reference_id=order_data.cashfree_reference_id,
+            qr_code_id=order_data.qr_code_id,
         )
         
         # Publish event
@@ -1793,6 +1791,273 @@ async def get_order_tracking(
     
     tracking_service = OrderTrackingService(db)
     return tracking_service.get_order_tracking(order_id)
+
+
+# ==================== Admin Payment Recovery ====================
+
+@app.get("/api/v1/orders/admin/payment-recovery", tags=["Admin - Orders"])
+async def get_payment_recovery_report(
+    from_timestamp: Optional[int] = Query(None, description="Unix timestamp to fetch payments from"),
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_admin)
+):
+    """
+    Fetch all captured Razorpay payments and cross-reference with orders in DB.
+    Returns matched payments and missing_orders (paid but no order created).
+    Admin use only.
+    """
+    import razorpay as _razorpay
+    from datetime import timedelta
+
+    key_id = os.getenv("RAZORPAY_KEY_ID", "")
+    key_secret = os.getenv("RAZORPAY_KEY_SECRET", "")
+    if not key_id or not key_secret:
+        raise HTTPException(status_code=503, detail="Razorpay credentials not configured")
+
+    try:
+        client = _razorpay.Client(auth=(key_id, key_secret))
+        if not from_timestamp:
+            from_timestamp = int((datetime.now(timezone.utc) - timedelta(hours=48)).timestamp())
+        payments = client.payment.all({"from": from_timestamp, "count": 100})
+        items = payments.get("items", [])
+    except Exception as e:
+        logger.error(f"Razorpay payment fetch failed: {e}")
+        raise HTTPException(status_code=502, detail=f"Failed to fetch Razorpay payments: {str(e)}")
+
+    existing_transactions = set(
+        row[0] for row in db.execute(
+            text("SELECT transaction_id FROM orders WHERE transaction_id IS NOT NULL")
+        ).fetchall()
+    )
+
+    matched = []
+    missing_orders = []
+    total_missing_amount = 0.0
+
+    for payment in items:
+        payment_id = payment.get("id", "")
+        order_id = payment.get("order_id", "")
+        amount_inr = payment.get("amount", 0) / 100
+        pay_status = payment.get("status", "")
+        if pay_status != "captured":
+            continue
+        if payment_id in existing_transactions or order_id in existing_transactions:
+            matched.append({"payment_id": payment_id, "order_id": order_id, "amount": amount_inr,
+                            "email": payment.get("email", ""), "contact": payment.get("contact", ""),
+                            "created_at": payment.get("created_at", 0), "status": "matched"})
+        else:
+            total_missing_amount += amount_inr
+            missing_orders.append({"payment_id": payment_id, "razorpay_order_id": order_id,
+                                   "amount": amount_inr, "email": payment.get("email", ""),
+                                   "contact": payment.get("contact", ""), "method": payment.get("method", ""),
+                                   "created_at": payment.get("created_at", 0), "status": "missing_order"})
+
+    return {
+        "from_timestamp": from_timestamp,
+        "total_payments_fetched": len(items),
+        "total_captured": len(matched) + len(missing_orders),
+        "matched_count": len(matched),
+        "missing_order_count": len(missing_orders),
+        "total_missing_amount_inr": total_missing_amount,
+        "matched": matched,
+        "missing_orders": missing_orders,
+    }
+
+
+@app.post("/api/v1/orders/admin/force-create", tags=["Admin - Orders"])
+async def force_create_order_from_payment(
+    payload: dict,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_admin)
+):
+    """
+    Force-create a DB order from a captured Razorpay payment.
+    Fetches payment details from Razorpay, finds the matching user by email,
+    pulls their default shipping address, and inserts a confirmed order.
+    Admin use only — for payment recovery when customer's order was not created.
+    """
+    import razorpay as _razorpay
+
+    payment_id = payload.get("payment_id", "").strip()
+    if not payment_id:
+        raise HTTPException(status_code=400, detail="payment_id is required")
+
+    # Check if order already exists for this payment
+    existing = db.execute(
+        text("SELECT id, invoice_number FROM orders WHERE transaction_id = :pid OR razorpay_payment_id = :pid"),
+        {"pid": payment_id}
+    ).fetchone()
+    if existing:
+        raise HTTPException(status_code=409, detail=f"Order already exists for this payment: #{existing[0]} ({existing[1]})")
+
+    key_id = os.getenv("RAZORPAY_KEY_ID", "")
+    key_secret = os.getenv("RAZORPAY_KEY_SECRET", "")
+    if not key_id or not key_secret:
+        raise HTTPException(status_code=503, detail="Razorpay credentials not configured")
+
+    # Fetch payment from Razorpay
+    try:
+        client = _razorpay.Client(auth=(key_id, key_secret))
+        payment = client.payment.fetch(payment_id)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Failed to fetch payment from Razorpay: {str(e)}")
+
+    if payment.get("status") != "captured":
+        raise HTTPException(status_code=400, detail=f"Payment {payment_id} is not captured (status: {payment.get('status')})")
+
+    amount_inr = payment.get("amount", 0) / 100
+    razorpay_order_id = payment.get("order_id") or ""
+    customer_email = payment.get("email") or ""
+    customer_contact = payment.get("contact") or ""
+    method = payment.get("method") or "razorpay"
+
+    # Find user by email
+    user_row = None
+    if customer_email:
+        user_row = db.execute(
+            text("SELECT id FROM users WHERE email = :email"),
+            {"email": customer_email}
+        ).fetchone()
+
+    user_id = user_row[0] if user_row else 1  # fallback to admin user
+
+    # Get user's default (or first) shipping address
+    addr_row = db.execute(
+        text("""
+            SELECT id, full_name, phone, address_line1, address_line2, city, state, postal_code
+            FROM addresses
+            WHERE user_id = :uid
+            ORDER BY is_default DESC, id ASC
+            LIMIT 1
+        """),
+        {"uid": user_id}
+    ).fetchone()
+
+    shipping_address_id = None
+    shipping_address_text = ""
+    if addr_row:
+        shipping_address_id = addr_row[0]
+        parts = [addr_row[1], addr_row[3]]
+        if addr_row[4]: parts.append(addr_row[4])
+        parts += [addr_row[5], f"{addr_row[6]} {addr_row[7]}"]
+        if addr_row[2]: parts.append(f"Ph: {addr_row[2]}")
+        shipping_address_text = ", ".join(p for p in parts if p)
+    elif customer_contact:
+        shipping_address_text = f"Contact: {customer_contact} — address to be collected"
+
+    # Generate next invoice number
+    max_inv = db.execute(text("SELECT MAX(id) FROM orders")).scalar() or 0
+    next_id = max_inv + 1
+    invoice_number = f"INV-2026-{str(next_id).zfill(6)}"
+
+    notes = (
+        f"RECOVERED by admin ({current_user.get('email','admin')}): "
+        f"Force-created from Razorpay {payment_id} (Rs{amount_inr}). "
+        f"Method: {method}. Contact: {customer_contact or 'N/A'}."
+    )
+
+    result = db.execute(
+        text("""
+            INSERT INTO orders (
+                user_id, transaction_id, razorpay_order_id, razorpay_payment_id,
+                status, total_amount, subtotal, discount_applied, payment_method,
+                invoice_number, shipping_address_id, shipping_address, order_notes,
+                created_at, updated_at
+            ) VALUES (
+                :user_id, :transaction_id, :razorpay_order_id, :payment_id,
+                'confirmed', :amount, :amount, 0, 'razorpay',
+                :invoice_number, :addr_id, :shipping_address, :notes,
+                NOW(), NOW()
+            ) RETURNING id, invoice_number
+        """),
+        {
+            "user_id": user_id,
+            "transaction_id": payment_id,
+            "razorpay_order_id": razorpay_order_id,
+            "payment_id": payment_id,
+            "amount": amount_inr,
+            "invoice_number": invoice_number,
+            "addr_id": shipping_address_id,
+            "shipping_address": shipping_address_text,
+            "notes": notes,
+        }
+    )
+    db.commit()
+    row = result.fetchone()
+
+    logger.info(f"Admin force-created order #{row[0]} for payment {payment_id} by {current_user.get('email')}")
+
+    # Send order confirmation email if customer email available
+    email_sent = False
+    if customer_email:
+        try:
+            import smtplib, ssl
+            from email.mime.text import MIMEText
+            from email.mime.multipart import MIMEMultipart
+
+            smtp_host = os.getenv("SMTP_HOST", "")
+            smtp_port = int(os.getenv("SMTP_PORT", "465"))
+            smtp_user = os.getenv("SMTP_USER", "")
+            smtp_pass = os.getenv("SMTP_PASSWORD", "")
+            from_email = os.getenv("EMAIL_FROM", smtp_user)
+            from_name = os.getenv("EMAIL_FROM_NAME", "Aarya Clothing")
+
+            if smtp_host and smtp_user and smtp_pass:
+                customer_name = addr_row[1] if addr_row else customer_email.split("@")[0].title()
+                subject = f"Order Confirmed! {invoice_number} - Aarya Clothing"
+                html_body = f"""<!DOCTYPE html>
+<html><head><meta charset="UTF-8"></head>
+<body style="font-family:sans-serif;background:#0B0608;margin:0;padding:20px;">
+<div style="max-width:600px;margin:0 auto;background:linear-gradient(135deg,#180F14,#0B0608);border-radius:20px;padding:40px;border:1px solid rgba(183,110,121,0.3);">
+  <div style="text-align:center;margin-bottom:24px;">
+    <h1 style="color:#F2C29A;font-size:28px;margin:0;letter-spacing:3px;">AARYA</h1>
+    <p style="color:#B76E79;font-size:13px;margin:6px 0 0;letter-spacing:4px;">CLOTHING</p>
+  </div>
+  <h2 style="color:#F2C29A;font-size:22px;margin-bottom:8px;">Order Confirmed! ✓</h2>
+  <p style="color:#EAE0D5;margin-bottom:20px;">Dear {customer_name}, thank you for your purchase! Your order has been confirmed.</p>
+  <div style="background:rgba(122,47,87,0.15);border:1px solid rgba(183,110,121,0.2);border-radius:12px;padding:20px;margin-bottom:20px;">
+    <p style="color:#EAE0D5;margin:0 0 8px;font-size:13px;opacity:0.6;">ORDER NUMBER</p>
+    <p style="color:#F2C29A;font-size:18px;font-weight:bold;margin:0;font-family:monospace;">{invoice_number}</p>
+    <hr style="border:none;border-top:1px solid rgba(183,110,121,0.2);margin:16px 0;">
+    <p style="color:#EAE0D5;margin:0 0 6px;font-size:13px;opacity:0.6;">AMOUNT PAID</p>
+    <p style="color:#4ade80;font-size:20px;font-weight:bold;margin:0;">₹{amount_inr:.0f}</p>
+    <hr style="border:none;border-top:1px solid rgba(183,110,121,0.2);margin:16px 0;">
+    <p style="color:#EAE0D5;margin:0 0 6px;font-size:13px;opacity:0.6;">PAYMENT METHOD</p>
+    <p style="color:#EAE0D5;margin:0;">{method.upper()} via Razorpay</p>
+    {'<hr style="border:none;border-top:1px solid rgba(183,110,121,0.2);margin:16px 0;"><p style="color:#EAE0D5;margin:0 0 6px;font-size:13px;opacity:0.6;">DELIVERY ADDRESS</p><p style="color:#EAE0D5;margin:0;">' + shipping_address_text + '</p>' if shipping_address_text else ''}
+  </div>
+  <div style="text-align:center;margin:24px 0;">
+    <a href="https://aaryaclothing.in/profile/orders" style="display:inline-block;background:linear-gradient(135deg,#B76E79,#7A2F57);color:#fff;text-decoration:none;padding:14px 32px;border-radius:10px;font-weight:600;font-size:15px;">View My Orders</a>
+  </div>
+  <p style="color:#EAE0D5;opacity:0.5;font-size:12px;text-align:center;margin-top:24px;">Questions? Email us at <a href="mailto:support@aaryaclothing.in" style="color:#B76E79;">support@aaryaclothing.in</a></p>
+  <p style="color:#EAE0D5;opacity:0.3;font-size:11px;text-align:center;">© 2026 Aarya Clothing. All rights reserved.</p>
+</div>
+</body></html>"""
+                msg = MIMEMultipart("alternative")
+                msg["Subject"] = subject
+                msg["From"] = f"{from_name} <{from_email}>"
+                msg["To"] = customer_email
+                msg.attach(MIMEText(html_body, "html"))
+                ctx = ssl.create_default_context()
+                with smtplib.SMTP_SSL(smtp_host, smtp_port, context=ctx, timeout=20) as srv:
+                    srv.login(smtp_user, smtp_pass)
+                    srv.sendmail(from_email, customer_email, msg.as_string())
+                email_sent = True
+                logger.info(f"Order confirmation email sent to {customer_email} for {invoice_number}")
+        except Exception as email_err:
+            logger.warning(f"Failed to send confirmation email to {customer_email}: {email_err}")
+
+    return {
+        "success": True,
+        "order_id": row[0],
+        "invoice_number": row[1],
+        "payment_id": payment_id,
+        "amount": amount_inr,
+        "customer_email": customer_email,
+        "shipping_address": shipping_address_text,
+        "email_sent": email_sent,
+        "message": f"Order #{row[0]} created successfully" + (" — confirmation email sent" if email_sent else ""),
+    }
 
 
 # ==================== Admin Order Routes ====================

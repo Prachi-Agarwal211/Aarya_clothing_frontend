@@ -32,6 +32,8 @@ class InventoryResponse(BaseModel):
     sku: str
     size: Optional[str] = None
     color: Optional[str] = None
+    color_hex: Optional[str] = None
+    image_url: Optional[str] = None
     quantity: int
     reserved_quantity: int
     low_stock_threshold: int

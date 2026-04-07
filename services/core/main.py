@@ -639,9 +639,20 @@ async def login(
             session_id=result["session_id"]
         )
     except ValueError as e:
+        msg = str(e)
+        if msg.startswith("EMAIL_NOT_VERIFIED:"):
+            email = msg.split(":", 1)[1]
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "error_code": "EMAIL_NOT_VERIFIED",
+                    "email": email,
+                    "message": "Please verify your email before logging in. Check your inbox for a verification OTP."
+                }
+            )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
+            detail=msg
         )
     except Exception as e:
         logger.error(f"Login error: {str(e)}")

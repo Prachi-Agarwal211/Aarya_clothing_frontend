@@ -70,6 +70,11 @@ class Settings(SharedBaseSettings):
             return "https://sandbox.cashfree.com"
         return "https://api.cashfree.com"
 
+    @property
+    def cashfree_notify_url(self) -> str:
+        """Get Cashfree webhook notification URL (separate from Razorpay webhook)."""
+        return self.PAYMENT_NOTIFY_URL.replace("/webhooks/razorpay", "/webhooks/cashfree")
+
 
 # Create cached settings instance
 def get_settings() -> Settings:

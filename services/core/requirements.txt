@@ -17,4 +17,4 @@ email-validator==2.1.0
 python-dotenv==1.2.1
 httpx==0.26.0
 PyJWT==2.8.0
-twilio==9.4.0
+# MSG91 SMS - uses httpx (already included above)

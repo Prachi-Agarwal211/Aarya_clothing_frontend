@@ -77,7 +77,7 @@ class CashfreeService:
             },
             "order_meta": {
                 "return_url": f"{settings.PAYMENT_SUCCESS_URL}?order_id={{order_id}}",
-                "notify_url": f"{settings.PAYMENT_NOTIFY_URL}/cashfree",
+                "notify_url": settings.cashfree_notify_url,
             },
         }
 

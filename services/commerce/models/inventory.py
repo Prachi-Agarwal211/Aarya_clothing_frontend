@@ -16,6 +16,7 @@ class Inventory(Base):
     sku = Column(String(50), unique=True, index=True, nullable=False)
     size = Column(String(20), nullable=True)  # XS, S, M, L, XL, etc.
     color = Column(String(50), nullable=True)
+    color_hex = Column(String(7), nullable=True)  # Hex color code e.g. #FF5733
     
     # Stock counts
     quantity = Column(Integer, default=0)

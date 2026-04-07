@@ -165,3 +165,12 @@ class OrderItem(Base):
     inventory = relationship("Inventory", foreign_keys=[inventory_id])
     product = relationship("Product", foreign_keys=[product_id], primaryjoin="OrderItem.product_id == Product.id", viewonly=True)
 
+    @property
+    def image_url(self):
+        """Return variant image URL from inventory, falling back to product primary image."""
+        if self.inventory and self.inventory.image_url:
+            return self.inventory.image_url
+        if self.product and hasattr(self.product, 'image_url'):
+            return self.product.image_url
+        return None
+

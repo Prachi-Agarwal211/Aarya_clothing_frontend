@@ -397,16 +397,7 @@ class AuthService:
         if not user.is_active:
             raise ValueError("Account is deactivated")
 
-        # OPTIMIZED: Check if email is verified
-        if not user.email_verified:
-            # Reveal existence only in dev, otherwise standardized
-            if settings.is_development:
-                raise ValueError(
-                    "Email verification required. Please check your email to verify your account."
-                )
-            raise ValueError("Invalid credentials")
-
-        # Verify password
+        # Verify password FIRST — only after correct password do we reveal unverified status
         if not self.verify_password(password, user.hashed_password):
             if user.security:
                 user.security.failed_login_attempts = (
@@ -421,14 +412,15 @@ class AuthService:
                         f"Account locked for {settings.ACCOUNT_LOCKOUT_MINUTES} minutes due to too many failed attempts"
                     )
                 self.db.commit()
-                remaining = (
-                    settings.MAX_LOGIN_ATTEMPTS - user.security.failed_login_attempts
-                )
                 raise ValueError("Invalid credentials")
             else:
-                # Fallback if security object doesn't exist for some reason
                 self.db.commit()
                 raise ValueError("Invalid credentials")
+
+        # Check if email is verified — AFTER password check so attacker must know password
+        # Returns structured error so frontend can redirect to verification page
+        if not user.email_verified:
+            raise ValueError(f"EMAIL_NOT_VERIFIED:{user.email}")
 
         # Reset failed attempts on successful login
         if user.security:

@@ -21,6 +21,7 @@ class PaymentTransaction(Base):
     razorpay_order_id = Column(String(100), nullable=True, index=True)
     razorpay_payment_id = Column(String(100), nullable=True, index=True)
     razorpay_signature = Column(String(500), nullable=True)
+    razorpay_qr_code_id = Column(String(100), nullable=True, index=True)
 
     # Cashfree specific
     cashfree_order_id = Column(String(100), nullable=True, index=True)

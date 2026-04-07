@@ -114,16 +114,16 @@ const ProductCard = ({
     try {
       if (isWishlisted) {
         await wishlistApi.remove(id);
-        setIsWishlisted(false);
+        setInternalWishlistStatus(false);
         toast.success('Removed from Wishlist', `${name} removed from your wishlist`);
       } else {
         await wishlistApi.add(id);
-        setIsWishlisted(true);
+        setInternalWishlistStatus(true);
         toast.success('Added to Wishlist', `${name} added to your wishlist`);
       }
     } catch (error) {
       // Fall back to local state toggle if API fails
-      setIsWishlisted(!isWishlisted);
+      setInternalWishlistStatus(!internalWishlistStatus);
       toast.error('Error', error.message || 'Failed to update wishlist. Please login to use wishlist.');
     } finally {
       setIsLoading(false);

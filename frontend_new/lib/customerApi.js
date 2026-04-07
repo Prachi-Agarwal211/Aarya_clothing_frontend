@@ -125,11 +125,13 @@ export const ordersApi = {
   track: (id) =>
     commerceClient.get(`/api/v1/orders/${id}/tracking`),
 
-  // Order recovery - for when payment succeeded but order creation failed
-  recoverFromPayment: (paymentId, razorpayOrderId) =>
-    commerceClient.post('/api/v1/orders/recover-from-payment', null, {
-      params: { payment_id: paymentId, razorpay_order_id: razorpayOrderId },
-    }),
+  // Admin: cross-reference Razorpay captured payments vs DB orders
+  getPaymentRecovery: (fromTimestamp) =>
+    commerceClient.get('/api/v1/orders/admin/payment-recovery', fromTimestamp ? { from_timestamp: fromTimestamp } : {}),
+
+  // Admin: force-create a DB order from a captured Razorpay payment_id
+  forceCreateOrder: (paymentId) =>
+    commerceClient.post('/api/v1/orders/admin/force-create', { payment_id: paymentId }),
 };
 
 // ==================== Addresses API ====================
@@ -231,13 +233,13 @@ export const paymentApi = {
   verifyRazorpaySignature: (data) =>
     paymentClient.post('/api/v1/payments/razorpay/verify-signature', data),
 
-  // Cashfree: create order → returns { order_id, session_id, ... }
-  createCashfreeOrder: (data) =>
-    paymentClient.post('/api/v1/payments/cashfree/create-order', data),
+  // Razorpay: create UPI QR code → returns { qr_code_id, image_url, expires_at, ... }
+  createQrCode: (data) =>
+    paymentClient.post('/api/v1/payments/razorpay/create-qr-code', data),
 
-  // Cashfree: verify payment signature
-  verifyCashfreePayment: (data) =>
-    paymentClient.post('/api/v1/payments/cashfree/verify', data),
+  // Razorpay: check QR code payment status
+  checkQrStatus: (qrCodeId) =>
+    paymentClient.post(`/api/v1/payments/razorpay/qr-status/${qrCodeId}`),
 
   getMethods: () =>
     paymentClient.get('/api/v1/payment/methods'),

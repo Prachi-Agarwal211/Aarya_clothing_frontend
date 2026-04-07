@@ -44,7 +44,7 @@ export default function OrdersPage() {
       setError(null);
 
       const data = await ordersApi.list();
-      setOrders(data.items || data.orders || []);
+      setOrders(Array.isArray(data) ? data : (data.items || data.orders || []));
     } catch (err) {
       logError('ProfileOrders', 'loading orders', err, { 
         endpoint: '/api/v1/customer/orders'

@@ -3,12 +3,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { CreditCard, ChevronRight, Lock, Shield, Check, AlertCircle, ShoppingBag, X, RotateCcw, RefreshCw, ExternalLink, QrCode, Clock, Timer, Cancel } from 'lucide-react';
+import { CreditCard, ChevronRight, Lock, Shield, Check, AlertCircle, ShoppingBag, X, RotateCcw, RefreshCw, QrCode, Clock, Timer } from 'lucide-react';
 import { paymentApi, cartApi, userApi } from '@/lib/customerApi';
 import { useCart } from '@/lib/cartContext';
 import { useAuth } from '@/lib/authContext';
 import logger from '@/lib/logger';
-import { initializeCashfree, loadCashfreeSDK } from '@/lib/cashfree';
 import Image from 'next/image';
 
 // Razorpay configuration
@@ -26,15 +25,14 @@ const RAZORPAY_BUTTON_TEXT = 'Pay Now';
 export default function CheckoutPaymentPage() {
   const router = useRouter();
   const { cart } = useCart();
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, loading: authLoading } = useAuth();
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState(null);
   const [stockError, setStockError] = useState(null);
   const [razorpayReady, setRazorpayReady] = useState(false);
   const [redirectProcessing, setRedirectProcessing] = useState(false);
-  const [selectedGateway, setSelectedGateway] = useState('razorpay'); // 'razorpay' or 'cashfree'
+  const [selectedGateway, setSelectedGateway] = useState('razorpay'); // 'razorpay' or 'upi_qr'
   const [paymentConfig, setPaymentConfig] = useState(null);
-  const [cashfreeLoading, setCashfreeLoading] = useState(false);
   const cachedKeyIdRef = React.useRef(null);
   const cachedConfigIdRef = React.useRef(null);
 
@@ -49,10 +47,10 @@ export default function CheckoutPaymentPage() {
   const timerRef = useRef(null);
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (!authLoading && !isAuthenticated) {
       router.push('/auth/login?redirect_url=/checkout/payment');
     }
-  }, [isAuthenticated, router]);
+  }, [authLoading, isAuthenticated, router]);
 
   useEffect(() => {
     const addressId = sessionStorage.getItem('checkout_address_id');
@@ -254,141 +252,7 @@ export default function CheckoutPaymentPage() {
     }
   };
 
-  /**
-   * CASHFREE PAYMENT — Alternative payment gateway using SDK.
-   *
-   * Creates a Cashfree order and opens Cashfree hosted checkout via SDK.
-   * Cashfree offers lower fees (1.9%) and faster settlement (T+1) than Razorpay.
-   * 
-   * Flow:
-   *  1. Backend creates Cashfree order → returns { order_id, session_id, ... }
-   *  2. Frontend loads Cashfree SDK v3 → initializes with mode
-   *  3. SDK opens Cashfree hosted checkout page
-   *  4. User completes payment → redirected to returnUrl
-   *  5. Backend verifies payment signature → redirect to /checkout/confirm
-   */
-  const handleCashfreePayment = async () => {
-    try {
-      setRedirectProcessing(true);
-      setCashfreeLoading(true);
-      setError(null);
-
-      // Validate stock
-      try {
-        const stockValidation = await cartApi.validateStock();
-        if (stockValidation?.out_of_stock?.length > 0) {
-          setStockError({ items: stockValidation.out_of_stock });
-          setRedirectProcessing(false);
-          setCashfreeLoading(false);
-          return;
-        }
-      } catch (stockErr) {
-        setError(stockErr.message || 'Items in your cart are out of stock.');
-        setRedirectProcessing(false);
-        setCashfreeLoading(false);
-        return;
-      }
-
-      const addressId = sessionStorage.getItem('checkout_address_id');
-      if (!addressId) {
-        setError('Please select a delivery address');
-        router.push('/checkout');
-        setCashfreeLoading(false);
-        return;
-      }
-
-      // Get Cashfree config
-      let config = paymentConfig;
-      if (!config) {
-        try {
-          config = await paymentApi.getConfig();
-          setPaymentConfig(config);
-        } catch {
-          setError('Payment service unavailable. Please try again.');
-          setRedirectProcessing(false);
-          setCashfreeLoading(false);
-          return;
-        }
-      }
-
-      if (!config.cashfree?.enabled) {
-        setError('Cashfree is not available. Please use Razorpay instead.');
-        setRedirectProcessing(false);
-        setCashfreeLoading(false);
-        return;
-      }
-
-      // Create Cashfree order
-      let orderData;
-      try {
-        orderData = await paymentApi.createCashfreeOrder({
-          amount: Math.round((cart.total || 0) * 100),
-          currency: 'INR',
-          receipt: `cart_${Date.now()}`,
-        });
-      } catch (createErr) {
-        logger.error('Cashfree order creation error:', createErr);
-        setError('Failed to initialise payment. Please try again.');
-        setRedirectProcessing(false);
-        setCashfreeLoading(false);
-        return;
-      }
-
-      if (!orderData?.session_id) {
-        logger.error('Cashfree order missing session_id:', orderData);
-        setError('Payment initialisation failed. Please try again.');
-        setRedirectProcessing(false);
-        setCashfreeLoading(false);
-        return;
-      }
-
-      // Load and initialize Cashfree SDK
-      try {
-        const mode = process.env.NEXT_PUBLIC_CASHFREE_ENV === 'production' ? 'production' : 'sandbox';
-        logger.info('Initializing Cashfree SDK in', mode, 'mode');
-        
-        const cashfree = await initializeCashfree(mode);
-        
-        if (!cashfree) {
-          throw new Error('Failed to initialize Cashfree SDK');
-        }
-
-        // Configure checkout options
-        // Route return through backend handler so payment is verified before confirm page
-        const checkoutOptions = {
-          paymentSessionId: orderData.session_id,
-          returnUrl: `${window.location.origin}/api/v1/payments/cashfree/return`,
-        };
-
-        logger.info('Opening Cashfree checkout with session:', orderData.session_id);
-
-        // Open Cashfree hosted checkout - this redirects user to Cashfree payment page
-        await cashfree.checkout(checkoutOptions);
-        
-        // Note: After successful checkout, user is redirected to returnUrl
-        // The returnUrl handler will verify the payment and redirect to /checkout/confirm
-        
-      } catch (sdkErr) {
-        logger.error('Cashfree SDK error:', sdkErr);
-        logger.error('Cashfree SDK error details:', {
-          message: sdkErr.message,
-          name: sdkErr.name,
-          stack: sdkErr.stack,
-          sessionId: orderData?.session_id,
-        });
-        setError(`Payment could not be opened. Please try again or use Razorpay. (Error: ${sdkErr.message || 'Unknown'})`);
-        setRedirectProcessing(false);
-        setCashfreeLoading(false);
-        return;
-      }
-
-    } catch (err) {
-      logger.error('Cashfree payment error:', err);
-      setError(err.message || 'Payment failed. Please try again.');
-      setRedirectProcessing(false);
-      setCashfreeLoading(false);
-    }
-  };
+  // Cashfree removed — only Razorpay + UPI QR supported
 
   // ==================== QR Code Payment Functions ====================
 
@@ -476,7 +340,9 @@ export default function CheckoutPaymentPage() {
 
           // Redirect to confirmation after short delay
           setTimeout(() => {
-            router.push(`/checkout/confirm?payment_id=${status.payment_id}&qr_code_id=${qrCodeId}`);
+            // Only include payment_id if Razorpay actually returned one
+            const paymentIdParam = status.payment_id ? `&payment_id=${status.payment_id}` : '';
+            router.push(`/checkout/confirm?qr_code_id=${qrCodeId}${paymentIdParam}`);
           }, 1500);
         } else if (status.status === 'expired') {
           stopQrPolling();
@@ -630,9 +496,7 @@ export default function CheckoutPaymentPage() {
                 className="w-4 h-4 mt-1"
               />
               <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <p className="font-semibold text-[#F2C29A]">Razorpay</p>
-                </div>
+                <p className="font-semibold text-[#F2C29A]">Pay Online</p>
                 <p className="text-sm text-[#EAE0D5]/60 mt-1">UPI, Cards, Net Banking, Wallets</p>
               </div>
               {selectedGateway === 'razorpay' && (
@@ -640,37 +504,6 @@ export default function CheckoutPaymentPage() {
               )}
             </div>
           </button>
-
-          {/* Cashfree Option */}
-          {paymentConfig?.cashfree?.enabled && (
-            <button
-              onClick={() => setSelectedGateway('cashfree')}
-              className={`w-full p-4 border-2 rounded-xl transition-all text-left ${
-                selectedGateway === 'cashfree'
-                  ? 'border-[#F2C29A] bg-[#F2C29A]/10'
-                  : 'border-[#B76E79]/30 hover:border-[#F2C29A]/40'
-              }`}
-            >
-              <div className="flex items-start gap-3">
-                <input
-                  type="radio"
-                  name="gateway"
-                  checked={selectedGateway === 'cashfree'}
-                  onChange={() => setSelectedGateway('cashfree')}
-                  className="w-4 h-4 mt-1"
-                />
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <p className="font-semibold text-[#F2C29A]">Cashfree</p>
-                  </div>
-                  <p className="text-sm text-[#EAE0D5]/60 mt-1">UPI, Cards, Net Banking, Wallets</p>
-                </div>
-                {selectedGateway === 'cashfree' && (
-                  <Check className="w-5 h-5 text-[#F2C29A]" />
-                )}
-              </div>
-            </button>
-          )}
 
           {/* UPI QR Code Option */}
           <button
@@ -714,9 +547,7 @@ export default function CheckoutPaymentPage() {
           <div className="flex items-center gap-4">
             <span className="text-2xl">💳</span>
             <div>
-              <p className="font-medium text-[#F2C29A]">
-                {selectedGateway === 'razorpay' ? 'Razorpay' : 'Cashfree'}
-              </p>
+              <p className="font-medium text-[#F2C29A]">Razorpay</p>
               <p className="text-sm text-[#EAE0D5]/70">UPI, Cards, Net Banking, Wallets & more</p>
             </div>
           </div>
@@ -727,10 +558,10 @@ export default function CheckoutPaymentPage() {
       <div className="p-6 bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl">
         <div className="flex items-center gap-2 mb-4">
           <Lock className="w-4 h-4 text-[#B76E79]" />
-          <span className="text-sm text-[#EAE0D5]/70">Secure payment powered by {selectedGateway === 'razorpay' ? 'Razorpay' : 'Cashfree'}</span>
+          <span className="text-sm text-[#EAE0D5]/70">Secure payment powered by Razorpay</span>
         </div>
         <p className="text-[#EAE0D5]/70 text-sm">
-          Click &quot;Pay Now&quot; to open the secure {selectedGateway === 'razorpay' ? 'Razorpay' : 'Cashfree'} checkout. You can pay using:
+          Click &quot;Pay Now&quot; to open the secure Razorpay checkout. You can pay using:
         </p>
         <div className="flex flex-wrap gap-2 mt-4">
           {['UPI', 'Credit Card', 'Debit Card', 'Net Banking', 'Wallet'].map((m) => (
@@ -923,38 +754,32 @@ export default function CheckoutPaymentPage() {
         </div>
       )}
 
-      {/* Pay Button - Direct Redirect to Selected Gateway (Non-QR) */}
+      {/* Pay Button - Razorpay redirect (Non-QR) */}
       {selectedGateway !== 'upi_qr' && (
         <div className="space-y-3">
           <button
-            onClick={() => {
-              if (selectedGateway === 'cashfree') {
-                handleCashfreePayment();
-              } else {
-                handleDirectPayment();
-              }
-            }}
-            disabled={processing || redirectProcessing || cashfreeLoading}
+            onClick={handleDirectPayment}
+            disabled={processing || redirectProcessing}
             className="w-full flex items-center justify-center gap-2 px-8 py-3.5 bg-gradient-to-r from-[#7A2F57] to-[#B76E79] text-white font-semibold rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50"
           >
-            {redirectProcessing || cashfreeLoading ? (
+            {redirectProcessing ? (
               <>
                 <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8h4z"/>
                 </svg>
-                {cashfreeLoading ? 'Loading Cashfree...' : 'Processing...'}
+                Processing...
               </>
             ) : (
               <>
                 <CreditCard className="w-4 h-4" />
-                {`Pay ${formatCurrency(cart?.total)} with ${selectedGateway === 'razorpay' ? 'Razorpay' : 'Cashfree'}`}
+                {`Pay ${formatCurrency(cart?.total)} Securely`}
                 <ChevronRight className="w-4 h-4" />
               </>
             )}
           </button>
           <p className="text-center text-xs text-[#EAE0D5]/40">
-            Secure checkout powered by {selectedGateway === 'razorpay' ? 'Razorpay' : 'Cashfree'} • UPI, Cards, Net Banking, Wallets
+            Secure checkout powered by Razorpay • UPI, Cards, Net Banking, Wallets
           </p>
         </div>
       )}

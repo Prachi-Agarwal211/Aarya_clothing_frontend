@@ -101,12 +101,19 @@ function LoginForm() {
 
       logger.info(`Login successful for user ${response.user.username} with role ${response.user.role}, redirecting to ${targetUrl}`);
 
-      // Use soft navigation - backend sets HttpOnly cookies automatically
-      // Browser will send cookies on next request
       router.push(targetUrl);
-      return; // Exit early, don't set isSubmitting to false yet
+      return;
     } catch (err) {
       logger.error('Login failed:', err);
+
+      // EMAIL_NOT_VERIFIED: redirect to OTP verification page instead of showing error
+      const detail = err?.data?.detail || err?.response?.data?.detail || {};
+      if (err.status === 403 && detail?.error_code === 'EMAIL_NOT_VERIFIED') {
+        const email = detail.email || identifier.trim();
+        router.push(`/auth/register?step=verify&email=${encodeURIComponent(email)}`);
+        return;
+      }
+
       setError(getLoginErrorMessage(err));
     } finally {
       setIsSubmitting(false);

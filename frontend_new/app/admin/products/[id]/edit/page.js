@@ -19,6 +19,7 @@ import {
   StarIcon,
 } from 'lucide-react';
 import { productsApi, categoriesApi } from '@/lib/adminApi';
+import ColorPicker from '@/components/ui/ColorPicker';
 import logger from '@/lib/logger';
 
 export default function EditProductPage() {
@@ -52,6 +53,28 @@ export default function EditProductPage() {
   const [isDragging, setIsDragging] = useState(false);
   const [authError, setAuthError] = useState(false);
   const [error, setError] = useState(null);
+  const [numericProductId, setNumericProductId] = useState(null);
+
+  // Variants state
+  const [variants, setVariants] = useState([]);
+  const [loadingVariants, setLoadingVariants] = useState(false);
+  const [showAddVariant, setShowAddVariant] = useState(false);
+  const [editingVariantId, setEditingVariantId] = useState(null);
+  const [stockAdjustingVariant, setStockAdjustingVariant] = useState(null);
+  const [variantForm, setVariantForm] = useState({
+    sku: '',
+    size: '',
+    color: '',
+    color_hex: '#000000',
+    quantity: 0,
+    price: '',
+    low_stock_threshold: 5,
+  });
+  const [stockForm, setStockForm] = useState({
+    adjustment: 0,
+    reason: '',
+  });
+  const [variantErrors, setVariantErrors] = useState({});
 
   // Use productId from useParams - this can be either a slug or numeric ID
   const productSlugOrId = productId;
@@ -63,6 +86,14 @@ export default function EditProductPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [productSlugOrId]);
+
+  // Fetch variants when numericProductId is available
+  useEffect(() => {
+    if (numericProductId) {
+      fetchVariants();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [numericProductId]);
 
   const fetchProduct = async () => {
     try {
@@ -102,6 +133,9 @@ export default function EditProductPage() {
         hasImages: !!product.images?.length,
         hasVariants: !!product.inventory?.length
       });
+
+      // Store the numeric product ID for use in handleSubmit and variant operations
+      setNumericProductId(product.id);
 
       setForm({
         name: product.name || '',
@@ -272,6 +306,182 @@ export default function EditProductPage() {
     });
   };
 
+  // ===== VARIANTS & INVENTORY FUNCTIONS =====
+
+  const fetchVariants = async () => {
+    if (!numericProductId) return;
+    try {
+      setLoadingVariants(true);
+      const data = await productsApi.getVariants(numericProductId);
+      setVariants(data.variants || data || []);
+    } catch (err) {
+      logger.error('Error fetching variants:', err);
+      // Non-critical error - variants may simply not exist yet
+      setVariants([]);
+    } finally {
+      setLoadingVariants(false);
+    }
+  };
+
+  const validateVariantForm = () => {
+    const newErrors = {};
+    if (!variantForm.sku.trim()) newErrors.sku = 'SKU is required';
+    if (!variantForm.size.trim()) newErrors.size = 'Size is required';
+    if (!variantForm.color.trim()) newErrors.color = 'Color is required';
+    if (!variantForm.price || parseFloat(variantForm.price) <= 0) newErrors.price = 'Valid price is required';
+    if (variantForm.quantity < 0) newErrors.quantity = 'Quantity cannot be negative';
+
+    setVariantErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleVariantFormChange = (e) => {
+    const { name, value } = e.target;
+    setVariantForm(prev => ({
+      ...prev,
+      [name]: name === 'quantity' || name === 'low_stock_threshold' ? parseInt(value) || 0 : value,
+    }));
+    if (variantErrors[name]) {
+      setVariantErrors(prev => ({ ...prev, [name]: null }));
+    }
+  };
+
+  const handleAddVariant = () => {
+    setVariantForm({
+      sku: '',
+      size: '',
+      color: '',
+      color_hex: '#000000',
+      quantity: 0,
+      price: '',
+      low_stock_threshold: 5,
+    });
+    setVariantErrors({});
+    setShowAddVariant(true);
+  };
+
+  const handleCancelAddVariant = () => {
+    setShowAddVariant(false);
+    setVariantErrors({});
+  };
+
+  const handleCreateVariant = async (e) => {
+    e.preventDefault();
+    if (!validateVariantForm()) return;
+
+    try {
+      const payload = {
+        sku: variantForm.sku.trim(),
+        size: variantForm.size.trim(),
+        color: variantForm.color.trim(),
+        color_hex: variantForm.color_hex,
+        quantity: parseInt(variantForm.quantity),
+        price: parseFloat(variantForm.price),
+        low_stock_threshold: parseInt(variantForm.low_stock_threshold) || 5,
+      };
+
+      await productsApi.createVariant(numericProductId, payload);
+      setShowAddVariant(false);
+      await fetchVariants();
+    } catch (err) {
+      logger.error('Error creating variant:', err);
+      setVariantErrors(prev => ({ ...prev, _general: err?.message || 'Failed to create variant' }));
+    }
+  };
+
+  const handleEditVariant = (variant) => {
+    setEditingVariantId(variant.id);
+    setVariantForm({
+      sku: variant.sku || '',
+      size: variant.size || '',
+      color: variant.color || '',
+      color_hex: variant.color_hex || '#000000',
+      quantity: variant.quantity ?? 0,
+      price: variant.price || '',
+      low_stock_threshold: variant.low_stock_threshold ?? 5,
+    });
+    setVariantErrors({});
+  };
+
+  const handleCancelEditVariant = () => {
+    setEditingVariantId(null);
+    setVariantErrors({});
+  };
+
+  const handleUpdateVariant = async (e) => {
+    e.preventDefault();
+    if (!validateVariantForm()) return;
+
+    try {
+      const payload = {
+        sku: variantForm.sku.trim(),
+        size: variantForm.size.trim(),
+        color: variantForm.color.trim(),
+        color_hex: variantForm.color_hex,
+        quantity: parseInt(variantForm.quantity),
+        price: parseFloat(variantForm.price),
+        low_stock_threshold: parseInt(variantForm.low_stock_threshold) || 5,
+      };
+
+      await productsApi.updateVariant(numericProductId, editingVariantId, payload);
+      setEditingVariantId(null);
+      await fetchVariants();
+    } catch (err) {
+      logger.error('Error updating variant:', err);
+      setVariantErrors(prev => ({ ...prev, _general: err?.message || 'Failed to update variant' }));
+    }
+  };
+
+  const handleDeleteVariant = async (variantId) => {
+    if (!confirm('Are you sure you want to delete this variant? This cannot be undone.')) return;
+
+    try {
+      await productsApi.deleteVariant(numericProductId, variantId);
+      await fetchVariants();
+    } catch (err) {
+      logger.error('Error deleting variant:', err);
+      setErrors(prev => ({ ...prev, _general: err?.message || 'Failed to delete variant' }));
+    }
+  };
+
+  const handleStockAdjust = (variant) => {
+    setStockAdjustingVariant(variant.id);
+    setStockForm({
+      adjustment: 0,
+      reason: '',
+    });
+  };
+
+  const handleStockChange = (e) => {
+    const { name, value } = e.target;
+    setStockForm(prev => ({
+      ...prev,
+      [name]: name === 'adjustment' ? parseInt(value) || 0 : value,
+    }));
+  };
+
+  const handleCancelStockAdjust = () => {
+    setStockAdjustingVariant(null);
+  };
+
+  const handleSubmitStockAdjust = async (e) => {
+    e.preventDefault();
+    if (!stockAdjustingVariant || stockForm.adjustment === 0) return;
+    if (!stockForm.reason.trim()) {
+      setErrors(prev => ({ ...prev, _stockReason: 'Reason is required for stock adjustment' }));
+      return;
+    }
+
+    try {
+      await productsApi.adjustVariantStock(numericProductId, stockAdjustingVariant, stockForm.adjustment, stockForm.reason.trim());
+      setStockAdjustingVariant(null);
+      await fetchVariants();
+    } catch (err) {
+      logger.error('Error adjusting stock:', err);
+      setErrors(prev => ({ ...prev, _general: err?.message || 'Failed to adjust stock' }));
+    }
+  };
+
   // Cleanup blob URLs on unmount
   useEffect(() => {
     return () => {
@@ -320,17 +530,19 @@ export default function EditProductPage() {
         meta_description: form.meta_description || null,
       };
 
-      logger.info('Updating product with data:', { productId, productData });
+      logger.info('Updating product with data:', { productId: numericProductId, productData });
 
-      // Update Product
-      const productId = product.id; // Use numeric ID for update
-      await productsApi.update(productId, productData);
+      // Update Product - use numericProductId state variable
+      if (!numericProductId) {
+        throw new Error('Product ID not available. Please reload the page.');
+      }
+      await productsApi.update(numericProductId, productData);
 
       // Upload New Images
       if (newImages.length > 0) {
         const isFirstPrimary = existingImages.length === 0;
         for (let i = 0; i < newImages.length; i++) {
-          await productsApi.uploadImage(productId, newImages[i].file, isFirstPrimary && i === 0);
+          await productsApi.uploadImage(numericProductId, newImages[i].file, isFirstPrimary && i === 0);
         }
       }
 
@@ -568,6 +780,331 @@ export default function EditProductPage() {
                   </div>
                 </div>
               </div>
+            </div>
+
+            {/* Variants & Inventory */}
+            <div className="bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-[#F2C29A]" style={{ fontFamily: 'Cinzel, serif' }}>
+                  Variants & Inventory
+                </h2>
+                <button
+                  type="button"
+                  onClick={handleAddVariant}
+                  className="flex items-center gap-2 px-3 py-1.5 text-xs bg-[#7A2F57]/40 border border-[#B76E79]/40 text-[#F2C29A] rounded-lg hover:bg-[#7A2F57]/60 transition-colors"
+                >
+                  <Plus className="w-3 h-3" /> Add Variant
+                </button>
+              </div>
+
+              {/* Loading State */}
+              {loadingVariants && (
+                <div className="flex items-center justify-center py-8">
+                  <RefreshCw className="w-6 h-6 animate-spin text-[#B76E79]" />
+                  <p className="text-[#EAE0D5]/60 text-sm ml-3">Loading variants...</p>
+                </div>
+              )}
+
+              {/* Add Variant Form */}
+              {showAddVariant && (
+                <form onSubmit={handleCreateVariant} className="mb-4 p-4 bg-[#7A2F57]/10 border border-[#B76E79]/20 rounded-xl space-y-3">
+                  <h3 className="text-sm font-medium text-[#F2C29A]">New Variant</h3>
+                  {variantErrors._general && (
+                    <p className="text-red-400 text-xs">{variantErrors._general}</p>
+                  )}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-xs text-[#EAE0D5]/70 mb-1">SKU <span className="text-red-400">*</span></label>
+                      <input
+                        type="text"
+                        name="sku"
+                        value={variantForm.sku}
+                        onChange={handleVariantFormChange}
+                        placeholder="SKU-001"
+                        className={`w-full px-3 py-2 text-sm bg-[#0B0608]/60 border rounded-lg text-[#EAE0D5] placeholder-[#EAE0D5]/40 focus:outline-none transition-colors ${variantErrors.sku ? 'border-red-500/50' : 'border-[#B76E79]/20 focus:border-[#B76E79]/40'}`}
+                      />
+                      {variantErrors.sku && <p className="text-red-400 text-xs mt-1">{variantErrors.sku}</p>}
+                    </div>
+                    <div>
+                      <label className="block text-xs text-[#EAE0D5]/70 mb-1">Size <span className="text-red-400">*</span></label>
+                      <input
+                        type="text"
+                        name="size"
+                        value={variantForm.size}
+                        onChange={handleVariantFormChange}
+                        placeholder="S, M, L, XL"
+                        className={`w-full px-3 py-2 text-sm bg-[#0B0608]/60 border rounded-lg text-[#EAE0D5] placeholder-[#EAE0D5]/40 focus:outline-none transition-colors ${variantErrors.size ? 'border-red-500/50' : 'border-[#B76E79]/20 focus:border-[#B76E79]/40'}`}
+                      />
+                      {variantErrors.size && <p className="text-red-400 text-xs mt-1">{variantErrors.size}</p>}
+                    </div>
+                    <div className="col-span-2 sm:col-span-1">
+                      <ColorPicker
+                        value={variantForm.color_hex || '#000000'}
+                        onChange={(hex, name) => {
+                          setVariantForm(prev => ({ ...prev, color: name, color_hex: hex }));
+                          if (variantErrors.color) setVariantErrors(prev => ({ ...prev, color: null }));
+                        }}
+                        label={<>Color <span className="text-red-400">*</span></>}
+                      />
+                      {variantErrors.color && <p className="text-red-400 text-xs mt-1">{variantErrors.color}</p>}
+                    </div>
+                    <div>
+                      <label className="block text-xs text-[#EAE0D5]/70 mb-1">Quantity</label>
+                      <input
+                        type="number"
+                        name="quantity"
+                        value={variantForm.quantity}
+                        onChange={handleVariantFormChange}
+                        min="0"
+                        className={`w-full px-3 py-2 text-sm bg-[#0B0608]/60 border rounded-lg text-[#EAE0D5] focus:outline-none transition-colors ${variantErrors.quantity ? 'border-red-500/50' : 'border-[#B76E79]/20 focus:border-[#B76E79]/40'}`}
+                      />
+                      {variantErrors.quantity && <p className="text-red-400 text-xs mt-1">{variantErrors.quantity}</p>}
+                    </div>
+                    <div>
+                      <label className="block text-xs text-[#EAE0D5]/70 mb-1">Price <span className="text-red-400">*</span></label>
+                      <div className="relative">
+                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[#EAE0D5]/50 text-xs">₹</span>
+                        <input
+                          type="number"
+                          name="price"
+                          value={variantForm.price}
+                          onChange={handleVariantFormChange}
+                          placeholder="0"
+                          className={`w-full pl-6 pr-3 py-2 text-sm bg-[#0B0608]/60 border rounded-lg text-[#EAE0D5] placeholder-[#EAE0D5]/40 focus:outline-none transition-colors ${variantErrors.price ? 'border-red-500/50' : 'border-[#B76E79]/20 focus:border-[#B76E79]/40'}`}
+                        />
+                      </div>
+                      {variantErrors.price && <p className="text-red-400 text-xs mt-1">{variantErrors.price}</p>}
+                    </div>
+                  </div>
+                  <div className="flex gap-2 justify-end pt-2">
+                    <button
+                      type="button"
+                      onClick={handleCancelAddVariant}
+                      className="px-4 py-2 text-xs border border-[#B76E79]/30 text-[#EAE0D5]/70 rounded-lg hover:bg-[#B76E79]/10 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-4 py-2 text-xs bg-[#7A2F57]/40 border border-[#B76E79]/40 text-[#F2C29A] rounded-lg hover:bg-[#7A2F57]/60 transition-colors flex items-center gap-1"
+                    >
+                      <Save className="w-3 h-3" /> Save Variant
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {/* Variants Table */}
+              {!loadingVariants && variants.length > 0 && (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-[#B76E79]/20">
+                        <th className="text-left py-2 px-2 text-xs text-[#EAE0D5]/50 font-medium">SKU</th>
+                        <th className="text-left py-2 px-2 text-xs text-[#EAE0D5]/50 font-medium">Size</th>
+                        <th className="text-left py-2 px-2 text-xs text-[#EAE0D5]/50 font-medium">Color</th>
+                        <th className="text-right py-2 px-2 text-xs text-[#EAE0D5]/50 font-medium">Stock</th>
+                        <th className="text-right py-2 px-2 text-xs text-[#EAE0D5]/50 font-medium">Price</th>
+                        <th className="text-center py-2 px-2 text-xs text-[#EAE0D5]/50 font-medium">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {variants.map((variant) => (
+                        <tr key={variant.id} className="border-b border-[#B76E79]/10 hover:bg-[#B76E79]/5 transition-colors">
+                          {editingVariantId === variant.id ? (
+                            <>
+                              {/* Edit Mode Row */}
+                              <td className="py-2 px-2">
+                                <input
+                                  type="text"
+                                  name="sku"
+                                  value={variantForm.sku}
+                                  onChange={handleVariantFormChange}
+                                  className="w-full px-2 py-1 text-xs bg-[#0B0608]/60 border border-[#B76E79]/20 rounded text-[#EAE0D5] focus:outline-none focus:border-[#B76E79]/40"
+                                />
+                              </td>
+                              <td className="py-2 px-2">
+                                <input
+                                  type="text"
+                                  name="size"
+                                  value={variantForm.size}
+                                  onChange={handleVariantFormChange}
+                                  className="w-full px-2 py-1 text-xs bg-[#0B0608]/60 border border-[#B76E79]/20 rounded text-[#EAE0D5] focus:outline-none focus:border-[#B76E79]/40"
+                                />
+                              </td>
+                              <td className="py-2 px-2">
+                                <div className="flex items-center gap-1">
+                                  <input
+                                    type="color"
+                                    name="color_hex"
+                                    value={variantForm.color_hex}
+                                    onChange={handleVariantFormChange}
+                                    className="w-5 h-5 rounded cursor-pointer border-0"
+                                  />
+                                  <input
+                                    type="text"
+                                    name="color"
+                                    value={variantForm.color}
+                                    onChange={handleVariantFormChange}
+                                    className="flex-1 px-2 py-1 text-xs bg-[#0B0608]/60 border border-[#B76E79]/20 rounded text-[#EAE0D5] focus:outline-none focus:border-[#B76E79]/40"
+                                  />
+                                </div>
+                              </td>
+                              <td className="py-2 px-2">
+                                <input
+                                  type="number"
+                                  name="quantity"
+                                  value={variantForm.quantity}
+                                  onChange={handleVariantFormChange}
+                                  min="0"
+                                  className="w-full px-2 py-1 text-xs bg-[#0B0608]/60 border border-[#B76E79]/20 rounded text-[#EAE0D5] focus:outline-none focus:border-[#B76E79]/40 text-right"
+                                />
+                              </td>
+                              <td className="py-2 px-2">
+                                <div className="relative">
+                                  <span className="absolute left-1 top-1/2 -translate-y-1/2 text-[#EAE0D5]/50 text-xs">₹</span>
+                                  <input
+                                    type="number"
+                                    name="price"
+                                    value={variantForm.price}
+                                    onChange={handleVariantFormChange}
+                                    className="w-full pl-5 pr-2 py-1 text-xs bg-[#0B0608]/60 border border-[#B76E79]/20 rounded text-[#EAE0D5] focus:outline-none focus:border-[#B76E79]/40 text-right"
+                                  />
+                                </div>
+                              </td>
+                              <td className="py-2 px-2">
+                                <div className="flex gap-1 justify-center">
+                                  <button
+                                    type="button"
+                                    onClick={handleUpdateVariant}
+                                    className="p-1 text-green-400 hover:bg-green-400/10 rounded transition-colors"
+                                    title="Save"
+                                  >
+                                    <Save className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={handleCancelEditVariant}
+                                    className="p-1 text-[#EAE0D5]/50 hover:bg-[#EAE0D5]/10 rounded transition-colors"
+                                    title="Cancel"
+                                  >
+                                    <X className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </td>
+                            </>
+                          ) : (
+                            <>
+                              {/* View Mode Row */}
+                              <td className="py-2 px-2 font-mono text-xs text-[#EAE0D5]/80">{variant.sku}</td>
+                              <td className="py-2 px-2 text-[#EAE0D5]/80">{variant.size}</td>
+                              <td className="py-2 px-2">
+                                <div className="flex items-center gap-1.5">
+                                  <span
+                                    className="w-3 h-3 rounded-full border border-[#EAE0D5]/20"
+                                    style={{ backgroundColor: variant.color_hex || '#000' }}
+                                  />
+                                  <span className="text-[#EAE0D5]/80">{variant.color}</span>
+                                </div>
+                              </td>
+                              <td className="py-2 px-2 text-right">
+                                <span className={variant.quantity <= (variant.low_stock_threshold || 5) ? 'text-red-400' : 'text-[#EAE0D5]/80'}>
+                                  {variant.quantity ?? 0}
+                                </span>
+                              </td>
+                              <td className="py-2 px-2 text-right text-[#EAE0D5]/80">₹{variant.price?.toFixed(2) || '0.00'}</td>
+                              <td className="py-2 px-2">
+                                <div className="flex gap-1 justify-center">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleEditVariant(variant)}
+                                    className="p-1 text-blue-400 hover:bg-blue-400/10 rounded transition-colors"
+                                    title="Edit"
+                                  >
+                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleStockAdjust(variant)}
+                                    className="p-1 text-yellow-400 hover:bg-yellow-400/10 rounded transition-colors"
+                                    title="Adjust Stock"
+                                  >
+                                    <RefreshCw className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteVariant(variant.id)}
+                                    className="p-1 text-red-400 hover:bg-red-400/10 rounded transition-colors"
+                                    title="Delete"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              </td>
+                            </>
+                          )}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* Stock Adjustment Form */}
+              {stockAdjustingVariant && (
+                <form onSubmit={handleSubmitStockAdjust} className="mt-4 p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-xl space-y-3">
+                  <h3 className="text-sm font-medium text-yellow-400">Adjust Stock</h3>
+                  {errors._stockReason && <p className="text-red-400 text-xs">{errors._stockReason}</p>}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs text-[#EAE0D5]/70 mb-1">Adjustment (+/-)</label>
+                      <input
+                        type="number"
+                        name="adjustment"
+                        value={stockForm.adjustment}
+                        onChange={handleStockChange}
+                        className="w-full px-3 py-2 text-sm bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-lg text-[#EAE0D5] focus:outline-none focus:border-[#B76E79]/40"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-[#EAE0D5]/70 mb-1">Reason <span className="text-red-400">*</span></label>
+                      <input
+                        type="text"
+                        name="reason"
+                        value={stockForm.reason}
+                        onChange={handleStockChange}
+                        placeholder="e.g., restock, damaged, found"
+                        className="w-full px-3 py-2 text-sm bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-lg text-[#EAE0D5] placeholder-[#EAE0D5]/40 focus:outline-none focus:border-[#B76E79]/40"
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-2 justify-end">
+                    <button
+                      type="button"
+                      onClick={handleCancelStockAdjust}
+                      className="px-4 py-2 text-xs border border-[#B76E79]/30 text-[#EAE0D5]/70 rounded-lg hover:bg-[#B76E79]/10 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-4 py-2 text-xs bg-yellow-500/20 border border-yellow-500/40 text-yellow-300 rounded-lg hover:bg-yellow-500/30 transition-colors flex items-center gap-1"
+                    >
+                      <Save className="w-3 h-3" /> Apply Adjustment
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {/* No Variants Message */}
+              {!loadingVariants && variants.length === 0 && !showAddVariant && (
+                <div className="text-center py-8">
+                  <svg className="w-12 h-12 mx-auto text-[#B76E79]/30 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                  </svg>
+                  <p className="text-[#EAE0D5]/50 text-sm">No variants yet. Click "Add Variant" to create one.</p>
+                </div>
+              )}
             </div>
 
             {/* Images with Drag & Drop */}

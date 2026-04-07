@@ -33,7 +33,6 @@ const INITIAL_FORM = {
   is_new_arrival: false,
   meta_title: '',
   meta_description: '',
-  initial_stock: 0,  // 🔥 CRITICAL FIX: Initial stock quantity for inventory creation
 };
 
 export default function CreateProductPage() {
@@ -138,9 +137,6 @@ export default function CreateProductPage() {
     if (!form.price || price <= 0) newErrors.price = 'Selling price must be greater than 0';
     if (form.mrp && parseFloat(form.mrp) < price) newErrors.mrp = 'MRP must be ≥ selling price';
     if (!form.category_id) newErrors.category_id = 'Collection is required';
-    // 🔥 CRITICAL FIX: Validate initial_stock is a non-negative number
-    const stock = parseInt(form.initial_stock);
-    if (isNaN(stock) || stock < 0) newErrors.initial_stock = 'Initial stock must be 0 or greater';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -166,8 +162,6 @@ export default function CreateProductPage() {
         is_new_arrival: form.is_new_arrival,
         meta_title: form.meta_title || undefined,
         meta_description: form.meta_description || undefined,
-        // 🔥 CRITICAL FIX: Include initial_stock in submission
-        initial_stock: parseInt(form.initial_stock) || 0,
       };
 
       const result = await productsApi.create(productData);
@@ -378,29 +372,9 @@ export default function CreateProductPage() {
                   )}
                 </div>
 
-                {/* 🔥 CRITICAL FIX: Initial Stock Field */}
-                <div>
-                  <label className="block text-sm text-[#EAE0D5]/70 mb-1">
-                    Initial Stock Quantity *
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="number"
-                      name="initial_stock"
-                      value={form.initial_stock}
-                      onChange={(e) => setForm(prev => ({ ...prev, initial_stock: parseInt(e.target.value) || 0 }))}
-                      placeholder="0"
-                      min="0"
-                      step="1"
-                      className={`w-full px-4 py-2.5 bg-[#0B0608]/60 border rounded-xl text-[#EAE0D5] placeholder-[#EAE0D5]/40 focus:outline-none transition-colors ${
-                        errors.initial_stock ? 'border-red-500/50' : 'border-[#B76E79]/20 focus:border-[#B76E79]/40'
-                      }`}
-                      required
-                    />
-                  </div>
-                  {errors.initial_stock && <p className="text-red-400 text-xs mt-1">{errors.initial_stock}</p>}
-                  <p className="text-xs text-[#EAE0D5]/50 mt-1">
-                    Starting inventory count. Enter 0 if out of stock. Creates initial inventory record.
+                <div className="p-3 bg-[#7A2F57]/10 border border-[#B76E79]/20 rounded-xl">
+                  <p className="text-xs text-[#EAE0D5]/60">
+                    📦 Stock is managed per variant below. Add variants with their individual quantities.
                   </p>
                 </div>
               </div>
@@ -498,57 +472,63 @@ export default function CreateProductPage() {
               {variants.length > 0 ? (
                 <div className="space-y-3 mt-4">
                   {variants.map((variant, index) => (
-                    <div key={index} className="grid grid-cols-12 gap-2 items-end p-3 bg-[#0B0608]/60 border border-[#B76E79]/10 rounded-xl">
-                      <div className="col-span-3">
-                        <label className="text-xs text-[#EAE0D5]/50 block mb-1">Size</label>
-                        <input
-                          type="text"
-                          placeholder="S, M, L, XL"
-                          value={variant.size}
-                          onChange={(e) => updateVariant(index, 'size', e.target.value)}
-                          className="w-full px-3 py-2 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-lg text-[#EAE0D5] placeholder-[#EAE0D5]/40 focus:outline-none focus:border-[#B76E79]/40 text-sm"
-                        />
+                    <div key={index} className="p-3 bg-[#0B0608]/60 border border-[#B76E79]/10 rounded-xl space-y-3">
+                      {/* Row 1: Size + Color */}
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-xs text-[#EAE0D5]/50 block mb-1">Size</label>
+                          <input
+                            type="text"
+                            placeholder="S, M, L, XL"
+                            value={variant.size}
+                            onChange={(e) => updateVariant(index, 'size', e.target.value)}
+                            className="w-full px-3 py-2 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-lg text-[#EAE0D5] placeholder-[#EAE0D5]/40 focus:outline-none focus:border-[#B76E79]/40 text-sm"
+                          />
+                        </div>
+                        <div>
+                          <ColorPicker
+                            value={variant.color_hex || (variant.color ? getHexFromName(variant.color) : null)}
+                            onChange={(hex, name) => {
+                              updateVariant(index, 'color', name);
+                              updateVariant(index, 'color_hex', hex);
+                            }}
+                            label="Color"
+                          />
+                        </div>
                       </div>
-                      <div className="col-span-5 sm:col-span-3">
-                        <ColorPicker
-                          value={variant.color_hex || (variant.color ? getHexFromName(variant.color) : null)}
-                          onChange={(hex, name) => {
-                            updateVariant(index, 'color', name);
-                            updateVariant(index, 'color_hex', hex);
-                          }}
-                          label="Color"
-                        />
-                      </div>
-                      <div className="col-span-2">
-                        <label className="text-xs text-[#EAE0D5]/50 block mb-1">Qty</label>
-                        <input
-                          type="number"
-                          placeholder="0"
-                          min="0"
-                          value={variant.quantity}
-                          onChange={(e) => updateVariant(index, 'quantity', e.target.value)}
-                          className="w-full px-3 py-2 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-lg text-[#EAE0D5] placeholder-[#EAE0D5]/40 focus:outline-none focus:border-[#B76E79]/40 text-sm"
-                        />
-                      </div>
-                      <div className="col-span-3">
-                        <label className="text-xs text-[#EAE0D5]/50 block mb-1">Low Stock Alert</label>
-                        <input
-                          type="number"
-                          placeholder="10"
-                          min="0"
-                          value={variant.low_stock_threshold}
-                          onChange={(e) => updateVariant(index, 'low_stock_threshold', e.target.value)}
-                          className="w-full px-3 py-2 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-lg text-[#EAE0D5] placeholder-[#EAE0D5]/40 focus:outline-none focus:border-[#B76E79]/40 text-sm"
-                        />
-                      </div>
-                      <div className="col-span-1">
-                        <button
-                          type="button"
-                          onClick={() => removeVariant(index)}
-                          className="w-full p-2 text-red-400 hover:bg-red-500/20 rounded-lg transition-colors"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                      {/* Row 2: Qty + Low Stock + Delete */}
+                      <div className="grid grid-cols-12 gap-2 items-end">
+                        <div className="col-span-4">
+                          <label className="text-xs text-[#EAE0D5]/50 block mb-1">Qty</label>
+                          <input
+                            type="number"
+                            placeholder="0"
+                            min="0"
+                            value={variant.quantity}
+                            onChange={(e) => updateVariant(index, 'quantity', e.target.value)}
+                            className="w-full px-3 py-2 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-lg text-[#EAE0D5] placeholder-[#EAE0D5]/40 focus:outline-none focus:border-[#B76E79]/40 text-sm"
+                          />
+                        </div>
+                        <div className="col-span-7">
+                          <label className="text-xs text-[#EAE0D5]/50 block mb-1">Low Stock Alert</label>
+                          <input
+                            type="number"
+                            placeholder="10"
+                            min="0"
+                            value={variant.low_stock_threshold}
+                            onChange={(e) => updateVariant(index, 'low_stock_threshold', e.target.value)}
+                            className="w-full px-3 py-2 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-lg text-[#EAE0D5] placeholder-[#EAE0D5]/40 focus:outline-none focus:border-[#B76E79]/40 text-sm"
+                          />
+                        </div>
+                        <div className="col-span-1 flex items-end pb-0.5">
+                          <button
+                            type="button"
+                            onClick={() => removeVariant(index)}
+                            className="w-full p-2 text-red-400 hover:bg-red-500/20 rounded-lg transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))}

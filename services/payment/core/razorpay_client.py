@@ -237,10 +237,16 @@ class RazorpayClient:
             QR code response with image_url
         """
         try:
+            # Razorpay QR Codes API requires specific fields:
+            # - fixed_amount: True (boolean, not the amount value)
+            # - payment_amount: the actual amount (not 'amount' which is rejected)
+            # - usage: 'single_use' or 'multiple_use'
             qr_data = {
                 "type": "upi_qr",
-                "name": description,
-                "amount": amount,
+                "name": description[:50],  # Razorpay name field max 50 chars
+                "fixed_amount": True,
+                "payment_amount": amount,
+                "usage": "single_use",
                 "close_by": close_by,
             }
 

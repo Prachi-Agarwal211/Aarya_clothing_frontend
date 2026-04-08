@@ -65,6 +65,7 @@ export default function IntroVideo({ onVideoEnd }) {
   const [autoplayFailed, setAutoplayFailed] = useState(false);
   const [bufferProgress, setBufferProgress] = useState(0);
 
+  const skipFallbackRef = useRef(null);
   const { isMobile } = useViewport();
   const introVideo = useIntroVideo();
 

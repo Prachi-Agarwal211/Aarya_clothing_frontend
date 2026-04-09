@@ -33,6 +33,16 @@ const STATUS_ADMIN_LABELS = {
   cancelled: 'Cancelled',
 };
 
+// R2 public URL for product images
+const R2_BASE_URL = 'https://pub-7846c786f7154610b57735df47899fa0.r2.dev';
+
+// Helper to convert relative image URLs to full R2 URLs
+const getImageUrl = (url) => {
+  if (!url) return null;
+  if (url.startsWith('http://') || url.startsWith('https://')) return url; // Already full URL
+  return `${R2_BASE_URL}/${url.replace(/^\//, '')}`; // Convert relative to full R2 URL
+};
+
 // Valid status transitions — must match backend order_service.py
 const VALID_TRANSITIONS = {
   'confirmed': ['shipped', 'cancelled'],
@@ -266,7 +276,7 @@ export default function OrderDetailPage({ params }) {
                   <div className="w-16 h-16 rounded-lg overflow-hidden bg-[#0B0608]/40 flex-shrink-0 border border-[#B76E79]/10">
                     {item.image_url ? (
                       <img
-                        src={item.image_url}
+                        src={getImageUrl(item.image_url)}
                         alt={item.product_name || 'Product'}
                         className="w-full h-full object-cover"
                         loading="lazy"

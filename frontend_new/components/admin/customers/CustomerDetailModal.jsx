@@ -22,6 +22,16 @@ import {
 import { usersApi, ordersApi } from '@/lib/adminApi';
 import logger from '@/lib/logger';
 
+// R2 public URL for product images
+const R2_BASE_URL = 'https://pub-7846c786f7154610b57735df47899fa0.r2.dev';
+
+// Helper to convert relative image URLs to full R2 URLs
+const getImageUrl = (url) => {
+  if (!url) return null;
+  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  return `${R2_BASE_URL}/${url.replace(/^\//, '')}`;
+};
+
 export default function CustomerDetailModal({ customerId, onClose }) {
   const [customer, setCustomer] = useState(null);
   const [orders, setOrders] = useState([]);
@@ -289,40 +299,99 @@ export default function CustomerDetailModal({ customerId, onClose }) {
               </div>
 
               {/* Recent Orders */}
-              {orders.length > 0 && (
+              {orders.length > 0 ? (
                 <div>
                   <h4 className="text-sm font-medium text-[#EAE0D5] mb-3 flex items-center gap-2">
                     <ShoppingBag className="w-4 h-4 text-[#B76E79]" /> Recent Orders
                   </h4>
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     {orders.map((order) => (
                       <div
                         key={order.id}
-                        className="bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-xl p-3 flex items-center justify-between"
+                        className="bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-xl overflow-hidden"
                       >
-                        <div>
-                          <p className="text-sm font-medium text-[#EAE0D5]">
-                            #{order.order_number || order.id}
-                          </p>
-                          <p className="text-xs text-[#EAE0D5]/50">
-                            {formatDate(order.created_at)}
-                          </p>
+                        {/* Order Header */}
+                        <div className="flex items-center justify-between p-3 border-b border-[#B76E79]/10">
+                          <div>
+                            <p className="text-sm font-medium text-[#EAE0D5]">
+                              #{order.order_number || order.id}
+                            </p>
+                            <p className="text-xs text-[#EAE0D5]/50">
+                              {formatDate(order.created_at)}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span className="text-sm font-medium text-[#F2C29A]">
+                              {formatCurrency(order.total_amount)}
+                            </span>
+                            <span
+                              className={`px-2 py-1 rounded-full text-xs border ${getStatusColor(
+                                order.status
+                              )}`}
+                            >
+                              {order.status}
+                            </span>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-3">
-                          <span className="text-sm font-medium text-[#F2C29A]">
-                            {formatCurrency(order.total_amount)}
-                          </span>
-                          <span
-                            className={`px-2 py-1 rounded-full text-xs border ${getStatusColor(
-                              order.status
-                            )}`}
-                          >
-                            {order.status}
-                          </span>
-                        </div>
+                        {/* Order Items */}
+                        {order.items && order.items.length > 0 && (
+                          <div className="p-3 space-y-2">
+                            {order.items.map((item) => (
+                              <div
+                                key={item.id}
+                                className="flex items-center gap-3 py-2"
+                              >
+                                {/* Product Image */}
+                                <div className="w-12 h-12 rounded-lg bg-[#0B0608] border border-[#B76E79]/20 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                                  {item.image_url ? (
+                                    <img
+                                      src={getImageUrl(item.image_url)}
+                                      alt={item.product_name}
+                                      className="w-full h-full object-cover"
+                                      loading="lazy"
+                                    />
+                                  ) : (
+                                    <ShoppingBag className="w-5 h-5 text-[#B76E79]/40" />
+                                  )}
+                                </div>
+                                {/* Product Details */}
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium text-[#EAE0D5] truncate">
+                                    {item.product_name}
+                                  </p>
+                                  <div className="flex items-center gap-3 text-xs text-[#EAE0D5]/50">
+                                    {item.size && (
+                                      <span>Size: {item.size}</span>
+                                    )}
+                                    {item.color && (
+                                      <span>Color: {item.color}</span>
+                                    )}
+                                    <span>Qty: {item.quantity}</span>
+                                  </div>
+                                </div>
+                                {/* Price */}
+                                <div className="text-right flex-shrink-0">
+                                  <p className="text-sm font-medium text-[#F2C29A]">
+                                    {formatCurrency(item.total_price)}
+                                  </p>
+                                  {item.quantity > 1 && (
+                                    <p className="text-xs text-[#EAE0D5]/40">
+                                      {formatCurrency(item.unit_price)} each
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
+                </div>
+              ) : (
+                <div className="bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-xl p-6 text-center">
+                  <ShoppingBag className="w-8 h-8 text-[#B76E79]/40 mx-auto mb-2" />
+                  <p className="text-sm text-[#EAE0D5]/60">No orders found for this customer</p>
                 </div>
               )}
             </div>

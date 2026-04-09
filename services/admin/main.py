@@ -1712,6 +1712,7 @@ async def update_site_config(
 async def list_all_orders(
     status: Optional[str] = None,
     search: Optional[str] = None,
+    user_id: Optional[int] = None,
     skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db),
@@ -1723,6 +1724,9 @@ async def list_all_orders(
     if status:
         where_clauses.append("o.status = :status")
         params["status"] = status
+    if user_id is not None:
+        where_clauses.append("o.user_id = :user_id")
+        params["user_id"] = user_id
     if search:
         where_clauses.append(
             "(CAST(o.id AS TEXT) ILIKE :search OR u.email ILIKE :search OR u.username ILIKE :search OR COALESCE(o.tracking_number, '') ILIKE :search)"
@@ -1758,6 +1762,44 @@ async def list_all_orders(
         or 0
     )
 
+    # Collect order IDs for batch fetching order items
+    order_ids = [r[0] for r in rows]
+
+    # Batch fetch order items for all orders in a single query (avoids N+1)
+    items_by_order = {}
+    if order_ids:
+        placeholders = ", ".join(f":oid_{i}" for i in range(len(order_ids)))
+        items_params = {f"oid_{i}": oid for i, oid in enumerate(order_ids)}
+        items_rows = db.execute(
+            text(f"""
+                SELECT oi.order_id, oi.id as item_id, oi.product_id, oi.product_name,
+                       oi.size, oi.color, oi.quantity, oi.unit_price, oi.price,
+                       p.name as product_name_from_catalog,
+                       pi.image_url as image_url
+                FROM order_items oi
+                LEFT JOIN products p ON p.id = oi.product_id
+                LEFT JOIN product_images pi ON p.id = pi.product_id AND pi.is_primary = true
+                WHERE oi.order_id IN ({placeholders})
+                ORDER BY oi.order_id, oi.id
+            """),
+            items_params,
+        ).fetchall()
+        for item_row in items_rows:
+            oid = item_row[0]
+            if oid not in items_by_order:
+                items_by_order[oid] = []
+            items_by_order[oid].append({
+                "id": item_row[1],
+                "product_id": item_row[2],
+                "product_name": item_row[3] or item_row[9] or "Unknown Product",
+                "size": item_row[4],
+                "color": item_row[5],
+                "quantity": item_row[6],
+                "unit_price": float(item_row[7] or 0),
+                "total_price": float(item_row[8] or 0),
+                "image_url": item_row[10],
+            })
+
     orders = [
         {
             "id": r[0],
@@ -1778,6 +1820,7 @@ async def list_all_orders(
             "invoice_number": r[15],
             "shipping_address": r[16],
             "order_number": f"ORD-{r[0]:06d}",
+            "items": items_by_order.get(r[0], []),
         }
         for r in rows
     ]
@@ -1811,9 +1854,19 @@ async def get_order(
     # Fetch order items
     items = db.execute(
         text("""
-        SELECT oi.*, p.name as product_name
+        SELECT oi.id, oi.order_id, oi.inventory_id, oi.product_id, oi.product_name,
+               oi.sku, oi.size, oi.color, oi.hsn_code, oi.gst_rate,
+               oi.quantity, oi.unit_price, oi.price, oi.created_at,
+               p.name as product_name,
+               COALESCE(i.image_url, pi.image_url) as image_url
         FROM order_items oi
         LEFT JOIN products p ON p.id = oi.product_id
+        LEFT JOIN inventory i ON i.id = oi.inventory_id
+        LEFT JOIN LATERAL (
+            SELECT image_url FROM product_images
+            WHERE product_id = oi.product_id AND is_primary = true
+            LIMIT 1
+        ) pi ON true
         WHERE oi.order_id = :oid
     """),
         {"oid": order_id},
@@ -4312,7 +4365,7 @@ async def get_user(
 ):
     """Get detailed information about a specific user."""
     query = """
-        SELECT 
+        SELECT
             u.id,
             u.email,
             u.username,
@@ -4321,16 +4374,19 @@ async def get_user(
             u.role,
             u.is_active,
             u.created_at,
+            u.updated_at,
             COALESCE(order_stats.order_count, 0) as order_count,
-            COALESCE(order_stats.total_spent, 0) as total_spent
+            COALESCE(order_stats.total_spent, 0) as total_spent,
+            order_stats.last_order_date
         FROM users u
         LEFT JOIN user_profiles up ON u.id = up.user_id
         LEFT JOIN (
-            SELECT 
+            SELECT
                 user_id,
                 COUNT(*) as order_count,
-                COALESCE(SUM(total_amount), 0) as total_spent
-            FROM orders 
+                COALESCE(SUM(total_amount), 0) as total_spent,
+                MAX(created_at) as last_order_date
+            FROM orders
             WHERE status != 'cancelled'
             GROUP BY user_id
         ) order_stats ON u.id = order_stats.user_id
@@ -4350,8 +4406,10 @@ async def get_user(
         "role": row[5],
         "is_active": row[6],
         "created_at": row[7],
-        "order_count": row[8],
-        "total_spent": float(row[9]),
+        "updated_at": str(row[8]) if row[8] else None,
+        "order_count": row[9],
+        "total_spent": float(row[10]),
+        "last_order_date": str(row[11]) if row[11] else None,
     }
 
 
@@ -4651,26 +4709,16 @@ async def admin_create_product(
     )
     product_id = result.scalar()
     db.commit()
-    # Always create a default inventory record so the product is visible
-    # in inventory management and has a stock level (even if zero)
-    initial_stock = getattr(data, "initial_stock", 0) or 0
-    base_sku = f"PRD-{product_id}-BASE"
-    db.execute(
-        text("""
-        INSERT INTO inventory (product_id, sku, size, color, quantity, low_stock_threshold, created_at, updated_at)
-        VALUES (:pid, :sku, 'One Size', 'Default', :qty, 5, :now, :now)
-        ON CONFLICT (sku) DO NOTHING
-        """),
-        {"pid": product_id, "sku": base_sku, "qty": initial_stock, "now": datetime.now(timezone.utc)},
-    )
-    db.commit()
+    # NOTE: No default inventory is created here. Variants must be added separately
+    # via POST /api/v1/admin/products/{product_id}/variants. A product without
+    # inventory variants will not be visible to customers.
     redis_client.invalidate_pattern("products:*")
     redis_client.invalidate_pattern("public:landing:*")
     return {
         "id": product_id,
         "name": data.name,
         "slug": slug,
-        "message": "Product created",
+        "message": "Product created. Add at least one variant (size/color) to make it visible to customers.",
     }
 
 

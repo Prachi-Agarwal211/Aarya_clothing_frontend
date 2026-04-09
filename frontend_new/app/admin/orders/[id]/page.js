@@ -263,17 +263,28 @@ export default function OrderDetailPage({ params }) {
                   key={item.id}
                   className="flex items-center gap-4 p-4 bg-[#0B0608]/60 border border-[#B76E79]/10 rounded-xl"
                 >
-                  <div className="w-16 h-16 bg-[#7A2F57]/20 rounded-lg flex items-center justify-center">
-                    <Package className="w-8 h-8 text-[#B76E79]/50" />
+                  <div className="w-16 h-16 rounded-lg overflow-hidden bg-[#0B0608]/40 flex-shrink-0 border border-[#B76E79]/10">
+                    {item.image_url ? (
+                      <img
+                        src={item.image_url}
+                        alt={item.product_name || 'Product'}
+                        className="w-full h-full object-cover"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-[#7A2F57]/20">
+                        <Package className="w-8 h-8 text-[#B76E79]/50" />
+                      </div>
+                    )}
                   </div>
-                  <div className="flex-1">
-                    <h3 className="font-medium text-[#EAE0D5]">{item.product_name}</h3>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-medium text-[#EAE0D5] truncate">{item.product_name}</h3>
                     <p className="text-sm text-[#EAE0D5]/60">
                       {item.size && <span>Size: {item.size}</span>}
                       {item.color && <span className="ml-2">Color: {item.color}</span>}
                     </p>
                   </div>
-                  <div className="text-right">
+                  <div className="text-right flex-shrink-0">
                     <p className="font-medium text-[#EAE0D5]">{formatCurrency(item.price)}</p>
                     <p className="text-sm text-[#EAE0D5]/60">Qty: {item.quantity}</p>
                   </div>

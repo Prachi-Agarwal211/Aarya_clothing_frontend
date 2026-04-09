@@ -334,6 +334,17 @@ class OrderService:
         from datetime import datetime as _dt
         from sqlalchemy import text as _text
         year = _dt.now().year
+        
+        # CRITICAL FIX: Sync sequence with max order ID to prevent duplicates
+        # This handles cases where sequence gets out of sync (e.g., manual inserts, recovery)
+        self.db.execute(_text("""
+            SELECT setval('invoice_number_seq', GREATEST(
+                (SELECT COALESCE(MAX(id), 0) FROM orders),
+                (SELECT last_value FROM invoice_number_seq)
+            ), true)
+        """))
+        self.db.commit()
+        
         seq_val = self.db.execute(_text("SELECT nextval('invoice_number_seq')")).scalar()
         invoice_number = f"INV-{year}-{seq_val:06d}"
         

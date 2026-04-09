@@ -293,18 +293,24 @@ function OrdersContent() {
       // Create workbook
       const workbook = XLSX.utils.book_new();
 
-      // Define column headers (always included, even if no data)
+      // Define column headers with product-level details (no separate products sheet)
       const COLUMN_HEADERS = {
         'Order ID': '',
         'Order #': '',
         'Customer Email': '',
         'Customer Name': '',
         'Phone': '',
+        'Product Name': '',
+        'Size': '',
+        'Color': '',
+        'Quantity': '',
+        'Price (₹)': '',
         'Total (₹)': '',
         'Payment Method': '',
         'POD/Tracking No.': '',
         'Shipping Address': '',
         'Order Date': '',
+        'Status': '',
       };
 
       // Format address helper
@@ -314,136 +320,105 @@ function OrdersContent() {
         return `${addr.street || ''}, ${addr.city || ''}, ${addr.state || ''} - ${addr.pincode || ''}`;
       };
 
-      // ==================== Sheet 1: All Orders (Summary) ====================
-      const summaryData = allOrders.length > 0
-        ? allOrders.map(order => ({
-            'Order ID': order.id,
-            'Order #': order.order_number || `ORD-${String(order.id).padStart(6, '0')}`,
-            'Customer Email': order.customer_email || '',
-            'Customer Name': order.customer_name || '',
-            'Phone': order.customer_phone || '',
-            'Total (₹)': order.total_amount || 0,
-            'Payment Method': order.payment_method || '',
-            'POD/Tracking No.': order.tracking_number || order.pod_number || '',
-            'Shipping Address': formatAddress(order.shipping_address),
-            'Order Date': formatDateForExcel(order.created_at),
-          }))
-        : [COLUMN_HEADERS];
-
-      const summarySheet = XLSX.utils.json_to_sheet(summaryData, { skipHeader: false });
-      summarySheet['!cols'] = [
-        { wch: 10 }, { wch: 15 }, { wch: 30 }, { wch: 25 }, { wch: 15 },
-        { wch: 12 }, { wch: 15 }, { wch: 20 }, { wch: 50 }, { wch: 15 },
-      ];
-      XLSX.utils.book_append_sheet(workbook, summarySheet, 'All Orders');
-
-      // ==================== Sheet 2: Products to Dispatch (Item-level) ====================
-      const PRODUCTS_HEADERS = {
-        'Order ID': '',
-        'Order #': '',
-        'Customer Name': '',
-        'Phone': '',
-        'Product Name': '',
-        'Size': '',
-        'Color': '',
-        'Quantity': '',
-        'Price (₹)': '',
-        'Shipping Address': '',
-        'Order Date': '',
-        'Status': '',
-      };
-
-      // Flatten all orders into product rows
-      const productRows = [];
-      allOrders.forEach(order => {
-        const items = order.items || [];
-        if (items.length === 0) {
-          // Order with no items (edge case)
-          productRows.push({
-            'Order ID': order.id,
-            'Order #': order.order_number || `ORD-${String(order.id).padStart(6, '0')}`,
-            'Customer Name': order.customer_name || '',
-            'Phone': order.customer_phone || '',
-            'Product Name': '(No items)',
-            'Size': '',
-            'Color': '',
-            'Quantity': 0,
-            'Price (₹)': order.total_amount || 0,
-            'Shipping Address': formatAddress(order.shipping_address),
-            'Order Date': formatDateForExcel(order.created_at),
-            'Status': order.status || '',
-          });
-        } else {
-          items.forEach(item => {
-            productRows.push({
+      // Helper: flatten orders into product-level rows
+      const flattenToProductRows = (orders) => {
+        const rows = [];
+        orders.forEach(order => {
+          const items = order.items || [];
+          if (items.length === 0) {
+            // Order with no items (edge case — e.g., payment recovery)
+            rows.push({
               'Order ID': order.id,
               'Order #': order.order_number || `ORD-${String(order.id).padStart(6, '0')}`,
+              'Customer Email': order.customer_email || '',
               'Customer Name': order.customer_name || '',
               'Phone': order.customer_phone || '',
-              'Product Name': item.product_name || 'Unknown',
-              'Size': item.size || '-',
-              'Color': item.color || '-',
-              'Quantity': item.quantity || 1,
-              'Price (₹)': item.price || item.total_price || 0,
+              'Product Name': '(No items)',
+              'Size': '',
+              'Color': '',
+              'Quantity': 0,
+              'Price (₹)': order.total_amount || 0,
+              'Total (₹)': order.total_amount || 0,
+              'Payment Method': order.payment_method || '',
+              'POD/Tracking No.': order.tracking_number || order.pod_number || '',
               'Shipping Address': formatAddress(order.shipping_address),
               'Order Date': formatDateForExcel(order.created_at),
               'Status': order.status || '',
             });
-          });
-        }
-      });
+          } else {
+            items.forEach(item => {
+              rows.push({
+                'Order ID': order.id,
+                'Order #': order.order_number || `ORD-${String(order.id).padStart(6, '0')}`,
+                'Customer Email': order.customer_email || '',
+                'Customer Name': order.customer_name || '',
+                'Phone': order.customer_phone || '',
+                'Product Name': item.product_name || 'Unknown',
+                'Size': item.size || '-',
+                'Color': item.color || '-',
+                'Quantity': item.quantity || 1,
+                'Price (₹)': item.price || item.total_price || 0,
+                'Total (₹)': order.total_amount || 0,
+                'Payment Method': order.payment_method || '',
+                'POD/Tracking No.': order.tracking_number || order.pod_number || '',
+                'Shipping Address': formatAddress(order.shipping_address),
+                'Order Date': formatDateForExcel(order.created_at),
+                'Status': order.status || '',
+              });
+            });
+          }
+        });
+        return rows;
+      };
 
-      const productsData = productRows.length > 0 ? productRows : [PRODUCTS_HEADERS];
-      const productsSheet = XLSX.utils.json_to_sheet(productsData, { skipHeader: false });
-      productsSheet['!cols'] = [
+      // ==================== Sheet 1: All Orders (Product-level rows) ====================
+      const allRows = flattenToProductRows(allOrders);
+      const summaryData = allRows.length > 0 ? allRows : [COLUMN_HEADERS];
+      const summarySheet = XLSX.utils.json_to_sheet(summaryData, { skipHeader: false });
+      summarySheet['!cols'] = [
         { wch: 10 }, // Order ID
         { wch: 15 }, // Order #
+        { wch: 30 }, // Customer Email
         { wch: 25 }, // Customer Name
         { wch: 15 }, // Phone
         { wch: 35 }, // Product Name
         { wch: 8 },  // Size
         { wch: 12 }, // Color
         { wch: 10 }, // Quantity
-        { wch: 12 }, // Price
+        { wch: 12 }, // Price (₹)
+        { wch: 12 }, // Total (₹)
+        { wch: 15 }, // Payment Method
+        { wch: 20 }, // POD/Tracking No.
         { wch: 50 }, // Shipping Address
         { wch: 15 }, // Order Date
         { wch: 12 }, // Status
       ];
-      XLSX.utils.book_append_sheet(workbook, productsSheet, 'Products to Dispatch');
+      XLSX.utils.book_append_sheet(workbook, summarySheet, 'All Orders');
 
-      // Create one sheet per day (only if there are orders)
+      // Create one sheet per day (product-level rows, same columns)
       Object.keys(ordersByDate).sort().forEach(dateKey => {
         const dayOrders = ordersByDate[dateKey];
-
-        const dayData = dayOrders.length > 0
-          ? dayOrders.map(order => ({
-              'Order ID': order.id,
-              'Order #': order.order_number || `ORD-${String(order.id).padStart(6, '0')}`,
-              'Customer Email': order.customer_email || '',
-              'Customer Name': order.customer_name || '',
-              'Phone': order.customer_phone || '',
-              'Total (₹)': order.total_amount || 0,
-              'Payment Method': order.payment_method || '',
-              'POD/Tracking No.': order.tracking_number || order.pod_number || '',
-              'Shipping Address': formatAddress(order.shipping_address),
-              'Order Date': formatDateForExcel(order.created_at),
-            }))
-          : [COLUMN_HEADERS]; // Include headers even when no data
+        const dayRows = flattenToProductRows(dayOrders);
+        const dayData = dayRows.length > 0 ? dayRows : [COLUMN_HEADERS];
 
         const daySheet = XLSX.utils.json_to_sheet(dayData, { skipHeader: false });
-
-        // Set column widths
         daySheet['!cols'] = [
           { wch: 10 }, // Order ID
           { wch: 15 }, // Order #
           { wch: 30 }, // Customer Email
           { wch: 25 }, // Customer Name
           { wch: 15 }, // Phone
-          { wch: 12 }, // Total
+          { wch: 35 }, // Product Name
+          { wch: 8 },  // Size
+          { wch: 12 }, // Color
+          { wch: 10 }, // Quantity
+          { wch: 12 }, // Price (₹)
+          { wch: 12 }, // Total (₹)
           { wch: 15 }, // Payment Method
           { wch: 20 }, // POD/Tracking No.
           { wch: 50 }, // Shipping Address
           { wch: 15 }, // Order Date
+          { wch: 12 }, // Status
         ];
 
         // Format date for sheet name (YYYY-MM-DD)
@@ -814,8 +789,8 @@ function OrdersContent() {
               </div>
               <div className="p-3 bg-[#7A2F57]/10 rounded-xl text-xs text-[#EAE0D5]/50">
                 <p className="font-medium mb-1">Columns exported:</p>
-                <p>Order ID, Order #, Customer Email, Customer Name, Phone, Total (₹), Payment Method, POD/Tracking No., Shipping Address, Order Date</p>
-                <p className="mt-2 text-[#B76E79]">Excel will be organized with one sheet per day!</p>
+                <p>Order ID, Order #, Customer Email, Customer Name, Phone, Product Name, Size, Color, Quantity, Price (₹), Total (₹), Payment Method, POD/Tracking No., Shipping Address, Order Date, Status</p>
+                <p className="mt-2 text-[#B76E79]">Each product item appears as a separate row. One sheet per day!</p>
               </div>
             </div>
             <div className="flex gap-3 mt-6">

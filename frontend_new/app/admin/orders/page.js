@@ -307,13 +307,14 @@ function OrdersContent() {
         'Order Date': '',
       };
 
-      // Create a summary sheet with all orders first
+      // Format address helper
       const formatAddress = (addr) => {
         if (!addr) return '';
         if (typeof addr === 'string') return addr;
         return `${addr.street || ''}, ${addr.city || ''}, ${addr.state || ''} - ${addr.pincode || ''}`;
       };
 
+      // ==================== Sheet 1: All Orders (Summary) ====================
       const summaryData = allOrders.length > 0
         ? allOrders.map(order => ({
             'Order ID': order.id,
@@ -327,25 +328,88 @@ function OrdersContent() {
             'Shipping Address': formatAddress(order.shipping_address),
             'Order Date': formatDateForExcel(order.created_at),
           }))
-        : [COLUMN_HEADERS]; // Include headers even when no data
+        : [COLUMN_HEADERS];
 
       const summarySheet = XLSX.utils.json_to_sheet(summaryData, { skipHeader: false });
-
-      // Set column widths for summary
       summarySheet['!cols'] = [
+        { wch: 10 }, { wch: 15 }, { wch: 30 }, { wch: 25 }, { wch: 15 },
+        { wch: 12 }, { wch: 15 }, { wch: 20 }, { wch: 50 }, { wch: 15 },
+      ];
+      XLSX.utils.book_append_sheet(workbook, summarySheet, 'All Orders');
+
+      // ==================== Sheet 2: Products to Dispatch (Item-level) ====================
+      const PRODUCTS_HEADERS = {
+        'Order ID': '',
+        'Order #': '',
+        'Customer Name': '',
+        'Phone': '',
+        'Product Name': '',
+        'Size': '',
+        'Color': '',
+        'Quantity': '',
+        'Price (₹)': '',
+        'Shipping Address': '',
+        'Order Date': '',
+        'Status': '',
+      };
+
+      // Flatten all orders into product rows
+      const productRows = [];
+      allOrders.forEach(order => {
+        const items = order.items || [];
+        if (items.length === 0) {
+          // Order with no items (edge case)
+          productRows.push({
+            'Order ID': order.id,
+            'Order #': order.order_number || `ORD-${String(order.id).padStart(6, '0')}`,
+            'Customer Name': order.customer_name || '',
+            'Phone': order.customer_phone || '',
+            'Product Name': '(No items)',
+            'Size': '',
+            'Color': '',
+            'Quantity': 0,
+            'Price (₹)': order.total_amount || 0,
+            'Shipping Address': formatAddress(order.shipping_address),
+            'Order Date': formatDateForExcel(order.created_at),
+            'Status': order.status || '',
+          });
+        } else {
+          items.forEach(item => {
+            productRows.push({
+              'Order ID': order.id,
+              'Order #': order.order_number || `ORD-${String(order.id).padStart(6, '0')}`,
+              'Customer Name': order.customer_name || '',
+              'Phone': order.customer_phone || '',
+              'Product Name': item.product_name || 'Unknown',
+              'Size': item.size || '-',
+              'Color': item.color || '-',
+              'Quantity': item.quantity || 1,
+              'Price (₹)': item.price || item.total_price || 0,
+              'Shipping Address': formatAddress(order.shipping_address),
+              'Order Date': formatDateForExcel(order.created_at),
+              'Status': order.status || '',
+            });
+          });
+        }
+      });
+
+      const productsData = productRows.length > 0 ? productRows : [PRODUCTS_HEADERS];
+      const productsSheet = XLSX.utils.json_to_sheet(productsData, { skipHeader: false });
+      productsSheet['!cols'] = [
         { wch: 10 }, // Order ID
         { wch: 15 }, // Order #
-        { wch: 30 }, // Customer Email
         { wch: 25 }, // Customer Name
         { wch: 15 }, // Phone
-        { wch: 12 }, // Total
-        { wch: 15 }, // Payment Method
-        { wch: 20 }, // POD/Tracking No.
+        { wch: 35 }, // Product Name
+        { wch: 8 },  // Size
+        { wch: 12 }, // Color
+        { wch: 10 }, // Quantity
+        { wch: 12 }, // Price
         { wch: 50 }, // Shipping Address
         { wch: 15 }, // Order Date
+        { wch: 12 }, // Status
       ];
-
-      XLSX.utils.book_append_sheet(workbook, summarySheet, 'All Orders');
+      XLSX.utils.book_append_sheet(workbook, productsSheet, 'Products to Dispatch');
 
       // Create one sheet per day (only if there are orders)
       Object.keys(ordersByDate).sort().forEach(dateKey => {

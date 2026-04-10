@@ -1,8 +1,9 @@
 """
 Comprehensive tests for product-inventory creation fix.
 
-CRITICAL: These tests verify that products ALWAYS have inventory records.
-This is a core business requirement - products without inventory cannot be sold.
+CRITICAL: Products MUST have at least one variant/inventory record.
+Products created without variants will raise ValueError.
+This ensures no fake "One Size/Default" inventory records are created.
 
 Run with: pytest services/commerce/tests/test_product_inventory_creation.py -v
 """
@@ -91,8 +92,8 @@ class TestProductCreationAlwaysCreatesInventory:
         assert colors == {"Red", "Blue", "Green"}
         assert 10 in quantities and 5 in quantities and 15 in quantities
 
-    def test_create_product_without_variants_creates_default_inventory(self, db, product_service, test_collection):
-        """Test 2: Product WITHOUT variants → MUST create DEFAULT inventory record."""
+    def test_create_product_without_variants_raises_error(self, db, product_service, test_collection):
+        """Test 2: Product WITHOUT variants → MUST raise ValueError (no default inventory)."""
         product_data = ProductCreate(
             name="Test Product No Variants",
             slug="test-product-no-variants",
@@ -100,84 +101,44 @@ class TestProductCreationAlwaysCreatesInventory:
             category_id=test_collection.id,
             initial_stock=50
         )
-        
-        result = product_service.create_product(product_data)
-        
-        # Verify product created
-        assert result.id is not None
-        
-        # 🔥 CRITICAL: Verify DEFAULT inventory was created
-        inventory_records = db.query(Inventory).filter(
-            Inventory.product_id == result.id
-        ).all()
-        
-        assert len(inventory_records) == 1, "MUST create default inventory record"
-        
-        default_inv = inventory_records[0]
-        assert default_inv.size == "One Size", "Default size should be 'One Size'"
-        assert default_inv.color == "Default", "Default color should be 'Default'"
-        assert default_inv.quantity == 50, "Quantity should match initial_stock"
-        assert default_inv.sku == f"PRD-{result.id}-BASE", "SKU should follow base pattern"
-        assert default_inv.low_stock_threshold == 5, "Default threshold should be 5"
 
-    def test_create_product_with_zero_initial_stock_creates_inventory(self, db, product_service, test_collection):
-        """Test 3: Product with ZERO initial stock → MUST STILL create inventory record."""
+        # Should raise ValueError because no variants provided
+        with pytest.raises(ValueError, match="At least one product variant is required"):
+            product_service.create_product(product_data)
+
+        # Verify NO inventory was created for this product
+        # (product itself may or may not be created depending on transaction handling)
+
+    def test_create_product_with_zero_initial_stock_raises_error(self, db, product_service, test_collection):
+        """Test 3: Product with ZERO initial stock and NO variants → MUST raise ValueError."""
         product_data = ProductCreate(
             name="Test Product Zero Stock",
             slug="test-product-zero-stock",
             base_price=Decimal("299.00"),
             category_id=test_collection.id,
-            initial_stock=0  # Out of stock, but inventory record MUST exist
+            initial_stock=0  # Out of stock, but still needs variants
         )
-        
-        result = product_service.create_product(product_data)
-        
-        # Verify product created
-        assert result.id is not None
-        
-        # 🔥 CRITICAL: Even with 0 stock, inventory record MUST exist
-        inventory_records = db.query(Inventory).filter(
-            Inventory.product_id == result.id
-        ).all()
-        
-        assert len(inventory_records) == 1, "MUST create inventory even with 0 stock"
-        
-        default_inv = inventory_records[0]
-        assert default_inv.quantity == 0, "Quantity should be 0"
-        assert default_inv.size == "One Size"
-        assert default_inv.color == "Default"
-        
-        # Product should show as out of stock but still be visible
-        assert result.total_stock == 0
-        assert not result.is_in_stock
 
-    def test_create_product_no_initial_stock_specified_creates_inventory(self, db, product_service, test_collection):
-        """Test 4: Product with NO initial_stock specified → MUST create inventory with 0."""
+        # Should raise ValueError because no variants provided
+        with pytest.raises(ValueError, match="At least one product variant is required"):
+            product_service.create_product(product_data)
+
+    def test_create_product_no_initial_stock_specified_raises_error(self, db, product_service, test_collection):
+        """Test 4: Product with NO initial_stock and NO variants → MUST raise ValueError."""
         product_data = ProductCreate(
             name="Test Product No Initial Stock",
             slug="test-product-no-initial",
             base_price=Decimal("199.00"),
             category_id=test_collection.id
-            # initial_stock not specified - defaults to 0
+            # initial_stock not specified - defaults to 0, still no variants
         )
-        
-        result = product_service.create_product(product_data)
-        
-        # Verify product created
-        assert result.id is not None
-        
-        # 🔥 CRITICAL: Even without initial_stock, inventory MUST exist
-        inventory_records = db.query(Inventory).filter(
-            Inventory.product_id == result.id
-        ).all()
-        
-        assert len(inventory_records) == 1, "MUST create inventory even without initial_stock"
-        
-        default_inv = inventory_records[0]
-        assert default_inv.quantity == 0, "Quantity should default to 0"
 
-    def test_ensure_product_has_inventory_creates_missing_record(self, db, product_service, test_collection):
-        """Test 5: _ensure_product_has_inventory creates record if missing."""
+        # Should raise ValueError because no variants provided
+        with pytest.raises(ValueError, match="At least one product variant is required"):
+            product_service.create_product(product_data)
+
+    def test_ensure_product_has_inventory_does_not_create_default_record(self, db, product_service, test_collection):
+        """Test 5: _ensure_product_has_inventory logs warning but does NOT create default record."""
         # Create product WITHOUT inventory (simulating old bug)
         product = Product(
             name="Product Without Inventory",
@@ -188,28 +149,25 @@ class TestProductCreationAlwaysCreatesInventory:
         db.add(product)
         db.commit()
         db.refresh(product)
-        
+
         # Verify no inventory exists
         inventory_count = db.query(Inventory).filter(
             Inventory.product_id == product.id
         ).count()
         assert inventory_count == 0, "Should start with no inventory"
-        
-        # Call the safety net method
+
+        # Call the safety net method — should NOT create inventory anymore
         product_service._ensure_product_has_inventory(product)
-        
-        # Verify inventory was created
+
+        # Verify NO inventory was created (behavior changed from creating default)
         inventory_records = db.query(Inventory).filter(
             Inventory.product_id == product.id
         ).all()
-        
-        assert len(inventory_records) == 1, "Safety net should create missing inventory"
-        assert inventory_records[0].quantity == 0
-        assert inventory_records[0].size == "One Size"
-        assert inventory_records[0].color == "Default"
 
-    def test_update_product_ensures_inventory_exists(self, db, product_service, test_collection):
-        """Test 6: update_product calls _ensure_product_has_inventory."""
+        assert len(inventory_records) == 0, "Safety net should NOT create default inventory anymore"
+
+    def test_update_product_does_not_create_default_inventory(self, db, product_service, test_collection):
+        """Test 6: update_product does NOT create default inventory (behavior changed)."""
         # Create product without inventory
         product = Product(
             name="Product To Update",
@@ -220,21 +178,21 @@ class TestProductCreationAlwaysCreatesInventory:
         db.add(product)
         db.commit()
         db.refresh(product)
-        
+
         # Verify no inventory
         assert db.query(Inventory).filter(Inventory.product_id == product.id).count() == 0
-        
-        # Update product (this should trigger inventory creation)
+
+        # Update product
         from schemas.product import ProductUpdate
         update_data = ProductUpdate(name="Updated Product Name")
         updated = product_service.update_product(product.id, update_data)
-        
-        # Verify inventory was created by the safety net
+
+        # Verify NO default inventory was created (behavior changed)
         inventory_records = db.query(Inventory).filter(
             Inventory.product_id == product.id
         ).all()
-        
-        assert len(inventory_records) == 1, "update_product should ensure inventory exists"
+
+        assert len(inventory_records) == 0, "update_product should NOT create default inventory anymore"
         assert updated.name == "Updated Product Name"
 
     def test_product_total_stock_property_with_variants(self, db, product_service, test_collection):
@@ -250,33 +208,37 @@ class TestProductCreationAlwaysCreatesInventory:
                 VariantCreate(size="L", color="Red", quantity=30),
             ]
         )
-        
+
         result = product_service.create_product(product_data)
-        
+
         # Verify total stock is sum of all variants
         assert result.total_stock == 60, "Total stock should be sum of all variants (10+20+30)"
         assert result.is_in_stock is True
 
     def test_product_is_in_stock_property(self, db, product_service, test_collection):
         """Test 8: is_in_stock property reflects actual availability."""
-        # Product with stock
+        # Product with stock (using variants)
         product_with_stock = ProductCreate(
             name="In Stock Product",
             slug="in-stock-product",
             base_price=Decimal("399.00"),
             category_id=test_collection.id,
-            initial_stock=10
+            variants=[
+                VariantCreate(size="M", color="Red", quantity=10),
+            ]
         )
         result_in_stock = product_service.create_product(product_with_stock)
         assert result_in_stock.is_in_stock is True
-        
-        # Product without stock
+
+        # Product without stock (variant with 0 quantity)
         product_no_stock = ProductCreate(
             name="Out of Stock Product",
             slug="out-of-stock-product",
             base_price=Decimal("399.00"),
             category_id=test_collection.id,
-            initial_stock=0
+            variants=[
+                VariantCreate(size="M", color="Red", quantity=0),
+            ]
         )
         result_no_stock = product_service.create_product(product_no_stock)
         assert result_no_stock.is_in_stock is False
@@ -285,34 +247,30 @@ class TestProductCreationAlwaysCreatesInventory:
 class TestInventorySKUUniqueness:
     """Test SKU uniqueness constraints."""
 
-    def test_auto_generated_sku_is_unique(self, db, product_service, test_collection):
-        """Test that auto-generated SKUs don't conflict."""
-        # Create two similar products
-        product1 = ProductCreate(
-            name="Product 1",
-            slug="product-1",
+    def test_auto_generated_sku_is_unique_per_variant(self, db, product_service, test_collection):
+        """Test that auto-generated SKUs are unique per variant."""
+        # Create a product with multiple variants
+        product_data = ProductCreate(
+            name="Product With Variants",
+            slug="product-with-variants",
             base_price=Decimal("100.00"),
             category_id=test_collection.id,
-            initial_stock=5
+            variants=[
+                VariantCreate(size="S", color="Red", quantity=5),
+                VariantCreate(size="M", color="Blue", quantity=10),
+            ]
         )
-        product2 = ProductCreate(
-            name="Product 2",
-            slug="product-2",
-            base_price=Decimal("200.00"),
-            category_id=test_collection.id,
-            initial_stock=10
-        )
-        
-        result1 = product_service.create_product(product1)
-        result2 = product_service.create_product(product2)
-        
-        # Verify SKUs are different
-        inv1 = db.query(Inventory).filter(Inventory.product_id == result1.id).first()
-        inv2 = db.query(Inventory).filter(Inventory.product_id == result2.id).first()
-        
-        assert inv1.sku != inv2.sku, "Auto-generated SKUs should be unique"
-        assert inv1.sku == f"PRD-{result1.id}-BASE"
-        assert inv2.sku == f"PRD-{result2.id}-BASE"
+
+        result = product_service.create_product(product_data)
+
+        # Verify SKUs are unique per variant
+        inventory_records = db.query(Inventory).filter(
+            Inventory.product_id == result.id
+        ).all()
+
+        skus = [inv.sku for inv in inventory_records]
+        assert len(skus) == len(set(skus)), "All SKUs should be unique"
+        assert len(inventory_records) == 2
 
 
 if __name__ == "__main__":

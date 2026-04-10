@@ -28,6 +28,7 @@ class OrderTracking(Base):
     
     # Staff tracking
     updated_by = Column(Integer, nullable=True)  # Staff user ID who made the update
+    courier_name = Column(String(100), nullable=True)  # Courier used for this status update
     
     # Timestamp
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)

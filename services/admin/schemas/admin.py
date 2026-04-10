@@ -313,7 +313,7 @@ class ProductCreate(BaseModel):
     is_new_arrival: bool = False
     meta_title: Optional[str] = None
     meta_description: Optional[str] = None
-    initial_stock: Optional[int] = Field(0, ge=0, description="Initial stock quantity for default inventory record")
+    initial_stock: Optional[int] = Field(0, ge=0, description="Initial stock quantity (deprecated — variants are now required)")
 
     @model_validator(mode='after')
     def mrp_gte_base_price(self):

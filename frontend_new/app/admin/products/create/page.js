@@ -137,6 +137,7 @@ export default function CreateProductPage() {
     if (!form.price || price <= 0) newErrors.price = 'Selling price must be greater than 0';
     if (form.mrp && parseFloat(form.mrp) < price) newErrors.mrp = 'MRP must be ≥ selling price';
     if (!form.category_id) newErrors.category_id = 'Collection is required';
+    if (variants.length === 0) newErrors.variants = 'Please add at least one variant (size/color) before creating the product';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -449,15 +450,20 @@ export default function CreateProductPage() {
             </div>
 
             {/* Product Variants */}
-            <div className="bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl p-6">
+            <div className={`bg-[#0B0608]/40 backdrop-blur-md border rounded-2xl p-6 ${
+              errors.variants ? 'border-red-500/50' : 'border-[#B76E79]/15'
+            }`}>
               <div className="flex items-center justify-between mb-1">
                 <div>
                   <h2 className="text-lg font-semibold text-[#F2C29A]" style={{ fontFamily: 'Cinzel, serif' }}>
-                    Variants
+                    Variants <span className="text-red-400">*</span>
                   </h2>
                   <p className="text-xs text-[#EAE0D5]/50 mt-0.5">
                     Add size &amp; color combinations (e.g. Red / S, Blue / M). SKUs are auto-generated.
                   </p>
+                  {errors.variants && (
+                    <p className="text-red-400 text-xs mt-1 font-medium">{errors.variants}</p>
+                  )}
                 </div>
                 <button
                   type="button"
@@ -534,9 +540,18 @@ export default function CreateProductPage() {
                   ))}
                 </div>
               ) : (
-                <div className="p-8 border border-dashed border-[#B76E79]/20 rounded-xl text-center mt-4">
-                  <p className="text-[#EAE0D5]/50 text-sm">
-                    No variants yet. Click &quot;Add Variant&quot; to create size/color combinations.
+                <div className={`p-8 border rounded-xl text-center mt-4 ${
+                  errors.variants 
+                    ? 'border-red-500/30 bg-red-500/5' 
+                    : 'border-dashed border-[#B76E79]/20'
+                }`}>
+                  <p className={`text-sm ${
+                    errors.variants ? 'text-red-400 font-medium' : 'text-[#EAE0D5]/50'
+                  }`}>
+                    {errors.variants 
+                      ? errors.variants
+                      : 'No variants yet. Click "Add Variant" to create size/color combinations.'
+                    }
                   </p>
                 </div>
               )}

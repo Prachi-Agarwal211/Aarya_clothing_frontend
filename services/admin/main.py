@@ -1926,8 +1926,11 @@ async def update_order_status(
     params = {"status": new_status, "now": now, "id": order_id}
 
     if new_status == "shipped" and pod_number:
-        extra_sets = ", tracking_number = :pod, shipped_at = :now"
+        # Extract courier_name from the request if provided
+        courier_name = getattr(data, 'courier', None) or getattr(data, 'courier_name', None)
+        extra_sets = ", tracking_number = :pod, courier_name = :courier_name, shipped_at = :now"
         params["pod"] = pod_number
+        params["courier_name"] = courier_name
     elif new_status == "delivered":
         extra_sets = ", delivered_at = :now"
     elif new_status == "cancelled":
@@ -1952,10 +1955,14 @@ async def update_order_status(
         "cancelled": "Order cancelled by admin",
         "confirmed": "Order confirmed",
     }
+    
+    # Extract courier_name for tracking entry
+    courier_name = getattr(data, 'courier', None) or getattr(data, 'courier_name', None)
+    
     db.execute(
         text("""
-        INSERT INTO order_tracking (order_id, status, notes, updated_by, created_at)
-        VALUES (:order_id, :status, :notes, :updated_by, :created_at)
+        INSERT INTO order_tracking (order_id, status, notes, updated_by, created_at, courier_name)
+        VALUES (:order_id, :status, :notes, :updated_by, :created_at, :courier_name)
     """),
         {
             "order_id": order_id,
@@ -1963,6 +1970,7 @@ async def update_order_status(
             "notes": data.notes or default_notes.get(new_status),
             "updated_by": current_user.get("user_id"),
             "created_at": now,
+            "courier_name": courier_name,
         },
     )
     db.commit()
@@ -2084,7 +2092,7 @@ async def export_orders_excel(
         text(f"""
         SELECT o.id, u.email, COALESCE(up.full_name, u.username) as customer_name,
                up.phone as customer_phone,
-               o.total_amount, o.payment_method, o.status, o.tracking_number,
+               o.total_amount, o.payment_method, o.status, o.tracking_number, o.courier_name,
                o.shipping_address, o.created_at
         FROM orders o
         LEFT JOIN users u ON u.id = o.user_id
@@ -2120,6 +2128,7 @@ async def export_orders_excel(
         "Total (₹)",
         "Payment Method",
         "POD / Tracking No.",
+        "Courier Service",
         "Shipping Address",
         "Order Date",
     ]
@@ -2149,8 +2158,8 @@ async def export_orders_excel(
         
         # Write data
         # SQL column indices: 0=id, 1=email, 2=customer_name, 3=customer_phone,
-        # 4=total_amount, 5=payment_method, 6=status, 7=tracking_number,
-        # 8=shipping_address, 9=created_at
+        # 4=total_amount, 5=payment_method, 6=status, 7=tracking_number, 8=courier_name,
+        # 9=shipping_address, 10=created_at
         for row_idx, r in enumerate(date_orders, 2):
             order_id = r[0]
             ws.cell(row=row_idx, column=1, value=order_id)
@@ -2161,8 +2170,9 @@ async def export_orders_excel(
             ws.cell(row=row_idx, column=6, value=float(r[4] or 0))  # total_amount
             ws.cell(row=row_idx, column=7, value=r[5])   # payment_method
             ws.cell(row=row_idx, column=8, value=r[7])   # tracking_number / POD
-            ws.cell(row=row_idx, column=9, value=r[8])   # shipping_address
-            ws.cell(row=row_idx, column=10, value=str(r[9])[:19] if r[9] else "")  # created_at
+            ws.cell(row=row_idx, column=9, value=r[8] or "")   # courier_name
+            ws.cell(row=row_idx, column=10, value=r[9])   # shipping_address
+            ws.cell(row=row_idx, column=11, value=str(r[10])[:19] if r[10] else "")  # created_at
         
         # Auto-adjust column widths
         for col in ws.columns:
@@ -2216,7 +2226,7 @@ async def upload_pod_excel(
     wb = openpyxl.load_workbook(io.BytesIO(contents), data_only=True)
     ws = wb.active
 
-    # Detect header row — look for "Order ID" and "POD" columns
+    # Detect header row — look for "Order ID", "POD", and optional "Courier" columns
     header_map = {}
     for col_idx, cell in enumerate(ws[1], 1):
         val = str(cell.value or "").strip().lower()
@@ -2224,6 +2234,8 @@ async def upload_pod_excel(
             header_map["order_id_col"] = col_idx
         if "pod" in val or "tracking" in val:
             header_map["pod_col"] = col_idx
+        if "courier" in val:
+            header_map["courier_col"] = col_idx
 
     if "order_id_col" not in header_map or "pod_col" not in header_map:
         raise HTTPException(
@@ -2238,6 +2250,11 @@ async def upload_pod_excel(
         try:
             raw_id = row[header_map["order_id_col"] - 1]
             raw_pod = row[header_map["pod_col"] - 1]
+            # Extract courier_name if column exists
+            courier_name = None
+            if "courier_col" in header_map:
+                courier_name = str(row[header_map["courier_col"] - 1] or "").strip() or None
+            
             if raw_id is None:
                 continue
             # Handle "ORD-000001" format
@@ -2265,23 +2282,24 @@ async def upload_pod_excel(
             db.execute(
                 text("""
                 UPDATE orders
-                SET status = 'shipped', tracking_number = :pod,
+                SET status = 'shipped', tracking_number = :pod, courier_name = :courier_name,
                     shipped_at = :now, updated_at = :now
                 WHERE id = :oid
             """),
-                {"pod": pod, "now": datetime.now(timezone.utc), "oid": order_id},
+                {"pod": pod, "courier_name": courier_name, "now": datetime.now(timezone.utc), "oid": order_id},
             )
 
             db.execute(
                 text("""
-                INSERT INTO order_tracking (order_id, status, notes, updated_by, created_at)
-                VALUES (:oid, 'shipped', :notes, :by, :now)
+                INSERT INTO order_tracking (order_id, status, notes, updated_by, created_at, courier_name)
+                VALUES (:oid, 'shipped', :notes, :by, :now, :courier_name)
             """),
                 {
                     "oid": order_id,
-                    "notes": f"Shipped via Excel upload. POD: {pod}",
+                    "notes": f"Shipped via Excel upload. POD: {pod}" + (f", Courier: {courier_name}" if courier_name else ""),
                     "by": staff_id,
                     "now": datetime.now(timezone.utc),
+                    "courier_name": courier_name,
                 },
             )
             updated += 1
@@ -2334,6 +2352,7 @@ async def download_pod_template(
         "Order Date",
         "Shipping Address",
         "POD / Tracking No.",
+        "Courier Name",
     ]
     hfill = PatternFill(start_color="180F14", end_color="180F14", fill_type="solid")
     hfont = Font(bold=True, color="F2C29A")
@@ -2344,7 +2363,7 @@ async def download_pod_template(
         cell.fill = hfill
         cell.alignment = Alignment(horizontal="center")
 
-    # POD column highlight (column 8)
+    # POD and Courier column highlights
     pod_fill = PatternFill(start_color="FFF3E0", end_color="FFF3E0", fill_type="solid")
 
     for ri, r in enumerate(rows, 2):
@@ -2357,6 +2376,8 @@ async def download_pod_template(
         ws.cell(ri, 7, value=str(r[5] or "")[:80])
         pod_cell = ws.cell(ri, 8, value="")
         pod_cell.fill = pod_fill
+        courier_cell = ws.cell(ri, 9, value="")
+        courier_cell.fill = pod_fill  # Same highlight for both input fields
 
     for col in ws.columns:
         max_len = max((len(str(c.value or "")) for c in col), default=10)

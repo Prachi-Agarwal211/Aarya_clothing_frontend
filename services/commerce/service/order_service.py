@@ -15,6 +15,7 @@ from models.user import User, UserProfile
 from service.inventory_service import InventoryService
 from service.cart_service import CartService
 from service.promotion_service import PromotionService
+from service.customer_activity_logger import log_customer_activity
 from schemas.order import OrderCreate, OrderUpdate
 
 logger = logging.getLogger(__name__)
@@ -56,7 +57,8 @@ class OrderService:
         """Get all orders for a user with pagination and eager loading."""
         query = self.db.query(Order).options(
             selectinload(Order.items).options(
-                joinedload(OrderItem.inventory)
+                joinedload(OrderItem.inventory),
+                joinedload(OrderItem.product)  # Load product for image fallback
             )
         ).filter(Order.user_id == user_id)
         if status:
@@ -539,6 +541,194 @@ class OrderService:
 
         return order
     
+    def create_order_from_pending_order(
+        self,
+        pending_order_data: Dict[str, Any],
+        user_id: int,
+        payment_id: str,
+        razorpay_order_id: Optional[str] = None,
+        payment_signature: Optional[str] = None
+    ) -> Order:
+        """
+        Create an order from a pending_order record (called by webhook handler).
+
+        This is the critical recovery path: when payment succeeds but the frontend
+        never called the normal order creation endpoint. The webhook handler calls
+        this method to guarantee order creation.
+
+        Args:
+            pending_order_data: Cart snapshot and order details from pending_orders table
+            user_id: User who placed the order
+            payment_id: Razorpay payment ID (pay_xxx)
+            razorpay_order_id: Razorpay order ID (order_xxx)
+            payment_signature: HMAC signature for verification
+
+        Returns:
+            Created Order object
+
+        Raises:
+            HTTPException: If validation fails
+            ValueError: If order already exists for this payment
+        """
+        from sqlalchemy import text as _text
+
+        # Idempotency: Check if order already exists for this payment
+        existing = self.db.query(Order).filter(
+            Order.transaction_id == payment_id,
+            Order.user_id == user_id
+        ).first()
+        if existing:
+            logger.info(f"Order already exists for payment {payment_id}, returning existing order {existing.id}")
+            return existing
+
+        # Also check by razorpay_order_id
+        if razorpay_order_id:
+            existing_by_razorpay = self.db.query(Order).filter(
+                Order.razorpay_order_id == razorpay_order_id,
+                Order.user_id == user_id
+            ).first()
+            if existing_by_razorpay:
+                logger.info(f"Order already exists for razorpay_order {razorpay_order_id}, returning {existing_by_razorpay.id}")
+                return existing_by_razorpay
+
+        # Extract cart items from pending_order snapshot
+        cart_items = pending_order_data.get("cart_snapshot", pending_order_data.get("cart_items", []))
+        if not cart_items:
+            raise ValueError("Cannot create order: cart snapshot is empty")
+
+        # Extract order data
+        shipping_address = pending_order_data.get("shipping_address")
+        if not shipping_address:
+            raise ValueError("Cannot create order: shipping address is missing")
+
+        subtotal = Decimal(str(pending_order_data.get("subtotal", 0)))
+        discount_applied = Decimal(str(pending_order_data.get("discount_applied", 0)))
+        shipping_cost = Decimal(str(pending_order_data.get("shipping_cost", 0)))
+        gst_amount = Decimal(str(pending_order_data.get("gst_amount", 0)))
+        cgst_amount = Decimal(str(pending_order_data.get("cgst_amount", 0)))
+        sgst_amount = Decimal(str(pending_order_data.get("sgst_amount", 0)))
+        igst_amount = Decimal(str(pending_order_data.get("igst_amount", 0)))
+        total_amount = Decimal(str(pending_order_data.get("total_amount", 0)))
+        promo_code = pending_order_data.get("promo_code")
+        order_notes = pending_order_data.get("order_notes", "")
+        delivery_state = pending_order_data.get("delivery_state", "")
+        customer_gstin = pending_order_data.get("customer_gstin")
+
+        # Generate invoice number
+        year = datetime.now().year
+        self.db.execute(_text("""
+            SELECT setval('invoice_number_seq', GREATEST(
+                (SELECT COALESCE(MAX(id), 0) FROM orders),
+                (SELECT last_value FROM invoice_number_seq)
+            ), true)
+        """))
+        self.db.commit()
+        seq_val = self.db.execute(_text("SELECT nextval('invoice_number_seq')")).scalar()
+        invoice_number = f"INV-{year}-{seq_val:06d}"
+
+        # Create the order
+        order = Order(
+            user_id=user_id,
+            transaction_id=payment_id,
+            payment_method=pending_order_data.get("payment_method", "razorpay"),
+            invoice_number=invoice_number,
+            subtotal=subtotal,
+            discount_applied=discount_applied,
+            promo_code=promo_code,
+            shipping_cost=shipping_cost,
+            gst_amount=gst_amount,
+            cgst_amount=cgst_amount,
+            sgst_amount=sgst_amount,
+            igst_amount=igst_amount,
+            place_of_supply=delivery_state,
+            customer_gstin=customer_gstin,
+            total_amount=total_amount,
+            status=OrderStatus.CONFIRMED,
+            shipping_address=shipping_address,
+            order_notes=f"{order_notes} [CREATED FROM WEBHOOK/RECOVERY]".strip() if order_notes else "[CREATED FROM WEBHOOK/RECOVERY]",
+            razorpay_order_id=razorpay_order_id,
+            razorpay_payment_id=payment_id,
+        )
+
+        self.db.add(order)
+        self.db.flush()
+
+        # Create order items from cart snapshot
+        for item in cart_items:
+            product_id = item.get("product_id")
+            sku = item.get("sku")
+
+            # Look up current product/inventory for HSN and GST rate
+            product = self.db.query(Product).filter(Product.id == product_id).first() if product_id else None
+            inventory = self.db.query(Inventory).filter(Inventory.sku == sku).first() if sku else None
+
+            order_item = OrderItem(
+                order_id=order.id,
+                product_id=product_id,
+                inventory_id=inventory.id if inventory else None,
+                product_name=item.get("name", item.get("product_name", "Unknown Product")),
+                sku=sku,
+                size=item.get("size") or (inventory.size if inventory else None),
+                color=item.get("color") or (inventory.color if inventory else None),
+                hsn_code=item.get("hsn_code") or (product.hsn_code if product else None),
+                gst_rate=Decimal(str(item.get("gst_rate"))) if item.get("gst_rate") else (product.gst_rate if product else None),
+                quantity=item.get("quantity", 1),
+                unit_price=Decimal(str(item.get("unit_price", item.get("price", 0)))),
+                price=Decimal(str(item.get("unit_price", item.get("price", 0)))) * item.get("quantity", 1)
+            )
+            self.db.add(order_item)
+
+            # Deduct stock if SKU is available
+            if sku:
+                try:
+                    self.inventory_service.deduct_stock_for_order(sku, item.get("quantity", 1))
+                except Exception as stock_err:
+                    logger.warning(f"Stock deduction failed for SKU {sku}: {stock_err}")
+                    # Don't fail the order — stock can be reconciled manually
+
+        self.db.commit()
+        self.db.refresh(order)
+
+        # Create payment transaction record
+        try:
+            self.db.execute(
+                _text("""
+                    INSERT INTO payment_transactions (
+                        order_id, user_id, amount, currency, payment_method,
+                        razorpay_order_id, razorpay_payment_id, razorpay_signature,
+                        status, created_at, completed_at, transaction_id
+                    ) VALUES (
+                        :order_id, :user_id, :amount, 'INR', 'razorpay',
+                        :razorpay_order_id, :razorpay_payment_id, :signature,
+                        'completed', NOW(), NOW(), :transaction_id
+                    )
+                    ON CONFLICT (transaction_id) DO NOTHING
+                """),
+                {
+                    "order_id": order.id,
+                    "user_id": user_id,
+                    "amount": order.total_amount,
+                    "razorpay_order_id": razorpay_order_id or "",
+                    "razorpay_payment_id": payment_id,
+                    "signature": payment_signature or "",
+                    "transaction_id": payment_id
+                }
+            )
+            self.db.commit()
+            logger.info(f"✓ PAYMENT_TRANSACTION_CREATED (webhook): order={order.id} payment={payment_id}")
+        except Exception as e:
+            logger.error(f"⚠ Failed to create payment transaction (webhook): {e}")
+
+        # Send confirmation email
+        if EMAIL_SERVICE_AVAILABLE:
+            try:
+                self._send_order_confirmation_email(order, user_id)
+            except Exception as e:
+                logger.error(f"Failed to send webhook order confirmation email for order {order.id}: {e}")
+
+        logger.info(f"✓ ORDER CREATED FROM WEBHOOK/RECOVERY: order_id={order.id} user={user_id} payment={payment_id}")
+        return order
+
     def update_order_status(
         self,
         order_id: int,

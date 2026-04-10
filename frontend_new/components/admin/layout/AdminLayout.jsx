@@ -22,7 +22,7 @@ export default function AdminLayout({ children }) {
   const mainContentRef = useRef(null);
 
   // Use auth context for authentication
-  const { user, loading, isAuthenticated, isAdmin, isStaff } = useAuth();
+  const { user, loading, isAuthenticated, isStaff } = useAuth();
 
   // Load sidebar collapse state from localStorage on mount
   useEffect(() => {
@@ -162,7 +162,7 @@ export default function AdminLayout({ children }) {
       router.push('/');
       return;
     }
-  }, [authReady, isAuthenticated, isStaff, isAdmin, user, router, pathname, isLoggingOut]);
+  }, [authReady, isAuthenticated, isStaff, user, router, pathname, isLoggingOut]);
 
   // Show loading state while checking auth or waiting for auth resolution
   if (loading || !authReady) {

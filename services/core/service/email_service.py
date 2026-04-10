@@ -1,5 +1,6 @@
 """Email service for sending emails via SMTP."""
 import logging
+import time
 import smtplib
 import ssl
 from email.mime.text import MIMEText
@@ -75,53 +76,76 @@ class EmailService:
             logger.info(f"[EMAIL] Subject: {subject}")
             return True  # Pretend success for development
 
-        try:
-            message = self._create_message(to_email, subject, html_content, text_content)
+        max_attempts = getattr(settings, "SMTP_SEND_MAX_ATTEMPTS", 3) or 3
+        delay = 1.0
+        last_exc = None
 
-            context = ssl.create_default_context()
+        for attempt in range(max_attempts):
+            try:
+                message = self._create_message(to_email, subject, html_content, text_content)
 
-            # SMTP timeout settings to prevent hanging
-            smtp_timeout = 30  # seconds
+                context = ssl.create_default_context()
 
-            # Use SMTP_SSL for port 465, regular SMTP with STARTTLS for port 587
-            if self.port == 465:
-                # SSL connection (port 465)
-                logger.debug(f"[EMAIL] Connecting to {self.host}:{self.port} via SSL")
-                with smtplib.SMTP_SSL(self.host, self.port, context=context, timeout=smtp_timeout) as server:
-                    logger.debug(f"[EMAIL] Logging in as {self.user}")
-                    server.login(self.user, self.password)
-                    server.sendmail(self.from_email, to_email, message.as_string())
-            else:
-                # STARTTLS connection (port 587 or others)
-                logger.debug(f"[EMAIL] Connecting to {self.host}:{self.port} via STARTTLS")
-                with smtplib.SMTP(self.host, self.port, timeout=smtp_timeout) as server:
-                    server.starttls(context=context, timeout=smtp_timeout)
-                    server.login(self.user, self.password)
-                    server.sendmail(self.from_email, to_email, message.as_string())
+                # SMTP timeout settings to prevent hanging
+                smtp_timeout = 30  # seconds
 
-            logger.info(f"[EMAIL] Sent to: {to_email}")
-            return True
+                # Use SMTP_SSL for port 465, regular SMTP with STARTTLS for port 587
+                if self.port == 465:
+                    logger.debug(f"[EMAIL] Connecting to {self.host}:{self.port} via SSL")
+                    with smtplib.SMTP_SSL(self.host, self.port, context=context, timeout=smtp_timeout) as server:
+                        logger.debug(f"[EMAIL] Logging in as {self.user}")
+                        server.login(self.user, self.password)
+                        server.sendmail(self.from_email, to_email, message.as_string())
+                else:
+                    logger.debug(f"[EMAIL] Connecting to {self.host}:{self.port} via STARTTLS")
+                    with smtplib.SMTP(self.host, self.port, timeout=smtp_timeout) as server:
+                        server.starttls(context=context, timeout=smtp_timeout)
+                        server.login(self.user, self.password)
+                        server.sendmail(self.from_email, to_email, message.as_string())
 
-        except smtplib.SMTPConnectError as e:
-            logger.error(f"[EMAIL] SMTP connection failed to {self.host}:{self.port} - {str(e)}")
-            logger.error(f"[EMAIL] Check SMTP_HOST, SMTP_PORT, and SMTP_TLS settings")
-            return False
-        except smtplib.SMTPAuthenticationError as e:
-            logger.error(f"[EMAIL] SMTP authentication failed for {self.user} - {str(e)}")
-            logger.error(f"[EMAIL] Check SMTP_USER and SMTP_PASSWORD credentials")
-            return False
-        except smtplib.SMTPServerDisconnected as e:
-            logger.error(f"[EMAIL] SMTP server disconnected unexpectedly - {str(e)}")
-            logger.error(f"[EMAIL] Server may be overloaded or network issue")
-            return False
-        except TimeoutError as e:
-            logger.error(f"[EMAIL] SMTP timeout connecting to {self.host}:{self.port} - {str(e)}")
-            logger.error(f"[EMAIL] Check network connectivity and firewall rules")
-            return False
-        except Exception as e:
-            logger.error(f"[EMAIL] Unexpected error sending to {to_email}: {str(e)}")
-            logger.error(f"[EMAIL] Connection: {self.host}:{self.port}, TLS: {self.use_tls}")
-            return False
+                logger.info(f"[EMAIL] Sent to: {to_email}")
+                return True
+
+            except smtplib.SMTPConnectError as e:
+                last_exc = e
+                logger.error(f"[EMAIL] SMTP connection failed to {self.host}:{self.port} - {str(e)}")
+                if attempt + 1 >= max_attempts:
+                    logger.error(f"[EMAIL] Check SMTP_HOST, SMTP_PORT, and SMTP_TLS settings")
+                    return False
+            except smtplib.SMTPAuthenticationError as e:
+                logger.error(f"[EMAIL] SMTP authentication failed for {self.user} - {str(e)}")
+                logger.error(f"[EMAIL] Check SMTP_USER and SMTP_PASSWORD credentials")
+                return False
+            except smtplib.SMTPServerDisconnected as e:
+                last_exc = e
+                logger.error(f"[EMAIL] SMTP server disconnected unexpectedly - {str(e)}")
+                if attempt + 1 >= max_attempts:
+                    return False
+            except TimeoutError as e:
+                last_exc = e
+                logger.error(f"[EMAIL] SMTP timeout connecting to {self.host}:{self.port} - {str(e)}")
+                if attempt + 1 >= max_attempts:
+                    return False
+            except Exception as e:
+                last_exc = e
+                logger.error(f"[EMAIL] Unexpected error sending to {to_email}: {str(e)}")
+                if attempt + 1 >= max_attempts:
+                    logger.error(f"[EMAIL] Connection: {self.host}:{self.port}, TLS: {self.use_tls}")
+                    return False
+
+            if attempt < max_attempts - 1:
+                logger.warning(
+                    "[EMAIL] Retry %s/%s after %.1fs…",
+                    attempt + 2,
+                    max_attempts,
+                    delay,
+                )
+                time.sleep(delay)
+                delay = min(delay * 2, 30.0)
+
+        if last_exc:
+            logger.error("[EMAIL] All SMTP attempts failed for %s", to_email)
+        return False
     
     async def send_async(
         self,

@@ -1,5 +1,5 @@
 """OTP schemas for email and SMS verification."""
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, model_validator
 from typing import Optional
 from enum import Enum
 
@@ -90,3 +90,28 @@ class OTPVerifyResponse(BaseModel):
     success: bool
     message: str
     verified: bool
+
+
+class VerifyRegistrationOTPBody(BaseModel):
+    """JSON body for POST /auth/verify-otp-registration (avoid OTP in query strings)."""
+    otp_code: str
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    otp_type: OTPType = OTPType.EMAIL
+
+    @field_validator('otp_code')
+    @classmethod
+    def validate_otp_code(cls, v):
+        if not v.isdigit() or len(v) != 6:
+            raise ValueError('OTP code must be 6 digits')
+        return v
+
+    @model_validator(mode='after')
+    def email_or_phone_matches_type(self):
+        if self.otp_type == OTPType.EMAIL:
+            if not self.email:
+                raise ValueError('email is required when otp_type is EMAIL')
+        else:
+            if not self.phone:
+                raise ValueError('phone is required when otp_type is SMS')
+        return self

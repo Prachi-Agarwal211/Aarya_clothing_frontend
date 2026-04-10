@@ -106,7 +106,8 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     if (!isAuthenticated) return;
 
-    const REFRESH_INTERVAL_MS = 45 * 60 * 1000; // 45 minutes
+    // 45 min base + 0–5 min jitter to avoid thundering herd on refresh (see auth spec)
+    const REFRESH_INTERVAL_MS = 45 * 60 * 1000 + Math.floor(Math.random() * 5 * 60 * 1000);
 
     const intervalId = setInterval(async () => {
       try {

@@ -13,7 +13,7 @@ import {
  *
  * Handles:
  * - Admin routes protection (requires admin/staff role)
- * - Profile routes protection (requires authentication)
+ * - Protected routes (cart, profile, /auth/change-password, etc.)
  * - Auth routes redirect (redirect authenticated users away from login/register)
  * - Static files and public assets bypass
  *
@@ -30,7 +30,6 @@ const AUTH_ROUTES = [
   '/auth/register',
   '/auth/forgot-password',
   '/auth/reset-password',
-  '/auth/change-password',
 ];
 
 // Convert to Set for O(1) lookups in middleware
@@ -143,7 +142,6 @@ export function middleware(request) {
 
   // Route classification using centralized role helpers
   const isAdminRoute = pathname.startsWith('/admin');
-  const isProfileRoute = pathname.startsWith('/profile');
   const isAuthRoute = AUTH_ROUTE_SET.has(pathname) || AUTH_ROUTES.some(route => pathname.startsWith(route));
   const isPublicRoute = PUBLIC_ROUTE_SET.has(pathname) || PUBLIC_ROUTES.some(route => pathname.startsWith(route + '/'));
 
@@ -192,7 +190,14 @@ export function middleware(request) {
   }
 
   // Handle protected routes - require authentication
-  const protectedRoutes = ['/cart', '/checkout', '/dashboard', '/profile', '/orders'];
+  const protectedRoutes = [
+    '/cart',
+    '/checkout',
+    '/dashboard',
+    '/profile',
+    '/orders',
+    '/auth/change-password',
+  ];
   const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route));
 
   if (isProtectedRoute) {

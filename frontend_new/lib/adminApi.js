@@ -49,11 +49,12 @@ export const ordersApi = {
   get: (id) => 
     adminClient.get(`/api/v1/admin/orders/${id}`),
 
-  updateStatus: (id, { status, pod_number, tracking_number, notes }) =>
+  updateStatus: (id, { status, pod_number, tracking_number, courier_name, notes }) =>
     adminClient.patch(`/api/v1/admin/orders/${id}/status`, {
       status,
       pod_number: pod_number || tracking_number || undefined,
       tracking_number: pod_number || tracking_number || undefined,
+      courier_name: courier_name || undefined,
       notes: notes || undefined,
     }),
 

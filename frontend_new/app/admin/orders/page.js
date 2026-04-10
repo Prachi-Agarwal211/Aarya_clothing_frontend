@@ -49,7 +49,7 @@ function OrdersContent() {
   const [updatingOrder, setUpdatingOrder] = useState(null);
   const [selected, setSelected] = useState(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
-  const [shipModal, setShipModal] = useState({ open: false, orderId: null, podNumber: '', notes: '' });
+  const [shipModal, setShipModal] = useState({ open: false, orderId: null, podNumber: '', courierName: '', notes: '' });
   const [podUpload, setPodUpload] = useState({ open: false, uploading: false, result: null, error: null });
   const [exportModal, setExportModal] = useState({ open: false, fromDate: '', toDate: '', loading: false });
 
@@ -195,7 +195,7 @@ function OrdersContent() {
 
   // Open ship modal instead of direct ship action
   const handleShipClick = (orderId) => {
-    setShipModal({ open: true, orderId, podNumber: '', notes: '' });
+    setShipModal({ open: true, orderId, podNumber: '', courierName: '', notes: '' });
   };
 
   const confirmShip = async () => {
@@ -208,12 +208,13 @@ function OrdersContent() {
       await ordersApi.updateStatus(shipModal.orderId, {
         status: 'shipped',
         pod_number: shipModal.podNumber.trim(),
+        courier_name: shipModal.courierName.trim() || undefined,
         notes: shipModal.notes || undefined,
       });
       setOrders(prev => prev.map(o =>
-        o.id === shipModal.orderId ? { ...o, status: 'shipped', tracking_number: shipModal.podNumber.trim() } : o
+        o.id === shipModal.orderId ? { ...o, status: 'shipped', tracking_number: shipModal.podNumber.trim(), courier_name: shipModal.courierName.trim() || null } : o
       ));
-      setShipModal({ open: false, orderId: null, podNumber: '', notes: '' });
+      setShipModal({ open: false, orderId: null, podNumber: '', courierName: '', notes: '' });
     } catch (err) {
       logger.error('Error shipping order:', err);
       setError(err?.message || 'Failed to ship order.');
@@ -308,6 +309,7 @@ function OrdersContent() {
         'Total (₹)': '',
         'Payment Method': '',
         'POD/Tracking No.': '',
+        'Courier Service': '',
         'Shipping Address': '',
         'Order Date': '',
         'Status': '',
@@ -341,6 +343,7 @@ function OrdersContent() {
               'Total (₹)': order.total_amount || 0,
               'Payment Method': order.payment_method || '',
               'POD/Tracking No.': order.tracking_number || order.pod_number || '',
+              'Courier Service': order.courier_name || '',
               'Shipping Address': formatAddress(order.shipping_address),
               'Order Date': formatDateForExcel(order.created_at),
               'Status': order.status || '',
@@ -361,6 +364,7 @@ function OrdersContent() {
                 'Total (₹)': order.total_amount || 0,
                 'Payment Method': order.payment_method || '',
                 'POD/Tracking No.': order.tracking_number || order.pod_number || '',
+                'Courier Service': order.courier_name || '',
                 'Shipping Address': formatAddress(order.shipping_address),
                 'Order Date': formatDateForExcel(order.created_at),
                 'Status': order.status || '',
@@ -389,6 +393,7 @@ function OrdersContent() {
         { wch: 12 }, // Total (₹)
         { wch: 15 }, // Payment Method
         { wch: 20 }, // POD/Tracking No.
+        { wch: 20 }, // Courier Service
         { wch: 50 }, // Shipping Address
         { wch: 15 }, // Order Date
         { wch: 12 }, // Status
@@ -886,7 +891,7 @@ function OrdersContent() {
       {/* Ship Order Modal — POD Required */}
       {shipModal.open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60" onClick={() => setShipModal({ open: false, orderId: null, podNumber: '', notes: '' })} />
+          <div className="absolute inset-0 bg-black/60" onClick={() => setShipModal({ open: false, orderId: null, podNumber: '', courierName: '', notes: '' })} />
           <div className="relative bg-[#0B0608]/95 backdrop-blur-xl border border-[#B76E79]/20 rounded-2xl p-6 w-full max-w-md">
             <h3 className="text-xl font-semibold text-[#F2C29A] mb-1" style={{ fontFamily: 'Cinzel, serif' }}>
               Ship Order #{shipModal.orderId}
@@ -908,19 +913,32 @@ function OrdersContent() {
                 </div>
               </div>
               <div>
+                <label className="block text-sm text-[#EAE0D5]/70 mb-1">Courier Name (optional)</label>
+                <div className="flex items-center border border-[#B76E79]/30 rounded-xl overflow-hidden">
+                  <Truck className="w-4 h-4 text-[#B76E79] ml-3 flex-shrink-0" />
+                  <input
+                    type="text"
+                    value={shipModal.courierName}
+                    onChange={(e) => setShipModal(prev => ({ ...prev, courierName: e.target.value }))}
+                    placeholder="e.g. Delhivery, BlueDart, DTDC"
+                    className="flex-1 px-3 py-2.5 bg-transparent text-[#EAE0D5] placeholder-[#EAE0D5]/30 focus:outline-none text-sm"
+                  />
+                </div>
+              </div>
+              <div>
                 <label className="block text-sm text-[#EAE0D5]/70 mb-1">Notes (optional)</label>
                 <input
                   type="text"
                   value={shipModal.notes}
                   onChange={(e) => setShipModal(prev => ({ ...prev, notes: e.target.value }))}
-                  placeholder="Courier name, pickup date, etc."
+                  placeholder="Pickup date, special instructions, etc."
                   className="w-full px-4 py-2.5 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-xl text-[#EAE0D5] placeholder-[#EAE0D5]/30 focus:outline-none focus:border-[#B76E79]/40 text-sm"
                 />
               </div>
             </div>
             <div className="flex gap-3 mt-6">
               <button
-                onClick={() => setShipModal({ open: false, orderId: null, podNumber: '', notes: '' })}
+                onClick={() => setShipModal({ open: false, orderId: null, podNumber: '', courierName: '', notes: '' })}
                 className="flex-1 px-4 py-2.5 border border-[#B76E79]/20 rounded-xl text-[#EAE0D5]/70 hover:bg-[#B76E79]/10 transition-colors"
               >
                 Cancel

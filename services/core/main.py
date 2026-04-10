@@ -11,6 +11,7 @@ This service handles:
 - Profile management
 """
 import re
+import asyncio
 import logging
 import ipaddress
 from contextlib import asynccontextmanager
@@ -36,6 +37,7 @@ from schemas.auth import (
     ForgotPasswordRequest, PasswordResetConfirm, ResetPasswordWithOtpRequest,
     VerifyResetOtpRequest, VerifyResetOtpResponse
 )
+from schemas.otp import OTPSendRequest, OTPVerifyRequest, OTPType, VerifyRegistrationOTPBody
 from service.auth_service import AuthService
 from service.email_service import email_service
 from middleware.auth_middleware import init_auth, get_current_user, get_current_user_optional
@@ -55,15 +57,28 @@ async def lifespan(app: FastAPI):
     # Initialize auth middleware
     init_auth()
 
+    otp_email_worker: asyncio.Task | None = None
+
     # Verify Redis connection
     if redis_client.ping():
         logger.info("✓ Redis connected")
+        if settings.EMAIL_OTP_USE_QUEUE:
+            from service.email_queue import run_otp_email_worker
+
+            otp_email_worker = asyncio.create_task(run_otp_email_worker())
+            logger.info("✓ OTP email queue worker started")
     else:
         logger.error("✗ Redis connection failed")
 
     yield
 
     # Shutdown
+    if otp_email_worker is not None:
+        otp_email_worker.cancel()
+        try:
+            await otp_email_worker
+        except asyncio.CancelledError:
+            pass
     logger.info("Core service shutting down")
 
 
@@ -242,13 +257,17 @@ async def root_health():
 @app.get("/api/v1/auth/health", tags=["Health"])
 async def health_check(db: Session = Depends(get_db)):
     """Health check endpoint."""
+    from service.email_queue import otp_email_queue_length
+
     redis_status = "healthy" if redis_client.ping() else "unhealthy"
     db_status = "healthy"
     try:
         db.execute(text("SELECT 1"))
     except Exception:
         db_status = "unhealthy"
-        
+
+    q_len = otp_email_queue_length()
+
     return {
         "status": "healthy" if db_status == "healthy" else "degraded",
         "service": "core-platform",
@@ -257,7 +276,9 @@ async def health_check(db: Session = Depends(get_db)):
         "dependencies": {
             "redis": redis_status,
             "database": db_status
-        }
+        },
+        "otp_email_queue_length": q_len,
+        "email_otp_queue_enabled": settings.EMAIL_OTP_USE_QUEUE,
     }
 
 
@@ -405,39 +426,35 @@ async def verify_email(
           status_code=status.HTTP_200_OK,
           tags=["Authentication"])
 async def verify_otp_registration(
-    otp_code: str,
-    email: str = None,
-    phone: str = None,
-    otp_type: str = "EMAIL",
-    response: Response = None,
+    body: VerifyRegistrationOTPBody,
+    response: Response,
     db: Session = Depends(get_db)
 ):
     """
     Verify OTP for registration and auto-login user.
     Supports both EMAIL and SMS OTP verification.
+    OTP and identifiers must be sent in the JSON body (not query params).
     """
     import logging
     logger = logging.getLogger(__name__)
-    
-    logger.info(f"[OTP Verify] Starting verification - phone: {phone}, email: {email}, otp_type: {otp_type}")
-    
-    from service.otp_service import OTPService
-    from schemas.otp import OTPVerifyRequest, OTPType
 
-    if not email and not phone:
-        logger.warning("[OTP Verify] Missing email and phone")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Either email or phone must be provided"
-        )
+    email = body.email
+    phone = body.phone
+
+    logger.info(
+        f"[OTP Verify] Starting verification - phone: {phone}, email: {email}, "
+        f"otp_type: {body.otp_type}"
+    )
+
+    from service.otp_service import OTPService
 
     # Verify OTP
     otp_service = OTPService(db)
     otp_request = OTPVerifyRequest(
-        email=email if otp_type == "EMAIL" else None,
-        phone=phone if otp_type == "SMS" else None,
-        otp_code=otp_code,
-        otp_type=OTPType.EMAIL if otp_type == "EMAIL" else OTPType.SMS,
+        email=body.email if body.otp_type == OTPType.EMAIL else None,
+        phone=body.phone if body.otp_type == OTPType.SMS else None,
+        otp_code=body.otp_code,
+        otp_type=body.otp_type,
         purpose="registration"
     )
 
@@ -516,32 +533,18 @@ async def verify_otp_registration(
           status_code=status.HTTP_200_OK,
           tags=["Authentication"])
 async def send_verification_otp(
-    email: str = None,
-    phone: str = None,
-    otp_type: str = "EMAIL",
+    body: OTPSendRequest,
     db: Session = Depends(get_db)
 ):
     """
     Send or resend OTP for registration verification.
     Supports both EMAIL and SMS OTP.
+    Request JSON body (email/phone + otp_type); purpose is always registration.
     """
-    if not email and not phone:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Either email or phone must be provided"
-        )
-
     from service.otp_service import OTPService
-    from schemas.otp import OTPSendRequest, OTPType
 
     otp_service = OTPService(db)
-    otp_request = OTPSendRequest(
-        email=email if otp_type == "EMAIL" else None,
-        phone=phone if otp_type == "SMS" else None,
-        otp_type=OTPType.EMAIL if otp_type == "EMAIL" else OTPType.SMS,
-        purpose="registration"
-    )
-    
+    otp_request = body.model_copy(update={"purpose": "registration"})
     result = otp_service.send_otp(otp_request)
     return result
 
@@ -1221,6 +1224,9 @@ async def get_site_config(db: Session = Depends(get_db)):
         "brand_name": db_config.get("brand_name", "Aarya Clothing"),
         "noise": f"{r2_public}/noise.png" if r2_public else "/noise.png",
         "r2BaseUrl": r2_public,
+        # MSG91 fully configured — frontend hides SMS OTP when false
+        "smsOtpEnabled": core_settings.sms_enabled,
+        "sms_otp_enabled": core_settings.sms_enabled,
     }
 
 

@@ -72,15 +72,25 @@ class OTPService:
         # Send OTP based on type
         if email and otp_type == "EMAIL":
             try:
-                email_service.send_otp_email(
-                    to_email=email,
-                    otp_code=otp_code,
-                    purpose=purpose or "verification"
-                )
-                delivery_target = email
+                from service.email_queue import try_enqueue_otp_email
+
+                purpose_str = purpose or "verification"
+                if try_enqueue_otp_email(email, otp_code, purpose_str):
+                    delivery_target = email
+                else:
+                    ok = email_service.send_otp_email(
+                        to_email=email,
+                        otp_code=otp_code,
+                        purpose=purpose_str,
+                    )
+                    if not ok:
+                        redis_client.delete_otp(otp_key)
+                        raise ValueError("Failed to send OTP via email")
+                    delivery_target = email
+            except ValueError:
+                raise
             except Exception as e:
                 logger.error(f"[OTP Service] Failed to send email OTP to {email}: {str(e)}")
-                # Delete the stored OTP since delivery failed
                 redis_client.delete_otp(otp_key)
                 raise ValueError(f"Failed to send OTP via email: {str(e)}")
         elif phone and otp_type == "SMS":

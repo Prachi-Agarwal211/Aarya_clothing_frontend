@@ -437,6 +437,33 @@ CREATE INDEX IF NOT EXISTS idx_wishlist_product ON wishlist(product_id);
 
 
 -- ============================================
+-- STOCK RESERVATIONS TABLE (Commerce Service)
+-- Holds stock during checkout process
+-- ============================================
+CREATE TABLE IF NOT EXISTS stock_reservations (
+    id SERIAL PRIMARY KEY,
+    reservation_id VARCHAR(100) NOT NULL UNIQUE,
+    user_id INTEGER NOT NULL,
+    sku VARCHAR(50) NOT NULL,
+    quantity INTEGER NOT NULL,
+    status VARCHAR(20) NOT NULL,
+    expires_at TIMESTAMP NOT NULL,
+    order_id INTEGER,
+    payment_ref VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS ix_stock_reservations_id ON stock_reservations(id);
+CREATE INDEX IF NOT EXISTS ix_stock_reservations_reservation_id ON stock_reservations(reservation_id);
+CREATE INDEX IF NOT EXISTS ix_stock_reservations_user_id ON stock_reservations(user_id);
+CREATE INDEX IF NOT EXISTS ix_stock_reservations_sku ON stock_reservations(sku);
+CREATE INDEX IF NOT EXISTS ix_stock_reservations_order_id ON stock_reservations(order_id);
+CREATE INDEX IF NOT EXISTS ix_stock_reservations_expires_at ON stock_reservations(expires_at);
+CREATE INDEX IF NOT EXISTS ix_stock_reservations_created_at ON stock_reservations(created_at);
+
+
+-- ============================================
 -- REVIEWS TABLE (Commerce Service)
 -- ============================================
 CREATE TABLE IF NOT EXISTS reviews (
@@ -570,6 +597,36 @@ CREATE INDEX IF NOT EXISTS idx_audit_logs_created ON audit_logs(created_at DESC)
 
 
 -- ============================================
+-- CUSTOMER ACTIVITY LOGS TABLE
+-- Tracks all customer actions for audit trail and admin visibility
+-- ============================================
+CREATE TABLE IF NOT EXISTS customer_activity_logs (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL,
+    activity_type VARCHAR(50) NOT NULL,
+    resource_type VARCHAR(50),
+    resource_id INTEGER,
+    details JSONB,
+    ip_address VARCHAR(45),
+    user_agent TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT chk_customer_activity_type CHECK (activity_type IN (
+        'order_view', 'order_cancel', 'order_reorder', 'order_invoice_download',
+        'order_print', 'order_detail_view', 'order_status_change',
+        'cart_add', 'cart_remove', 'wishlist_add', 'wishlist_remove',
+        'review_create', 'review_edit', 'address_add', 'address_edit',
+        'address_delete', 'profile_update', 'password_change',
+        'login', 'logout', 'signup'
+    ))
+);
+
+CREATE INDEX IF NOT EXISTS idx_customer_activity_user ON customer_activity_logs(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_customer_activity_type ON customer_activity_logs(activity_type);
+CREATE INDEX IF NOT EXISTS idx_customer_activity_resource ON customer_activity_logs(resource_type, resource_id);
+CREATE INDEX IF NOT EXISTS idx_customer_activity_created ON customer_activity_logs(created_at DESC);
+
+
+-- ============================================
 -- PAYMENT TRANSACTIONS TABLE (Payment Service)
 -- ============================================
 CREATE TABLE IF NOT EXISTS payment_transactions (
@@ -649,6 +706,107 @@ CREATE INDEX IF NOT EXISTS idx_webhook_processed ON webhook_events(processed);
 
 
 -- ============================================
+-- EASEBUZZ TRANSACTIONS TABLE (Payment Service)
+-- Easebuzz payment gateway transaction tracking
+-- ============================================
+CREATE TABLE IF NOT EXISTS easebuzz_transactions (
+    id SERIAL PRIMARY KEY,
+    transaction_id VARCHAR(100) NOT NULL UNIQUE,
+    easebuzz_order_id VARCHAR(100) NOT NULL,
+    txnid VARCHAR(100) NOT NULL,
+    amount DECIMAL(10, 2) NOT NULL,
+    currency VARCHAR(3) NOT NULL DEFAULT 'INR',
+    payment_mode VARCHAR(50),
+    bank_ref_num VARCHAR(100),
+    card_category VARCHAR(50),
+    firstname VARCHAR(100) NOT NULL,
+    email VARCHAR(255) NOT NULL,
+    phone VARCHAR(20) NOT NULL,
+    productinfo TEXT NOT NULL,
+    address1 VARCHAR(255),
+    address2 VARCHAR(255),
+    city VARCHAR(100),
+    state VARCHAR(100),
+    country VARCHAR(100),
+    zipcode VARCHAR(20),
+    surl TEXT NOT NULL,
+    furl TEXT NOT NULL,
+    status VARCHAR(50) NOT NULL,
+    easebuzz_status VARCHAR(50),
+    payment_url TEXT,
+    error_message TEXT,
+    error_code VARCHAR(50),
+    udf1 VARCHAR(255),
+    udf2 VARCHAR(255),
+    udf3 VARCHAR(255),
+    udf4 VARCHAR(255),
+    udf5 VARCHAR(255),
+    user_id INTEGER,
+    order_id INTEGER,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE,
+    completed_at TIMESTAMP WITH TIME ZONE
+);
+
+CREATE INDEX IF NOT EXISTS ix_easebuzz_transactions_id ON easebuzz_transactions(id);
+CREATE INDEX IF NOT EXISTS ix_easebuzz_transactions_transaction_id ON easebuzz_transactions(transaction_id);
+CREATE INDEX IF NOT EXISTS ix_easebuzz_transactions_easebuzz_order_id ON easebuzz_transactions(easebuzz_order_id);
+CREATE INDEX IF NOT EXISTS ix_easebuzz_transactions_txnid ON easebuzz_transactions(txnid);
+CREATE INDEX IF NOT EXISTS ix_easebuzz_transactions_order_id ON easebuzz_transactions(order_id);
+CREATE INDEX IF NOT EXISTS ix_easebuzz_transactions_user_id ON easebuzz_transactions(user_id);
+
+
+-- ============================================
+-- EASEBUZZ REFUNDS TABLE (Payment Service)
+-- Easebuzz refund tracking
+-- ============================================
+CREATE TABLE IF NOT EXISTS easebuzz_refunds (
+    id SERIAL PRIMARY KEY,
+    refund_id VARCHAR(100) NOT NULL UNIQUE,
+    original_transaction_id VARCHAR(100) NOT NULL,
+    amount DECIMAL(10, 2) NOT NULL,
+    refund_reason TEXT NOT NULL,
+    status VARCHAR(50) NOT NULL,
+    easebuzz_refund_id VARCHAR(100),
+    easebuzz_status VARCHAR(50),
+    error_message TEXT,
+    error_code VARCHAR(50),
+    processed_by INTEGER,
+    notes TEXT,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE,
+    completed_at TIMESTAMP WITH TIME ZONE
+);
+
+CREATE INDEX IF NOT EXISTS ix_easebuzz_refunds_id ON easebuzz_refunds(id);
+CREATE INDEX IF NOT EXISTS ix_easebuzz_refunds_refund_id ON easebuzz_refunds(refund_id);
+CREATE INDEX IF NOT EXISTS ix_easebuzz_refunds_original_transaction_id ON easebuzz_refunds(original_transaction_id);
+
+
+-- ============================================
+-- EASEBUZZ WEBHOOK LOGS TABLE (Payment Service)
+-- Easebuzz webhook event logging
+-- ============================================
+CREATE TABLE IF NOT EXISTS easebuzz_webhook_logs (
+    id SERIAL PRIMARY KEY,
+    webhook_id VARCHAR(100) NOT NULL UNIQUE,
+    event_type VARCHAR(100) NOT NULL,
+    payload JSON NOT NULL,
+    signature VARCHAR(512),
+    processed BOOLEAN NOT NULL DEFAULT FALSE,
+    processing_attempts INTEGER NOT NULL DEFAULT 0,
+    error_message TEXT,
+    transaction_id VARCHAR(100),
+    received_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    processed_at TIMESTAMP WITH TIME ZONE
+);
+
+CREATE INDEX IF NOT EXISTS ix_easebuzz_webhook_logs_id ON easebuzz_webhook_logs(id);
+CREATE INDEX IF NOT EXISTS ix_easebuzz_webhook_logs_webhook_id ON easebuzz_webhook_logs(webhook_id);
+CREATE INDEX IF NOT EXISTS ix_easebuzz_webhook_logs_transaction_id ON easebuzz_webhook_logs(transaction_id);
+
+
+-- ============================================
 -- CHAT ROOMS TABLE (Admin Service)
 -- ============================================
 CREATE TABLE IF NOT EXISTS chat_rooms (
@@ -669,6 +827,22 @@ CREATE TABLE IF NOT EXISTS chat_rooms (
 CREATE INDEX IF NOT EXISTS idx_chat_rooms_customer ON chat_rooms(customer_id);
 CREATE INDEX IF NOT EXISTS idx_chat_rooms_assigned ON chat_rooms(assigned_to);
 CREATE INDEX IF NOT EXISTS idx_chat_rooms_status ON chat_rooms(status);
+
+
+-- ============================================
+-- CHAT SESSIONS TABLE (Admin/AI Service)
+-- Tracks customer chat sessions with string-based IDs
+-- ============================================
+CREATE TABLE IF NOT EXISTS chat_sessions (
+    id VARCHAR(50) NOT NULL PRIMARY KEY,
+    user_id INTEGER,
+    is_active BOOLEAN,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS ix_chat_sessions_id ON chat_sessions(id);
+CREATE INDEX IF NOT EXISTS ix_chat_sessions_user_id ON chat_sessions(user_id);
 
 
 -- ============================================

@@ -54,6 +54,10 @@ class Settings(SharedBaseSettings):
     SMTP_TLS: bool = True
     EMAIL_FROM: str = "noreply@aaryaclothings.com"
     EMAIL_FROM_NAME: str = "Aarya Clothings"
+    # Async OTP email: queue in Redis + background worker (reduces API latency under load)
+    EMAIL_OTP_USE_QUEUE: bool = True
+    # SMTP transient failures — retries inside each send (queue worker uses this too)
+    SMTP_SEND_MAX_ATTEMPTS: int = 3
     
     # ==================== MSG91 SMS API ====================
     MSG91_AUTH_KEY: Optional[str] = None

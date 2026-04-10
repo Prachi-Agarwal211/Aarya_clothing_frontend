@@ -111,6 +111,8 @@ services:
       context: .
       dockerfile: services/core/Dockerfile
     container_name: aarya_core
+    env_file:
+      - .env
     environment:
       - SERVICE_NAME=core
       - ENVIRONMENT=${ENVIRONMENT:-development}
@@ -148,7 +150,7 @@ services:
       - SMTP_HOST=smtp.hostinger.com
       - SMTP_PORT=465
       - SMTP_USER=noreply@aaryaclothing.in
-      - SMTP_PASSWORD=Aarya@2026
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
       - SMTP_TLS=true
       - EMAIL_FROM=noreply@aaryaclothing.in
       - EMAIL_FROM_NAME=Aarya Clothing
@@ -158,6 +160,9 @@ services:
       - OTP_MAX_ATTEMPTS=3
       - OTP_RESEND_COOLDOWN_MINUTES=1
       - OTP_MAX_RESEND_PER_HOUR=5
+      # Async OTP email queue + SMTP retries (see services/core/service/email_queue.py)
+      - EMAIL_OTP_USE_QUEUE=${EMAIL_OTP_USE_QUEUE:-true}
+      - SMTP_SEND_MAX_ATTEMPTS=${SMTP_SEND_MAX_ATTEMPTS:-3}
     ports:
       - "5001:5001"
     depends_on:
@@ -165,6 +170,12 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5001/"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
     deploy:
       resources:
         limits:
@@ -208,6 +219,7 @@ services:
       # Meilisearch
       - MEILISEARCH_URL=http://meilisearch:7700
       - MEILISEARCH_API_KEY=${MEILI_MASTER_KEY:-dev_master_key}
+      - INTERNAL_SERVICE_SECRET=${INTERNAL_SERVICE_SECRET:-aarya_internal_secret_change_me}
       # R2 Storage (optional)
       - R2_ACCOUNT_ID=${R2_ACCOUNT_ID:-}
       - R2_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID:-}
@@ -236,6 +248,12 @@ services:
         condition: service_healthy
       core:
         condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5002/"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
     deploy:
       resources:
         limits:
@@ -284,6 +302,8 @@ services:
       - PAYMENT_SUCCESS_URL=${PAYMENT_SUCCESS_URL:-https://aaryaclothing.in/payment/success}
       - PAYMENT_FAILURE_URL=${PAYMENT_FAILURE_URL:-https://aaryaclothing.in/payment/failure}
       - PAYMENT_NOTIFY_URL=${PAYMENT_NOTIFY_URL:-https://aaryaclothing.in/api/v1/webhooks/razorpay}
+      - COMMERCE_SERVICE_URL=http://commerce:5002
+      - INTERNAL_SERVICE_SECRET=${INTERNAL_SERVICE_SECRET:-aarya_internal_secret_change_me}
       - ALLOWED_ORIGINS=["http://localhost:6004","http://localhost:6005","http://127.0.0.1:6004","http://127.0.0.1:6005","https://aaryaclothing.in","https://www.aaryaclothing.in"]
       - DEBUG=${AARYA_DEBUG:-false}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
@@ -296,6 +316,12 @@ services:
         condition: service_healthy
       core:
         condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5003/"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
     deploy:
       resources:
         limits:
@@ -366,6 +392,12 @@ services:
         condition: service_healthy
       core:
         condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5004/"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
     deploy:
       resources:
         limits:
@@ -453,6 +485,41 @@ services:
       - tools
     networks:
       - frontend_network
+
+  # ============================================================
+  # PAYMENT RECOVERY WORKER (RQ Worker)
+  # ============================================================
+  # Background worker that processes payment recovery jobs.
+  # Runs every 5 minutes to find orphaned payments and create orders.
+
+  payment-worker:
+    build:
+      context: .
+      dockerfile: services/payment/Dockerfile
+    container_name: aarya_payment_worker
+    command: python -m jobs.worker
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:-postgres123}@postgres:5432/aarya_clothing
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-aarya_clothing_redis_password_2024}@redis:6379/2
+      - COMMERCE_SERVICE_URL=http://commerce:5002
+      - INTERNAL_SERVICE_SECRET=${INTERNAL_SERVICE_SECRET:-aarya_internal_secret_change_me}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      commerce:
+        condition: service_started
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+    networks:
+      - backend_network
+    restart: unless-stopped
 
 # ============================================================
 # NETWORK DEFINITIONS

@@ -8,7 +8,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { authApi } from '../../../lib/customerApi';
-import { useLogo } from '../../../lib/siteConfigContext';
+import { useLogo, useSiteConfig } from '../../../lib/siteConfigContext';
 import logger from '../../../lib/logger';
 import { validatePhone, formatTime, getErrorMessage } from '../../../lib/authHelpers';
 
@@ -20,6 +20,7 @@ const TOTAL_STEPS = 3;
 
 export default function ForgotPasswordPage() {
   const logoUrl = useLogo();
+  const { smsOtpEnabled } = useSiteConfig();
   const router = useRouter();
 
   // Step management: 1 = form, 2 = OTP input, 3 = success (verified, redirecting)
@@ -75,6 +76,12 @@ export default function ForgotPasswordPage() {
       if (cooldownTimer) clearInterval(cooldownTimer);
     };
   }, [step, otpTimeLeft, otpExpired, resendCooldown]);
+
+  useEffect(() => {
+    if (!smsOtpEnabled && verificationMethod === 'otp_sms') {
+      setVerificationMethod('otp_email');
+    }
+  }, [smsOtpEnabled, verificationMethod]);
 
   const startOtpTimers = () => {
     setOtpTimeLeft(OTP_EXPIRY_SECONDS);
@@ -359,16 +366,22 @@ export default function ForgotPasswordPage() {
 
                 <button
                   type="button"
-                  onClick={() => setVerificationMethod('otp_sms')}
+                  disabled={!smsOtpEnabled}
+                  title={!smsOtpEnabled ? 'SMS verification is not configured. Use email.' : undefined}
+                  onClick={() => smsOtpEnabled && setVerificationMethod('otp_sms')}
                   className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all duration-300 ${
-                    verificationMethod === 'otp_sms'
-                      ? 'bg-[#7A2F57]/20 border-[#F2C29A]/60 shadow-[0_0_20px_rgba(242,194,154,0.15)]'
-                      : 'bg-[#7A2F57]/10 border-[#B76E79]/30 hover:border-[#F2C29A]/40'
+                    !smsOtpEnabled
+                      ? 'opacity-50 cursor-not-allowed bg-[#7A2F57]/5 border-[#B76E79]/20'
+                      : verificationMethod === 'otp_sms'
+                        ? 'bg-[#7A2F57]/20 border-[#F2C29A]/60 shadow-[0_0_20px_rgba(242,194,154,0.15)]'
+                        : 'bg-[#7A2F57]/10 border-[#B76E79]/30 hover:border-[#F2C29A]/40'
                   }`}
                 >
                   <Smartphone className={`w-6 h-6 transition-colors ${verificationMethod === 'otp_sms' ? 'text-[#F2C29A]' : 'text-[#B76E79]'}`} />
                   <p className="text-xs text-[#EAE0D5]/90 font-bold tracking-widest">SMS OTP</p>
-                  <p className="text-[10px] text-[#EAE0D5]/50 text-center">6-digit code via SMS</p>
+                  <p className="text-[10px] text-[#EAE0D5]/50 text-center">
+                    {smsOtpEnabled ? '6-digit code via SMS' : 'Unavailable (configure MSG91)'}
+                  </p>
                 </button>
               </div>
             </div>

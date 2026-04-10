@@ -61,7 +61,9 @@ const nextConfig = {
     // Security settings
     dangerouslyAllowSVG: false,
     contentDispositionType: 'attachment',
-    contentSecurityPolicy: "default-src 'self'; frame-ancestors 'self'; base-uri 'self';",
+    // connect-src allows same-origin fetch/XHR from optimized image URLs where applicable
+    contentSecurityPolicy:
+      "default-src 'self'; frame-ancestors 'self'; base-uri 'self'; connect-src 'self' https: wss: data: blob:;",
 
     // Prevent unoptimized mode - always use optimization
     unoptimized: false,

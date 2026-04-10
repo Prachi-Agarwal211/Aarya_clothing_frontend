@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, Suspense } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Lock, Eye, EyeOff, CheckCircle, XCircle } from 'lucide-react';
@@ -28,22 +28,39 @@ function ResetPasswordForm() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  // Determine flow type
-  // SECURITY FIX: Check sessionStorage first (more secure than URL params)
-  // This prevents OTP from being exposed in browser history, server logs, and Referer headers
-  const storedVerification = typeof window !== 'undefined' 
-    ? JSON.parse(sessionStorage.getItem('otp_verification') || 'null')
-    : null;
+  // Session data read in useEffect to avoid SSR/client hydration mismatch
+  const [otpClient, setOtpClient] = useState({
+    loaded: false,
+    storedVerification: null,
+    otpCodeTemp: null,
+  });
 
-  // Support both URL params (legacy) and sessionStorage (new secure method)
-  const isOtpFlow = searchParams.get('verified') !== null || storedVerification?.verified;
-  const verifiedIdentifier = searchParams.get('verified') || storedVerification?.identifier;
-  const otpType = searchParams.get('otp_type') || storedVerification?.otpType || 'SMS';
-  
-  // For OTP code, prefer sessionStorage (secure) over URL param (legacy)
-  const otpCode = storedVerification?.otpCode || 
-                  (typeof window !== 'undefined' ? sessionStorage.getItem('otp_code_temp') : null) ||
-                  searchParams.get('otp_code');
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem('otp_verification');
+      const storedVerification = raw ? JSON.parse(raw) : null;
+      const otpCodeTemp = sessionStorage.getItem('otp_code_temp');
+      setOtpClient({ loaded: true, storedVerification, otpCodeTemp });
+    } catch {
+      setOtpClient({ loaded: true, storedVerification: null, otpCodeTemp: null });
+    }
+  }, []);
+
+  const { storedVerification, otpCodeTemp, loaded: otpClientLoaded } = otpClient;
+
+  // Support URL params (legacy) and sessionStorage (preferred — no OTP in query)
+  const isOtpFlow =
+    searchParams.get('verified') !== null ||
+    (otpClientLoaded && !!storedVerification?.verified);
+  const verifiedIdentifier =
+    searchParams.get('verified') || storedVerification?.identifier;
+  const otpType =
+    searchParams.get('otp_type') || storedVerification?.otpType || 'EMAIL';
+
+  const otpCode =
+    storedVerification?.otpCode ||
+    otpCodeTemp ||
+    searchParams.get('otp_code');
   const emailToken = searchParams.get('token');
 
   // Password validation

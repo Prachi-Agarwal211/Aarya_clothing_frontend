@@ -341,8 +341,8 @@ class ProductService:
                     inv = Inventory(
                         product_id=product.id,
                         sku=auto_sku,
-                        size=v.size or "One Size",
-                        color=v.color or "Default",
+                        size=v.size or "STD",
+                        color=v.color or "STD",
                         quantity=v.quantity or 0,
                         low_stock_threshold=v.low_stock_threshold or 5,
                         variant_price=v.variant_price,
@@ -351,24 +351,9 @@ class ProductService:
                 self.db.commit()
                 logger.info(f"Created {len(variants)} variant inventory record(s) for product #{product.id}")
             else:
-                # 🔥 ALWAYS create default inventory record when no variants provided
-                # This is the critical fix - products without variants MUST have inventory
-                base_sku = (
-                    product_data.sku
-                    if hasattr(product_data, 'sku') and product_data.sku
-                    else f"PRD-{product.id}-BASE"
-                )
-                default_inv = Inventory(
-                    product_id=product.id,
-                    sku=base_sku,
-                    size="One Size",
-                    color="Default",
-                    quantity=initial_stock or 0,  # Can be 0 (out of stock) but inventory record MUST exist
-                    low_stock_threshold=5,
-                )
-                self.db.add(default_inv)
-                self.db.commit()
-                logger.info(f"Created DEFAULT inventory record for product #{product.id} (qty={initial_stock or 0})")
+                # No variants provided — this is now an error. Products MUST have variants.
+                self.db.rollback()
+                raise ValueError("At least one product variant is required. Please specify size/color inventory.")
 
         except IntegrityError as e:
             logger.error(f"Database integrity error creating inventory for product #{product.id}: {e}")
@@ -463,45 +448,32 @@ class ProductService:
         if update_keys.intersection({"name", "description", "category_id", "tags"}):
             _generate_product_embedding(product, self.db)
 
-        # 🔥 CRITICAL FIX: Ensure product has at least one inventory record after update
-        # This catches edge cases where products were created before the fix
-        self._ensure_product_has_inventory(product)
-
         return product
 
     def _ensure_product_has_inventory(self, product: Product) -> None:
-        """Ensure a product has at least one inventory record.
-        
-        This is a safety net for products created before the fix or via other means.
-        Creates a default inventory record if none exists.
-        
+        """Check if a product has inventory and log a warning if not.
+
+        NOTE: This method no longer creates default inventory records.
+        Products without inventory will simply remain invisible to customers.
+        Admins must explicitly add variants via the admin panel.
+
         Args:
             product: The Product instance to check.
         """
         try:
             from models.inventory import Inventory
-            
-            # Check if product already has inventory
+
             existing_inventory = self.db.query(Inventory).filter(
                 Inventory.product_id == product.id
             ).first()
-            
+
             if not existing_inventory:
-                # Create default inventory record
-                default_inv = Inventory(
-                    product_id=product.id,
-                    sku=f"PRD-{product.id}-BASE",
-                    size="One Size",
-                    color="Default",
-                    quantity=0,
-                    low_stock_threshold=5,
+                logger.warning(
+                    f"Product #{product.id} has NO inventory records. "
+                    f"Add variants via admin panel to make it visible to customers."
                 )
-                self.db.add(default_inv)
-                self.db.commit()
-                logger.warning(f"Created missing DEFAULT inventory record for product #{product.id}")
         except Exception as e:
-            logger.error(f"Error ensuring inventory for product #{product.id}: {e}")
-            # Don't fail the update operation - inventory can be added later
+            logger.error(f"Error checking inventory for product #{product.id}: {e}")
 
     def delete_product(self, product_id: int) -> bool:
         """Delete a product (soft delete by setting is_active=False).

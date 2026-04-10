@@ -19,6 +19,56 @@ from schemas.payment import (
 )
 
 
+def _audit_payment_event(db: Session, event_type: str, success: bool, **kwargs):
+    """Log a payment-order event to the payment_order_audit table.
+
+    Args:
+        db: Database session
+        event_type: Type of event (payment_initiated, payment_succeeded, order_created, etc.)
+        success: Whether the event was successful
+        **kwargs: Additional fields to log (razorpay_payment_id, user_id, error_message, etc.)
+    """
+    try:
+        from sqlalchemy import text
+        db.execute(text("""
+            INSERT INTO payment_order_audit (
+                event_type, event_id, razorpay_order_id, razorpay_payment_id,
+                razorpay_signature, qr_code_id, payment_method, user_id, order_id,
+                pending_order_id, transaction_id, amount, currency, cart_items,
+                shipping_address, success, error_message, error_details, response_data
+            ) VALUES (
+                :event_type, :event_id, :razorpay_order_id, :razorpay_payment_id,
+                :razorpay_signature, :qr_code_id, :payment_method, :user_id, :order_id,
+                :pending_order_id, :transaction_id, :amount, :currency, :cart_items,
+                :shipping_address, :success, :error_message, :error_details, :response_data
+            )
+        """), {
+            "event_type": event_type,
+            "event_id": kwargs.get("event_id"),
+            "razorpay_order_id": kwargs.get("razorpay_order_id"),
+            "razorpay_payment_id": kwargs.get("razorpay_payment_id"),
+            "razorpay_signature": kwargs.get("razorpay_signature"),
+            "qr_code_id": kwargs.get("qr_code_id"),
+            "payment_method": kwargs.get("payment_method"),
+            "user_id": kwargs.get("user_id"),
+            "order_id": kwargs.get("order_id"),
+            "pending_order_id": kwargs.get("pending_order_id"),
+            "transaction_id": kwargs.get("transaction_id"),
+            "amount": kwargs.get("amount"),
+            "currency": kwargs.get("currency", "INR"),
+            "cart_items": kwargs.get("cart_items"),
+            "shipping_address": kwargs.get("shipping_address"),
+            "success": success,
+            "error_message": kwargs.get("error_message"),
+            "error_details": kwargs.get("error_details"),
+            "response_data": kwargs.get("response_data"),
+        })
+        db.commit()
+    except Exception as e:
+        logger.error(f"Failed to write audit log: {e}")
+        # Don't raise — audit logging should never break the main flow
+
+
 class PaymentService:
     """Service for handling payment operations."""
     
@@ -456,39 +506,49 @@ class PaymentService:
     def process_webhook_event(self, webhook_data: Dict[str, Any]) -> bool:
         """
         Process webhook event from Razorpay.
-        
+
         Args:
             webhook_data: Webhook event data
-            
+
         Returns:
             True if processed successfully
         """
         try:
             event_id = webhook_data.get("id")
-            
+            event_type = webhook_data.get("event", "")
+
             # Idempotency check: Return true if event already processed
             if event_id:
                 existing_event = self.db.query(WebhookEvent).filter(WebhookEvent.event_id == event_id).first()
                 if existing_event:
                     logger.info(f"Webhook {event_id} already processed. Skipping.")
                     return True
-            
+
             # Log webhook event
             webhook_event = WebhookEvent(
                 gateway="razorpay",
-                event_type=webhook_data.get("event", ""),
+                event_type=event_type,
                 event_id=event_id,
                 payload=webhook_data,
                 processed=False
             )
-            
+
             self.db.add(webhook_event)
             self.db.flush()
-            
+
+            # AUDIT: Log webhook received
+            _audit_payment_event(
+                self.db, event_type="webhook_received", success=True,
+                event_id=event_id,
+                razorpay_payment_id=webhook_data.get("payload", {}).get("payment", {}).get("id"),
+                razorpay_order_id=webhook_data.get("payload", {}).get("payment", {}).get("order_id"),
+                response_data=webhook_data
+            )
+
             # Parse event
             razorpay_client = get_razorpay_client()
             event_info = razorpay_client.parse_webhook_event(webhook_data)
-            
+
             # Process based on event type
             if event_info["event_type"] == "payment.captured":
                 self._handle_payment_captured(event_info)
@@ -496,16 +556,34 @@ class PaymentService:
                 self._handle_payment_failed(event_info)
             elif event_info["event_type"] == "refund.processed":
                 self._handle_refund_processed(event_info)
-            
+
             # Mark webhook as processed
             webhook_event.processed = True
             webhook_event.processed_at = datetime.now(timezone.utc)
             self.db.commit()
-            
+
+            # AUDIT: Log webhook processed
+            _audit_payment_event(
+                self.db, event_type="webhook_processed", success=True,
+                event_id=event_id,
+                razorpay_payment_id=event_info.get("payment_id"),
+            )
+
             return True
-            
+
         except Exception as e:
             self.db.rollback()
+            # AUDIT: Log webhook failure
+            try:
+                _audit_payment_event(
+                    self.db, event_type="webhook_failed", success=False,
+                    event_id=webhook_data.get("id"),
+                    error_message=str(e),
+                    response_data=webhook_data
+                )
+            except Exception:
+                pass
+
             # Mark webhook as failed
             if 'webhook_event' in locals():
                 webhook_event.processing_error = str(e)
@@ -513,49 +591,206 @@ class PaymentService:
             raise Exception(f"Webhook processing failed: {str(e)}")
     
     def _handle_payment_captured(self, event_info: Dict[str, Any]):
-        """Handle payment captured webhook event."""
+        """Handle payment captured webhook event.
+
+        CRITICAL: This method now creates the order in commerce service if it doesn't exist.
+        This is the primary reliability mechanism that prevents silent payment failures.
+        """
         try:
+            payment_id = event_info.get("payment_id")
+            razorpay_order_id = event_info.get("order_id")
+            amount_paise = event_info.get("amount")
+            qr_code_id = event_info.get("qr_code_id")
+
             # Find transaction by Razorpay payment ID
             transaction = self.db.query(PaymentTransaction).filter(
-                PaymentTransaction.razorpay_payment_id == event_info.get("payment_id")
+                PaymentTransaction.razorpay_payment_id == payment_id
             ).first()
 
             # For QR code payments, payment_id may not be available initially
-            # Fall back to matching by amount AND qr_code_id to prevent matching wrong transactions
             if not transaction:
-                payment_amount = event_info.get("amount")
-                qr_code_id = event_info.get("qr_code_id")
-
-                if payment_amount:
-                    # Convert paise to rupees for comparison
-                    amount_rupees = Decimal(str(payment_amount)) / Decimal('100')
-
-                    # Build query with amount match
+                if amount_paise:
+                    amount_rupees = Decimal(str(amount_paise)) / Decimal('100')
                     query = self.db.query(PaymentTransaction).filter(
                         PaymentTransaction.status == "pending",
                         PaymentTransaction.payment_method == "upi_qr",
                         PaymentTransaction.amount == amount_rupees
                     )
-
-                    # CRITICAL: If qr_code_id is available, use it to prevent matching wrong transactions
                     if qr_code_id:
                         query = query.filter(PaymentTransaction.razorpay_qr_code_id == qr_code_id)
-
                     transaction = query.order_by(PaymentTransaction.created_at.desc()).first()
 
             if transaction and transaction.status == "pending":
                 transaction.status = "completed"
                 transaction.completed_at = datetime.now(timezone.utc)
                 transaction.gateway_response = event_info
-                # Update payment_id if we got it from webhook
-                if event_info.get("payment_id"):
-                    transaction.razorpay_payment_id = event_info.get("payment_id")
+                if payment_id:
+                    transaction.razorpay_payment_id = payment_id
                 self.db.commit()
+
+                # CRITICAL: Create order in commerce service via internal endpoint
+                # This guarantees order creation even if the frontend checkout flow failed
+                self._create_order_from_webhook(transaction, event_info)
 
         except Exception as e:
             self.db.rollback()
-            logger.error(f"Failed to handle payment captured: {str(e)}")
+            logger.error(f"Failed to handle payment capture: {str(e)}")
             raise HTTPException(status_code=500, detail="Payment capture handling failed")
+
+    def _create_order_from_webhook(self, transaction: PaymentTransaction, event_info: Dict[str, Any]):
+        """Create order in commerce service when webhook confirms payment.
+
+        This is the CRITICAL reliability path that prevents silent failures.
+        When payment succeeds but the frontend never called the order creation endpoint,
+        this method creates the order directly via the commerce service internal API.
+
+        FIX: Fetches cart data from commerce service before creating order to ensure
+        proper cart_snapshot and shipping_address are included.
+        """
+        try:
+            import httpx
+            import os
+
+            commerce_url = os.getenv("COMMERCE_SERVICE_URL", "http://commerce:5002")
+            internal_secret = os.getenv("INTERNAL_SERVICE_SECRET")
+
+            if not internal_secret:
+                logger.error("INTERNAL_SERVICE_SECRET not configured — cannot create order from webhook")
+                return
+
+            # FIX: Fetch cart from commerce service to get actual items + shipping address
+            cart_snapshot = []
+            shipping_address = ""
+            try:
+                with httpx.Client(timeout=15.0) as client:
+                    cart_response = client.get(
+                        f"{commerce_url}/api/v1/internal/cart/{transaction.user_id}",
+                        headers={"X-Internal-Secret": internal_secret}
+                    )
+                    if cart_response.status_code == 200:
+                        cart_data = cart_response.json()
+                        cart_snapshot = cart_data.get("items", []) or cart_data.get("cart_snapshot", [])
+                        shipping_address = cart_data.get("shipping_address", "") or ""
+                        logger.info(
+                            f"WEBHOOK_CART_FETCH: user={transaction.user_id} "
+                            f"items={len(cart_snapshot)} shipping={'yes' if shipping_address else 'no'}"
+                        )
+                    else:
+                        logger.warning(
+                            f"WEBHOOK_CART_FETCH_FAILED: user={transaction.user_id} "
+                            f"status={cart_response.status_code} — using empty cart"
+                        )
+            except Exception as e:
+                logger.warning(f"WEBHOOK_CART_FETCH_ERROR: user={transaction.user_id} error={e} — using empty cart")
+
+            # Build pending_order_data with fetched cart data
+            pending_order_data = {
+                "cart_snapshot": cart_snapshot,
+                "shipping_address": shipping_address,
+                "subtotal": float(transaction.amount),
+                "total_amount": float(transaction.amount),
+                "shipping_cost": 0,
+                "gst_amount": 0,
+                "cgst_amount": 0,
+                "sgst_amount": 0,
+                "igst_amount": 0,
+                "discount_applied": 0,
+                "promo_code": None,
+                "order_notes": "Order created from payment webhook",
+                "payment_method": transaction.payment_method,
+            }
+
+            # Fallback: If cart was empty/failed and we have data in gateway_response, use it
+            if not cart_snapshot and transaction.gateway_response and isinstance(transaction.gateway_response, dict):
+                if "cart_snapshot" in transaction.gateway_response:
+                    pending_order_data["cart_snapshot"] = transaction.gateway_response["cart_snapshot"]
+                if "shipping_address" in transaction.gateway_response:
+                    pending_order_data["shipping_address"] = transaction.gateway_response["shipping_address"]
+
+            payload = {
+                "user_id": transaction.user_id,
+                "payment_id": transaction.razorpay_payment_id or event_info.get("payment_id"),
+                "razorpay_order_id": transaction.razorpay_order_id or event_info.get("order_id"),
+                "payment_signature": transaction.razorpay_signature or "",
+                "amount": float(transaction.amount),
+                "pending_order_data": pending_order_data,
+            }
+
+            logger.info(
+                f"WEBHOOK_ORDER_CREATE: calling commerce internal endpoint "
+                f"user={transaction.user_id} payment={payload['payment_id']}"
+            )
+
+            with httpx.Client(timeout=30.0) as client:
+                response = client.post(
+                    f"{commerce_url}/api/v1/orders/internal/orders/create-from-payment",
+                    json=payload,
+                    headers={"X-Internal-Secret": internal_secret}
+                )
+
+                if response.status_code == 200:
+                    result = response.json()
+                    order_id = result.get("order_id")
+                    logger.info(
+                        f"✓ WEBHOOK_ORDER_CREATED: order_id={order_id} "
+                        f"payment_id={payload['payment_id']}"
+                    )
+                    # Update transaction with order_id
+                    transaction.order_id = order_id
+                    self.db.commit()
+
+                    # AUDIT: Log successful order creation from webhook
+                    _audit_payment_event(
+                        self.db, event_type="order_created_from_webhook", success=True,
+                        razorpay_payment_id=payload['payment_id'],
+                        razorpay_order_id=payload.get('razorpay_order_id'),
+                        user_id=transaction.user_id,
+                        order_id=order_id,
+                        transaction_id=transaction.transaction_id,
+                        amount=float(transaction.amount),
+                        response_data=result
+                    )
+                else:
+                    logger.error(
+                        f"✗ WEBHOOK_ORDER_CREATE_FAILED: status={response.status_code} "
+                        f"body={response.text[:500]} payment_id={payload['payment_id']}"
+                    )
+                    # AUDIT: Log failed order creation
+                    _audit_payment_event(
+                        self.db, event_type="order_creation_failed", success=False,
+                        razorpay_payment_id=payload['payment_id'],
+                        user_id=transaction.user_id,
+                        error_message=f"Commerce service returned {response.status_code}",
+                        error_details={"status": response.status_code, "body": response.text[:1000]},
+                    )
+                    # Don't raise — transaction is already marked completed
+                    # The recovery job will handle this case
+
+        except httpx.TimeoutException:
+            logger.error(
+                f"✗ WEBHOOK_ORDER_CREATE_TIMEOUT: commerce service did not respond "
+                f"payment_id={transaction.razorpay_payment_id}"
+            )
+            _audit_payment_event(
+                self.db, event_type="order_creation_timeout", success=False,
+                razorpay_payment_id=transaction.razorpay_payment_id,
+                user_id=transaction.user_id,
+                error_message="Commerce service timeout",
+            )
+        except Exception as e:
+            logger.error(
+                f"✗ WEBHOOK_ORDER_CREATE_ERROR: {str(e)} "
+                f"payment_id={transaction.razorpay_payment_id}",
+                exc_info=True
+            )
+            _audit_payment_event(
+                self.db, event_type="order_creation_error", success=False,
+                razorpay_payment_id=transaction.razorpay_payment_id,
+                user_id=transaction.user_id,
+                error_message=str(e),
+            )
+            # Don't raise — transaction is already completed
+            # Recovery job will handle order creation
     
     def _handle_payment_failed(self, event_info: Dict[str, Any]):
         """Handle payment failed webhook event."""

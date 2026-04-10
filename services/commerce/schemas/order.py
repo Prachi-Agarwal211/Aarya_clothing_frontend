@@ -98,6 +98,20 @@ class OrderUpdate(BaseModel):
     shipping_address: Optional[str] = None
 
 
+class OrderTrackingResponse(BaseModel):
+    """Order tracking response schema."""
+    id: Optional[int] = None
+    order_id: Optional[int] = None
+    status: Optional[str] = None
+    location: Optional[str] = None
+    notes: Optional[str] = None
+    courier_name: Optional[str] = None
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
 class OrderResponse(BaseModel):
     """Order response schema."""
     id: int
@@ -122,7 +136,10 @@ class OrderResponse(BaseModel):
     status: str
     shipping_address: Optional[str] = None
     order_notes: Optional[str] = None
-    tracking: Optional[Any] = None
+    tracking_number: Optional[str] = None
+    courier_name: Optional[str] = None
+    courier_tracking_url: Optional[str] = None
+    tracking: Optional[OrderTrackingResponse] = None
     created_at: datetime
     updated_at: datetime
     items: List[OrderItemResponse] = []

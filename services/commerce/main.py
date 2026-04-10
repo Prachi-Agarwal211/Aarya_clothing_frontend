@@ -88,6 +88,7 @@ from service.inventory_service import InventoryService
 from service.r2_service import r2_service
 from service.wishlist_service import WishlistService
 from service.promotion_service import PromotionService
+from service.color_utils import _hex_to_color_name
 from service.product_service import ProductService
 from service.cart_service import CartService
 from service.order_service import OrderService
@@ -2414,11 +2415,24 @@ async def export_orders_excel(
     db: Session = Depends(get_db),
     current_user: dict = Depends(require_staff)
 ):
-    """Export all orders as Excel (XLSX) download."""
+    """
+    Export all orders as Excel (XLSX) download.
+    Includes order-level summary sheet AND detailed order items sheet.
+    Color is exported as TEXT (Red, Blue, etc.) not hex codes.
+    """
     import io
-    from models.order import Order as OrderModel
+    from models.order import Order as OrderModel, OrderItem as OrderItemModel
+    from models.product import Product as ProductModel
+    from models.inventory import Inventory as InventoryModel
+    from models.user import User as UserModel, UserProfile as UserProfileModel
     from sqlalchemy import and_
-    q = db.query(OrderModel)
+
+    q = db.query(OrderModel).options(
+        selectinload(OrderModel.items).options(
+            joinedload(OrderItemModel.inventory),
+            joinedload(OrderItemModel.product)
+        )
+    )
     if status_filter:
         q = q.filter(OrderModel.status == OrderStatus(status_filter))
     if from_date:
@@ -2426,27 +2440,140 @@ async def export_orders_excel(
     if to_date:
         q = q.filter(OrderModel.created_at <= to_date + " 23:59:59")
     orders = q.order_by(OrderModel.created_at.desc()).all()
+
     try:
         import openpyxl
+        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+
         wb = openpyxl.Workbook()
-        ws = wb.active
-        ws.title = "Orders"
-        ws.append(["Order ID", "Invoice #", "Customer Name", "Customer Email",
-                   "Total (INR)", "Payment Method", "Status", "POD/Tracking",
-                   "Shipping Address", "Order Date"])
+
+        # ===== STYLES =====
+        header_font = Font(bold=True, size=11)
+        header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+        header_font_white = Font(bold=True, size=11, color="FFFFFF")
+        thin_border = Border(
+            left=Side(style='thin'),
+            right=Side(style='thin'),
+            top=Side(style='thin'),
+            bottom=Side(style='thin')
+        )
+
+        def style_header_row(ws):
+            for cell in ws[1]:
+                cell.font = header_font_white
+                cell.fill = header_fill
+                cell.alignment = Alignment(horizontal='center', wrap_text=True)
+                cell.border = thin_border
+
+        def auto_width_columns(ws, max_width=40):
+            for column_cells in ws.columns:
+                max_length = 0
+                column_letter = column_cells[0].column_letter
+                for cell in column_cells:
+                    if cell.value:
+                        max_length = max(max_length, min(len(str(cell.value)), max_width))
+                ws.column_dimensions[column_letter].width = max_length + 2
+
+        # ===== SHEET 1: Order Summary =====
+        ws_summary = wb.active
+        ws_summary.title = "Orders Summary"
+        ws_summary.append([
+            "Order ID", "Invoice #", "Order Date", "Customer Name", "Customer Email",
+            "Phone", "Total Items", "Total Amount (INR)", "Payment Method",
+            "Status", "Tracking #", "Shipping Address"
+        ])
+        style_header_row(ws_summary)
+
+        # Batch fetch user info
+        user_ids = list(set(o.user_id for o in orders))
+        users = db.query(UserModel).filter(UserModel.id.in_(user_ids)).all()
+        user_map = {u.id: u for u in users}
+        profiles = db.query(UserProfileModel).filter(UserProfileModel.user_id.in_(user_ids)).all()
+        profile_map = {p.user_id: p for p in profiles}
+
         for o in orders:
-            ws.append([
+            profile = profile_map.get(o.user_id)
+            customer_name = profile.full_name if profile and profile.full_name else (user_map.get(o.user_id).username if user_map.get(o.user_id) else "")
+            customer_email = user_map.get(o.user_id).email if user_map.get(o.user_id) else ""
+            phone = profile.phone if profile else ""
+            total_items = sum(item.quantity for item in o.items) if o.items else 0
+
+            ws_summary.append([
                 o.id,
                 o.invoice_number or f"INV-{o.id}",
-                o.customer_name or "",
-                o.customer_email or "",
+                o.created_at.strftime("%Y-%m-%d %H:%M") if o.created_at else "",
+                customer_name,
+                customer_email,
+                phone,
+                total_items,
                 float(o.total_amount) if o.total_amount else 0,
                 o.payment_method or "",
                 o.status.value if hasattr(o.status, 'value') else str(o.status),
                 o.tracking_number or "",
                 o.shipping_address or "",
-                o.created_at.strftime("%Y-%m-%d %H:%M") if o.created_at else "",
             ])
+        auto_width_columns(ws_summary)
+
+        # ===== SHEET 2: Order Items Detail =====
+        ws_items = wb.create_sheet("Order Items Detail")
+        ws_items.append([
+            "Order ID", "Invoice #", "Order Date", "Customer Name", "Customer Email",
+            "Item #", "Product Name", "SKU", "Size", "Color",
+            "HSN Code", "GST Rate (%)", "Quantity", "Unit Price (INR)",
+            "Item Total (INR)", "Payment Status", "Order Status"
+        ])
+        style_header_row(ws_items)
+
+        for o in orders:
+            profile = profile_map.get(o.user_id)
+            customer_name = profile.full_name if profile and profile.full_name else (user_map.get(o.user_id).username if user_map.get(o.user_id) else "")
+            customer_email = user_map.get(o.user_id).email if user_map.get(o.user_id) else ""
+            order_status = o.status.value if hasattr(o.status, 'value') else str(o.status)
+
+            # Determine payment status from transaction
+            payment_status = "Unknown"
+            if o.transaction_id or o.razorpay_payment_id:
+                payment_status = "Paid" if o.status not in ['cancelled'] else "Refunded"
+                if o.status == 'cancelled':
+                    payment_status = "Cancelled/Refunded"
+
+            for idx, item in enumerate(o.items, 1):
+                # Get color as TEXT (not hex)
+                color_text = item.color or ""
+                # If color is a hex code (starts with #), convert to name
+                if color_text.startswith('#') and len(color_text) == 7:
+                    color_text = _hex_to_color_name(color_text)
+
+                size_text = item.size or ""
+                hsn = item.hsn_code or (item.product.hsn_code if item.product else "")
+                gst_rate = item.gst_rate if item.gst_rate is not None else (item.product.gst_rate if item.product else None)
+
+                ws_items.append([
+                    o.id,
+                    o.invoice_number or f"INV-{o.id}",
+                    o.created_at.strftime("%Y-%m-%d %H:%M") if o.created_at else "",
+                    customer_name,
+                    customer_email,
+                    idx,
+                    item.product_name or (item.product.name if item.product else "Unknown"),
+                    item.sku or "",
+                    size_text,
+                    color_text,
+                    hsn or "",
+                    float(gst_rate) if gst_rate is not None else "",
+                    item.quantity,
+                    float(item.unit_price) if item.unit_price else 0,
+                    float(item.price) if item.price else 0,
+                    payment_status,
+                    order_status,
+                ])
+        auto_width_columns(ws_items)
+
+        # Set column widths for items sheet
+        ws_items.column_dimensions['G'].width = 35  # Product Name
+        ws_items.column_dimensions['J'].width = 15  # Color
+        ws_items.column_dimensions['K'].width = 12  # HSN Code
+
         buf = io.BytesIO()
         wb.save(buf)
         buf.seek(0)
@@ -2454,11 +2581,156 @@ async def export_orders_excel(
         return _SR(
             buf,
             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            headers={"Content-Disposition": f"attachment; filename=orders_export.xlsx"}
+            headers={"Content-Disposition": f"attachment; filename=orders_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"}
         )
     except ImportError:
         raise HTTPException(status_code=501, detail="openpyxl not installed — use client-side export")
 
+
+# ==================== Admin - Customer Activity & Reconciliation ====================
+
+@app.get("/api/v1/admin/customers/{user_id}/activity", tags=["Admin - Customer Activity"])
+async def get_customer_activity(
+    user_id: int,
+    page: int = Query(1, ge=1),
+    limit: int = Query(50, ge=1, le=200),
+    activity_type: Optional[str] = None,
+    from_date: Optional[str] = None,
+    to_date: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_admin)
+):
+    """
+    Get customer activity timeline for admin review.
+    Shows all logged activities for a specific customer.
+    """
+    from sqlalchemy import text
+
+    skip = (page - 1) * limit
+
+    query = """
+        SELECT id, user_id, activity_type, resource_type, resource_id,
+               details, ip_address, user_agent, created_at
+        FROM customer_activity_logs
+        WHERE user_id = :user_id
+    """
+    params = {"user_id": user_id, "skip": skip, "limit": limit}
+
+    if activity_type:
+        query += " AND activity_type = :activity_type"
+        params["activity_type"] = activity_type
+    if from_date:
+        query += " AND created_at >= :from_date"
+        params["from_date"] = from_date
+    if to_date:
+        query += " AND created_at <= :to_date"
+        params["to_date"] = to_date + " 23:59:59"
+
+    query += " ORDER BY created_at DESC LIMIT :limit OFFSET :skip"
+
+    result = db.execute(text(query), params)
+    rows = result.fetchall()
+
+    # Get total count
+    count_query = "SELECT COUNT(*) FROM customer_activity_logs WHERE user_id = :user_id"
+    count_params = {"user_id": user_id}
+    if activity_type:
+        count_query += " AND activity_type = :activity_type"
+        count_params["activity_type"] = activity_type
+    total = db.execute(text(count_query), count_params).scalar()
+
+    activities = []
+    for row in rows:
+        activities.append({
+            "id": row[0],
+            "user_id": row[1],
+            "activity_type": row[2],
+            "resource_type": row[3],
+            "resource_id": row[4],
+            "details": row[5] if isinstance(row[5], dict) else {},
+            "ip_address": row[6],
+            "user_agent": row[7],
+            "created_at": row[8].isoformat() if row[8] else None,
+        })
+
+    return {
+        "activities": activities,
+        "total": total,
+        "page": page,
+        "limit": limit,
+        "has_more": skip + limit < total
+    }
+
+
+@app.get("/api/v1/admin/reconciliation/summary", tags=["Admin - Reconciliation"])
+async def get_reconciliation_summary(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_admin)
+):
+    """
+    Get order/payment reconciliation summary.
+    Shows orphaned payments, orders without payments, and amount mismatches.
+    """
+    from sqlalchemy import text
+
+    # Run reconciliation function
+    result = db.execute(text("SELECT * FROM run_order_reconciliation()"))
+    issues = [{"issue_type": row[0], "issue_count": row[1], "details": row[2]} for row in result.fetchall()]
+
+    # Get sample orphaned payments
+    orphaned = db.execute(text("""
+        SELECT * FROM v_orphaned_payments_enhanced LIMIT 10
+    """)).fetchall()
+
+    # Get sample orders without payment
+    no_payment = db.execute(text("""
+        SELECT * FROM v_orders_without_payment LIMIT 10
+    """)).fetchall()
+
+    # Get sample amount mismatches
+    mismatches = db.execute(text("""
+        SELECT * FROM v_payment_amount_mismatches LIMIT 10
+    """)).fetchall()
+
+    return {
+        "summary": issues,
+        "orphaned_payments_sample": [dict(r._mapping) for r in orphaned],
+        "orders_without_payment_sample": [dict(r._mapping) for r in no_payment],
+        "amount_mismatches_sample": [dict(r._mapping) for r in mismatches],
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    }
+
+
+@app.post("/api/v1/admin/reconciliation/fix-orphaned-payments", tags=["Admin - Reconciliation"])
+async def fix_orphaned_payments(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_admin)
+):
+    """
+    Trigger recovery for orphaned payments.
+    Calls the payment service recovery job.
+    """
+    import httpx
+    import os
+
+    payment_service_url = os.getenv("PAYMENT_SERVICE_URL", "http://payment:5003")
+    internal_secret = os.getenv("INTERNAL_SERVICE_SECRET")
+
+    if not internal_secret:
+        raise HTTPException(status_code=500, detail="Internal service secret not configured")
+
+    try:
+        with httpx.Client(timeout=60.0) as client:
+            response = client.post(
+                f"{payment_service_url}/api/v1/admin/recovery/run",
+                headers={"X-Internal-Secret": internal_secret}
+            )
+            if response.status_code == 200:
+                return {"success": True, "result": response.json()}
+            else:
+                return {"success": False, "error": response.text[:500]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Recovery failed: {str(e)}")
 
 
 # ==================== Internal Service Routes ====================
@@ -2530,6 +2802,116 @@ async def internal_release_reservation(
     
     db.commit()
     return {"message": "Reservation released", "order_id": order_id}
+
+
+# ==================== Internal Payment/Order Reliability Routes ====================
+
+@app.post("/api/v1/orders/internal/orders/create-from-payment", tags=["Internal - Payment Recovery"])
+async def internal_create_order_from_payment(
+    request: Request,
+    db: Session = Depends(get_db),
+    _: bool = Depends(verify_internal_secret)
+):
+    """
+    INTERNAL ENDPOINT — Called by payment service webhook handler.
+    Creates an order from payment webhook data when the normal checkout flow failed.
+    This is the critical reliability path that guarantees order creation.
+    """
+    from service.order_service import OrderService as _OrderService
+
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON body")
+
+    user_id = body.get("user_id")
+    payment_id = body.get("payment_id")
+    razorpay_order_id = body.get("razorpay_order_id")
+    payment_signature = body.get("payment_signature", "")
+    pending_order_data = body.get("pending_order_data", {})
+
+    if not user_id or not payment_id:
+        raise HTTPException(status_code=400, detail="user_id and payment_id are required")
+    if not pending_order_data:
+        raise HTTPException(status_code=400, detail="pending_order_data is required")
+
+    order_service = _OrderService(db)
+
+    try:
+        logger.info(f"INTERNAL_ORDER_CREATE: user={user_id} payment={payment_id}")
+        order = order_service.create_order_from_pending_order(
+            pending_order_data=pending_order_data,
+            user_id=user_id,
+            payment_id=payment_id,
+            razorpay_order_id=razorpay_order_id,
+            payment_signature=payment_signature
+        )
+        logger.info(f"✓ INTERNAL_ORDER_CREATE_SUCCESS: order_id={order.id} user={user_id}")
+
+        # Enrich response with product images
+        items_data = []
+        for item in order.items:
+            item_dict = {
+                "id": item.id,
+                "product_id": item.product_id,
+                "product_name": item.product_name,
+                "sku": item.sku,
+                "size": item.size,
+                "color": item.color,
+                "quantity": item.quantity,
+                "unit_price": float(item.unit_price) if item.unit_price else 0,
+                "price": float(item.price) if item.price else 0,
+                "image_url": None
+            }
+            # Get primary image
+            if item.product_id:
+                primary_img = db.query(ProductImage).filter(
+                    ProductImage.product_id == item.product_id,
+                    ProductImage.is_primary == True
+                ).first()
+                if primary_img:
+                    item_dict["image_url"] = primary_img.image_url
+            items_data.append(item_dict)
+
+        return {
+            "success": True,
+            "order_id": order.id,
+            "order": {
+                "id": order.id,
+                "user_id": order.user_id,
+                "total_amount": float(order.total_amount),
+                "status": order.status,
+                "created_at": order.created_at.isoformat() if order.created_at else None,
+                "items": items_data
+            }
+        }
+    except ValueError as e:
+        logger.error(f"INTERNAL_ORDER_CREATE_VALIDATION_ERROR: user={user_id} error={str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"INTERNAL_ORDER_CREATE_ERROR: user={user_id} error={str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Internal order creation failed: {str(e)}")
+
+
+@app.get("/api/v1/orders/internal/orders/find-by-payment/{payment_id}", tags=["Internal - Payment Recovery"])
+async def internal_find_order_by_payment(
+    payment_id: str,
+    db: Session = Depends(get_db),
+    _: bool = Depends(verify_internal_secret)
+):
+    """
+    INTERNAL ENDPOINT — Find order by payment ID.
+    Used by recovery jobs to check if a payment has a matching order.
+    """
+    order = db.query(Order).filter(
+        (Order.transaction_id == payment_id) | (Order.razorpay_payment_id == payment_id)
+    ).first()
+
+    if order:
+        return {"found": True, "order": {"id": order.id, "user_id": order.user_id, "status": order.status}}
+    return {"found": False, "payment_id": payment_id}
 
 
 # ==================== Address Routes ====================

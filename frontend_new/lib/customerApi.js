@@ -371,16 +371,16 @@ export const authApi = {
   logout: () =>
     coreClient.post('/api/v1/auth/logout'),
 
-  forgotPassword: (identifier, otpType = 'SMS') =>
+  forgotPassword: (identifier, otpType = 'EMAIL') =>
     coreClient.post('/api/v1/auth/forgot-password-otp', { identifier, otp_type: otpType }),
 
-  verifyResetOtp: (identifier, otpCode, otpType = 'SMS') =>
+  verifyResetOtp: (identifier, otpCode, otpType = 'EMAIL') =>
     coreClient.post('/api/v1/auth/verify-reset-otp', { identifier, otp_code: otpCode, otp_type: otpType }),
 
   resetPassword: (token, password) =>
     coreClient.post('/api/v1/auth/reset-password', { token, password }),
 
-  resetPasswordWithOtp: (identifier, otpCode, newPassword, otpType = 'SMS') =>
+  resetPasswordWithOtp: (identifier, otpCode, newPassword, otpType = 'EMAIL') =>
     coreClient.post('/api/v1/auth/reset-password-with-otp', {
       identifier,
       otp_code: otpCode,
@@ -400,22 +400,20 @@ export const authApi = {
   getCurrentUser: () =>
     coreClient.get('/api/v1/users/me'),
 
-  verifyOtpRegistration: (params) => {
-    const q = new URLSearchParams();
-    q.append('otp_code', params.otp_code);
-    if (params.phone) q.append('phone', params.phone);
-    if (params.email) q.append('email', params.email);
-    q.append('otp_type', params.otp_type);
-    return coreClient.post(`/api/v1/auth/verify-otp-registration?${q.toString()}`);
-  },
+  verifyOtpRegistration: (params) =>
+    coreClient.post('/api/v1/auth/verify-otp-registration', {
+      otp_code: params.otp_code,
+      ...(params.email != null ? { email: params.email } : {}),
+      ...(params.phone != null ? { phone: params.phone } : {}),
+      otp_type: params.otp_type,
+    }),
 
-  resendVerificationOtp: (params) => {
-    const q = new URLSearchParams();
-    if (params.phone) q.append('phone', params.phone);
-    if (params.email) q.append('email', params.email);
-    q.append('otp_type', params.otp_type);
-    return coreClient.post(`/api/v1/auth/send-verification-otp?${q.toString()}`);
-  },
+  resendVerificationOtp: (params) =>
+    coreClient.post('/api/v1/auth/send-verification-otp', {
+      ...(params.email != null ? { email: params.email } : {}),
+      ...(params.phone != null ? { phone: params.phone } : {}),
+      otp_type: params.otp_type,
+    }),
 };
 
 // Low-level fetch bound to coreClient — for one-off requests that don't fit a namespace

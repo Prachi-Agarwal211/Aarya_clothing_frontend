@@ -12,6 +12,7 @@ Order management endpoints:
 
 import logging
 import os
+import hmac
 from typing import List, Optional
 from decimal import Decimal
 from datetime import datetime, timezone
@@ -26,12 +27,24 @@ from models.order import Order, OrderStatus
 from schemas.order import OrderCreate, OrderResponse, BulkOrderStatusUpdate, SetDeliveryState
 from schemas.error import ErrorResponse, PaginatedResponse
 from service.order_service import OrderService
+from service.customer_activity_logger import log_customer_activity
 from shared.auth_middleware import get_current_user, require_admin, require_staff
+from core.config import settings
 import httpx
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/orders", tags=["Orders"])
+
+
+def _r2_url(path: str) -> str:
+    """Convert relative R2 path to full public URL."""
+    if not path:
+        return ""
+    if path.startswith("http://") or path.startswith("https://"):
+        return path
+    r2_base = getattr(settings, "R2_PUBLIC_URL", "").rstrip("/")
+    return f"{r2_base}/{path.lstrip('/')}" if r2_base else path
 
 
 # ==================== Helper Functions ====================
@@ -83,7 +96,50 @@ def _get_order_service(db: Session) -> OrderService:
 
 
 def _enrich_order_response(order: Order) -> OrderResponse:
-    """Enrich order ORM for response."""
+    """Enrich order ORM for response with full R2 image URLs."""
+    # Enrich each order item with full R2 image URL
+    enriched_items = []
+    for item in order.items:
+        item_dict = {
+            "id": item.id,
+            "product_id": item.product_id,
+            "product_name": item.product_name,
+            "sku": item.sku,
+            "size": item.size,
+            "color": item.color,
+            "hsn_code": item.hsn_code,
+            "gst_rate": item.gst_rate,
+            "quantity": item.quantity,
+            "unit_price": item.unit_price,
+            "price": item.price,
+            "image_url": None,
+        }
+        # Get image URL from inventory or product
+        raw_url = None
+        if item.inventory and item.inventory.image_url:
+            raw_url = item.inventory.image_url
+        elif hasattr(item, 'product') and item.product and hasattr(item.product, 'image_url'):
+            raw_url = item.product.image_url
+
+        if raw_url:
+            item_dict["image_url"] = _r2_url(raw_url)
+
+        enriched_items.append(item_dict)
+
+    # Convert tracking ORM object to dict for Pydantic serialization
+    tracking_data = None
+    if hasattr(order, 'tracking') and order.tracking is not None:
+        tracking_obj = order.tracking
+        tracking_data = {
+            "id": tracking_obj.id,
+            "order_id": tracking_obj.order_id,
+            "status": tracking_obj.status,
+            "location": tracking_obj.location,
+            "notes": tracking_obj.notes,
+            "courier_name": tracking_obj.courier_name,
+            "created_at": tracking_obj.created_at,
+        }
+
     return OrderResponse(
         id=order.id,
         user_id=order.user_id,
@@ -106,10 +162,13 @@ def _enrich_order_response(order: Order) -> OrderResponse:
         status=order.status,
         shipping_address=order.shipping_address,
         order_notes=order.order_notes,
-        tracking=order.tracking if hasattr(order, 'tracking') else None,
+        tracking_number=order.tracking_number,
+        courier_name=order.courier_name,
+        courier_tracking_url=order.courier_tracking_url,
+        tracking=tracking_data,
         created_at=order.created_at,
         updated_at=order.updated_at,
-        items=order.items,
+        items=enriched_items,
     )
 
 
@@ -198,7 +257,17 @@ async def get_my_orders(
             skip=skip,
             limit=limit
         )
-        
+
+        # Log customer activity
+        log_customer_activity(
+            db_session=db,
+            user_id=user_id,
+            activity_type="order_view",
+            resource_type="order_list",
+            details={"page": page, "limit": limit, "status_filter": str(status_filter) if status_filter else None},
+            ip_address=request.client.host if request.client else None,
+        )
+
         # Get total count
         query = db.query(Order).filter(Order.user_id == user_id)
         if status_filter:
@@ -277,6 +346,18 @@ async def cancel_order(
             user_id=user_id,
             reason=reason
         )
+
+        # Log customer activity
+        log_customer_activity(
+            db_session=db,
+            user_id=user_id,
+            activity_type="order_cancel",
+            resource_type="order",
+            resource_id=order_id,
+            details={"order_id": order_id, "reason": reason, "invoice_number": order.invoice_number},
+            ip_address=request.client.host if request.client else None,
+        )
+
         return _enrich_order_response(order)
     except HTTPException:
         raise
@@ -930,3 +1011,137 @@ def number_to_words(n: int) -> str:
         result.append(two_digits(n))
     
     return "Rupees " + " ".join(result) + " Only"
+
+
+# ==================== Internal Service Endpoints ====================
+# These endpoints are called by other services (payment service webhook, recovery jobs)
+# Protected by internal service secret, NOT user authentication
+
+def _verify_internal_request(request: Request):
+    """Verify internal service secret for service-to-service calls."""
+    internal_secret = os.getenv("INTERNAL_SERVICE_SECRET")
+    if not internal_secret:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="INTERNAL_SERVICE_SECRET not configured"
+        )
+    provided = request.headers.get("X-Internal-Secret") or ""
+    # compare_digest requires equal-length strings; avoid TypeError → 500 on bad input
+    if len(provided) != len(internal_secret) or not hmac.compare_digest(
+        provided.encode("utf-8"), internal_secret.encode("utf-8")
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or missing internal service secret"
+        )
+
+@router.post("/internal/orders/create-from-payment")
+async def create_order_from_payment_webhook(
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """
+    INTERNAL ENDPOINT — Called by payment service webhook handler.
+
+    Creates an order from payment webhook data when the normal checkout flow failed.
+    This is the critical reliability path that guarantees order creation.
+
+    Request body:
+    {
+        "user_id": 123,
+        "payment_id": "pay_xxx",
+        "razorpay_order_id": "order_xxx",
+        "payment_signature": "hmac_signature",
+        "amount": 1999.00,
+        "pending_order_data": {
+            "cart_snapshot": [...],
+            "shipping_address": "...",
+            "subtotal": 1999.00,
+            "total_amount": 1999.00,
+            ...
+        }
+    }
+
+    Protected by X-Internal-Secret header.
+    """
+    import json
+
+    _verify_internal_request(request)
+
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON body")
+
+    user_id = body.get("user_id")
+    payment_id = body.get("payment_id")
+    razorpay_order_id = body.get("razorpay_order_id")
+    payment_signature = body.get("payment_signature", "")
+    pending_order_data = body.get("pending_order_data", {})
+
+    if not user_id or not payment_id:
+        raise HTTPException(status_code=400, detail="user_id and payment_id are required")
+
+    if not pending_order_data:
+        raise HTTPException(status_code=400, detail="pending_order_data is required")
+
+    order_service = _get_order_service(db)
+
+    try:
+        logger.info(
+            f"INTERNAL_ORDER_CREATE: user={user_id} payment={payment_id} "
+            f"razorpay_order={razorpay_order_id}"
+        )
+
+        order = order_service.create_order_from_pending_order(
+            pending_order_data=pending_order_data,
+            user_id=user_id,
+            payment_id=payment_id,
+            razorpay_order_id=razorpay_order_id,
+            payment_signature=payment_signature
+        )
+
+        logger.info(f"✓ INTERNAL_ORDER_CREATE_SUCCESS: order_id={order.id} user={user_id}")
+        return {"success": True, "order_id": order.id, "order": _enrich_order_response(order)}
+
+    except ValueError as e:
+        logger.error(f"INTERNAL_ORDER_CREATE_VALIDATION_ERROR: user={user_id} error={str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"INTERNAL_ORDER_CREATE_ERROR: user={user_id} error={str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Internal order creation failed: {str(e)}"
+        )
+
+
+@router.get("/internal/orders/find-by-payment/{payment_id}")
+async def find_order_by_payment(
+    payment_id: str,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """
+    INTERNAL ENDPOINT — Find order by payment ID.
+
+    Used by recovery jobs to check if a payment has a matching order.
+
+    Protected by X-Internal-Secret header.
+    """
+    _verify_internal_request(request)
+
+    order_service = _get_order_service(db)
+
+    # Check by transaction_id (payment_id)
+    order = db.query(Order).filter(Order.transaction_id == payment_id).first()
+    if order:
+        return {"found": True, "order": _enrich_order_response(order)}
+
+    # Check by razorpay_payment_id
+    order = db.query(Order).filter(Order.razorpay_payment_id == payment_id).first()
+    if order:
+        return {"found": True, "order": _enrich_order_response(order)}
+
+    return {"found": False, "payment_id": payment_id}

@@ -97,6 +97,10 @@ class Order(Base):
     )
     shipping_method = Column(String(100), default='standard')
     tracking_number = Column(String(100), nullable=True)
+    
+    # Courier service fields
+    courier_name = Column(String(100), nullable=True)
+    courier_tracking_url = Column(String(500), nullable=True)
 
     # Notes
     order_notes = Column(Text, nullable=True)
@@ -170,6 +174,8 @@ class OrderItem(Base):
         """Return variant image URL from inventory, falling back to product primary image."""
         if self.inventory and self.inventory.image_url:
             return self.inventory.image_url
+        if self.product and hasattr(self.product, 'primary_image'):
+            return self.product.primary_image
         if self.product and hasattr(self.product, 'image_url'):
             return self.product.image_url
         return None

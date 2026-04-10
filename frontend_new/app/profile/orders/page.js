@@ -1,13 +1,12 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import Link from 'next/link';
 import Image from 'next/image';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Package, ChevronRight, Eye, Truck, Clock, CheckCircle, XCircle, RotateCcw, Hash, Download, Printer } from 'lucide-react';
+import { Package, ChevronRight, Truck, Clock, CheckCircle, XCircle, Hash, Download, Printer } from 'lucide-react';
 import { ordersApi } from '@/lib/customerApi';
 import { useAuth } from '@/lib/authContext';
-import { useCart } from '@/lib/cartContext';
 import logger from '@/lib/logger';
 import { useAlertToast } from '@/lib/useAlertToast';
 import { getErrorMessage, logError } from '@/lib/errorHandlers';
@@ -23,12 +22,11 @@ export default function OrdersPage() {
   const router = useRouter();
   const { showAlert } = useAlertToast();
   const { isAuthenticated, loading: authLoading } = useAuth();
-  const { addItem, openCart } = useCart();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [filter, setFilter] = useState('all');
-  const [reordering, setReordering] = useState(null); // Track which order is being reordered
+  const [expandedOrder, setExpandedOrder] = useState(null); // Track expanded order for item details
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -44,7 +42,20 @@ export default function OrdersPage() {
       setError(null);
 
       const data = await ordersApi.list();
-      setOrders(Array.isArray(data) ? data : (data.items || data.orders || []));
+      // Handle multiple response shapes: array, paginated {items, ...}, {orders, ...}, or {data, ...}
+      let ordersList;
+      if (Array.isArray(data)) {
+        ordersList = data;
+      } else if (data && typeof data === 'object') {
+        ordersList = data.items || data.orders || data.data || [];
+        // If paginated, the items themselves might be nested
+        if (!Array.isArray(ordersList) && data.results) {
+          ordersList = Array.isArray(data.results) ? data.results : [];
+        }
+      } else {
+        ordersList = [];
+      }
+      setOrders(ordersList);
     } catch (err) {
       logError('ProfileOrders', 'loading orders', err, { 
         endpoint: '/api/v1/customer/orders'
@@ -85,29 +96,8 @@ export default function OrdersPage() {
     return order.status === filter;
   });
 
-  const handleReorder = async (order) => {
-    try {
-      setReordering(order.id);
-
-      // Sequence the additions to avoid potential race conditions in cart state
-      for (const item of (order.items || [])) {
-        await addItem(item.product_id, item.quantity, { id: item.variant_id });
-      }
-
-      openCart();
-    } catch (err) {
-      logError('ProfileOrders', 'reordering items', err, { 
-        orderId: order.id
-      });
-      showAlert(getErrorMessage(err, 'reorder items', {
-        authMsg: 'Your session has expired. Please log in again.',
-        permissionMsg: 'You do not have permission to perform this action.',
-        notFoundMsg: 'Some products are no longer available.',
-        networkMsg: 'Cannot connect to server. Please check your connection.'
-      }));
-    } finally {
-      setReordering(null);
-    }
+  const toggleOrderDetails = (orderId) => {
+    setExpandedOrder(prev => prev === orderId ? null : orderId);
   };
 
   const handleDownloadInvoice = async (orderId, invoiceNumber) => {
@@ -201,7 +191,12 @@ export default function OrdersPage() {
             setOrders(prev =>
               prev.map(o =>
                 o.id === data.order_id
-                  ? { ...o, status: data.status, tracking_number: data.tracking_number || o.tracking_number }
+                  ? {
+                      ...o,
+                      status: data.status,
+                      tracking_number: data.tracking_number || o.tracking_number,
+                      courier_name: data.courier_name || o.courier_name,
+                    }
                   : o
               )
             );
@@ -348,21 +343,6 @@ export default function OrdersPage() {
                       <Printer className="w-4 h-4" />
                       <span className="hidden sm:inline text-sm">Print</span>
                     </button>
-                    <button
-                      onClick={() => handleReorder(order)}
-                      disabled={reordering === order.id}
-                      className="flex items-center gap-1 px-2.5 sm:px-4 py-2 bg-[#B76E79]/10 text-[#B76E79] hover:bg-[#B76E79]/20 hover:text-[#F2C29A] rounded-xl transition-all disabled:opacity-50"
-                    >
-                      <RotateCcw className={`w-4 h-4 ${reordering === order.id ? 'animate-spin' : ''}`} />
-                      <span className="hidden sm:inline text-sm">Reorder</span>
-                    </button>
-                    <Link
-                      href={`/profile/orders/${order.id}`}
-                      className="flex items-center gap-1 px-2.5 sm:px-4 py-2 bg-[#7A2F57]/20 text-[#F2C29A] hover:bg-[#7A2F57]/40 rounded-xl transition-colors"
-                    >
-                      <Eye className="w-4 h-4" />
-                      <span className="hidden sm:inline text-sm">View</span>
-                    </Link>
                   </div>
                 </div>
 
@@ -375,6 +355,15 @@ export default function OrdersPage() {
                         <div>
                           <p className="text-xs text-[#EAE0D5]/50 uppercase tracking-widest">POD / Tracking Number</p>
                           <p className="text-sm font-mono font-semibold text-cyan-300">{order.tracking_number}</p>
+                        </div>
+                      </div>
+                    )}
+                    {order.courier_name && (
+                      <div className="flex items-center gap-2 p-2.5 bg-purple-400/5 border border-purple-400/20 rounded-xl">
+                        <Truck className="w-4 h-4 text-purple-400 flex-shrink-0" />
+                        <div>
+                          <p className="text-xs text-[#EAE0D5]/50 uppercase tracking-widest">Courier Service</p>
+                          <p className="text-sm font-semibold text-purple-300">{order.courier_name}</p>
                         </div>
                       </div>
                     )}
@@ -392,15 +381,70 @@ export default function OrdersPage() {
                       <CheckCircle className="w-4 h-4 inline mr-1 text-green-400" />
                       Delivered on: {formatDate(order.delivered_at)}
                     </p>
-                    <Link
-                      href={`/profile/returns/create?order=${order.id}`}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 text-sm text-[#B76E79] hover:text-[#F2C29A] bg-[#B76E79]/10 rounded-lg hover:bg-[#B76E79]/20 transition-colors"
-                    >
-                      <RotateCcw className="w-4 h-4" />
-                      Return/Exchange
-                    </Link>
                   </div>
                 )}
+
+                {/* Expandable Item Details */}
+                {order.items && order.items.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-[#B76E79]/10">
+                    <button
+                      onClick={() => toggleOrderDetails(order.id)}
+                      className="flex items-center gap-2 text-sm text-[#B76E79] hover:text-[#F2C29A] transition-colors w-full"
+                    >
+                      <ChevronRight className={`w-4 h-4 transition-transform ${expandedOrder === order.id ? 'rotate-90' : ''}`} />
+                      {expandedOrder === order.id ? 'Hide' : 'Show'} {order.items.length} item{order.items.length > 1 ? 's' : ''}
+                    </button>
+
+                    {expandedOrder === order.id && (
+                      <div className="mt-3 space-y-2">
+                        {order.items.map((item, idx) => (
+                          <div key={idx} className="flex items-start gap-3 p-3 bg-[#0B0608]/60 rounded-xl">
+                            {/* Product Image */}
+                            <div className="relative w-16 h-20 bg-[#7A2F57]/10 rounded-lg overflow-hidden flex-shrink-0">
+                              {item.image_url ? (
+                                <Image
+                                  src={item.image_url}
+                                  alt={item.product_name || 'Product'}
+                                  fill
+                                  className="object-cover"
+                                  sizes="64px"
+                                  onError={(e) => {
+                                    e.currentTarget.style.display = 'none';
+                                    e.currentTarget.nextSibling.style.display = 'flex';
+                                  }}
+                                />
+                              ) : null}
+                              <div className="absolute inset-0 flex items-center justify-center" style={{ display: 'none' }}>
+                                <Package className="w-6 h-6 text-[#B76E79]/30" />
+                              </div>
+                              {!item.image_url && (
+                                <div className="absolute inset-0 flex items-center justify-center">
+                                  <Package className="w-6 h-6 text-[#B76E79]/30" />
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Item Details */}
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-[#F2C29A] text-sm truncate">{item.product_name || 'Product'}</p>
+                              <div className="mt-1 flex flex-wrap gap-2 text-xs text-[#EAE0D5]/60">
+                                {item.size && <span className="px-1.5 py-0.5 bg-[#7A2F57]/20 rounded">Size: {item.size}</span>}
+                                {item.color && <span className="px-1.5 py-0.5 bg-[#7A2F57]/20 rounded">Color: {item.color}</span>}
+                                {item.sku && <span className="px-1.5 py-0.5 bg-[#7A2F57]/20 rounded font-mono">SKU: {item.sku}</span>}
+                              </div>
+                              <div className="mt-2 flex items-center gap-3 text-sm">
+                                <span className="text-[#EAE0D5]/60">Qty: {item.quantity}</span>
+                                {item.unit_price && <span className="text-[#EAE0D5]/60">@ {formatCurrency(item.unit_price)} each</span>}
+                                <span className="font-semibold text-[#F2C29A]">{formatCurrency(item.price)}</span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
               </div>
             );
           })}

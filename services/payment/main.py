@@ -13,7 +13,7 @@ import logging
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 import os
-from fastapi import FastAPI, Depends, HTTPException, status, Request, Header
+from fastapi import FastAPI, Depends, HTTPException, status, Request, Header, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
@@ -687,6 +687,102 @@ async def get_transaction_history(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get transaction history: {str(e)}"
+        )
+
+
+# ==================== Recovery & Background Jobs ====================
+
+@app.post("/api/v1/admin/recovery/run", tags=["Recovery"])
+async def trigger_recovery_job(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_admin)
+):
+    """
+    Manually trigger the payment recovery job.
+
+    Scans for completed payments without matching orders and attempts to create them.
+    Admin only.
+    """
+    try:
+        from jobs.recovery_job import run_payment_recovery
+
+        logger.info(f"RECOVERY_TRIGGER: admin={current_user.get('email')}")
+        result = run_payment_recovery()
+
+        return {
+            "success": True,
+            "message": "Recovery job completed",
+            "results": result
+        }
+    except Exception as e:
+        logger.error(f"RECOVERY_TRIGGER_FAILED: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Recovery job failed: {str(e)}"
+        )
+
+
+@app.get("/api/v1/admin/recovery/orphaned-payments", tags=["Recovery"])
+async def list_orphaned_payments(
+    days: int = Query(7, ge=1, le=30),
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_admin)
+):
+    """
+    List payments that are completed but have no matching order.
+
+    Admin only. Used for manual recovery and monitoring.
+    """
+    try:
+        from sqlalchemy import text
+
+        result = db.execute(text("""
+            SELECT
+                pt.id AS payment_transaction_id,
+                pt.transaction_id,
+                pt.razorpay_order_id,
+                pt.razorpay_payment_id,
+                pt.razorpay_qr_code_id,
+                pt.user_id,
+                pt.amount,
+                pt.status,
+                pt.payment_method,
+                pt.created_at AS payment_created_at,
+                pt.completed_at AS payment_completed_at
+            FROM payment_transactions pt
+            LEFT JOIN orders o ON pt.order_id = o.id
+            WHERE pt.status = 'completed'
+              AND o.id IS NULL
+              AND pt.created_at > NOW() - INTERVAL ':days days'
+            ORDER BY pt.created_at DESC
+        """), {"days": days})
+
+        payments = [
+            {
+                "payment_transaction_id": row[0],
+                "transaction_id": row[1],
+                "razorpay_order_id": row[2],
+                "razorpay_payment_id": row[3],
+                "razorpay_qr_code_id": row[4],
+                "user_id": row[5],
+                "amount": float(row[6]),
+                "status": row[7],
+                "payment_method": row[8],
+                "payment_created_at": str(row[9]),
+                "payment_completed_at": str(row[10]) if row[10] else None,
+            }
+            for row in result.fetchall()
+        ]
+
+        return {
+            "count": len(payments),
+            "payments": payments
+        }
+    except Exception as e:
+        logger.error(f"ORPHANED_PAYMENTS_QUERY_FAILED: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to query orphaned payments: {str(e)}"
         )
 
 

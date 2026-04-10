@@ -35,7 +35,9 @@ const DEFAULT_CONFIG = {
     enabled: true
   },
   noise: null,
-  r2BaseUrl: null
+  r2BaseUrl: null,
+  /** Backend MSG91 configured — when false, SMS OTP UI is disabled */
+  smsOtpEnabled: false,
 };
 
 /**
@@ -58,7 +60,8 @@ export function SiteConfigProvider({ children }) {
           logo: response.logo && response.logo.trim() !== '' ? response.logo : DEFAULT_CONFIG.logo,
           video: response.video || DEFAULT_CONFIG.video,
           noise: response.noise && response.noise.trim() !== '' ? response.noise : DEFAULT_CONFIG.noise,
-          r2BaseUrl: response.r2BaseUrl || ''
+          r2BaseUrl: response.r2BaseUrl || '',
+          smsOtpEnabled: Boolean(response.smsOtpEnabled ?? response.sms_otp_enabled),
         });
         logger.log('Site config loaded from backend');
       }

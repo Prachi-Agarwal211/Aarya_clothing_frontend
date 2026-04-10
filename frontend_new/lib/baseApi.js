@@ -15,6 +15,11 @@ import logger from './logger';
 // Token helpers — tokens are HttpOnly cookies set by the backend.
 // These functions exist only for backward-compat; real auth uses credentials:'include'.
 
+/**
+ * @deprecated No-op for backward compatibility.
+ * Tokens are now HttpOnly cookies managed by the backend.
+ * Do NOT use for new code — use setAuthData() instead.
+ */
 export function setCookie(name, value, days = 7) {
   if (typeof document === 'undefined') return;
   try {
@@ -27,6 +32,10 @@ export function setCookie(name, value, days = 7) {
   }
 }
 
+/**
+ * @deprecated No-op for backward compatibility.
+ * Tokens are now HttpOnly cookies managed by the backend.
+ */
 export function removeCookie(name) {
   if (typeof document === 'undefined') return;
   try {
@@ -36,10 +45,27 @@ export function removeCookie(name) {
   }
 }
 
+/**
+ * @deprecated No-op — returns null.
+ * Tokens are HttpOnly cookies; this function exists only for backward compatibility.
+ * Use `getAccessToken()` from authContext instead if you need token-aware logic.
+ */
 export function getStoredTokens() { return null; }
+/**
+ * @deprecated No-op.
+ * Tokens are HttpOnly cookies set by the backend.
+ */
 export function setStoredTokens() {}
+/**
+ * @deprecated Alias for clearAuthData().
+ * Clears localStorage user data only; cookies are cleared by backend logout.
+ */
 export function clearStoredTokens() { clearAuthData(); }
 
+/**
+ * @deprecated Always returns null.
+ * Tokens are HttpOnly cookies — not accessible to JavaScript for security.
+ */
 export function getAccessToken() { return null; }
 
 export function getStoredUser() {
@@ -197,21 +223,24 @@ async function parseResponse(response) {
   }
 }
 
+// Single in-flight refresh for the whole app — Proxy-based clients create new
+// BaseApiClient instances per method call; a module-level promise dedupes 401 storms.
+let authRefreshSingleton = null;
+
 export class BaseApiClient {
   constructor(baseUrl, options = {}) {
     this.baseUrl = normalizeBaseUrl(baseUrl);
     this.includeCredentials = options.includeCredentials !== false;
     this.timeout = options.timeout ?? 10000; // Default 10 second timeout
     this.maxRetries = options.maxRetries ?? 2;
-    this._refreshing = null;
   }
 
   async _tryRefreshToken() {
-    if (this._refreshing) {
-      return this._refreshing;
+    if (authRefreshSingleton) {
+      return authRefreshSingleton;
     }
 
-    this._refreshing = (async () => {
+    authRefreshSingleton = (async () => {
       try {
         // FIX: Use credentials: 'include' to send refresh token cookie
         // Backend expects refresh token from cookie, not request body
@@ -266,11 +295,11 @@ export class BaseApiClient {
         }
         return false;
       } finally {
-        this._refreshing = null;
+        authRefreshSingleton = null;
       }
     })();
 
-    return this._refreshing;
+    return authRefreshSingleton;
   }
 
   async fetch(path, options = {}, _isRetry = false) {
@@ -281,6 +310,11 @@ export class BaseApiClient {
       ...(hasFormDataBody ? {} : { 'Content-Type': 'application/json' }),
       ...(options.headers || {}),
     };
+
+    // Auth endpoints: cap retries at 1 to avoid amplifying outages (see auth spec)
+    const effectiveMaxRetries = path.includes('/api/v1/auth/')
+      ? Math.min(this.maxRetries, 1)
+      : this.maxRetries;
 
     // Wrap fetch in retry logic — only retry network/5xx errors, never 4xx
     return fetchWithRetry(async () => {
@@ -323,7 +357,7 @@ export class BaseApiClient {
       }
 
       return data;
-    }, this.maxRetries);
+    }, effectiveMaxRetries);
   }
 
   _buildPathWithParams(path, params = {}) {

@@ -2804,6 +2804,65 @@ async def internal_release_reservation(
     return {"message": "Reservation released", "order_id": order_id}
 
 
+# ==================== Internal Cart Endpoint ====================
+
+@app.get("/api/v1/internal/cart/{user_id}", tags=["Internal"])
+async def internal_get_cart(
+    user_id: int,
+    db: Session = Depends(get_db),
+    _: bool = Depends(verify_internal_secret)
+):
+    """
+    INTERNAL ENDPOINT — Called by payment service recovery job and webhook handler.
+    Fetches a user's cart data (items + shipping address) for order recovery.
+    No JWT required — uses X-Internal-Secret for service-to-service auth.
+    """
+    cart_key = f"cart:{user_id}"
+    cart_data = redis_client.get_cache(cart_key)
+
+    if not cart_data:
+        # Cart not in Redis — return empty
+        return {
+            "user_id": user_id,
+            "items": [],
+            "cart_snapshot": [],
+            "shipping_address": "",
+            "subtotal": 0.0,
+            "total": 0.0,
+            "item_count": 0,
+        }
+
+    # cart_data is already a dict from Redis
+    items = cart_data.get("items", [])
+
+    # Convert to simple serializable format for internal callers
+    cart_snapshot = []
+    for item in items:
+        cart_snapshot.append({
+            "product_id": item.get("product_id"),
+            "variant_id": item.get("variant_id"),
+            "name": item.get("name"),
+            "price": item.get("price"),
+            "quantity": item.get("quantity"),
+            "sku": item.get("sku"),
+            "image": item.get("image"),
+            "size": item.get("size"),
+            "color": item.get("color"),
+            "hsn_code": item.get("hsn_code"),
+            "gst_rate": item.get("gst_rate"),
+        })
+
+    return {
+        "user_id": cart_data.get("user_id", user_id),
+        "items": items,
+        "cart_snapshot": cart_snapshot,
+        "shipping_address": cart_data.get("shipping_address", ""),
+        "subtotal": cart_data.get("subtotal", 0.0),
+        "total": cart_data.get("total", 0.0),
+        "item_count": cart_data.get("item_count", len(items)),
+    }
+
+
 # ==================== Internal Payment/Order Reliability Routes ====================
 
 @app.post("/api/v1/orders/internal/orders/create-from-payment", tags=["Internal - Payment Recovery"])

@@ -593,13 +593,9 @@ class OrderService:
 
         # Extract cart items from pending_order snapshot
         cart_items = pending_order_data.get("cart_snapshot", pending_order_data.get("cart_items", []))
-        if not cart_items:
-            raise ValueError("Cannot create order: cart snapshot is empty")
 
         # Extract order data
         shipping_address = pending_order_data.get("shipping_address")
-        if not shipping_address:
-            raise ValueError("Cannot create order: shipping address is missing")
 
         subtotal = Decimal(str(pending_order_data.get("subtotal", 0)))
         discount_applied = Decimal(str(pending_order_data.get("discount_applied", 0)))
@@ -613,6 +609,33 @@ class OrderService:
         order_notes = pending_order_data.get("order_notes", "")
         delivery_state = pending_order_data.get("delivery_state", "")
         customer_gstin = pending_order_data.get("customer_gstin")
+
+        # RECOVERY PATH: If cart was already cleared, create a minimal order
+        # This happens when payment succeeded but order creation failed and cart was cleared
+        created_minimal = False
+        if not cart_items:
+            logger.warning(
+                f"RECOVERY_MINIMAL_ORDER: user={user_id} payment={payment_id} "
+                f"— no cart items available (cart was cleared). Creating minimal order."
+            )
+            cart_items = [{
+                "product_id": None,
+                "name": "Order recovered from payment",
+                "price": float(total_amount),
+                "quantity": 1,
+                "unit_price": float(total_amount),
+                "sku": None,
+                "size": None,
+                "color": None,
+                "hsn_code": None,
+                "gst_rate": None,
+            }]
+            created_minimal = True
+
+        if not shipping_address:
+            shipping_address = "Address to be confirmed — contact customer support for delivery details"
+            if not created_minimal:
+                order_notes = f"{order_notes} [ADDRESS MISSING — RECOVERY]".strip()
 
         # Generate invoice number
         year = datetime.now().year

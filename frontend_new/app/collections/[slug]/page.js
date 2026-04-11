@@ -136,7 +136,9 @@ export default async function CollectionDetailPage({ params }) {
       />
 
       {/* Pass initial data to client component for interactivity */}
+      {/* key=slug: client state must reset on client nav between /collections/a → /collections/b */}
       <CollectionDetailClient
+        key={slug}
         initialCollection={collection}
         initialProducts={products}
         slug={slug}

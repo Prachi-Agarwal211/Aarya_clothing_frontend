@@ -1,5 +1,18 @@
 # Aarya Clothing - Unified Docker Compose
 # Single configuration for local development and testing
+#
+# ARCHITECTURE (one frontend, four API microservices, shared data layer)
+# -----------------------------------------------------------------------
+# • Frontend:  Next.js (frontend_new) — one app for storefront + customer flows; talks to APIs via nginx.
+# • APIs:      4 separate services (own Dockerfiles, ports, health checks):
+#                core:5001      auth, users, sessions, OTP, email/SMS, internal notify
+#                commerce:5002  catalog, cart, orders, inventory, search
+#                payment:5003   gateways, webhooks, payment recovery worker (uses payment Redis DB)
+#                admin:5004     staff dashboard, ops (calls core/commerce/payment URLs)
+# • Shared:    PostgreSQL (one DB: aarya_clothing), Redis (one instance; logical DB index per service:
+#                core=0, commerce=1, payment=2 (+ payment-worker), admin=3) — keys never collide across services.
+# • Gateway:   nginx routes /api/... to the correct service (see docker/nginx/nginx.conf).
+# • Extra:     meilisearch (search), optional certbot profile — not counted as user-facing microservices.
 
 services:
   # ============================================================
@@ -127,6 +140,8 @@ services:
       - ALLOWED_ORIGINS=["http://localhost:6004","http://localhost:6005","http://127.0.0.1:6004","http://127.0.0.1:6005","https://aaryaclothing.in","https://www.aaryaclothing.in"]
       - DEBUG=${AARYA_DEBUG:-false}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      # Same secret as commerce/payment — internal order-email API from Commerce
+      - INTERNAL_SERVICE_SECRET=${INTERNAL_SERVICE_SECRET:-aarya_internal_secret_change_me}
       # Password Policy
       - PASSWORD_MIN_LENGTH=8
       - PASSWORD_REQUIRE_UPPERCASE=true
@@ -146,6 +161,8 @@ services:
       - MSG91_AUTH_KEY=${MSG91_AUTH_KEY:-}
       - MSG91_TEMPLATE_ID=${MSG91_TEMPLATE_ID:-}
       - MSG91_SENDER_ID=${MSG91_SENDER_ID:-}
+      # Optional: DLT-registered Flow template for order SMS (var1/2/3; separate from OTP template)
+      - MSG91_ORDER_FLOW_TEMPLATE_ID=${MSG91_ORDER_FLOW_TEMPLATE_ID:-}
       # SMTP Configuration - Hostinger
       - SMTP_HOST=smtp.hostinger.com
       - SMTP_PORT=465
@@ -206,6 +223,8 @@ services:
       - REDIS_URL=redis://:${REDIS_PASSWORD:-aarya_clothing_redis_password_2024}@redis:6379/1
       - REDIS_DB=1
       - CORE_SERVICE_URL=http://core:5001
+      # Links in order emails (track order, shop) — must match production domain
+      - PUBLIC_APP_URL=${PUBLIC_APP_URL:-https://aaryaclothing.in}
       - CART_TTL_HOURS=168
       - ORDER_TIMEOUT_MINUTES=15
       - ALLOWED_ORIGINS=["http://localhost:6004","http://localhost:6005","http://127.0.0.1:6004","http://127.0.0.1:6005","https://aaryaclothing.in","https://www.aaryaclothing.in"]
@@ -512,6 +531,12 @@ services:
         condition: service_healthy
       commerce:
         condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import os; from redis import Redis; r = Redis(host='redis', port=6379, db=2, password=os.environ.get('REDIS_PASSWORD','aarya_clothing_redis_password_2024')); assert r.ping()\""]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     deploy:
       resources:
         limits:

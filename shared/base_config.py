@@ -49,6 +49,8 @@ class BaseSettings(PydanticBaseSettings):
     DATABASE_MAX_OVERFLOW: int = 20
     
     # ==================== Redis ====================
+    # One Redis server is shared; each microservice MUST use a distinct REDIS_DB so caches/sessions/queues stay isolated.
+    # Convention with docker-compose: core=0, commerce=1, payment=2, admin=3 (set via each service's environment).
     REDIS_URL: str = "redis://localhost:6379"
     REDIS_DB: int = 0
     

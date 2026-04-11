@@ -45,6 +45,10 @@ class Product(Base):
     # Search tags
     tags = Column(String(500), nullable=True)  # Comma-separated tags for search
 
+    # Material & care
+    material = Column(Text, nullable=True)  # Fabric/material composition
+    care_instructions = Column(Text, nullable=True)  # Care/washing instructions
+
     # Timestamps
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))

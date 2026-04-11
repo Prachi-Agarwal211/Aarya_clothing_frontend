@@ -79,6 +79,8 @@ class UserResponse(UserBase):
     role: UserRole
     is_active: bool
     email_verified: bool
+    phone_verified: bool = False
+    signup_verification_method: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     profile: Optional[UserProfileResponse] = None

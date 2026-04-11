@@ -1,5 +1,5 @@
 """Database connection for commerce service with optimized connection pooling."""
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, Session, declarative_base
 from sqlalchemy.pool import QueuePool
 from contextlib import contextmanager
@@ -46,6 +46,56 @@ def get_db_context() -> Session:
         db.close()
 
 
+def _ensure_users_phone_verified_column() -> None:
+    import logging
+
+    log = logging.getLogger(__name__)
+    try:
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    "ALTER TABLE users ADD COLUMN IF NOT EXISTS phone_verified BOOLEAN NOT NULL DEFAULT FALSE"
+                )
+            )
+    except Exception as e:
+        log.warning("Could not ensure phone_verified column on users: %s", e)
+
+
+def _ensure_users_signup_verification_method_column() -> None:
+    import logging
+
+    log = logging.getLogger(__name__)
+    try:
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    "ALTER TABLE users ADD COLUMN IF NOT EXISTS signup_verification_method VARCHAR(32)"
+                )
+            )
+    except Exception as e:
+        log.warning("Could not ensure signup_verification_method column on users: %s", e)
+
+
+def _ensure_products_material_care_columns() -> None:
+    import logging
+
+    log = logging.getLogger(__name__)
+    try:
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    "ALTER TABLE products ADD COLUMN IF NOT EXISTS material TEXT"
+                )
+            )
+            conn.execute(
+                text(
+                    "ALTER TABLE products ADD COLUMN IF NOT EXISTS care_instructions TEXT"
+                )
+            )
+    except Exception as e:
+        log.warning("Could not ensure material/care_instructions columns on products: %s", e)
+
+
 def init_db():
     """Initialize database tables."""
     from models.product import Product
@@ -61,6 +111,9 @@ def init_db():
     from models.product_image import ProductImage
     from models.user import User, UserProfile
     Base.metadata.create_all(bind=engine)
+    _ensure_users_phone_verified_column()
+    _ensure_users_signup_verification_method_column()
+    _ensure_products_material_care_columns()
 
 
 def get_pool_status() -> dict:

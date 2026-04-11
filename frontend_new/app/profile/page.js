@@ -1,15 +1,24 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { User, Mail, Phone, Calendar, Edit2, Camera, Save, AlertCircle } from 'lucide-react';
-import { userApi } from '@/lib/customerApi';
+import {
+  User,
+  Mail,
+  Phone,
+  Calendar,
+  Edit2,
+  Camera,
+  Save,
+  AlertCircle,
+  ShieldCheck,
+  Loader2,
+} from 'lucide-react';
+import { userApi, authApi } from '@/lib/customerApi';
+import { setAuthData } from '@/lib/baseApi';
 import { useAuth } from '@/lib/authContext';
 
 export default function ProfilePage() {
-  const router = useRouter();
-  const { user, isAuthenticated, loading: authLoading, updateUser } = useAuth();
+  const { user, loading: authLoading, updateUser } = useAuth();
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
@@ -18,6 +27,13 @@ export default function ProfilePage() {
     email: '',
     phone: '',
   });
+
+  /** Profile verification: resend link, email OTP, SMS OTP */
+  const [verifyBusy, setVerifyBusy] = useState(null);
+  const [verifyMsg, setVerifyMsg] = useState('');
+  const [verifyErr, setVerifyErr] = useState('');
+  const [otpChannel, setOtpChannel] = useState(null);
+  const [otpCode, setOtpCode] = useState('');
 
   // NOTE: Auth check is handled by middleware.js - removed duplicate redirect logic
   // The middleware will redirect to login with redirect_url if not authenticated
@@ -53,13 +69,94 @@ export default function ProfilePage() {
     }
   };
 
-  // Format currency
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      maximumFractionDigits: 0,
-    }).format(amount || 0);
+  const emailVerified = Boolean(user?.email_verified);
+  const phoneVerified = Boolean(user?.phone_verified);
+  const profilePhone = (user?.profile?.phone || user?.phone || '').trim();
+
+  const applyVerifiedUser = (payload) => {
+    if (payload?.user) {
+      setAuthData({ user: payload.user });
+      updateUser(payload.user);
+    }
+  };
+
+  const handleResendEmailLink = async () => {
+    if (!user?.email) return;
+    setVerifyErr('');
+    setVerifyMsg('');
+    setVerifyBusy('email_link');
+    try {
+      await authApi.resendVerification(user.email);
+      setVerifyMsg('If your email is unverified, we sent a verification link. Check your inbox.');
+    } catch (e) {
+      setVerifyErr(e.message || 'Could not send verification email.');
+    } finally {
+      setVerifyBusy(null);
+    }
+  };
+
+  const handleSendEmailOtp = async () => {
+    if (!user?.email) return;
+    setVerifyErr('');
+    setVerifyMsg('');
+    setVerifyBusy('email_otp_send');
+    try {
+      await authApi.resendVerificationOtp({ email: user.email, otp_type: 'EMAIL' });
+      setOtpChannel('email');
+      setOtpCode('');
+      setVerifyMsg('Enter the 6-digit code we sent to your email.');
+    } catch (e) {
+      setVerifyErr(e.message || 'Could not send email code.');
+    } finally {
+      setVerifyBusy(null);
+    }
+  };
+
+  const handleSendPhoneOtp = async () => {
+    const phone = profilePhone || formData.phone?.trim();
+    if (!phone) {
+      setVerifyErr('Add a phone number in your profile, save, then verify.');
+      return;
+    }
+    setVerifyErr('');
+    setVerifyMsg('');
+    setVerifyBusy('phone_otp_send');
+    try {
+      await authApi.resendVerificationOtp({ phone, otp_type: 'SMS' });
+      setOtpChannel('phone');
+      setOtpCode('');
+      setVerifyMsg('Enter the 6-digit code we sent by SMS.');
+    } catch (e) {
+      setVerifyErr(e.message || 'Could not send SMS code.');
+    } finally {
+      setVerifyBusy(null);
+    }
+  };
+
+  const handleSubmitOtp = async () => {
+    const code = otpCode.replace(/\D/g, '').slice(0, 6);
+    const channel = otpChannel;
+    if (code.length !== 6 || !channel) return;
+    setVerifyErr('');
+    setVerifyMsg('');
+    setVerifyBusy('otp_verify');
+    try {
+      const body =
+        channel === 'email'
+          ? { otp_code: code, email: user.email, otp_type: 'EMAIL' }
+          : { otp_code: code, email: user.email, otp_type: 'SMS' };
+      const res = await authApi.verifyOtpRegistration(body);
+      applyVerifiedUser(res);
+      setOtpChannel(null);
+      setOtpCode('');
+      setVerifyMsg(
+        channel === 'email' ? 'Email verified successfully.' : 'Phone verified successfully.',
+      );
+    } catch (e) {
+      setVerifyErr(e.message || 'Invalid or expired code.');
+    } finally {
+      setVerifyBusy(null);
+    }
   };
 
   // Format date
@@ -184,9 +281,140 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* Personal Information Form - Combined with Profile Information above */}
-      {/* Note: Duplicate removed - using the form in Profile Information section above */}
-      
+      {/* Verify email / phone — order notifications follow these flags (SMS preferred when both verified) */}
+      <div className="p-6 bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl">
+        <div className="flex items-center gap-2 mb-4">
+          <ShieldCheck className="w-5 h-5 text-[#B76E79]" />
+          <h3 className="text-lg font-semibold text-[#F2C29A]">Account verification</h3>
+        </div>
+        <p className="text-sm text-[#EAE0D5]/60 mb-4">
+          Verify both email and phone to choose SMS for order updates (SMS is used first when both are verified).
+        </p>
+
+        {verifyErr ? (
+          <div className="mb-3 flex items-start gap-2 text-sm text-red-300/90">
+            <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+            {verifyErr}
+          </div>
+        ) : null}
+        {verifyMsg ? (
+          <div className="mb-3 text-sm text-[#B76E79]/90">{verifyMsg}</div>
+        ) : null}
+
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 py-2 border-b border-[#B76E79]/10">
+            <div>
+              <p className="text-[#EAE0D5]">Email</p>
+              <p className="text-xs text-[#EAE0D5]/50">
+                {emailVerified ? 'Verified' : 'Not verified — confirm to receive email order updates'}
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {emailVerified ? (
+                <span className="text-sm text-emerald-400/90">Verified</span>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleResendEmailLink}
+                    disabled={!!verifyBusy}
+                    className="text-sm px-3 py-1.5 rounded-lg border border-[#B76E79]/30 text-[#EAE0D5] hover:border-[#B76E79]/50 disabled:opacity-50"
+                  >
+                    {verifyBusy === 'email_link' ? (
+                      <Loader2 className="w-4 h-4 animate-spin inline" />
+                    ) : (
+                      'Send link'
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSendEmailOtp}
+                    disabled={!!verifyBusy}
+                    className="text-sm px-3 py-1.5 rounded-lg bg-[#B76E79]/20 text-[#F2C29A] hover:bg-[#B76E79]/30 disabled:opacity-50"
+                  >
+                    {verifyBusy === 'email_otp_send' ? (
+                      <Loader2 className="w-4 h-4 animate-spin inline" />
+                    ) : (
+                      'Email code'
+                    )}
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 py-2 border-b border-[#B76E79]/10">
+            <div>
+              <p className="text-[#EAE0D5]">Phone</p>
+              <p className="text-xs text-[#EAE0D5]/50">
+                {phoneVerified
+                  ? 'Verified'
+                  : 'Not verified — add a valid number in Edit, save, then send SMS code'}
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {phoneVerified ? (
+                <span className="text-sm text-emerald-400/90">Verified</span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleSendPhoneOtp}
+                  disabled={!!verifyBusy || !profilePhone}
+                  className="text-sm px-3 py-1.5 rounded-lg bg-[#B76E79]/20 text-[#F2C29A] hover:bg-[#B76E79]/30 disabled:opacity-50"
+                >
+                  {verifyBusy === 'phone_otp_send' ? (
+                    <Loader2 className="w-4 h-4 animate-spin inline" />
+                  ) : (
+                    'SMS code'
+                  )}
+                </button>
+              )}
+            </div>
+          </div>
+
+          {otpChannel ? (
+            <div className="flex flex-col sm:flex-row gap-2 sm:items-end pt-2">
+              <div className="flex-1">
+                <label className="block text-xs text-[#EAE0D5]/60 mb-1">6-digit code</label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={6}
+                  value={otpCode}
+                  onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  className="w-full sm:max-w-xs px-3 py-2 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-lg text-[#EAE0D5] tracking-widest"
+                  placeholder="••••••"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={handleSubmitOtp}
+                disabled={otpCode.replace(/\D/g, '').length !== 6 || verifyBusy === 'otp_verify'}
+                className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#7A2F57] to-[#B76E79] text-white text-sm disabled:opacity-50"
+              >
+                {verifyBusy === 'otp_verify' ? (
+                  <Loader2 className="w-4 h-4 animate-spin inline" />
+                ) : (
+                  'Verify'
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setOtpChannel(null);
+                  setOtpCode('');
+                  setVerifyErr('');
+                }}
+                className="text-sm text-[#EAE0D5]/60 hover:text-[#EAE0D5]"
+              >
+                Cancel
+              </button>
+            </div>
+          ) : null}
+        </div>
+      </div>
+
       {/* Account Actions */}
       <div className="p-6 bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl">
         <h3 className="text-lg font-semibold text-[#F2C29A] mb-4">Account Actions</h3>

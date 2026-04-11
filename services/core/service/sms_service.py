@@ -122,6 +122,62 @@ class SMSService:
             logger.error(f"[MSG91 Error] Failed to send SMS to {formatted_phone}: {error_msg}")
             raise ValueError(f"Failed to send SMS OTP: {error_msg}")
 
+    def send_order_flow_sms(
+        self,
+        phone_number: str,
+        *,
+        order_number: str,
+        summary_line: str,
+        link: str = "",
+    ) -> Dict[str, Any]:
+        """
+        Transactional order update via MSG91 Flow API (separate DLT template from OTP).
+        Configure MSG91_ORDER_FLOW_TEMPLATE_ID and match ##var## placeholders in the console.
+        """
+        if not phone_number or not str(phone_number).strip():
+            return {"success": False, "error": "no_phone"}
+        tid = getattr(settings, "MSG91_ORDER_FLOW_TEMPLATE_ID", None)
+        if not self.auth_key or not tid:
+            logger.info(
+                "[MSG91] Order SMS skipped: MSG91_ORDER_FLOW_TEMPLATE_ID not set or SMS disabled"
+            )
+            return {"success": False, "error": "order_flow_template_not_configured"}
+
+        formatted_phone = self._format_phone_number(phone_number)
+        payload = {
+            "template_id": tid,
+            "short_url": "0",
+            "realTimeResponse": "1",
+            "recipients": [
+                {
+                    "mobiles": formatted_phone,
+                    "var1": order_number[:80],
+                    "var2": (summary_line or "")[:160],
+                    "var3": (link or "")[:500],
+                }
+            ],
+        }
+        headers = {
+            "authkey": self.auth_key,
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+        }
+        try:
+            with httpx.Client(timeout=30.0) as client:
+                r = client.post(MSG91_SEND_SMS_URL, json=payload, headers=headers)
+                if r.status_code != 200:
+                    logger.error(f"[MSG91 Flow] HTTP {r.status_code}: {r.text}")
+                    return {"success": False, "error": f"HTTP {r.status_code}"}
+                result = r.json()
+                if result.get("type") == "success" or result.get("message", "").lower() == "success":
+                    return {"success": True, "message_id": result.get("request_id", "ok")}
+                err = result.get("message", str(result))
+                logger.error(f"[MSG91 Flow] Failed: {err}")
+                return {"success": False, "error": err}
+        except Exception as e:
+            logger.error(f"[MSG91 Flow] Exception: {e}")
+            return {"success": False, "error": str(e)}
+
 
 # Singleton instance
 try:

@@ -215,6 +215,9 @@ def _enrich_product(product, user_role: str = None) -> dict:
         "reviews_count": product.review_count or 0,
         "meta_title": product.meta_title,
         "meta_description": product.meta_description,
+        "tags": product.tags,
+        "material": product.material,
+        "care_instructions": product.care_instructions,
         "hsn_code": getattr(product, 'hsn_code', None),
         "gst_rate": float(product.gst_rate) if product.gst_rate else None,
         "is_taxable": getattr(product, 'is_taxable', None),
@@ -831,8 +834,8 @@ async def add_to_my_cart(
     current_user: dict = Depends(get_current_user)
 ):
     """Add item to current user's cart (user_id from token)."""
-    # Rate limiting: 30 requests per minute per IP
-    if not _check_rate_limit(request, "cart_add", limit=30, window=60):
+    # Rate limiting: 100 requests per minute per IP (generous for shared IPs)
+    if not _check_rate_limit(request, "cart_add", limit=100, window=60):
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="Too many cart operations. Please try again later."

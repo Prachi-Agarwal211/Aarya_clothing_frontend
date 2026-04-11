@@ -28,9 +28,9 @@ class OTPSendRequest(BaseModel):
     @field_validator('phone')
     @classmethod
     def validate_phone_required(cls, v, info):
-        """Validate phone is provided when OTP type is SMS."""
-        if info.data.get('otp_type') == OTPType.SMS and not v:
-            raise ValueError("Phone number is required for SMS OTP")
+        """SMS: require phone, or email for server-side lookup (registration recovery)."""
+        if info.data.get('otp_type') == OTPType.SMS and not v and not info.data.get('email'):
+            raise ValueError("Phone number or email is required for SMS OTP")
         return v
 
 
@@ -69,9 +69,9 @@ class OTPResendRequest(BaseModel):
     @field_validator('phone')
     @classmethod
     def validate_phone_required(cls, v, info):
-        """Validate phone is provided when OTP type is SMS."""
-        if info.data.get('otp_type') == OTPType.SMS and not v:
-            raise ValueError("Phone number is required for SMS OTP")
+        """SMS: require phone, or email for server-side lookup."""
+        if info.data.get('otp_type') == OTPType.SMS and not v and not info.data.get('email'):
+            raise ValueError("Phone number or email is required for SMS OTP")
         return v
 
 
@@ -112,6 +112,6 @@ class VerifyRegistrationOTPBody(BaseModel):
             if not self.email:
                 raise ValueError('email is required when otp_type is EMAIL')
         else:
-            if not self.phone:
-                raise ValueError('phone is required when otp_type is SMS')
+            if not self.phone and not self.email:
+                raise ValueError('phone or email is required when otp_type is SMS')
         return self

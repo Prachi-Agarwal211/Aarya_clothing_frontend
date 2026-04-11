@@ -73,19 +73,19 @@ else
     fail "ProductCard.jsx missing backward compatibility for wishlist state"
 fi
 
-# 4. Check page.js video intro status
-echo "4. Checking page.js video intro implementation..."
-if grep -q "IntroVideo" "$FRONTEND_DIR/app/page.js" && \
-   grep -q "handleVideoEnd" "$FRONTEND_DIR/app/page.js"; then
+# 4. Check (landing)/page.js video intro status
+echo "4. Checking (landing)/page.js video intro implementation..."
+if grep -q "IntroVideo" "$FRONTEND_DIR/app/(landing)/page.js" && \
+   grep -q "handleVideoEnd" "$FRONTEND_DIR/app/(landing)/page.js"; then
     # Check if it has proper error handling
-    if grep -q "retry" "$FRONTEND_DIR/app/page.js" && \
-       grep -q "ERROR_FALLBACK_DATA" "$FRONTEND_DIR/app/page.js"; then
-        pass "page.js video intro has proper error handling and retry logic"
+    if grep -q "retry" "$FRONTEND_DIR/app/(landing)/page.js" && \
+       grep -q "ERROR_FALLBACK_DATA" "$FRONTEND_DIR/app/(landing)/page.js"; then
+        pass "(landing)/page.js video intro has proper error handling and retry logic"
     else
-        warn "page.js video intro may be missing error handling"
+        warn "(landing)/page.js video intro may be missing error handling"
     fi
 else
-    fail "page.js missing video intro implementation"
+    fail "(landing)/page.js missing video intro implementation"
 fi
 
 echo ""

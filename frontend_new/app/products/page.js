@@ -15,6 +15,16 @@ export default async function ProductsPage({ searchParams }) {
     page: parseInt(params?.page || '1', 10),
   };
 
+  // Remount listing when query changes so useState(initialFilters) matches URL (SPA nav)
+  const productsClientKey = [
+    initialFilters.collection_id ?? '',
+    initialFilters.page,
+    initialFilters.sort ?? '',
+    initialFilters.search ?? '',
+    initialFilters.minPrice ?? '',
+    initialFilters.maxPrice ?? '',
+  ].join('|');
+
   return (
     <Suspense fallback={
       <div className="min-h-screen flex items-center justify-center bg-[#050203]">
@@ -24,7 +34,7 @@ export default async function ProductsPage({ searchParams }) {
         </div>
       </div>
     }>
-      <ProductsClient initialFilters={initialFilters} />
+      <ProductsClient key={productsClientKey} initialFilters={initialFilters} />
     </Suspense>
   );
 }

@@ -32,6 +32,7 @@ function RegisterPageContent() {
   const [verificationMethod, setVerificationMethod] = useState('otp_email');
   
   const otpRefs = useRef([]);
+  const recoveryVerifySentRef = useRef(false);
   const [otpTimeLeft, setOtpTimeLeft] = useState(OTP_EXPIRY_SECONDS);
   const [otpExpired, setOtpExpired] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
@@ -52,30 +53,42 @@ function RegisterPageContent() {
   const passwordsMatch = confirmPassword ? password === confirmPassword : null;
   const otpValue = otpDigits.join('');
 
-  // Handle ?step=verify&email= params — unverified users redirected from login page
+  // Handle ?step=verify&email=&method= — unverified users redirected from login page
   useEffect(() => {
     const stepParam = searchParams?.get('step');
     const emailParam = searchParams?.get('email');
-    if (stepParam === 'verify' && emailParam) {
-      setEmail(decodeURIComponent(emailParam));
-      setVerificationMethod('otp_email');
-      // Send OTP to email and jump to verification step
-      const sendOtp = async () => {
-        try {
-          await authApi.resendVerificationOtp({ email: decodeURIComponent(emailParam), otp_type: 'EMAIL' });
-          startOtpTimers();
-          setStep(2);
-        } catch (err) {
-          logger.warn('Failed to send OTP to unverified email:', err?.message);
-          // Still jump to step 2 — user can use resend
-          startOtpTimers();
-          setStep(2);
-        }
-      };
-      sendOtp();
+    const methodParam = searchParams?.get('method') || 'otp_email';
+    if (stepParam !== 'verify' || !emailParam || recoveryVerifySentRef.current) {
+      return;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    recoveryVerifySentRef.current = true;
+    const decodedEmail = decodeURIComponent(emailParam);
+    setEmail(decodedEmail);
+    const useSms = methodParam === 'otp_sms' && smsOtpEnabled;
+    setVerificationMethod(useSms ? 'otp_sms' : 'otp_email');
+    const sendOtp = async () => {
+      try {
+        if (useSms) {
+          await authApi.resendVerificationOtp({
+            email: decodedEmail,
+            otp_type: 'SMS',
+          });
+        } else {
+          await authApi.resendVerificationOtp({
+            email: decodedEmail,
+            otp_type: 'EMAIL',
+          });
+        }
+        startOtpTimers();
+        setStep(2);
+      } catch (err) {
+        logger.warn('Failed to send verification code:', err?.message);
+        startOtpTimers();
+        setStep(2);
+      }
+    };
+    sendOtp();
+  }, [searchParams, smsOtpEnabled]);
 
   // Timer management
   useEffect(() => {
@@ -207,7 +220,11 @@ function RegisterPageContent() {
 
       const response = await authApi.verifyOtpRegistration({
         otp_code: otpValue,
-        ...(verificationMethod === 'otp_email' ? { email } : { phone }),
+        ...(verificationMethod === 'otp_email'
+          ? { email }
+          : phone?.trim()
+            ? { phone: phone.trim() }
+            : { email }),
         otp_type: otpType,
       });
 
@@ -313,19 +330,19 @@ function RegisterPageContent() {
   }
 
   return (
-    <div className="w-full max-w-[480px] lg:max-w-[520px] xl:max-w-[560px] flex flex-col items-center">
+    <div className="w-full max-w-md md:max-w-3xl flex flex-col items-center">
       {/* LOGO */}
-      <div className="flex flex-col items-center mb-8 sm:mb-10 md:mb-12 lg:mb-14 animate-fade-in-up">
+      <div className="flex flex-col items-center mb-4 sm:mb-5 animate-fade-in-up">
         {logoUrl ? (
           <img
             src={logoUrl}
             alt="Aarya Clothing Logo"
-            className="w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 lg:w-36 lg:h-36 object-contain drop-shadow-[0_0_15px_rgba(242,194,154,0.2)]"
+            className="w-16 h-16 sm:w-20 sm:h-20 object-contain drop-shadow-[0_0_15px_rgba(242,194,154,0.2)]"
             loading="eager"
             fetchPriority="high"
           />
         ) : (
-          <div className="w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 lg:w-36 lg:h-36 flex items-center justify-center text-4xl font-bold text-[#F2C29A] drop-shadow-[0_0_15px_rgba(242,194,154,0.2)]" aria-label="Aarya Clothing">
+          <div className="w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center text-3xl font-bold text-[#F2C29A] drop-shadow-[0_0_15px_rgba(242,194,154,0.2)]" aria-label="Aarya Clothing">
             A
           </div>
         )}
@@ -334,22 +351,23 @@ function RegisterPageContent() {
       {/* STEP 1: Registration Form */}
       {step === 1 && (
         <>
-          <div className="text-center mb-10 lg:mb-12 space-y-2 animate-fade-in-up-delay">
-            <h2 className="text-2xl sm:text-3xl md:text-4xl text-white/90 font-body">Create Account</h2>
-            <p className="text-white/80 text-sm sm:text-base uppercase tracking-[0.2em] font-light">Begin your luxury journey</p>
+          <div className="text-center mb-4 sm:mb-5 space-y-1 animate-fade-in-up-delay">
+            <h2 className="text-xl sm:text-2xl text-white/90 font-body">Create Account</h2>
+            <p className="text-white/75 text-xs sm:text-sm uppercase tracking-[0.18em] font-light">Begin your luxury journey</p>
           </div>
 
-          <form className="w-full space-y-5 sm:space-y-6 animate-fade-in-up-delay" onSubmit={handleFormSubmit} noValidate>
+          <form className="w-full space-y-3 sm:space-y-3.5 animate-fade-in-up-delay" onSubmit={handleFormSubmit} noValidate>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {/* Full Name */}
-            <div className="luxury-input-wrapper h-14 sm:h-16 md:h-18 rounded-2xl relative group flex items-center px-5 sm:px-6">
-              <User className="w-5 h-5 sm:w-6 sm:h-6 text-[#B76E79] group-focus-within:text-[#F2C29A] transition-colors duration-300" aria-hidden="true" />
+            <div className="luxury-input-wrapper h-11 sm:h-12 rounded-xl relative group flex items-center px-4">
+              <User className="w-4 h-4 sm:w-5 sm:h-5 text-[#B76E79] group-focus-within:text-[#F2C29A] transition-colors duration-300 shrink-0" aria-hidden="true" />
               <Input
                 type="text"
                 placeholder="Full Name"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 variant="minimal"
-                className="h-full pl-4 sm:pl-5 text-[#EAE0D5] placeholder:text-[#8A6A5C] text-base sm:text-lg md:text-xl"
+                className="h-full pl-3 sm:pl-4 text-[#EAE0D5] placeholder:text-[#8A6A5C] text-sm sm:text-base"
                 autoComplete="name"
                 aria-label="Full name"
                 required
@@ -357,15 +375,15 @@ function RegisterPageContent() {
             </div>
 
             {/* Username */}
-            <div className="luxury-input-wrapper h-14 sm:h-16 md:h-18 rounded-2xl relative group flex items-center px-5 sm:px-6">
-              <User className="w-5 h-5 sm:w-6 sm:h-6 text-[#B76E79] group-focus-within:text-[#F2C29A] transition-colors duration-300" aria-hidden="true" />
+            <div className="luxury-input-wrapper h-11 sm:h-12 rounded-xl relative group flex items-center px-4">
+              <User className="w-4 h-4 sm:w-5 sm:h-5 text-[#B76E79] group-focus-within:text-[#F2C29A] transition-colors duration-300 shrink-0" aria-hidden="true" />
               <Input
                 type="text"
                 placeholder="Username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 variant="minimal"
-                className="h-full pl-4 sm:pl-5 text-[#EAE0D5] placeholder:text-[#8A6A5C] text-base sm:text-lg md:text-xl"
+                className="h-full pl-3 sm:pl-4 text-[#EAE0D5] placeholder:text-[#8A6A5C] text-sm sm:text-base"
                 autoComplete="username"
                 aria-label="Username"
                 required
@@ -373,15 +391,15 @@ function RegisterPageContent() {
             </div>
 
             {/* Email */}
-            <div className="luxury-input-wrapper h-14 sm:h-16 md:h-18 rounded-2xl relative group flex items-center px-5 sm:px-6">
-              <Mail className="w-5 h-5 sm:w-6 sm:h-6 text-[#B76E79] group-focus-within:text-[#F2C29A] transition-colors duration-300" aria-hidden="true" />
+            <div className="luxury-input-wrapper h-11 sm:h-12 rounded-xl relative group flex items-center px-4">
+              <Mail className="w-4 h-4 sm:w-5 sm:h-5 text-[#B76E79] group-focus-within:text-[#F2C29A] transition-colors duration-300 shrink-0" aria-hidden="true" />
               <Input
                 type="email"
                 placeholder="Email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 variant="minimal"
-                className="h-full pl-4 sm:pl-5 text-[#EAE0D5] placeholder:text-[#8A6A5C] text-base sm:text-lg md:text-xl"
+                className="h-full pl-3 sm:pl-4 text-[#EAE0D5] placeholder:text-[#8A6A5C] text-sm sm:text-base"
                 autoComplete="email"
                 aria-label="Email address"
                 required
@@ -389,15 +407,15 @@ function RegisterPageContent() {
             </div>
 
             {/* Phone */}
-            <div className="luxury-input-wrapper h-14 sm:h-16 md:h-18 rounded-2xl relative group flex items-center px-5 sm:px-6">
-              <Phone className="w-5 h-5 sm:w-6 sm:h-6 text-[#B76E79] group-focus-within:text-[#F2C29A] transition-colors duration-300" aria-hidden="true" />
+            <div className="luxury-input-wrapper h-11 sm:h-12 rounded-xl relative group flex items-center px-4">
+              <Phone className="w-4 h-4 sm:w-5 sm:h-5 text-[#B76E79] group-focus-within:text-[#F2C29A] transition-colors duration-300 shrink-0" aria-hidden="true" />
               <Input
                 type="tel"
                 placeholder="Phone Number"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 variant="minimal"
-                className="h-full pl-4 sm:pl-5 text-[#EAE0D5] placeholder:text-[#8A6A5C] text-base sm:text-lg md:text-xl"
+                className="h-full pl-3 sm:pl-4 text-[#EAE0D5] placeholder:text-[#8A6A5C] text-sm sm:text-base"
                 autoComplete="tel"
                 aria-label="Phone number"
                 required
@@ -405,15 +423,15 @@ function RegisterPageContent() {
             </div>
 
             {/* Password */}
-            <div className="luxury-input-wrapper h-14 sm:h-16 md:h-18 rounded-2xl relative group flex items-center px-5 sm:px-6">
-              <Lock className="w-5 h-5 sm:w-6 sm:h-6 text-[#B76E79] group-focus-within:text-[#F2C29A] transition-colors duration-300" aria-hidden="true" />
+            <div className="luxury-input-wrapper h-11 sm:h-12 rounded-xl relative group flex items-center px-4 md:col-span-1">
+              <Lock className="w-4 h-4 sm:w-5 sm:h-5 text-[#B76E79] group-focus-within:text-[#F2C29A] transition-colors duration-300 shrink-0" aria-hidden="true" />
               <Input
                 type={showPassword ? "text" : "password"}
                 placeholder="Password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 variant="minimal"
-                className="h-full pl-4 sm:pl-5 pr-12 text-[#EAE0D5] placeholder:text-[#8A6A5C] text-base sm:text-lg md:text-xl"
+                className="h-full pl-3 sm:pl-4 pr-11 text-[#EAE0D5] placeholder:text-[#8A6A5C] text-sm sm:text-base"
                 autoComplete="new-password"
                 aria-label="Password"
                 required
@@ -421,24 +439,24 @@ function RegisterPageContent() {
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="touch-target-icon absolute right-3 sm:right-4 text-[#8A6A5C] hover:text-[#F2C29A] transition-colors"
+                className="touch-target-icon absolute right-2.5 text-[#8A6A5C] hover:text-[#F2C29A] transition-colors"
                 aria-label={showPassword ? "Hide password" : "Show password"}
                 tabIndex={0}
               >
-                {showPassword ? <EyeOff className="w-5 h-5 sm:w-6 sm:h-6" /> : <Eye className="w-5 h-5 sm:w-6 sm:h-6" />}
+                {showPassword ? <EyeOff className="w-4 h-4 sm:w-5 sm:h-5" /> : <Eye className="w-4 h-4 sm:w-5 sm:h-5" />}
               </button>
             </div>
 
             {/* Confirm Password */}
-            <div className="luxury-input-wrapper h-14 sm:h-16 md:h-18 rounded-2xl relative group flex items-center px-5 sm:px-6">
-              <Lock className="w-5 h-5 sm:w-6 sm:h-6 text-[#B76E79] group-focus-within:text-[#F2C29A] transition-colors duration-300" aria-hidden="true" />
+            <div className="luxury-input-wrapper h-11 sm:h-12 rounded-xl relative group flex items-center px-4 md:col-span-1">
+              <Lock className="w-4 h-4 sm:w-5 sm:h-5 text-[#B76E79] group-focus-within:text-[#F2C29A] transition-colors duration-300 shrink-0" aria-hidden="true" />
               <Input
                 type={showConfirmPassword ? "text" : "password"}
                 placeholder="Confirm Password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 variant="minimal"
-                className="h-full pl-4 sm:pl-5 pr-12 text-[#EAE0D5] placeholder:text-[#8A6A5C] text-base sm:text-lg md:text-xl"
+                className="h-full pl-3 sm:pl-4 pr-11 text-[#EAE0D5] placeholder:text-[#8A6A5C] text-sm sm:text-base"
                 autoComplete="new-password"
                 aria-label="Confirm password"
                 required
@@ -446,18 +464,19 @@ function RegisterPageContent() {
               <button
                 type="button"
                 onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                className="touch-target-icon absolute right-3 sm:right-4 text-[#8A6A5C] hover:text-[#F2C29A] transition-colors"
+                className="touch-target-icon absolute right-2.5 text-[#8A6A5C] hover:text-[#F2C29A] transition-colors"
                 aria-label={showConfirmPassword ? "Hide password" : "Show password"}
                 tabIndex={0}
               >
-                {showConfirmPassword ? <EyeOff className="w-5 h-5 sm:w-6 sm:h-6" /> : <Eye className="w-5 h-5 sm:w-6 sm:h-6" />}
+                {showConfirmPassword ? <EyeOff className="w-4 h-4 sm:w-5 sm:h-5" /> : <Eye className="w-4 h-4 sm:w-5 sm:h-5" />}
               </button>
             </div>
+            </div>
 
-            {/* Password Strength */}
+            {/* Password Strength — compact */}
             {passwordStrength && (
-              <div className="space-y-2" aria-live="polite">
-                <div className="flex gap-1" role="progressbar" aria-valuenow={passwordStrength.passed} aria-valuemin="0" aria-valuemax="4">
+              <div className="flex flex-wrap items-center gap-2 text-[10px] sm:text-xs" aria-live="polite">
+                <div className="flex gap-0.5 flex-1 min-w-[120px] max-w-[200px]" role="progressbar" aria-valuenow={passwordStrength.passed} aria-valuemin="0" aria-valuemax="4">
                   {[1, 2, 3, 4].map((level) => (
                     <div
                       key={level}
@@ -473,44 +492,39 @@ function RegisterPageContent() {
                     />
                   ))}
                 </div>
-                <div className="grid grid-cols-2 gap-1 text-sm">
+                <span className="text-[#EAE0D5]/50 whitespace-nowrap">
                   {[
-                    ['length', '8+ characters'],
-                    ['upper', 'Uppercase letter'],
-                    ['lower', 'Lowercase letter'],
-                    ['number', 'Number'],
-                  ].map(([key, label]) => (
-                    <div key={key} className={`flex items-center gap-1.5 ${passwordStrength.checks[key] ? 'text-green-400' : 'text-white/40'}`}>
-                      <span className="text-base leading-none">{passwordStrength.checks[key] ? '✓' : '○'}</span>
-                      <span className="text-sm">{label}</span>
-                    </div>
-                  ))}
-                </div>
+                    ['length', '8+'],
+                    ['upper', 'A-Z'],
+                    ['lower', 'a-z'],
+                    ['number', '0-9'],
+                  ].map(([key]) => (passwordStrength.checks[key] ? '●' : '○')).join(' ')} <span className="text-[#F2C29A]/90">{passwordStrength.passed}/4</span>
+                </span>
               </div>
             )}
 
             {confirmPassword && (
-              <p className={`text-sm ${passwordsMatch ? 'text-green-400' : 'text-red-400'}`} role="status" aria-live="polite">
+              <p className={`text-xs ${passwordsMatch ? 'text-green-400' : 'text-red-400'}`} role="status" aria-live="polite">
                 {passwordsMatch ? '✓ Passwords match' : '✗ Passwords do not match'}
               </p>
             )}
 
             {/* Verification Method Selector */}
-            <div className="space-y-3">
-              <p className="text-[#EAE0D5]/60 text-xs uppercase tracking-widest">Verification Method</p>
-              <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <p className="text-[#EAE0D5]/60 text-[10px] uppercase tracking-widest">Verification</p>
+              <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
                   onClick={() => setVerificationMethod('otp_email')}
-                  className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all duration-300 ${
+                  className={`flex flex-col items-center gap-1 p-2.5 sm:p-3 rounded-xl border-2 transition-all duration-300 ${
                     verificationMethod === 'otp_email'
                       ? 'bg-[#7A2F57]/20 border-[#F2C29A]/60 shadow-[0_0_20px_rgba(242,194,154,0.15)]'
                       : 'bg-[#7A2F57]/10 border-[#B76E79]/30 hover:border-[#F2C29A]/40'
                   }`}
                 >
-                  <Mail className={`w-6 h-6 transition-colors ${verificationMethod === 'otp_email' ? 'text-[#F2C29A]' : 'text-[#B76E79]'}`} />
-                  <p className="text-xs text-[#EAE0D5]/90 font-bold tracking-widest">EMAIL OTP</p>
-                  <p className="text-[10px] text-[#EAE0D5]/50 text-center">6-digit code via email</p>
+                  <Mail className={`w-5 h-5 transition-colors ${verificationMethod === 'otp_email' ? 'text-[#F2C29A]' : 'text-[#B76E79]'}`} />
+                  <p className="text-[10px] sm:text-xs text-[#EAE0D5]/90 font-bold tracking-widest">EMAIL OTP</p>
+                  <p className="text-[9px] text-[#EAE0D5]/50 text-center leading-tight">Code to email</p>
                 </button>
 
                 <button
@@ -518,7 +532,7 @@ function RegisterPageContent() {
                   disabled={!smsOtpEnabled}
                   title={!smsOtpEnabled ? 'SMS verification is not configured. Use email.' : undefined}
                   onClick={() => smsOtpEnabled && setVerificationMethod('otp_sms')}
-                  className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all duration-300 ${
+                  className={`flex flex-col items-center gap-1 p-2.5 sm:p-3 rounded-xl border-2 transition-all duration-300 ${
                     !smsOtpEnabled
                       ? 'opacity-50 cursor-not-allowed bg-[#7A2F57]/5 border-[#B76E79]/20'
                       : verificationMethod === 'otp_sms'
@@ -526,25 +540,15 @@ function RegisterPageContent() {
                         : 'bg-[#7A2F57]/10 border-[#B76E79]/30 hover:border-[#F2C29A]/40'
                   }`}
                 >
-                  <Smartphone className={`w-6 h-6 transition-colors ${verificationMethod === 'otp_sms' ? 'text-[#F2C29A]' : 'text-[#B76E79]'}`} />
-                  <p className="text-xs text-[#EAE0D5]/90 font-bold tracking-widest">SMS OTP</p>
-                  <p className="text-[10px] text-[#EAE0D5]/50 text-center">
-                    {smsOtpEnabled ? '6-digit code via SMS' : 'Unavailable (configure MSG91)'}
+                  <Smartphone className={`w-5 h-5 transition-colors ${verificationMethod === 'otp_sms' ? 'text-[#F2C29A]' : 'text-[#B76E79]'}`} />
+                  <p className="text-[10px] sm:text-xs text-[#EAE0D5]/90 font-bold tracking-widest">SMS OTP</p>
+                  <p className="text-[9px] text-[#EAE0D5]/50 text-center leading-tight">
+                    {smsOtpEnabled ? 'Code by SMS' : 'MSG91 off'}
                   </p>
                 </button>
               </div>
-            </div>
-
-            {/* Method-specific notice */}
-            <div className="flex items-center gap-3 p-3.5 rounded-xl bg-[#7A2F57]/15 border border-[#B76E79]/20">
-              {verificationMethod === 'otp_email' ? (
-                <Mail className="w-5 h-5 text-[#F2C29A] flex-shrink-0" />
-              ) : (
-                <Smartphone className="w-5 h-5 text-[#F2C29A] flex-shrink-0" />
-              )}
-              <p className="text-[#EAE0D5]/70 text-sm">
-                We'll send a <strong className="text-[#F2C29A]">6-digit code</strong> to your{' '}
-                {verificationMethod === 'otp_email' ? 'email address' : 'phone number'} to verify your account.
+              <p className="text-center text-[10px] sm:text-[11px] text-[#EAE0D5]/55">
+                6-digit code to your {verificationMethod === 'otp_email' ? 'email' : 'phone'}.
               </p>
             </div>
 
@@ -552,25 +556,25 @@ function RegisterPageContent() {
             <Button
               type="submit"
               disabled={isSubmitting}
-              className="w-full h-14 sm:h-16 md:h-18 mt-6 sm:mt-8 relative overflow-hidden rounded-2xl bg-transparent border border-[#B76E79]/40 group transition-all duration-500 hover:border-[#F2C29A]/60 hover:shadow-[0_0_30px_rgba(183,110,121,0.3)]"
+              className="w-full h-11 sm:h-12 mt-1 relative overflow-hidden rounded-xl bg-transparent border border-[#B76E79]/40 group transition-all duration-500 hover:border-[#F2C29A]/60 hover:shadow-[0_0_30px_rgba(183,110,121,0.3)]"
               aria-busy={isSubmitting}
             >
               <div className="absolute inset-0 bg-gradient-to-r from-[#7A2F57]/80 via-[#B76E79]/70 to-[#2A1208]/80 opacity-90"></div>
               <div className="animate-sheen"></div>
-              <span className="relative z-10 text-white font-serif tracking-[0.1em] sm:tracking-[0.15em] text-lg sm:text-xl md:text-2xl">
+              <span className="relative z-10 text-white font-serif tracking-[0.12em] text-base sm:text-lg">
                 {isSubmitting ? 'CREATING...' : 'CONTINUE'}
               </span>
             </Button>
 
             {error && (
-              <div className="text-center text-sm text-red-300 py-2 px-4 bg-red-500/10 rounded-xl border border-red-500/20" role="alert" aria-live="assertive">
+              <div className="text-center text-xs sm:text-sm text-red-300 py-2 px-3 bg-red-500/10 rounded-lg border border-red-500/20" role="alert" aria-live="assertive">
                 {error}
               </div>
             )}
           </form>
 
-          <div className="w-full mt-8">
-            <p className="text-center text-[#8A6A5C] text-sm tracking-wide">
+          <div className="w-full mt-5 sm:mt-6">
+            <p className="text-center text-[#8A6A5C] text-xs sm:text-sm tracking-wide">
               Already have an account?{' '}
               <Link href="/auth/login" className="text-[#C27A4E] hover:text-[#F2C29A] transition-colors ml-1 uppercase text-sm font-bold tracking-widest">
                 Sign In
@@ -582,36 +586,35 @@ function RegisterPageContent() {
 
       {/* STEP 2: OTP Verification */}
       {step === 2 && (
-        <div className="w-full animate-fade-in-up-delay">
-          <div className="text-center mb-6 space-y-2">
-            <div className="w-16 h-16 rounded-full bg-[#7A2F57]/30 border border-[#B76E79]/30 flex items-center justify-center mx-auto mb-4">
+        <div className="w-full max-w-md mx-auto animate-fade-in-up-delay">
+          <div className="text-center mb-4 space-y-1">
+            <div className="w-12 h-12 rounded-full bg-[#7A2F57]/30 border border-[#B76E79]/30 flex items-center justify-center mx-auto mb-2">
               {verificationMethod === 'otp_email' ? (
-                <Mail className="w-8 h-8 text-[#F2C29A]" />
+                <Mail className="w-6 h-6 text-[#F2C29A]" />
               ) : (
-                <Smartphone className="w-8 h-8 text-[#F2C29A]" />
+                <Smartphone className="w-6 h-6 text-[#F2C29A]" />
               )}
             </div>
-            <h2 className="text-2xl sm:text-3xl text-white/90 font-body">
-              Verify Your {verificationMethod === 'otp_email' ? 'Email' : 'Phone Number'}
+            <h2 className="text-lg sm:text-xl text-white/90 font-body">
+              Verify your {verificationMethod === 'otp_email' ? 'email' : 'phone'}
             </h2>
-            <p className="text-white/70 text-sm sm:text-base">
-              Code sent to {verificationMethod === 'otp_email' ? 'Email' : 'SMS'}:{' '}
-              <strong className="text-[#F2C29A]">
+            <p className="text-white/70 text-xs sm:text-sm break-all px-1">
+              Sent to: <strong className="text-[#F2C29A]">
                 {verificationMethod === 'otp_email' ? email : phone}
               </strong>
             </p>
-            <p className="text-white/50 text-xs">Enter the 6-digit code below</p>
+            <p className="text-white/45 text-[10px]">Enter the 6-digit code</p>
           </div>
 
           {/* Countdown Timer */}
-          <div className={`flex items-center justify-center gap-2 mb-6 ${otpExpired ? 'text-red-400' : otpTimeLeft <= 30 ? 'text-amber-400' : 'text-[#F2C29A]'}`}>
-            <span className="text-2xl font-mono font-semibold tabular-nums">{formatTime(otpTimeLeft)}</span>
-            <span className="text-sm">{otpExpired ? '— Code expired' : 'remaining'}</span>
+          <div className={`flex items-center justify-center gap-2 mb-4 text-sm ${otpExpired ? 'text-red-400' : otpTimeLeft <= 30 ? 'text-amber-400' : 'text-[#F2C29A]'}`}>
+            <span className="text-lg font-mono font-semibold tabular-nums">{formatTime(otpTimeLeft)}</span>
+            <span className="text-xs">{otpExpired ? '— expired' : 'left'}</span>
           </div>
 
           {/* OTP Input Form */}
           <form onSubmit={handleOtpVerification} noValidate>
-            <div className="flex gap-2 sm:gap-3 justify-center mb-6" onPaste={handleOtpPaste} role="group" aria-label="One-time password">
+            <div className="flex gap-1.5 sm:gap-2 justify-center mb-4" onPaste={handleOtpPaste} role="group" aria-label="One-time password">
               {otpDigits.map((digit, i) => (
                 <input
                   key={i}
@@ -626,7 +629,7 @@ function RegisterPageContent() {
                   disabled={isVerifying || otpExpired}
                   aria-label={`Digit ${i + 1} of 6`}
                   className={[
-                    'w-11 h-14 sm:w-12 sm:h-16 text-center text-xl sm:text-2xl font-bold font-mono rounded-xl border-2 transition-all duration-200 outline-none',
+                    'w-9 h-11 sm:w-10 sm:h-12 text-center text-lg sm:text-xl font-bold font-mono rounded-lg border-2 transition-all duration-200 outline-none',
                     'bg-[#0B0608]/60 text-[#F2C29A] caret-[#F2C29A]',
                     digit ? 'border-[#F2C29A]/60 bg-[#7A2F57]/20' : 'border-[#B76E79]/30',
                     otpExpired ? 'opacity-50 cursor-not-allowed' : 'focus:border-[#F2C29A] focus:bg-[#7A2F57]/15 focus:shadow-[0_0_0_3px_rgba(242,194,154,0.1)]',
@@ -650,19 +653,19 @@ function RegisterPageContent() {
             <Button
               type="submit"
               disabled={isVerifying || otpValue.length !== 6 || otpExpired}
-              className="w-full h-14 relative overflow-hidden rounded-2xl bg-transparent border border-[#B76E79]/40 transition-all duration-500 hover:border-[#F2C29A]/60 hover:shadow-[0_0_30px_rgba(183,110,121,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full h-11 sm:h-12 relative overflow-hidden rounded-xl bg-transparent border border-[#B76E79]/40 transition-all duration-500 hover:border-[#F2C29A]/60 hover:shadow-[0_0_30px_rgba(183,110,121,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
               aria-busy={isVerifying}
             >
               <div className="absolute inset-0 bg-gradient-to-r from-[#7A2F57]/80 via-[#B76E79]/70 to-[#2A1208]/80 opacity-90" />
-              <span className="relative z-10 text-white font-serif tracking-[0.15em] text-lg">
+              <span className="relative z-10 text-white font-serif tracking-[0.12em] text-base">
                 {isVerifying ? 'VERIFYING...' : 'VERIFY & CONTINUE'}
               </span>
             </Button>
           </form>
 
           {/* Resend OTP */}
-          <div className="text-center mt-6 space-y-2">
-            <p className="text-[#EAE0D5]/50 text-sm">Didn't receive the code?</p>
+          <div className="text-center mt-4 space-y-1">
+            <p className="text-[#EAE0D5]/50 text-xs">Didn't receive the code?</p>
             {resendCooldown > 0 ? (
               <p className="text-[#EAE0D5]/40 text-sm">
                 Resend available in <span className="text-[#F2C29A] font-mono tabular-nums">{resendCooldown}s</span>
@@ -683,24 +686,24 @@ function RegisterPageContent() {
           <button
             type="button"
             onClick={handleBackToRegistration}
-            className="w-full mt-4 py-3 text-center text-[#EAE0D5]/40 hover:text-[#EAE0D5]/70 transition-colors text-sm uppercase tracking-widest"
+            className="w-full mt-3 py-2 text-center text-[#EAE0D5]/40 hover:text-[#EAE0D5]/70 transition-colors text-xs uppercase tracking-widest"
           >
-            ← Back to Registration
+            ← Back
           </button>
         </div>
       )}
 
       {/* STEP 3: Success */}
       {step === 3 && (
-        <div className="w-full text-center animate-fade-in-up-delay">
-          <div className="w-20 h-20 rounded-full bg-green-500/15 border border-green-500/30 flex items-center justify-center mx-auto mb-6">
-            <CheckCircle className="w-10 h-10 text-green-400" />
+        <div className="w-full max-w-md mx-auto text-center animate-fade-in-up-delay">
+          <div className="w-14 h-14 rounded-full bg-green-500/15 border border-green-500/30 flex items-center justify-center mx-auto mb-3">
+            <CheckCircle className="w-8 h-8 text-green-400" />
           </div>
-          <h2 className="text-2xl sm:text-3xl text-white/90 font-body mb-3">Welcome to Aarya!</h2>
-          <p className="text-white/60 text-sm sm:text-base mb-2">Your account has been verified successfully.</p>
-          <p className="text-white/40 text-xs mb-8">Redirecting you to products...</p>
-          <div className="w-8 h-8 border-2 border-[#B76E79]/30 border-t-[#F2C29A] rounded-full animate-spin mx-auto mb-6" />
-          <Link href="/products" className="text-[#C27A4E] hover:text-[#F2C29A] transition-colors text-sm">
+          <h2 className="text-lg sm:text-xl text-white/90 font-body mb-2">Welcome to Aarya!</h2>
+          <p className="text-white/60 text-xs sm:text-sm mb-1">Account verified.</p>
+          <p className="text-white/40 text-[10px] mb-4">Redirecting…</p>
+          <div className="w-7 h-7 border-2 border-[#B76E79]/30 border-t-[#F2C29A] rounded-full animate-spin mx-auto mb-4" />
+          <Link href="/products" className="text-[#C27A4E] hover:text-[#F2C29A] transition-colors text-xs sm:text-sm">
             Continue to Products
           </Link>
         </div>

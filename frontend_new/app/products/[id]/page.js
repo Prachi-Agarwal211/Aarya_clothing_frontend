@@ -232,6 +232,36 @@ export default function ProductDetailPage() {
     }).format(amount);
   };
 
+  // Render description with newline/paragraph formatting
+  const renderDescription = (desc) => {
+    if (!desc) return <p className="text-[#EAE0D5]/50 italic">No description available.</p>;
+    // Split on double newlines to create paragraphs, single newlines become <br>
+    const paragraphs = desc.split(/\n\s*\n/).filter(Boolean);
+    if (paragraphs.length > 1) {
+      return paragraphs.map((p, i) => (
+        <p key={i} className="text-[#EAE0D5]/80 leading-relaxed mb-3">
+          {p.split('\n').map((line, j) => (
+            <React.Fragment key={j}>
+              {j > 0 && <br />}
+              {line}
+            </React.Fragment>
+          ))}
+        </p>
+      ));
+    }
+    // Single paragraph — just handle single newlines
+    return (
+      <p className="text-[#EAE0D5]/80 leading-relaxed">
+        {desc.split('\n').map((line, i) => (
+          <React.Fragment key={i}>
+            {i > 0 && <br />}
+            {line}
+          </React.Fragment>
+        ))}
+      </p>
+    );
+  };
+
   // Calculate discount percentage
   const discountPercent = product?.mrp > product?.price
     ? Math.round(((product.mrp - product.price) / product.mrp) * 100)
@@ -402,7 +432,15 @@ export default function ProductDetailPage() {
             <div className="space-y-6">
               {/* Title & Rating */}
               <div>
-                <p className="text-sm text-[#B76E79] mb-2">{product.collection_name || product.category}</p>
+                <div className="flex items-center gap-2 mb-2">
+                  <p className="text-sm text-[#B76E79]">{product.collection_name || product.category}</p>
+                  {product.brand && (
+                    <>
+                      <span className="text-[#B76E79]/40">·</span>
+                      <span className="text-sm text-[#B76E79]">{product.brand}</span>
+                    </>
+                  )}
+                </div>
                 <h1
                   className="text-2xl md:text-3xl font-bold text-[#F2C29A]"
                   style={{ fontFamily: 'Cinzel, serif' }}
@@ -559,6 +597,13 @@ export default function ProductDetailPage() {
                 </div>
               </div>
 
+              {/* Short Description */}
+              {product.short_description && (
+                <div className="pt-4 border-t border-[#B76E79]/15">
+                  <p className="text-sm text-[#EAE0D5]/70 italic">{product.short_description}</p>
+                </div>
+              )}
+
               {/* SKU */}
               <p className="text-sm text-[#EAE0D5]/50">SKU: {product.sku}</p>
             </div>
@@ -584,30 +629,45 @@ export default function ProductDetailPage() {
             <div className="py-6">
               {activeTab === 'description' && (
                 <div className="prose prose-invert max-w-none">
-                  <p className="text-[#EAE0D5]/80 leading-relaxed">{product.description}</p>
+                  {renderDescription(product.description)}
                 </div>
               )}
 
               {activeTab === 'details' && (
                 <div className="grid md:grid-cols-2 gap-6">
                   <div className="space-y-3">
-                    <div className="flex justify-between py-2 border-b border-[#B76E79]/10">
-                      <span className="text-[#EAE0D5]/50">Material</span>
-                      <span className="text-[#EAE0D5]">{product.material || 'Premium Quality'}</span>
-                    </div>
-                    <div className="flex justify-between py-2 border-b border-[#B76E79]/10">
-                      <span className="text-[#EAE0D5]/50">Weight</span>
-                      <span className="text-[#EAE0D5]">{product.weight || 'Standard'}</span>
-                    </div>
-                    <div className="flex justify-between py-2 border-b border-[#B76E79]/10">
-                      <span className="text-[#EAE0D5]/50">Dimensions</span>
-                      <span className="text-[#EAE0D5]">{product.dimensions || 'Standard'}</span>
-                    </div>
+                    {product.material && (
+                      <div className="flex justify-between py-2 border-b border-[#B76E79]/10">
+                        <span className="text-[#EAE0D5]/50">Material</span>
+                        <span className="text-[#EAE0D5]">{product.material}</span>
+                      </div>
+                    )}
+                    {product.care_instructions && (
+                      <div className="flex justify-between py-2 border-b border-[#B76E79]/10">
+                        <span className="text-[#EAE0D5]/50">Care</span>
+                        <span className="text-[#EAE0D5]">{product.care_instructions}</span>
+                      </div>
+                    )}
+                    {!product.material && !product.care_instructions && (
+                      <p className="text-[#EAE0D5]/50 text-sm italic">No additional details available.</p>
+                    )}
                   </div>
-                  <div>
-                    <h4 className="text-[#F2C29A] mb-2">Care Instructions</h4>
-                    <p className="text-[#EAE0D5]/70 text-sm">{product.care_instructions || 'Dry clean recommended'}</p>
-                  </div>
+                  {/* Tags */}
+                  {product.tags && (
+                    <div>
+                      <h4 className="text-[#F2C29A] mb-3">Tags</h4>
+                      <div className="flex flex-wrap gap-2">
+                        {product.tags.split(',').map((tag, i) => (
+                          <span
+                            key={i}
+                            className="px-3 py-1 text-xs rounded-full bg-[#7A2F57]/30 text-[#EAE0D5]/80 border border-[#B76E79]/20"
+                          >
+                            {tag.trim()}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 

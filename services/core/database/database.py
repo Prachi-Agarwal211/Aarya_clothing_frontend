@@ -1,5 +1,5 @@
 """Database connection and session management with optimized connection pooling."""
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, Session, declarative_base
 from sqlalchemy.pool import QueuePool
 from contextlib import contextmanager
@@ -60,12 +60,45 @@ def get_db_context() -> Session:
         db.close()
 
 
+def _ensure_users_phone_verified_column() -> None:
+    """Add phone_verified if missing (shared users table; create_all does not ALTER)."""
+    import logging
+
+    log = logging.getLogger(__name__)
+    try:
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    "ALTER TABLE users ADD COLUMN IF NOT EXISTS phone_verified BOOLEAN NOT NULL DEFAULT FALSE"
+                )
+            )
+    except Exception as e:
+        log.warning("Could not ensure phone_verified column on users: %s", e)
+
+
+def _ensure_users_signup_verification_method_column() -> None:
+    import logging
+
+    log = logging.getLogger(__name__)
+    try:
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    "ALTER TABLE users ADD COLUMN IF NOT EXISTS signup_verification_method VARCHAR(32)"
+                )
+            )
+    except Exception as e:
+        log.warning("Could not ensure signup_verification_method column on users: %s", e)
+
+
 def init_db():
     """Initialize database tables."""
     # Import all models here so Base knows about them
     from models import User, UserProfile, UserSecurity, EmailVerification, OTP
 
     Base.metadata.create_all(bind=engine)
+    _ensure_users_phone_verified_column()
+    _ensure_users_signup_verification_method_column()
 
 
 def get_pool_status() -> dict:

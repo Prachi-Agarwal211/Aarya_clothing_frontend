@@ -233,6 +233,9 @@ class AuthService:
             raise ValueError("Username already taken")
 
         # Create user and profile objects
+        vm = getattr(user_data, "verification_method", None)
+        vm_str = vm.value if vm is not None and hasattr(vm, "value") else (str(vm) if vm is not None else None)
+
         user = User(
             email=user_data.email,
             username=user_data.username,
@@ -240,6 +243,7 @@ class AuthService:
             role=getattr(user_data, "role", UserRole.customer),
             is_active=True,
             email_verified=False,  # Requires verification
+            signup_verification_method=vm_str,
         )
 
         user_profile = UserProfile(
@@ -417,10 +421,11 @@ class AuthService:
                 self.db.commit()
                 raise ValueError("Invalid credentials")
 
-        # Check if email is verified — AFTER password check so attacker must know password
+        # Account must be verified by email and/or phone (registration path picks one).
         # Returns structured error so frontend can redirect to verification page
-        if not user.email_verified:
-            raise ValueError(f"EMAIL_NOT_VERIFIED:{user.email}")
+        if not user.email_verified and not getattr(user, "phone_verified", False):
+            method = getattr(user, "signup_verification_method", None) or "otp_email"
+            raise ValueError(f"EMAIL_NOT_VERIFIED:{user.email}:{method}")
 
         # Reset failed attempts on successful login
         if user.security:

@@ -347,8 +347,15 @@ export const returnsApi = {
 
 // ==================== Landing / Site Config API ====================
 export const landingApi = {
-  getAll: () =>
-    coreClient.get('/api/v1/landing/all'),
+  /**
+   * @param {object} [requestOptions] - Pass `{ signal }` to abort (e.g. client-side timeout).
+   */
+  getAll: (requestOptions = {}) => {
+    if (requestOptions?.signal) {
+      return coreClient.fetch('/api/v1/landing/all', { signal: requestOptions.signal });
+    }
+    return coreClient.get('/api/v1/landing/all');
+  },
 
   getConfig: () =>
     coreClient.get('/api/v1/landing/config'),
@@ -394,8 +401,12 @@ export const authApi = {
   verifyEmail: (token) =>
     coreClient.post('/api/v1/auth/verify-email', { token }),
 
+  // FastAPI expects `email` as a query parameter on this POST route
   resendVerification: (email) =>
-    coreClient.post('/api/v1/auth/resend-verification', { email }),
+    coreClient.post(
+      `/api/v1/auth/resend-verification?email=${encodeURIComponent(email)}`,
+      {},
+    ),
 
   getCurrentUser: () =>
     coreClient.get('/api/v1/users/me'),

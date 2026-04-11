@@ -25,6 +25,8 @@ class User(Base):
     role = Column(Enum(UserRole, native_enum=False, length=20), default=UserRole.customer, nullable=False)
     is_active = Column(Boolean, default=True)
     email_verified = Column(Boolean, default=False)
+    phone_verified = Column(Boolean, default=False)
+    signup_verification_method = Column(String(32), nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     

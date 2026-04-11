@@ -67,6 +67,7 @@ export default function IntroVideo({ onVideoEnd }) {
 
   const skipFallbackRef = useRef(null);
   const { isMobile } = useViewport();
+  // URLs from admin: intro_video_url_desktop / intro_video_url_mobile (see core /api/v1/site/config)
   const introVideo = useIntroVideo();
 
   const videoUrl = isMobile
@@ -122,33 +123,6 @@ export default function IntroVideo({ onVideoEnd }) {
       videoRef.current.muted = true;
     }
   }, [videoUrl]);
-
-  const startVideo = useCallback(() => {
-    const video = videoRef.current;
-    if (!video) return;
-
-    video.muted = true;
-
-    // If video is already loaded and can play, play it immediately
-    if (video.readyState >= 3) {
-      setShowPreloader(false);
-      setVideoStarted(true);
-      video.play()
-        .then(() => {
-          logger.log('Video started playing immediately');
-          setAutoplayFailed(false);
-        })
-        .catch((err) => {
-          logger.warn('Video autoplay failed:', err.message, err.name);
-          setAutoplayFailed(true);
-        });
-      return;
-    }
-
-    // Otherwise wait for canplay event
-    setShowPreloader(true);
-    setVideoStarted(false);
-  }, []);
 
   // Start downloading the video immediately - no artificial delay
   // Preloader shows during actual buffering, not as a timer

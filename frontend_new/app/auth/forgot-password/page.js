@@ -289,36 +289,36 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div className="w-full max-w-[480px] lg:max-w-[520px] xl:max-w-[560px] flex flex-col items-center">
-      {/* LOGO - Fix #8: Replace img with Next.js Image component */}
-      <div className="flex flex-col items-center mb-8 sm:mb-10 md:mb-12 lg:mb-14 animate-fade-in-up">
+    <div className="w-full max-w-md flex flex-col items-center">
+      {/* LOGO */}
+      <div className="flex flex-col items-center mb-4 sm:mb-5 animate-fade-in-up">
         <Image
           src={logoUrl || '/logo.png'}
           alt="Aarya Clothing Logo"
-          width={144}
-          height={144}
-          className="w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 lg:w-36 lg:h-36 object-contain drop-shadow-[0_0_15px_rgba(242,194,154,0.2)]"
+          width={96}
+          height={96}
+          className="w-16 h-16 sm:w-20 sm:h-20 object-contain drop-shadow-[0_0_15px_rgba(242,194,154,0.2)]"
           priority
         />
       </div>
 
-      {/* Fix #6: Progress Indicator */}
-      <div className="w-full mb-6 animate-fade-in-up">
+      {/* Progress — compact */}
+      <div className="w-full mb-4 animate-fade-in-up max-w-xs mx-auto">
         <div className="flex items-center justify-between">
           {[1, 2, 3].map((stepNum) => (
             <div key={stepNum} className="flex items-center">
               <div
-                className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all duration-300 ${
+                className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 ${
                   stepNum <= step
                     ? 'bg-[#F2C29A] text-[#2A1208]'
                     : 'bg-[#B76E79]/30 text-[#EAE0D5]/40'
                 }`}
               >
-                {stepNum < step ? <CheckCircle className="w-5 h-5" /> : stepNum}
+                {stepNum < step ? <CheckCircle className="w-4 h-4" /> : stepNum}
               </div>
               {stepNum < TOTAL_STEPS && (
                 <div
-                  className={`w-16 sm:w-24 h-1 mx-2 rounded transition-all duration-300 ${
+                  className={`w-10 sm:w-16 h-0.5 mx-1.5 sm:mx-2 rounded transition-all duration-300 ${
                     stepNum < step ? 'bg-[#F2C29A]' : 'bg-[#B76E79]/30'
                   }`}
                 />
@@ -326,7 +326,7 @@ export default function ForgotPasswordPage() {
             </div>
           ))}
         </div>
-        <div className="flex justify-between mt-2 text-xs text-[#EAE0D5]/50 uppercase tracking-widest">
+        <div className="flex justify-between mt-1.5 text-[10px] text-[#EAE0D5]/50 uppercase tracking-wider">
           <span>Request</span>
           <span>Verify</span>
           <span>Reset</span>
@@ -336,32 +336,30 @@ export default function ForgotPasswordPage() {
       {/* STEP 1: Request OTP Form */}
       {step === 1 && (
         <>
-          <div className="text-center mb-10 lg:mb-12 space-y-2 animate-fade-in-up-delay">
-            <h2 className="text-2xl sm:text-3xl md:text-4xl text-white/90 font-body">
+          <div className="text-center mb-4 sm:mb-5 space-y-1 animate-fade-in-up-delay">
+            <h2 className="text-xl sm:text-2xl text-white/90 font-body">
               Forgot Password
             </h2>
-            <p className="text-[#8A6A5C] text-sm sm:text-base uppercase tracking-[0.2em] font-light">
-              Reset via OTP verification
+            <p className="text-[#8A6A5C] text-xs sm:text-sm uppercase tracking-[0.15em] font-light">
+              Reset via OTP
             </p>
           </div>
 
-          <form className="w-full space-y-5 sm:space-y-6 animate-fade-in-up-delay" onSubmit={handleRequestOtp} noValidate>
-            {/* Verification Method Selector */}
-            <div className="space-y-3">
-              <p className="text-[#EAE0D5]/60 text-xs uppercase tracking-widest">Verification Method</p>
-              <div className="grid grid-cols-2 gap-3">
+          <form className="w-full space-y-3 sm:space-y-3.5 animate-fade-in-up-delay" onSubmit={handleRequestOtp} noValidate>
+            <div className="space-y-2">
+              <p className="text-[#EAE0D5]/60 text-[10px] uppercase tracking-widest">Verification</p>
+              <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
                   onClick={() => setVerificationMethod('otp_email')}
-                  className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all duration-300 ${
+                  className={`flex flex-col items-center gap-1 p-2.5 rounded-xl border-2 transition-all duration-300 ${
                     verificationMethod === 'otp_email'
                       ? 'bg-[#7A2F57]/20 border-[#F2C29A]/60 shadow-[0_0_20px_rgba(242,194,154,0.15)]'
                       : 'bg-[#7A2F57]/10 border-[#B76E79]/30 hover:border-[#F2C29A]/40'
                   }`}
                 >
-                  <Mail className={`w-6 h-6 transition-colors ${verificationMethod === 'otp_email' ? 'text-[#F2C29A]' : 'text-[#B76E79]'}`} />
-                  <p className="text-xs text-[#EAE0D5]/90 font-bold tracking-widest">EMAIL OTP</p>
-                  <p className="text-[10px] text-[#EAE0D5]/50 text-center">6-digit code via email</p>
+                  <Mail className={`w-5 h-5 transition-colors ${verificationMethod === 'otp_email' ? 'text-[#F2C29A]' : 'text-[#B76E79]'}`} />
+                  <p className="text-[10px] sm:text-xs text-[#EAE0D5]/90 font-bold tracking-widest">EMAIL</p>
                 </button>
 
                 <button
@@ -369,7 +367,7 @@ export default function ForgotPasswordPage() {
                   disabled={!smsOtpEnabled}
                   title={!smsOtpEnabled ? 'SMS verification is not configured. Use email.' : undefined}
                   onClick={() => smsOtpEnabled && setVerificationMethod('otp_sms')}
-                  className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all duration-300 ${
+                  className={`flex flex-col items-center gap-1 p-2.5 rounded-xl border-2 transition-all duration-300 ${
                     !smsOtpEnabled
                       ? 'opacity-50 cursor-not-allowed bg-[#7A2F57]/5 border-[#B76E79]/20'
                       : verificationMethod === 'otp_sms'
@@ -377,21 +375,17 @@ export default function ForgotPasswordPage() {
                         : 'bg-[#7A2F57]/10 border-[#B76E79]/30 hover:border-[#F2C29A]/40'
                   }`}
                 >
-                  <Smartphone className={`w-6 h-6 transition-colors ${verificationMethod === 'otp_sms' ? 'text-[#F2C29A]' : 'text-[#B76E79]'}`} />
-                  <p className="text-xs text-[#EAE0D5]/90 font-bold tracking-widest">SMS OTP</p>
-                  <p className="text-[10px] text-[#EAE0D5]/50 text-center">
-                    {smsOtpEnabled ? '6-digit code via SMS' : 'Unavailable (configure MSG91)'}
-                  </p>
+                  <Smartphone className={`w-5 h-5 transition-colors ${verificationMethod === 'otp_sms' ? 'text-[#F2C29A]' : 'text-[#B76E79]'}`} />
+                  <p className="text-[10px] sm:text-xs text-[#EAE0D5]/90 font-bold tracking-widest">SMS</p>
                 </button>
               </div>
             </div>
 
-            {/* Identifier Input */}
-            <div className="luxury-input-wrapper h-14 sm:h-16 md:h-18 rounded-2xl relative group flex items-center px-5 sm:px-6">
+            <div className="luxury-input-wrapper h-11 sm:h-12 rounded-xl relative group flex items-center px-4">
               {verificationMethod === 'otp_email' ? (
-                <Mail className="w-5 h-5 sm:w-6 sm:h-6 text-[#B76E79] group-focus-within:text-[#F2C29A] transition-colors duration-300" aria-hidden="true" />
+                <Mail className="w-4 h-4 sm:w-5 sm:h-5 text-[#B76E79] group-focus-within:text-[#F2C29A] transition-colors duration-300 shrink-0" aria-hidden="true" />
               ) : (
-                <Phone className="w-5 h-5 sm:w-6 sm:h-6 text-[#B76E79] group-focus-within:text-[#F2C29A] transition-colors duration-300" aria-hidden="true" />
+                <Phone className="w-4 h-4 sm:w-5 sm:h-5 text-[#B76E79] group-focus-within:text-[#F2C29A] transition-colors duration-300 shrink-0" aria-hidden="true" />
               )}
               <Input
                 type={verificationMethod === 'otp_email' ? 'email' : 'tel'}
@@ -399,31 +393,21 @@ export default function ForgotPasswordPage() {
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
                 variant="minimal"
-                className="h-full pl-4 sm:pl-5 text-[#EAE0D5] placeholder:text-[#8A6A5C] text-base sm:text-lg md:text-xl"
+                className="h-full pl-3 sm:pl-4 text-[#EAE0D5] placeholder:text-[#8A6A5C] text-sm sm:text-base"
                 autoComplete={verificationMethod === 'otp_email' ? 'email' : 'tel'}
                 aria-label={verificationMethod === 'otp_email' ? 'Email address' : 'Phone number'}
                 required
               />
             </div>
 
-            {/* Method-specific notice */}
-            <div className="flex items-center gap-3 p-3.5 rounded-xl bg-[#7A2F57]/15 border border-[#B76E79]/20">
-              {verificationMethod === 'otp_email' ? (
-                <Mail className="w-5 h-5 text-[#F2C29A] flex-shrink-0" />
-              ) : (
-                <Smartphone className="w-5 h-5 text-[#F2C29A] flex-shrink-0" />
-              )}
-              <p className="text-[#EAE0D5]/70 text-sm">
-                We&apos;ll send a <strong className="text-[#F2C29A]">6-digit code</strong> to your{' '}
-                {verificationMethod === 'otp_email' ? 'email address' : 'phone number'} to verify your identity.
-              </p>
-            </div>
+            <p className="text-center text-[10px] text-[#EAE0D5]/55">
+              6-digit code to your {verificationMethod === 'otp_email' ? 'email' : 'phone'}.
+            </p>
 
-            {/* LUXURY BUTTON */}
             <Button
               type="submit"
               disabled={isSubmitting}
-              className="w-full h-14 sm:h-16 md:h-18 mt-6 sm:mt-8 relative overflow-hidden rounded-2xl bg-transparent border border-[#B76E79]/40 group transition-all duration-500 hover:border-[#F2C29A]/60 hover:shadow-[0_0_30px_rgba(183,110,121,0.3)]"
+              className="w-full h-11 sm:h-12 mt-1 relative overflow-hidden rounded-xl bg-transparent border border-[#B76E79]/40 group transition-all duration-500 hover:border-[#F2C29A]/60 hover:shadow-[0_0_30px_rgba(183,110,121,0.3)]"
               aria-busy={isSubmitting}
             >
               <div className="absolute inset-0 bg-gradient-to-r from-[#7A2F57]/80 via-[#B76E79]/70 to-[#2A1208]/80 opacity-90"></div>
@@ -431,7 +415,7 @@ export default function ForgotPasswordPage() {
               <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-[#F2C29A]/70 to-transparent"></div>
               <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-[#B76E79]/50 to-transparent"></div>
 
-              <span className="relative z-10 text-[#F2C29A] font-serif tracking-[0.1em] sm:tracking-[0.15em] text-lg sm:text-xl md:text-2xl group-hover:text-white transition-colors font-heading">
+              <span className="relative z-10 text-[#F2C29A] font-serif tracking-[0.12em] text-base sm:text-lg group-hover:text-white transition-colors font-heading">
                 {isSubmitting ? 'SENDING...' : 'SEND CODE'}
               </span>
             </Button>
@@ -449,8 +433,8 @@ export default function ForgotPasswordPage() {
             )}
           </form>
 
-          <div className="w-full mt-10 sm:mt-12 md:mt-14">
-            <p className="text-center text-[#8A6A5C] text-sm sm:text-base tracking-wide">
+          <div className="w-full mt-6 sm:mt-8">
+            <p className="text-center text-[#8A6A5C] text-xs sm:text-sm tracking-wide">
               Remember your password?{" "}
               <Link href="/auth/login" className="text-[#C27A4E] hover:text-[#F2C29A] transition-colors ml-1 uppercase text-sm font-bold tracking-widest">
                 Sign In
@@ -462,34 +446,31 @@ export default function ForgotPasswordPage() {
 
       {/* STEP 2: OTP Verification */}
       {step === 2 && (
-        <div className="w-full animate-fade-in-up-delay">
-          <div className="text-center mb-6 space-y-2">
-            <div className="w-16 h-16 rounded-full bg-[#7A2F57]/30 border border-[#B76E79]/30 flex items-center justify-center mx-auto mb-4">
+        <div className="w-full max-w-md mx-auto animate-fade-in-up-delay">
+          <div className="text-center mb-4 space-y-1">
+            <div className="w-12 h-12 rounded-full bg-[#7A2F57]/30 border border-[#B76E79]/30 flex items-center justify-center mx-auto mb-2">
               {verificationMethod === 'otp_email' ? (
-                <Mail className="w-8 h-8 text-[#F2C29A]" />
+                <Mail className="w-6 h-6 text-[#F2C29A]" />
               ) : (
-                <Smartphone className="w-8 h-8 text-[#F2C29A]" />
+                <Smartphone className="w-6 h-6 text-[#F2C29A]" />
               )}
             </div>
-            <h2 className="text-2xl sm:text-3xl text-white/90 font-body">
-              Verify Your {verificationMethod === 'otp_email' ? 'Email' : 'Phone Number'}
+            <h2 className="text-lg sm:text-xl text-white/90 font-body">
+              Verify {verificationMethod === 'otp_email' ? 'email' : 'phone'}
             </h2>
-            <p className="text-white/70 text-sm sm:text-base">
-              Code sent to {verificationMethod === 'otp_email' ? 'Email' : 'SMS'}:{' '}
-              <strong className="text-[#F2C29A]">{identifier}</strong>
+            <p className="text-white/70 text-xs sm:text-sm break-all px-1">
+              To: <strong className="text-[#F2C29A]">{identifier}</strong>
             </p>
-            <p className="text-white/50 text-xs">Enter the 6-digit code below</p>
+            <p className="text-white/45 text-[10px]">6-digit code</p>
           </div>
 
-          {/* Countdown Timer */}
-          <div className={`flex items-center justify-center gap-2 mb-6 ${otpExpired ? 'text-red-400' : otpTimeLeft <= 30 ? 'text-amber-400' : 'text-[#F2C29A]'}`}>
-            <span className="text-2xl font-mono font-semibold tabular-nums">{formatTime(otpTimeLeft)}</span>
-            <span className="text-sm">{otpExpired ? '— Code expired' : 'remaining'}</span>
+          <div className={`flex items-center justify-center gap-2 mb-4 text-sm ${otpExpired ? 'text-red-400' : otpTimeLeft <= 30 ? 'text-amber-400' : 'text-[#F2C29A]'}`}>
+            <span className="text-lg font-mono font-semibold tabular-nums">{formatTime(otpTimeLeft)}</span>
+            <span className="text-xs">{otpExpired ? '— expired' : 'left'}</span>
           </div>
 
-          {/* OTP Input Form */}
           <form onSubmit={handleOtpVerification} noValidate>
-            <div className="flex gap-2 sm:gap-3 justify-center mb-6" onPaste={handleOtpPaste} role="group" aria-label="One-time password">
+            <div className="flex gap-1.5 sm:gap-2 justify-center mb-4" onPaste={handleOtpPaste} role="group" aria-label="One-time password">
               {otpDigits.map((digit, i) => (
                 <input
                   key={i}
@@ -504,7 +485,7 @@ export default function ForgotPasswordPage() {
                   disabled={isVerifying || otpExpired}
                   aria-label={`Digit ${i + 1} of 6`}
                   className={[
-                    'w-11 h-14 sm:w-12 sm:h-16 text-center text-xl sm:text-2xl font-bold font-mono rounded-xl border-2 transition-all duration-200 outline-none',
+                    'w-9 h-11 sm:w-10 sm:h-12 text-center text-lg sm:text-xl font-bold font-mono rounded-lg border-2 transition-all duration-200 outline-none',
                     'bg-[#0B0608]/60 text-[#F2C29A] caret-[#F2C29A]',
                     digit ? 'border-[#F2C29A]/60 bg-[#7A2F57]/20' : 'border-[#B76E79]/30',
                     otpExpired ? 'opacity-50 cursor-not-allowed' : 'focus:border-[#F2C29A] focus:bg-[#7A2F57]/15 focus:shadow-[0_0_0_3px_rgba(242,194,154,0.1)]',
@@ -528,19 +509,18 @@ export default function ForgotPasswordPage() {
             <Button
               type="submit"
               disabled={isVerifying || otpValue.length !== 6 || otpExpired}
-              className="w-full h-14 relative overflow-hidden rounded-2xl bg-transparent border border-[#B76E79]/40 transition-all duration-500 hover:border-[#F2C29A]/60 hover:shadow-[0_0_30px_rgba(183,110,121,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full h-11 sm:h-12 relative overflow-hidden rounded-xl bg-transparent border border-[#B76E79]/40 transition-all duration-500 hover:border-[#F2C29A]/60 hover:shadow-[0_0_30px_rgba(183,110,121,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
               aria-busy={isVerifying}
             >
               <div className="absolute inset-0 bg-gradient-to-r from-[#7A2F57]/80 via-[#B76E79]/70 to-[#2A1208]/80 opacity-90" />
-              <span className="relative z-10 text-white font-serif tracking-[0.15em] text-lg">
+              <span className="relative z-10 text-white font-serif tracking-[0.12em] text-base">
                 {isVerifying ? 'VERIFYING...' : 'VERIFY & RESET'}
               </span>
             </Button>
           </form>
 
-          {/* Resend OTP */}
-          <div className="text-center mt-6 space-y-2">
-            <p className="text-[#EAE0D5]/50 text-sm">Didn&apos;t receive the code?</p>
+          <div className="text-center mt-4 space-y-1">
+            <p className="text-[#EAE0D5]/50 text-xs">Didn&apos;t receive the code?</p>
             {resendCooldown > 0 ? (
               <p className="text-[#EAE0D5]/40 text-sm">
                 Resend available in <span className="text-[#F2C29A] font-mono tabular-nums">{resendCooldown}s</span>
@@ -561,9 +541,9 @@ export default function ForgotPasswordPage() {
           <button
             type="button"
             onClick={handleBackToForm}
-            className="w-full mt-4 py-3 text-center text-[#EAE0D5]/40 hover:text-[#EAE0D5]/70 transition-colors text-sm uppercase tracking-widest"
+            className="w-full mt-3 py-2 text-center text-[#EAE0D5]/40 hover:text-[#EAE0D5]/70 transition-colors text-xs uppercase tracking-widest"
           >
-            ← Back to Form
+            ← Back
           </button>
         </div>
       )}

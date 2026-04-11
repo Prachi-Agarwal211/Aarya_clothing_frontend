@@ -109,6 +109,11 @@ app.add_middleware(CSRFMiddleware)
 # Standardized error handlers
 register_error_handlers(app)
 
+# Service-to-service: Commerce triggers transactional email via Core SMTP
+from api_internal_notify import router as internal_notify_router
+
+app.include_router(internal_notify_router, prefix="/api/v1")
+
 
 LOCAL_TEST_IPS = {"127.0.0.1", "::1", "localhost", "testclient"}
 
@@ -441,6 +446,17 @@ async def verify_otp_registration(
     email = body.email
     phone = body.phone
 
+    # SMS + email only (e.g. login recovery): resolve profile phone for OTP key matching
+    if body.otp_type == OTPType.SMS and email and not phone:
+        u_lookup = (
+            db.query(User)
+            .options(joinedload(User.profile))
+            .filter(User.email == email)
+            .first()
+        )
+        if u_lookup and u_lookup.profile and u_lookup.profile.phone:
+            phone = u_lookup.profile.phone
+
     logger.info(
         f"[OTP Verify] Starting verification - phone: {phone}, email: {email}, "
         f"otp_type: {body.otp_type}"
@@ -452,7 +468,7 @@ async def verify_otp_registration(
     otp_service = OTPService(db)
     otp_request = OTPVerifyRequest(
         email=body.email if body.otp_type == OTPType.EMAIL else None,
-        phone=body.phone if body.otp_type == OTPType.SMS else None,
+        phone=phone if body.otp_type == OTPType.SMS else None,
         otp_code=body.otp_code,
         otp_type=body.otp_type,
         purpose="registration"
@@ -486,11 +502,15 @@ async def verify_otp_registration(
             detail="User not found"
         )
 
-    # Mark email as verified
-    user.email_verified = True
+    # Set the verification flag that matches how the user proved identity
+    if body.otp_type == OTPType.EMAIL:
+        user.email_verified = True
+        logger.info(f"[OTP Verify] User {user.id} email marked as verified")
+    else:
+        user.phone_verified = True
+        logger.info(f"[OTP Verify] User {user.id} phone marked as verified")
     db.commit()
     db.refresh(user)
-    logger.info(f"[OTP Verify] User {user.id} email marked as verified")
 
     # Generate tokens for auto-login
     access_token = auth_service.create_access_token(user.id, user.role.value)
@@ -522,8 +542,13 @@ async def verify_otp_registration(
     
     set_auth_cookies(response, auth_data, remember_me=False)
     
+    msg = (
+        "Email verified successfully"
+        if body.otp_type == OTPType.EMAIL
+        else "Phone verified successfully"
+    )
     return {
-        "message": "Email verified successfully",
+        "message": msg,
         "user": user_response,
         "tokens": auth_data["tokens"]
     }
@@ -540,11 +565,36 @@ async def send_verification_otp(
     Send or resend OTP for registration verification.
     Supports both EMAIL and SMS OTP.
     Request JSON body (email/phone + otp_type); purpose is always registration.
+    For SMS, you may pass email instead of phone — server resolves phone from the user profile
+    (used when the user returns from login redirect and only has email in the form).
     """
     from service.otp_service import OTPService
 
+    otp_request_in = body
+    if (
+        body.otp_type == OTPType.SMS
+        and getattr(body, "email", None)
+        and not getattr(body, "phone", None)
+    ):
+        user = (
+            db.query(User)
+            .options(joinedload(User.profile))
+            .filter(User.email == body.email)
+            .first()
+        )
+        if not user or not user.profile or not user.profile.phone:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot send SMS code: account or phone number not found.",
+            )
+        otp_request_in = OTPSendRequest(
+            phone=user.profile.phone,
+            otp_type=OTPType.SMS,
+            purpose="registration",
+        )
+
     otp_service = OTPService(db)
-    otp_request = body.model_copy(update={"purpose": "registration"})
+    otp_request = otp_request_in.model_copy(update={"purpose": "registration"})
     result = otp_service.send_otp(otp_request)
     return result
 
@@ -644,13 +694,17 @@ async def login(
     except ValueError as e:
         msg = str(e)
         if msg.startswith("EMAIL_NOT_VERIFIED:"):
-            email = msg.split(":", 1)[1]
+            # EMAIL_NOT_VERIFIED:{email}:{signup_verification_method}
+            parts = msg.replace("EMAIL_NOT_VERIFIED:", "", 1).split(":", 1)
+            email = parts[0]
+            signup_verification_method = parts[1] if len(parts) > 1 else "otp_email"
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail={
                     "error_code": "EMAIL_NOT_VERIFIED",
                     "email": email,
-                    "message": "Please verify your email before logging in. Check your inbox for a verification OTP."
+                    "signup_verification_method": signup_verification_method,
+                    "message": "Please verify your account before logging in. Use the code we sent by email or SMS, or request a new code.",
                 }
             )
         raise HTTPException(

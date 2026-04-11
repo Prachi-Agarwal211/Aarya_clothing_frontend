@@ -35,7 +35,7 @@ export { landingApi as landingPublicApi } from './customerApi';
 import { landingApi, authApi, coreClient } from './customerApi';
 import { setAuthData as _setAuthData, clearAuthData as _clearAuthData } from './baseApi';
 
-export const getLandingAll    = () => landingApi.getAll();
+export const getLandingAll    = (options) => landingApi.getAll(options);
 export const getLandingConfig = () => landingApi.getConfig();
 export const getLandingImages = (section) => landingApi.getImages(section);
 export const getSiteConfig    = () => landingApi.getSiteConfig();

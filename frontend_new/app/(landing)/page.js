@@ -131,7 +131,7 @@ export default function Home() {
       try {
         // Backend returns data in exact format needed by components
         // No transformation required on frontend
-        const response = await getLandingAll();
+        const response = await getLandingAll({ signal: controller.signal });
 
         clearTimeout(timeoutId);
 
@@ -154,8 +154,6 @@ export default function Home() {
         throw fetchError;
       }
     } catch (error) {
-      // Check if we should retry
-      const isTimeoutError = error.name === 'AbortError' || error.message?.includes('timeout');
       const shouldRetry = !isRetry && currentRetryCount < MAX_RETRIES;
 
       if (shouldRetry) {

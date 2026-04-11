@@ -63,6 +63,8 @@ class Settings(SharedBaseSettings):
     MSG91_AUTH_KEY: Optional[str] = None
     MSG91_TEMPLATE_ID: Optional[str] = None
     MSG91_SENDER_ID: Optional[str] = None
+    # Optional Flow template for order/shipping SMS (DLT-registered body in MSG91 console)
+    MSG91_ORDER_FLOW_TEMPLATE_ID: Optional[str] = None
 
     # ==================== Password Reset Settings ====================
     PASSWORD_RESET_TOKEN_EXPIRE_HOURS: int = 24

@@ -228,9 +228,15 @@ class AuthService:
         )
 
         if existing:
-            if existing.email == user_data.email:
+            # If user exists but hasn't verified, allow re-registration by deleting unverified account
+            if existing.email == user_data.email and not existing.email_verified:
+                logger.info(f"Deleting unverified account for {user_data.email} to allow re-registration")
+                self.db.delete(existing)
+                self.db.commit()
+            elif existing.email == user_data.email:
                 raise ValueError("Email already registered")
-            raise ValueError("Username already taken")
+            else:
+                raise ValueError("Username already taken")
 
         # Create user and profile objects
         vm = getattr(user_data, "verification_method", None)

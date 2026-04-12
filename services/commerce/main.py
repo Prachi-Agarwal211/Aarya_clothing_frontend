@@ -458,7 +458,18 @@ async def lifespan(app: FastAPI):
             db.close()
     except Exception as e:
         logger.warning(f"⚠ Commerce service: Meilisearch init skipped ({e})")
-    
+
+    # Sync invoice sequence to prevent collisions after data migrations/restores
+    try:
+        db = SessionLocal()
+        try:
+            from service.order_service import sync_invoice_sequence
+            sync_invoice_sequence(db)
+        finally:
+            db.close()
+    except Exception as e:
+        logger.warning(f"⚠ Could not sync invoice sequence on startup: {e}")
+
     yield
     
     # Shutdown

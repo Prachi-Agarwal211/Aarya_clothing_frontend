@@ -1,7 +1,7 @@
 """Order service for managing order operations."""
 from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session, joinedload, selectinload
-from sqlalchemy import desc
+from sqlalchemy import desc, text
 from sqlalchemy.exc import IntegrityError, OperationalError
 from fastapi import HTTPException, status
 from decimal import Decimal
@@ -18,6 +18,26 @@ from service.cart_service import CartService
 from service.promotion_service import PromotionService
 from service.customer_activity_logger import log_customer_activity
 from schemas.order import OrderCreate, OrderUpdate
+
+logger = logging.getLogger(__name__)
+
+
+def sync_invoice_sequence(db: Session) -> None:
+    """
+    Sync the invoice_number_seq PostgreSQL sequence to MAX(orders.id) + 1.
+
+    This ensures that after data migrations, restores, or manual inserts,
+    the sequence doesn't generate invoice numbers that collide with existing orders.
+    Safe to call on every startup — idempotent (sets to MAX+1 only if sequence is lower).
+    """
+    try:
+        max_id = db.execute(text("SELECT COALESCE(MAX(id), 0) FROM orders")).scalar()
+        next_val = max_id + 1
+        db.execute(text(f"SELECT setval('invoice_number_seq', {next_val}, false)"))
+        db.commit()
+        logger.info(f"✓ invoice_number_seq synced to {next_val} (MAX(orders.id)={max_id})")
+    except Exception as e:
+        logger.warning(f"⚠ Could not sync invoice_number_seq: {e}")
 
 logger = logging.getLogger(__name__)
 

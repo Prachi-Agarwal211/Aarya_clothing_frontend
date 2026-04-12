@@ -39,11 +39,7 @@ class Order(Base):
     
     # Payment integration
     transaction_id = Column(String(255), nullable=True, index=True)  # Links to payment service
-    __table_args__ = (
-        # Prevent duplicate orders for same transaction+user (idempotency at DB level)
-        UniqueConstraint('transaction_id', 'user_id', name='uq_order_transaction_user'),
-    )
-    
+
     # Razorpay payment details
     razorpay_order_id = Column(String(100), nullable=True)
     razorpay_payment_id = Column(String(100), nullable=True)
@@ -131,8 +127,8 @@ class Order(Base):
 
     __table_args__ = (
         # Unique constraint to prevent duplicate orders from same payment
-        UniqueConstraint('user_id', 'transaction_id', name='uq_order_user_transaction'),
-        
+        UniqueConstraint('transaction_id', 'user_id', name='uq_order_transaction_user'),
+
         # Existing indexes
         Index('ix_orders_status_created', 'status', 'created_at'),
         Index('ix_orders_user_created', 'user_id', 'created_at'),

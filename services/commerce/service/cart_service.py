@@ -7,6 +7,8 @@ from datetime import datetime, timezone
 import json
 import logging
 import os
+import time
+import uuid
 
 from core.redis_client import redis_client
 from core.config import get_settings
@@ -44,8 +46,6 @@ class CartService:
 
     def _acquire_cart_lock(self, user_id: int, timeout: float = 2.0) -> Optional[str]:
         """Acquire distributed lock for cart mutations using Redis SETNX."""
-        import time
-        import uuid
         lock_key = f"{self.LOCK_KEY_PREFIX}{user_id}"
         lock_token = str(uuid.uuid4())
         deadline = time.monotonic() + timeout

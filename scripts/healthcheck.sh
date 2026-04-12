@@ -61,9 +61,9 @@ echo ""
 # --- Redis ---
 echo "── Redis ──"
 if docker ps --format '{{.Names}}' 2>/dev/null | grep -q aarya_redis; then
-  REDIS_MEM=$(docker exec aarya_redis redis-cli -a "${REDIS_PASSWORD:-aarya_clothing_redis_password_2024}" --no-auth-warning INFO memory 2>/dev/null | grep used_memory_human | cut -d: -f2 | tr -d '\r')
-  REDIS_HITS=$(docker exec aarya_redis redis-cli -a "${REDIS_PASSWORD:-aarya_clothing_redis_password_2024}" --no-auth-warning INFO stats 2>/dev/null | grep keyspace_hits | cut -d: -f2 | tr -d '\r')
-  REDIS_MISSES=$(docker exec aarya_redis redis-cli -a "${REDIS_PASSWORD:-aarya_clothing_redis_password_2024}" --no-auth-warning INFO stats 2>/dev/null | grep keyspace_misses | cut -d: -f2 | tr -d '\r')
+  REDIS_MEM=$(docker exec aarya_redis redis-cli -a "${REDIS_PASSWORD:?REDIS_PASSWORD environment variable is required}" --no-auth-warning INFO memory 2>/dev/null | grep used_memory_human | cut -d: -f2 | tr -d '\r')
+  REDIS_HITS=$(docker exec aarya_redis redis-cli -a "${REDIS_PASSWORD:?REDIS_PASSWORD environment variable is required}" --no-auth-warning INFO stats 2>/dev/null | grep keyspace_hits | cut -d: -f2 | tr -d '\r')
+  REDIS_MISSES=$(docker exec aarya_redis redis-cli -a "${REDIS_PASSWORD:?REDIS_PASSWORD environment variable is required}" --no-auth-warning INFO stats 2>/dev/null | grep keyspace_misses | cut -d: -f2 | tr -d '\r')
   echo "Memory: ${REDIS_MEM:-N/A}"
   echo "Hits: ${REDIS_HITS:-0} | Misses: ${REDIS_MISSES:-0}"
   if [ -n "$REDIS_HITS" ] && [ -n "$REDIS_MISSES" ] && [ "$((REDIS_HITS + REDIS_MISSES))" -gt 0 ]; then

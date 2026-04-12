@@ -138,8 +138,8 @@ services:
     image: getmeili/meilisearch:v1.6
     container_name: aarya_meilisearch
     environment:
-      - MEILI_MASTER_KEY=aarya_prod_master_2024_key
-      - MEILI_ENV=production
+      - MEILI_MASTER_KEY=${MEILI_MASTER_KEY:-dev_master_key}
+      - MEILI_ENV=${MEILI_ENV:-development}
       - MEILI_DB_PATH=/meili_data
     expose:
       - "7700"

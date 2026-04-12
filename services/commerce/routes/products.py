@@ -10,6 +10,7 @@ Product catalog management endpoints:
 """
 
 import logging
+import hashlib
 from typing import List, Optional
 from decimal import Decimal
 from fastapi import APIRouter, Depends, HTTPException, status, Request, UploadFile, File, Query
@@ -247,9 +248,8 @@ async def list_products(
         db_search = None
 
     # Build cache key — CRITICAL: include user_role to prevent admin inventory data leaking to customers
-    import hashlib as _hl
     cache_params = f"role={user_role or 'public'}:cat={category_id}:col={collection}:min={min_price}:max={max_price}:sizes={sizes}:colors={colors}:sort={sort}:order={order}:page={page}:limit={limit}"
-    cache_key_hash = _hl.md5(cache_params.encode()).hexdigest()[:12]
+    cache_key_hash = hashlib.md5(cache_params.encode()).hexdigest()[:12]
     cache_key = f"products:list:{cache_key_hash}"
 
     async def _fetch_products():

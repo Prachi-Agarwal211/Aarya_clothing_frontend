@@ -113,14 +113,11 @@ class AdvancedCache:
         for k in keys_to_remove:
             self.local_cache.pop(k, None)
             
-        # Clear L2 matching pattern
+        # Clear L2: keys are stored via unified client as namespace "cache" (e.g. cache:products:*)
         try:
-            # Safer to use the wrapper methods if exposed, otherwise fallback to direct client
-            client = getattr(self.redis, 'client', None) or getattr(self.redis, '_get_client', lambda: None)().client
-            if client:
-                keys = client.keys(f"{pattern}")
-                if keys:
-                    client.delete(*keys)
+            deleted = self.redis.invalidate_pattern(pattern)
+            if deleted:
+                logger.debug("Invalidated %s Redis keys for pattern %s", deleted, pattern)
         except Exception as e:
             logger.warning(f"Pattern invalidation failed for {pattern}: {e}")
 

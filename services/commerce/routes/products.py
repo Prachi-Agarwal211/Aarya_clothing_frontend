@@ -214,8 +214,8 @@ async def list_products(
     - **search**: Full-text search query (uses Meilisearch)
     """
     user_role = current_user.get("role") if current_user else None
-    
-    # Use Meilisearch for search queries
+
+    # Use Meilisearch for search queries (never cached — search is dynamic)
     if search:
         try:
             results = meili_search_products(
@@ -227,10 +227,8 @@ async def list_products(
                 limit=limit,
             )
             if results.get("hits") is not None and not results.get("error"):
-                # Apply role-based filtering to Meilisearch results
                 hits = results.get("hits", [])
                 if not (current_user and is_staff(user_role)):
-                    # Filter sensitive fields for non-admin users
                     hits = [
                         {**h, "total_stock": None, "stock_quantity": None}
                         for h in hits
@@ -244,91 +242,100 @@ async def list_products(
                 }
         except Exception as e:
             logger.error(f"Meilisearch error: {e}")
-        # Fallback to database search (search = None not needed, DB adds ILIKE below)
         db_search = search
     else:
         db_search = None
 
-    # Database query with eager loading to avoid N+1
-    query = db.query(Product).options(
-        joinedload(Product.collection),
-        selectinload(Product.images),
-        selectinload(Product.inventory),
-    ).filter(Product.is_active == True)
+    # Build cache key — CRITICAL: include user_role to prevent admin inventory data leaking to customers
+    import hashlib as _hl
+    cache_params = f"role={user_role or 'public'}:cat={category_id}:col={collection}:min={min_price}:max={max_price}:sizes={sizes}:colors={colors}:sort={sort}:order={order}:page={page}:limit={limit}"
+    cache_key_hash = _hl.md5(cache_params.encode()).hexdigest()[:12]
+    cache_key = f"products:list:{cache_key_hash}"
 
-    if category_id:
-        query = query.filter(Product.category_id == category_id)
-    elif collection:
-        col = db.query(Collection).filter(Collection.slug == collection).first()
-        if col:
-            query = query.filter(Product.category_id == col.id)
+    async def _fetch_products():
+        """Execute the database query for product listing."""
+        query = db.query(Product).options(
+            joinedload(Product.collection),
+            selectinload(Product.images),
+            selectinload(Product.inventory),
+        ).filter(Product.is_active == True)
 
-    if min_price:
-        query = query.filter(Product.base_price >= min_price)
-    if max_price:
-        query = query.filter(Product.base_price <= max_price)
+        if category_id:
+            query = query.filter(Product.category_id == category_id)
+        elif collection:
+            col = db.query(Collection).filter(Collection.slug == collection).first()
+            if col:
+                query = query.filter(Product.category_id == col.id)
 
-    if sizes:
-        size_list = [s.strip() for s in sizes.split(',') if s.strip()]
-        if size_list:
-            query = query.filter(
-                Product.id.in_(
-                    db.query(Inventory.product_id).filter(Inventory.size.in_(size_list))
+        if min_price:
+            query = query.filter(Product.base_price >= min_price)
+        if max_price:
+            query = query.filter(Product.base_price <= max_price)
+
+        if sizes:
+            size_list = [s.strip() for s in sizes.split(',') if s.strip()]
+            if size_list:
+                query = query.filter(
+                    Product.id.in_(
+                        db.query(Inventory.product_id).filter(Inventory.size.in_(size_list))
+                    )
                 )
+
+        if colors:
+            color_list = [c.strip() for c in colors.split(',') if c.strip()]
+            if color_list:
+                query = query.filter(
+                    Product.id.in_(
+                        db.query(Inventory.product_id).filter(Inventory.color.in_(color_list))
+                    )
+                )
+
+        if db_search:
+            query = query.filter(
+                Product.name.ilike(f"%{db_search}%") |
+                Product.description.ilike(f"%{db_search}%") |
+                Product.short_description.ilike(f"%{db_search}%")
             )
 
-    if colors:
-        color_list = [c.strip() for c in colors.split(',') if c.strip()]
-        if color_list:
-            query = query.filter(
-                Product.id.in_(
-                    db.query(Inventory.product_id).filter(Inventory.color.in_(color_list))
-                )
-            )
+        SORT_MAP = {
+            "price": "base_price",
+            "rating": "average_rating",
+            "newest": "created_at",
+            "name": "name",
+            "created_at": "created_at",
+            "base_price": "base_price",
+            "average_rating": "average_rating",
+        }
+        sort_col_name = SORT_MAP.get(sort, "created_at")
+        sort_col = getattr(Product, sort_col_name, Product.created_at)
+        if order == "desc":
+            query = query.order_by(desc(sort_col))
+        else:
+            query = query.order_by(sort_col.asc())
 
-    if db_search:
-        query = query.filter(
-            Product.name.ilike(f"%{db_search}%") |
-            Product.description.ilike(f"%{db_search}%") |
-            Product.short_description.ilike(f"%{db_search}%")
-        )
+        total = query.count()
+        offset = (page - 1) * limit
+        products = query.offset(offset).limit(limit).all()
+        items = [_enrich_product(p, db, user_role) for p in products]
 
-    # Sorting — map friendly names to actual column names
-    SORT_MAP = {
-        "price": "base_price",
-        "rating": "average_rating",
-        "newest": "created_at",
-        "name": "name",
-        "created_at": "created_at",
-        "base_price": "base_price",
-        "average_rating": "average_rating",
-    }
-    sort_col_name = SORT_MAP.get(sort, "created_at")
-    sort_col = getattr(Product, sort_col_name, Product.created_at)
-    if order == "desc":
-        query = query.order_by(desc(sort_col))
-    else:
-        query = query.order_by(sort_col.asc())
+        return {
+            "items": items,
+            "total": total,
+            "skip": offset,
+            "limit": limit,
+            "has_more": offset + limit < total
+        }
 
-    # Pagination
-    total = query.count()
-    offset = (page - 1) * limit
-    products = query.offset(offset).limit(limit).all()
+    # Use L1+L2 cache for non-search queries
+    if not db_search:
+        try:
+            cached_result = await cache.get_or_set(cache_key, _fetch_products, ttl=300)
+            return cached_result
+        except Exception as e:
+            logger.warning(f"Cache miss fallback for products list: {e}")
 
-    # Enrich products with role-based filtering
-    items = [_enrich_product(p, db, user_role) for p in products]
-
-    # Calculate pagination metadata to match PaginatedResponse schema
-    skip = offset
-    has_more = offset + limit < total
-
-    return {
-        "items": items,
-        "total": total,
-        "skip": skip,
-        "limit": limit,
-        "has_more": has_more
-    }
+    # Fallback: direct DB query (for search or cache failure)
+    return await _fetch_products()
 
 
 @router.get("/search")

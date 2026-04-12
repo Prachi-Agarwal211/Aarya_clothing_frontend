@@ -23,7 +23,7 @@ from datetime import datetime, timezone
 from fastapi import FastAPI, Depends, HTTPException, status, Request, UploadFile, File, Query, Header, WebSocket, WebSocketDisconnect
 from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import text, func
 from typing import Optional, List
 from decimal import Decimal
@@ -71,7 +71,8 @@ from schemas.product_image import ProductImageCreate, ProductImageResponse
 from schemas.inventory import InventoryCreate, InventoryUpdate, InventoryResponse, StockAdjustment, LowStockItem
 from schemas.order import (
     OrderCreate, OrderResponse, CartItem, CartResponse,
-    BulkOrderStatusUpdate, SetDeliveryState
+    BulkOrderStatusUpdate, SetDeliveryState,
+    GuestOrderTrackResponse, GuestOrderTrackItem,
 )
 from schemas.wishlist import WishlistItemCreate, WishlistItemResponse, WishlistResponse
 from schemas.promotion import PromotionCreate, PromotionUpdate, PromotionResponse, PromotionValidateRequest, PromotionValidateResponse
@@ -96,6 +97,7 @@ from service.address_service import AddressService
 from service.review_service import ReviewService
 from service.order_tracking_service import OrderTrackingService
 from service.return_service import ReturnService
+from service.guest_tracking_token import parse_guest_tracking_token
 
 # Route modules (for better code organization)
 # These modularize the 2800+ line main.py into manageable route files
@@ -1122,21 +1124,15 @@ async def validate_checkout(
     current_user: dict = Depends(get_current_user)
 ):
     """
-    Validate cart and confirm all reservations are still valid.
-    Should be called immediately before payment modal.
+    Validate cart stock before payment. Returns structured payload for the storefront:
+    { valid, out_of_stock: [{ sku, name, requested, available }], message }
     """
     cart_service = CartService(db)
-    try:
-        is_valid = cart_service.confirm_cart_for_checkout(current_user["user_id"])
-        return {"valid": is_valid, "message": "Cart is valid for checkout"}
-    except HTTPException as e:
-        # Re-raise HTTP exceptions from cart service directly
-        raise e
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+    preview = cart_service.checkout_stock_preview(current_user["user_id"])
+    if preview.get("valid"):
+        return preview
+    # Still 200 so the client can read out_of_stock without treating it as transport error
+    return preview
 
 
 
@@ -1735,6 +1731,53 @@ async def list_orders(
         user_id=current_user["user_id"],
         skip=skip,
         limit=limit
+    )
+
+
+@app.get(
+    "/api/v1/orders/track/{token}",
+    response_model=GuestOrderTrackResponse,
+    tags=["Orders"],
+)
+async def get_guest_order_by_tracking_token(token: str, db: Session = Depends(get_db)):
+    """
+    Public order status for guests — token is HMAC-signed (no login).
+    Must stay registered before /orders/{order_id} so "track" is not parsed as an integer id.
+    """
+    order_id = parse_guest_tracking_token(token)
+    if order_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Invalid or expired tracking link",
+        )
+    order = (
+        db.query(Order)
+        .options(joinedload(Order.items))
+        .filter(Order.id == order_id)
+        .first()
+    )
+    if not order:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Order not found",
+        )
+    items_out = [
+        GuestOrderTrackItem(
+            product_name=it.product_name,
+            size=it.size,
+            color=it.color,
+            quantity=int(it.quantity),
+            price=float(it.price) if it.price is not None else float(it.unit_price or 0),
+        )
+        for it in (order.items or [])
+    ]
+    return GuestOrderTrackResponse(
+        order_id=order.id,
+        status=order.status.value if hasattr(order.status, "value") else str(order.status),
+        tracking_number=order.tracking_number,
+        total_amount=float(order.total_amount),
+        created_at=order.created_at,
+        items=items_out,
     )
 
 
@@ -3338,27 +3381,22 @@ async def cancel_return_request(
 # IMPORTANT: /browse route MUST come before /{product_id}/related to avoid route matching conflicts
 # FastAPI matches routes in order, and "browse" would be interpreted as a product_id otherwise
 
-@app.get("/api/v1/products/browse", tags=["Products"])
-async def browse_products_main(
-    category_id: Optional[int] = None,
-    category_slug: Optional[str] = None,
-    min_price: Optional[float] = None,
-    max_price: Optional[float] = None,
-    sort_by: str = Query("newest", regex="^(newest|price_low|price_high|popular|name_asc|name_desc)$"),
-    size: Optional[str] = None,
-    color: Optional[str] = None,
-    in_stock_only: bool = True,
-    skip: int = Query(0, ge=0),
-    limit: int = Query(24, ge=1, le=100),
-    db: Session = Depends(get_db),
-    current_user: Optional[dict] = Depends(get_current_user_optional)
-):
-    """Browse products with advanced filtering, sorting, and pagination."""
-    user_role = current_user.get("role") if current_user else None
 
+def _browse_products_payload(
+    db: Session,
+    user_role: Optional[str],
+    category_id: Optional[int],
+    category_slug: Optional[str],
+    min_price: Optional[float],
+    max_price: Optional[float],
+    sort_by: str,
+    in_stock_only: bool,
+    skip: int,
+    limit: int,
+) -> dict:
+    """Build browse response (used by cached and uncached paths)."""
     query = db.query(Product).filter(Product.is_active == True)
 
-    # Category filter (by ID or slug)
     if category_id:
         query = query.filter(Product.category_id == category_id)
     elif category_slug:
@@ -3366,30 +3404,27 @@ async def browse_products_main(
         if cat:
             query = query.filter(Product.category_id == cat.id)
 
-    # Price range filter
     if min_price is not None:
         query = query.filter(Product.base_price >= min_price)
     if max_price is not None:
         query = query.filter(Product.base_price <= max_price)
 
-    # In-stock filter
     if in_stock_only:
         from models.inventory import Inventory as _Inv
         in_stock_ids = db.query(_Inv.product_id).filter(_Inv.quantity > 0).subquery()
         query = query.filter(Product.id.in_(in_stock_ids))
 
-    # Sorting
     if sort_by == "price_low":
         query = query.order_by(Product.base_price.asc())
     elif sort_by == "price_high":
         query = query.order_by(Product.base_price.desc())
     elif sort_by == "popular":
-        query = query.order_by(Product.average_rating.desc())  # Proxy for popularity
+        query = query.order_by(Product.average_rating.desc())
     elif sort_by == "name_asc":
         query = query.order_by(Product.name.asc())
     elif sort_by == "name_desc":
         query = query.order_by(Product.name.desc())
-    else:  # newest
+    else:
         query = query.order_by(Product.created_at.desc())
 
     total = query.count()
@@ -3406,8 +3441,57 @@ async def browse_products_main(
             "min_price": min_price,
             "max_price": max_price,
             "in_stock_only": in_stock_only,
-        }
+        },
     }
+
+
+@app.get("/api/v1/products/browse", tags=["Products"])
+async def browse_products_main(
+    category_id: Optional[int] = None,
+    category_slug: Optional[str] = None,
+    min_price: Optional[float] = None,
+    max_price: Optional[float] = None,
+    sort_by: str = Query("newest", regex="^(newest|price_low|price_high|popular|name_asc|name_desc)$"),
+    size: Optional[str] = None,
+    color: Optional[str] = None,
+    in_stock_only: bool = True,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(24, ge=1, le=100),
+    current_user: Optional[dict] = Depends(get_current_user_optional),
+):
+    """Browse products with advanced filtering, sorting, and pagination."""
+    user_role = current_user.get("role") if current_user else None
+    role_key = user_role or "guest"
+    nk = lambda x: "none" if x is None else str(x)
+    cache_key = (
+        f"products:browse:v1:{role_key}:{nk(category_id)}:{nk(category_slug)}:"
+        f"{nk(min_price)}:{nk(max_price)}:{sort_by}:{nk(size)}:{nk(color)}:"
+        f"{in_stock_only}:{skip}:{limit}"
+    )
+
+    def _fetch_sync():
+        # Own session in thread pool — SQLAlchemy Session is not thread-safe across asyncio.to_thread
+        db = SessionLocal()
+        try:
+            return _browse_products_payload(
+                db,
+                user_role,
+                category_id,
+                category_slug,
+                min_price,
+                max_price,
+                sort_by,
+                in_stock_only,
+                skip,
+                limit,
+            )
+        finally:
+            db.close()
+
+    async def fetch_browse():
+        return await asyncio.to_thread(_fetch_sync)
+
+    return await cache.get_or_set(cache_key, fetch_browse, ttl=120)
 
 
 @app.get("/api/v1/products/{product_id}/related", tags=["Products"])
@@ -3572,29 +3656,80 @@ async def get_order_history(
 # ==================== Customer Chat ====================
 
 class ChatConnectionManager:
+    """Manages WebSocket connections with Redis pub/sub for cross-worker broadcast.
+
+    Without Redis pub/sub, messages only reach clients connected to the SAME
+    uvicorn worker. With multiple workers (UVICORN_WORKERS=2), this breaks
+    real-time chat when staff and customer land on different workers.
+    """
     def __init__(self):
-        # room_id -> list of active connections
         self.active_connections: dict[int, List[WebSocket]] = {}
+        self._pubsub_task: Optional[asyncio.Task] = None
+        self._redis_sub: Any = None
 
     async def connect(self, websocket: WebSocket, room_id: int):
         await websocket.accept()
         if room_id not in self.active_connections:
             self.active_connections[room_id] = []
         self.active_connections[room_id].append(websocket)
+        # Start Redis subscriber on first connection
+        if self._pubsub_task is None or self._pubsub_task.done():
+            self._pubsub_task = asyncio.create_task(self._redis_subscribe_loop())
 
     def disconnect(self, websocket: WebSocket, room_id: int):
         if room_id in self.active_connections:
-            self.active_connections[room_id].remove(websocket)
+            if websocket in self.active_connections[room_id]:
+                self.active_connections[room_id].remove(websocket)
             if not self.active_connections[room_id]:
                 del self.active_connections[room_id]
 
-    async def broadcast(self, message: dict, room_id: int):
+    async def broadcast_local(self, message: dict, room_id: int):
+        """Broadcast to local WebSocket connections only (same worker)."""
         if room_id in self.active_connections:
             for connection in self.active_connections[room_id]:
                 try:
                     await connection.send_json(message)
                 except Exception as e:
                     logger.error(f"WebSocket send error: {e}")
+
+    async def broadcast(self, message: dict, room_id: int):
+        """Broadcast locally AND publish to Redis for other workers."""
+        await self.broadcast_local(message, room_id)
+        await self._redis_publish(room_id, message)
+
+    async def _redis_publish(self, room_id: int, message: dict):
+        """Publish message to Redis pub/sub channel for cross-worker delivery."""
+        try:
+            from core.redis_client import redis_client
+            channel = f"chat:room:{room_id}"
+            redis_client.client.publish(channel, json.dumps(message, default=str))
+        except Exception as e:
+            logger.warning(f"[Chat] Redis publish failed for room {room_id}: {e}")
+
+    async def _redis_subscribe_loop(self):
+        """Subscribe to all chat room channels and relay to local connections."""
+        try:
+            from core.redis_client import redis_client
+            pubsub = redis_client.client.pubsub()
+            pubsub.psubscribe("chat:room:*")
+            self._redis_sub = pubsub
+            logger.info("[Chat] Redis pub/sub subscriber started")
+
+            while True:
+                try:
+                    message = pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
+                    if message and message["type"] == "message":
+                        data = json.loads(message["data"])
+                        room_id = data.get("room_id")
+                        if room_id and room_id in self.active_connections:
+                            await self.broadcast_local(data, room_id)
+                except asyncio.CancelledError:
+                    break
+                except Exception as e:
+                    logger.warning(f"[Chat] Redis subscribe error: {e}")
+                    await asyncio.sleep(1)
+        except Exception as e:
+            logger.error(f"[Chat] Failed to start Redis subscriber: {e}")
 
 chat_manager = ChatConnectionManager()
 

@@ -2,16 +2,20 @@
 import logging
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy.pool import QueuePool
 from core.config import settings
 
 logger = logging.getLogger(__name__)
 
-# Create database engine
+# Create database engine (aligned with shared pool defaults)
 engine = create_engine(
     settings.DATABASE_URL,
-    pool_size=10,
-    max_overflow=20,
-    pool_pre_ping=True
+    poolclass=QueuePool,
+    pool_size=settings.DATABASE_POOL_SIZE,
+    max_overflow=settings.DATABASE_MAX_OVERFLOW,
+    pool_pre_ping=True,
+    pool_recycle=1800,
+    pool_timeout=30,
 )
 
 # Create session factory

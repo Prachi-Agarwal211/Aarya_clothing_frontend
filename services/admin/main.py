@@ -1584,21 +1584,17 @@ async def _save_chat_message_async(
         db_session.close()
 
 
-@app.websocket("/api/v1/chat/ws/{room_id}")
-async def websocket_chat(ws: WebSocket, room_id: int, token: str = Query(None), db: Session = Depends(get_db)):
+async def _websocket_staff_chat(
+    ws: WebSocket, room_id: int, token: str | None, db: Session
+):
     """
-    WebSocket endpoint for real-time chat.
+    Staff dashboard WebSocket (nginx: /api/v1/admin/chat/ws/* → admin service).
 
-    Auth: reads access_token from HttpOnly cookie first, falls back to ?token= query param.
-    Send JSON: {"message": "text"}
-    Receive JSON: {"room_id": int, "sender_id": int, "sender_type": str, "message": str, "created_at": str}
-
-    Messages are broadcast to all workers via Redis Pub/Sub and
-    persisted to Postgres asynchronously.
+    Also exposed at /api/v1/chat/ws/{room_id} for direct service access / tests.
+    Customer storefront uses Commerce's /api/v1/chat/ws/* (different upstream).
     """
     import jwt as pyjwt
 
-    # Prefer cookie-based auth over URL token param (security: URL tokens appear in logs)
     cookie_token = ws.cookies.get("access_token")
     resolved_token = cookie_token or token
 
@@ -1617,7 +1613,6 @@ async def websocket_chat(ws: WebSocket, room_id: int, token: str = Query(None), 
 
     sender_type = "staff" if role in ("admin", "staff", "superadmin") else "customer"
 
-    # Verify room exists
     room = db.execute(
         text("SELECT id, customer_id, status FROM chat_rooms WHERE id = :rid"),
         {"rid": room_id},
@@ -1626,7 +1621,6 @@ async def websocket_chat(ws: WebSocket, room_id: int, token: str = Query(None), 
         await ws.close(code=4004, reason="Room not found")
         return
 
-    # Non-staff users may only join their own room
     if sender_type == "customer" and room[1] != user_id:
         await ws.close(code=4003, reason="Forbidden")
         return
@@ -1649,13 +1643,9 @@ async def websocket_chat(ws: WebSocket, room_id: int, token: str = Query(None), 
                 "created_at": now.isoformat(),
             }
 
-            # 1. Broadcast to local WebSocket connections immediately
             await chat_manager.broadcast_local(room_id, message_payload)
-
-            # 2. Publish to Redis for other workers
             await chat_manager.publish_to_redis(room_id, message_payload)
 
-            # 3. Save to DB asynchronously
             asyncio.create_task(
                 _save_chat_message_async(room_id, user_id, sender_type, msg_text)
             )
@@ -1665,6 +1655,20 @@ async def websocket_chat(ws: WebSocket, room_id: int, token: str = Query(None), 
     except Exception as e:
         logger.error(f"WebSocket error room {room_id}: {e}")
         chat_manager.disconnect(room_id, ws)
+
+
+@app.websocket("/api/v1/chat/ws/{room_id}")
+async def websocket_chat(ws: WebSocket, room_id: int, token: str = Query(None), db: Session = Depends(get_db)):
+    """See _websocket_staff_chat."""
+    await _websocket_staff_chat(ws, room_id, token, db)
+
+
+@app.websocket("/api/v1/admin/chat/ws/{room_id}")
+async def websocket_chat_admin_dashboard(
+    ws: WebSocket, room_id: int, token: str = Query(None), db: Session = Depends(get_db)
+):
+    """Path expected by frontend (admin/chat) and nginx location ^/api/v1/admin/chat/ws/."""
+    await _websocket_staff_chat(ws, room_id, token, db)
 
 
 # ==================== Site Config ====================

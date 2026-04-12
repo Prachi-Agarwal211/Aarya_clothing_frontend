@@ -578,7 +578,7 @@ export default function ProductDetailPage() {
               </div>
 
               {/* Trust Badges */}
-              <div className="grid grid-cols-4 gap-2 pt-6 border-t border-[#B76E79]/15">
+              <div className="grid grid-cols-3 gap-2 pt-6 border-t border-[#B76E79]/15">
                 <div className="text-center group">
                   <Truck className="w-5 h-5 mx-auto text-[#B76E79] mb-1.5 group-hover:scale-110 transition-transform" />
                   <p className="text-[10px] uppercase tracking-wider text-[#EAE0D5]/60 font-medium">Free Shipping</p>
@@ -586,10 +586,6 @@ export default function ProductDetailPage() {
                 <div className="text-center group">
                   <Shield className="w-5 h-5 mx-auto text-[#B76E79] mb-1.5 group-hover:scale-110 transition-transform" />
                   <p className="text-[10px] uppercase tracking-wider text-[#EAE0D5]/60 font-medium">Secure SSL</p>
-                </div>
-                <div className="text-center group">
-                  <RotateCcw className="w-5 h-5 mx-auto text-[#B76E79] mb-1.5 group-hover:scale-110 transition-transform" />
-                  <p className="text-[10px] uppercase tracking-wider text-[#EAE0D5]/60 font-medium">7-Day Return</p>
                 </div>
                 <div className="text-center group">
                   <Check className="w-5 h-5 mx-auto text-[#B76E79] mb-1.5 group-hover:scale-110 transition-transform" />
@@ -604,8 +600,6 @@ export default function ProductDetailPage() {
                 </div>
               )}
 
-              {/* SKU */}
-              <p className="text-sm text-[#EAE0D5]/50">SKU: {product.sku}</p>
             </div>
           </div>
 

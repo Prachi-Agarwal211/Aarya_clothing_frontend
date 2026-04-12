@@ -10,10 +10,26 @@ export const dynamic = 'force-dynamic';
 // Timeout for API calls (10 seconds)
 const API_TIMEOUT_MS = 10000;
 
+function isInvalidCollectionSlug(slug) {
+  return (
+    slug == null ||
+    slug === '' ||
+    slug === 'null' ||
+    slug === 'undefined' ||
+    String(slug).trim() === ''
+  );
+}
+
 // Generate metadata dynamically
 export async function generateMetadata({ params }) {
   try {
     const slug = await params.slug;
+    if (isInvalidCollectionSlug(slug)) {
+      return {
+        title: 'Collections | Aarya Clothing',
+        robots: { index: false, follow: false },
+      };
+    }
     
     // Fetch with timeout
     const controller = new AbortController();
@@ -104,6 +120,9 @@ async function getCollectionData(slug) {
 
 export default async function CollectionDetailPage({ params }) {
   const slug = await params.slug;
+  if (isInvalidCollectionSlug(slug)) {
+    notFound();
+  }
   const data = await getCollectionData(slug);
 
   if (!data || !data.collection) {

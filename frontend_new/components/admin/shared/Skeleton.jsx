@@ -128,8 +128,3 @@ export function PageSkeleton() {
     </div>
   );
 }
-
-// Utility function for class names
-function cn(...classes) {
-  return classes.filter(Boolean).join(' ');
-}

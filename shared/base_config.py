@@ -45,8 +45,8 @@ class BaseSettings(PydanticBaseSettings):
     
     # ==================== Database ====================
     DATABASE_URL: str = "postgresql://postgres:password@localhost/aarya_clothing"
-    DATABASE_POOL_SIZE: int = 10
-    DATABASE_MAX_OVERFLOW: int = 20
+    DATABASE_POOL_SIZE: int = 8
+    DATABASE_MAX_OVERFLOW: int = 7
     
     # ==================== Redis ====================
     # One Redis server is shared; each microservice MUST use a distinct REDIS_DB so caches/sessions/queues stay isolated.
@@ -197,8 +197,8 @@ class DatabaseSettings(PydanticBaseSettings):
     without inheriting all base settings.
     """
     DATABASE_URL: str = "postgresql://postgres:password@localhost/aarya_clothing"
-    DATABASE_POOL_SIZE: int = 10
-    DATABASE_MAX_OVERFLOW: int = 20
+    DATABASE_POOL_SIZE: int = 8
+    DATABASE_MAX_OVERFLOW: int = 7
     
     class Config:
         env_file = ".env"

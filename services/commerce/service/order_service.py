@@ -2,6 +2,7 @@
 from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session, joinedload, selectinload
 from sqlalchemy import desc
+from sqlalchemy.exc import IntegrityError, OperationalError
 from fastapi import HTTPException, status
 from decimal import Decimal
 from datetime import datetime, timezone
@@ -256,10 +257,18 @@ class OrderService:
         stored_transaction_id = transaction_id or razorpay_order_id
 
         # Check for existing order with same transaction_id (idempotency)
-        existing_order = self.db.query(Order).filter(
-            Order.transaction_id == stored_transaction_id,
-            Order.user_id == user_id
-        ).first()
+        # Row-level lock serializes concurrent duplicate requests for the same payment
+        try:
+            existing_order = self.db.query(Order).filter(
+                Order.transaction_id == stored_transaction_id,
+                Order.user_id == user_id
+            ).with_for_update(nowait=True).first()
+        except OperationalError:
+            self.db.rollback()
+            existing_order = self.db.query(Order).filter(
+                Order.transaction_id == stored_transaction_id,
+                Order.user_id == user_id
+            ).first()
 
         if existing_order:
             logger.info(f"Duplicate order attempt detected for user {user_id} with transaction {stored_transaction_id}")
@@ -276,17 +285,22 @@ class OrderService:
             )
         
         # Calculate subtotal from DB prices (never trust cached cart prices)
+        # BATCH FIX: Fetch all products & inventories in 2 queries instead of 2*N
+        product_ids = [ci["product_id"] for ci in cart["items"]]
+        skus = [ci["sku"] for ci in cart["items"] if ci.get("sku")]
+        products_map = {
+            p.id: p for p in self.db.query(Product).filter(Product.id.in_(product_ids)).all()
+        }
+        inventory_map = {}
+        if skus:
+            inventory_map = {
+                inv.sku: inv for inv in self.db.query(Inventory).filter(Inventory.sku.in_(skus)).all()
+            }
+
         subtotal = Decimal(0)
         for cart_item in cart["items"]:
-            # Re-fetch authoritative price from DB
-            db_inventory = None
-            if cart_item.get("sku"):
-                db_inventory = self.db.query(Inventory).filter(
-                    Inventory.sku == cart_item["sku"]
-                ).first()
-            db_product = self.db.query(Product).filter(
-                Product.id == cart_item["product_id"]
-            ).first()
+            db_inventory = inventory_map.get(cart_item.get("sku"))
+            db_product = products_map.get(cart_item["product_id"])
             if not db_product:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
@@ -327,21 +341,11 @@ class OrderService:
         total_amount = subtotal - discount_applied + shipping_cost + gst_amount
         
         # Generate sequential invoice number: INV-YYYY-NNNNNN
-        # Uses a DB sequence to avoid race condition with COUNT(*)+1
+        # Uses a DB sequence — no mid-transaction commit to avoid gaps
         from datetime import datetime as _dt
         from sqlalchemy import text as _text
         year = _dt.now().year
-        
-        # CRITICAL FIX: Sync sequence with max order ID to prevent duplicates
-        # This handles cases where sequence gets out of sync (e.g., manual inserts, recovery)
-        self.db.execute(_text("""
-            SELECT setval('invoice_number_seq', GREATEST(
-                (SELECT COALESCE(MAX(id), 0) FROM orders),
-                (SELECT last_value FROM invoice_number_seq)
-            ), true)
-        """))
-        self.db.commit()
-        
+
         seq_val = self.db.execute(_text("SELECT nextval('invoice_number_seq')")).scalar()
         invoice_number = f"INV-{year}-{seq_val:06d}"
         
@@ -379,20 +383,12 @@ class OrderService:
         
         self.db.add(order)
         self.db.flush()  # Get order ID
-        
-        # Create order items
+
+        # Create order items — reuse already-fetched maps (no additional DB queries)
         for cart_item in cart["items"]:
-            # Get product and inventory
-            product = self.db.query(Product).filter(
-                Product.id == cart_item["product_id"]
-            ).first()
-            
-            inventory = None
-            if cart_item.get("sku"):
-                inventory = self.db.query(Inventory).filter(
-                    Inventory.sku == cart_item["sku"]
-                ).first()
-            
+            product = products_map.get(cart_item["product_id"])
+            inventory = inventory_map.get(cart_item.get("sku"))
+
             order_item = OrderItem(
                 order_id=order.id,
                 product_id=cart_item["product_id"],
@@ -407,9 +403,9 @@ class OrderService:
                 unit_price=Decimal(cart_item["price"]),
                 price=Decimal(cart_item["price"]) * cart_item["quantity"]
             )
-            
+
             self.db.add(order_item)
-            
+
             # Atomically deduct stock (SELECT FOR UPDATE — prevents overselling)
             if cart_item.get("sku"):
                 self.inventory_service.deduct_stock_for_order(
@@ -417,17 +413,38 @@ class OrderService:
                     cart_item["quantity"]
                 )
         
-        # Record promotion usage
+        # Record promotion usage (promotion row already validated above)
         if promo_code:
-            self.promotion_service.record_usage(
-                code=promo_code,
-                user_id=user_id,
-                order_id=order.id
-            )
+            prom = self.promotion_service.get_promotion_by_code(promo_code)
+            if prom:
+                self.promotion_service.record_usage(
+                    promotion_id=prom.id,
+                    user_id=user_id,
+                    discount_amount=discount_applied,
+                    order_id=order.id,
+                )
 
-        # Commit everything atomically: order, order_items, stock deductions
-        self.db.commit()
-        self.db.refresh(order)
+        # Commit everything atomically: order, order_items, stock deductions.
+        # IntegrityError: concurrent duplicate submit with same (user_id, transaction_id) —
+        # return the other transaction's order (idempotent success).
+        try:
+            self.db.commit()
+            self.db.refresh(order)
+        except IntegrityError as ie:
+            self.db.rollback()
+            logger.warning(
+                f"ORDER_CREATE_RACE_RECOVER: user={user_id} transaction={stored_transaction_id} {ie}"
+            )
+            dup = self.db.query(Order).filter(
+                Order.transaction_id == stored_transaction_id,
+                Order.user_id == user_id,
+            ).first()
+            if dup:
+                return self.get_order_by_id(dup.id)
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Order could not be placed due to a conflict. Please check your orders or retry.",
+            )
 
         # CRITICAL: Create payment transaction record for audit trail and webhook tracking
         # This ensures we have a complete payment history even if webhooks fail
@@ -566,11 +583,11 @@ class OrderService:
         """
         from sqlalchemy import text as _text
 
-        # Idempotency: Check if order already exists for this payment
+        # Idempotency: Check if order already exists for this payment — WITH row lock to prevent races
         existing = self.db.query(Order).filter(
             Order.transaction_id == payment_id,
             Order.user_id == user_id
-        ).first()
+        ).with_for_update(nowait=True).first()
         if existing:
             logger.info(f"Order already exists for payment {payment_id}, returning existing order {existing.id}")
             return existing
@@ -580,7 +597,7 @@ class OrderService:
             existing_by_razorpay = self.db.query(Order).filter(
                 Order.razorpay_order_id == razorpay_order_id,
                 Order.user_id == user_id
-            ).first()
+            ).with_for_update(nowait=True).first()
             if existing_by_razorpay:
                 logger.info(f"Order already exists for razorpay_order {razorpay_order_id}, returning {existing_by_razorpay.id}")
                 return existing_by_razorpay
@@ -631,15 +648,8 @@ class OrderService:
             if not created_minimal:
                 order_notes = f"{order_notes} [ADDRESS MISSING — RECOVERY]".strip()
 
-        # Generate invoice number
+        # Generate invoice number — no setval/commit, just nextval like normal path
         year = datetime.now().year
-        self.db.execute(_text("""
-            SELECT setval('invoice_number_seq', GREATEST(
-                (SELECT COALESCE(MAX(id), 0) FROM orders),
-                (SELECT last_value FROM invoice_number_seq)
-            ), true)
-        """))
-        self.db.commit()
         seq_val = self.db.execute(_text("SELECT nextval('invoice_number_seq')")).scalar()
         invoice_number = f"INV-{year}-{seq_val:06d}"
 
@@ -985,28 +995,30 @@ class OrderService:
         skip: int = 0,
         limit: int = 50
     ) -> List[Order]:
-        """Get all orders with optional status filter (admin)."""
-        query = self.db.query(Order)
-        
+        """Get all orders with optional status filter (admin). Eager loads items + user info."""
+        query = self.db.query(Order).options(
+            selectinload(Order.items)
+        )
+
         if status:
             query = query.filter(Order.status == status)
-        
+
         orders = query.order_by(desc(Order.created_at)).offset(skip).limit(limit).all()
-        
+
         if not orders:
             return orders
-        
+
         # Batch fetch all user IDs to avoid N+1 queries
-        user_ids = list(set(order.user_id for order in orders))
-        
+        user_ids = list(set(order.user_id for order in orders if order.user_id))
+
         # Fetch all users in one query
         users = self.db.query(User).filter(User.id.in_(user_ids)).all()
         user_map = {user.id: user for user in users}
-        
+
         # Fetch all user profiles in one query
         profiles = self.db.query(UserProfile).filter(UserProfile.user_id.in_(user_ids)).all()
         profile_map = {profile.user_id: profile for profile in profiles}
-        
+
         # Enrich orders with customer info using pre-fetched data
         for order in orders:
             user = user_map.get(order.user_id)
@@ -1017,7 +1029,7 @@ class OrderService:
                 else:
                     order.customer_name = user.username
                 order.customer_email = user.email
-        
+
         return orders
     
     # ==================== Payment Integration ====================

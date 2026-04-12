@@ -144,26 +144,27 @@ export function PerformanceOptimizations() {
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
     // 4. Add connection-aware image quality adjustment
+    let dataSaverStyle = null;
     const updateImageQuality = () => {
       if ('connection' in navigator) {
         const conn = navigator.connection;
-        const isSlow = conn.saveData || 
-          conn.effectiveType === '2g' || 
+        const isSlow = conn.saveData ||
+          conn.effectiveType === '2g' ||
           conn.effectiveType === 'slow-2g';
-        
+
         if (isSlow) {
           // Add data-saver class for CSS to target
           document.documentElement.classList.add('data-saver');
-          
+
           // Reduce image quality via CSS filter
-          const style = document.createElement('style');
-          style.textContent = `
+          dataSaverStyle = document.createElement('style');
+          dataSaverStyle.textContent = `
             .data-saver img {
               filter: blur(0.3px);
             }
           `;
-          style.setAttribute('data-data-saver', 'true');
-          document.head.appendChild(style);
+          dataSaverStyle.setAttribute('data-data-saver', 'true');
+          document.head.appendChild(dataSaverStyle);
         }
       }
     };
@@ -188,11 +189,22 @@ export function PerformanceOptimizations() {
       });
     }
 
-    // Cleanup
+    // FIX: Cleanup all observers on unmount to prevent memory leaks
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
-      // Remove critical CSS on unmount (optional, keeps DOM clean)
-      // styleElement.remove();
+      // Remove dynamically appended style element
+      if (dataSaverStyle && dataSaverStyle.parentNode) {
+        dataSaverStyle.parentNode.removeChild(dataSaverStyle);
+      }
+      // Disconnect all performance observers
+      try {
+        if (typeof lcpObserver !== 'undefined') lcpObserver.disconnect();
+        if (typeof clsObserver !== 'undefined') clsObserver.disconnect();
+        if (typeof fidObserver !== 'undefined') fidObserver.disconnect();
+        if (typeof longTaskObserver !== 'undefined') longTaskObserver.disconnect();
+      } catch (e) {
+        // Observers may not be defined if browser doesn't support them
+      }
     };
   }, []);
 

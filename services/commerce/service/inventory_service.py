@@ -175,8 +175,8 @@ class InventoryService:
         )
         if user_id:
             query = query.filter(StockReservation.user_id == user_id)
-            
-        reservations = query.order_by(StockReservation.created_at.desc()).all()
+
+        reservations = query.order_by(StockReservation.created_at.desc()).limit(500).all()
         
         released_qty = 0
         for res in reservations:
@@ -215,7 +215,7 @@ class InventoryService:
         if user_id:
             query = query.filter(StockReservation.user_id == user_id)
             
-        reservations = query.order_by(StockReservation.created_at.asc()).all()
+        reservations = query.order_by(StockReservation.created_at.asc()).limit(500).all()
         
         confirmed_qty = 0
         for res in reservations:

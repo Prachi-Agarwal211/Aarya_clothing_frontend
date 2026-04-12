@@ -16,7 +16,7 @@ import { gsap } from '@/lib/gsapConfig';
 const NAV_LINKS = [
   { name: 'New Arrivals', href: '/#new-arrivals', anchor: '#new-arrivals' },
   { name: 'Collections', href: '/#collections', anchor: '#collections' },
-  { name: 'Shop with AI ✦', href: '/ai', anchor: null, highlight: true },
+  { name: 'Products', href: '/products', anchor: null },
   { name: 'About', href: '/#about', anchor: '#about' },
   { name: 'Contact', href: '/#footer', anchor: '#footer' },
 ];

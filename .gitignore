@@ -61,3 +61,6 @@ next-env.d.ts
 .config/
 .aider*
 .playwright-mcp/
+
+# PgBouncer credentials (auto-generated, contains passwords)
+docker/pgbouncer/userlist.txt

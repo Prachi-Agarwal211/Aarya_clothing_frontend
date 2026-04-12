@@ -169,3 +169,24 @@ class BulkOrderStatusUpdate(BaseModel):
     admin_notes: Optional[str] = None
     dry_run: bool = False
 
+
+class GuestOrderTrackItem(BaseModel):
+    """Line item for public tracking page (minimal fields)."""
+
+    product_name: Optional[str] = None
+    size: Optional[str] = None
+    color: Optional[str] = None
+    quantity: int
+    price: float
+
+
+class GuestOrderTrackResponse(BaseModel):
+    """Public order snapshot for signed guest tracking links."""
+
+    order_id: int
+    status: str
+    tracking_number: Optional[str] = None
+    total_amount: float
+    created_at: datetime
+    items: List[GuestOrderTrackItem] = []
+

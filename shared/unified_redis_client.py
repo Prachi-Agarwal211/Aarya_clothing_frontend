@@ -540,6 +540,29 @@ class UnifiedRedisClient:
         except Exception as e:
             logger.error(f"OTP delete failed: {e}")
             return False
+
+    def get_and_delete_otp(self, key: str) -> Optional[str]:
+        """
+        Atomically read and delete OTP using Lua script.
+        Prevents race condition where two concurrent requests both read the same OTP.
+        Returns the OTP value if found and deleted, None otherwise.
+        """
+        try:
+            otp_key = f"otp:{key}"
+            attempts_key = f"otp_attempts:{key}"
+            # Lua script: GET + DEL in one atomic operation
+            script = """
+            local otp = redis.call('GET', KEYS[1])
+            if otp then
+                redis.call('DEL', KEYS[1])
+                redis.call('DEL', KEYS[2])
+            end
+            return otp
+            """
+            return self.client.eval(script, 2, otp_key, attempts_key)
+        except Exception as e:
+            logger.error(f"OTP atomic read-delete failed: {e}")
+            return None
     
     def increment_otp_attempts(self, key: str, max_attempts: int = 5) -> Dict[str, Any]:
         """

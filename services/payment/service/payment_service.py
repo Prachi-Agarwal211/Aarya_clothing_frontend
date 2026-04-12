@@ -22,11 +22,8 @@ from schemas.payment import (
 def _audit_payment_event(db: Session, event_type: str, success: bool, **kwargs):
     """Log a payment-order event to the payment_order_audit table.
 
-    Args:
-        db: Database session
-        event_type: Type of event (payment_initiated, payment_succeeded, order_created, etc.)
-        success: Whether the event was successful
-        **kwargs: Additional fields to log (razorpay_payment_id, user_id, error_message, etc.)
+    FIX: Does NOT commit — caller manages transaction lifecycle.
+    This prevents partial commits that break the caller's transaction boundary.
     """
     try:
         from sqlalchemy import text
@@ -63,7 +60,7 @@ def _audit_payment_event(db: Session, event_type: str, success: bool, **kwargs):
             "error_details": kwargs.get("error_details"),
             "response_data": kwargs.get("response_data"),
         })
-        db.commit()
+        # FIX: Do NOT commit here — let caller manage transaction
     except Exception as e:
         logger.error(f"Failed to write audit log: {e}")
         # Don't raise — audit logging should never break the main flow
@@ -602,10 +599,24 @@ class PaymentService:
             amount_paise = event_info.get("amount")
             qr_code_id = event_info.get("qr_code_id")
 
-            # Find transaction by Razorpay payment ID
-            transaction = self.db.query(PaymentTransaction).filter(
-                PaymentTransaction.razorpay_payment_id == payment_id
-            ).first()
+            # Serialize with client verify: lock the transaction row while applying capture.
+            # FIX: Use nowait=True to fail fast if another webhook holds the lock (prevents timeout cascade).
+            # Session uses autocommit=False (see payment database.SessionLocal) so FOR UPDATE applies.
+            transaction = None
+            if razorpay_order_id:
+                transaction = (
+                    self.db.query(PaymentTransaction)
+                    .filter(PaymentTransaction.razorpay_order_id == razorpay_order_id)
+                    .with_for_update(nowait=True)
+                    .first()
+                )
+            if not transaction and payment_id:
+                transaction = (
+                    self.db.query(PaymentTransaction)
+                    .filter(PaymentTransaction.razorpay_payment_id == payment_id)
+                    .with_for_update(nowait=True)
+                    .first()
+                )
 
             # For QR code payments, payment_id may not be available initially
             if not transaction:
@@ -614,11 +625,30 @@ class PaymentService:
                     query = self.db.query(PaymentTransaction).filter(
                         PaymentTransaction.status == "pending",
                         PaymentTransaction.payment_method == "upi_qr",
-                        PaymentTransaction.amount == amount_rupees
+                        PaymentTransaction.amount == amount_rupees,
                     )
                     if qr_code_id:
                         query = query.filter(PaymentTransaction.razorpay_qr_code_id == qr_code_id)
-                    transaction = query.order_by(PaymentTransaction.created_at.desc()).first()
+                    transaction = (
+                        query.with_for_update(nowait=True)
+                        .order_by(PaymentTransaction.created_at.desc())
+                        .first()
+                    )
+
+            if transaction and transaction.status != "pending":
+                logger.info(
+                    "[Webhook] payment.captured skipped — already %s for %s",
+                    transaction.status,
+                    transaction.transaction_id,
+                )
+                # Commit the webhook_event (added by caller) before returning.
+                # The with_for_update() SELECT is rolled back by a new session,
+                # but we must NOT roll back the webhook_event here.
+                try:
+                    self.db.commit()
+                except Exception:
+                    self.db.rollback()
+                return
 
             if transaction and transaction.status == "pending":
                 transaction.status = "completed"

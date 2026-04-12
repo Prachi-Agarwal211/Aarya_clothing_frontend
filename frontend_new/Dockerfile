@@ -1,5 +1,5 @@
 # Frontend Dockerfile for Aarya Clothing
-FROM node:18-alpine AS base
+FROM node:20-alpine AS base
 
 # Accept build argument for API URL
 ARG NEXT_PUBLIC_API_URL

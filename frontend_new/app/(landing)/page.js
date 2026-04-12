@@ -221,9 +221,16 @@ export default function Home() {
     setTimeout(tryScroll, 100);
   }, [showLanding, landingData]);
 
-  // Don't render anything on server to avoid hydration mismatch
+  // Server-side: render a consistent loading state to avoid hydration mismatch
   if (!isClient) {
-    return null;
+    return (
+      <main id="main-content" className="min-h-screen bg-[#050203] flex items-center justify-center" role="main">
+        <div className="flex flex-col items-center gap-4" role="status">
+          <div className="w-16 h-16 border-2 border-[#B76E79]/20 border-t-[#F2C29A] rounded-full animate-spin" />
+          <p className="text-[#F2C29A]/60 text-sm uppercase tracking-[0.3em] font-light" style={{ fontFamily: 'Cinzel, serif' }}>Aarya Clothing</p>
+        </div>
+      </main>
+    );
   }
 
   // Show loading state — but only AFTER intro video is done
@@ -287,7 +294,12 @@ export default function Home() {
           <HeroSection
             tagline={landingData.hero?.tagline}
             slides={landingData.hero?.slides}
-            buttons={landingData.hero?.buttons}
+            buttons={(() => {
+              const apiButtons = landingData.hero?.buttons || [];
+              // Guarantee a "Shop Now" button exists — links to /products
+              const hasShopLink = apiButtons.some(b => b.link === '/products');
+              return hasShopLink ? apiButtons : [...apiButtons, { text: 'Shop Now', link: '/products', variant: 'heroLuxury' }];
+            })()}
           />
 
           <LazyLoad skeletonHeight="400px">

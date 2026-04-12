@@ -53,7 +53,7 @@ function CartPage() {
         <EnhancedHeader />
 
         <div className="page-content">
-          <div className="container mx-auto px-4 sm:px-6 md:px-8 header-spacing">
+          <div className="container mx-auto px-4 sm:px-6 md:px-8 header-spacing pb-bottom-nav">
             {/* Page Header */}
             <div className="mb-8">
               <h1
@@ -287,7 +287,7 @@ function CartPage() {
 
       {/* Mobile Sticky Checkout Bar */}
       {cart?.items && cart.items.length > 0 && (
-        <div className="fixed bottom-16 inset-x-0 lg:hidden bg-[#0B0608]/95 backdrop-blur-md border-t border-[#B76E79]/15 p-4 z-[110]">
+        <div className="fixed bottom-nav-offset inset-x-0 lg:hidden bg-[#0B0608]/95 backdrop-blur-md border-t border-[#B76E79]/15 p-4 z-[110]">
           <div className="flex items-center justify-between mb-3">
             <span className="text-[#EAE0D5]/70 text-sm">{cart.items.length} {cart.items.length === 1 ? 'item' : 'items'}</span>
             <span className="text-[#F2C29A] font-bold text-lg">{formatCurrency(cart.total)}</span>

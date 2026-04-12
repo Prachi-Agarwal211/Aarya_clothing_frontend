@@ -219,7 +219,7 @@ def sync_all_products(db_session):
     from sqlalchemy import text
     try:
         rows = db_session.execute(text("""
-            SELECT p.id, p.name, p.description, p.short_description,
+            SELECT p.id, p.name, p.description,
                    p.base_price, p.mrp, p.slug, p.is_active, p.is_featured,
                    p.is_new_arrival, p.category_id, p.created_at,
                    c.name as category_name,
@@ -230,32 +230,33 @@ def sync_all_products(db_session):
                    STRING_AGG(DISTINCT i.sku, ',') as skus,
                    STRING_AGG(DISTINCT i.size, ',') FILTER (WHERE i.size IS NOT NULL AND i.size != '') as sizes,
                    STRING_AGG(DISTINCT i.color, ',') FILTER (WHERE i.color IS NOT NULL AND i.color != '') as colors,
-                   p.tags
+                   p.tags, p.material, p.care_instructions
             FROM products p
             LEFT JOIN collections c ON p.category_id = c.id
             LEFT JOIN inventory i ON i.product_id = p.id AND i.is_active = true
             WHERE p.is_active = true
-            GROUP BY p.id, p.name, p.description, p.short_description,
+            GROUP BY p.id, p.name, p.description,
                      p.base_price, p.mrp, p.slug, p.is_active, p.is_featured,
-                     p.is_new_arrival, p.category_id, p.created_at, c.name, p.tags
+                     p.is_new_arrival, p.category_id, p.created_at, c.name, p.tags, p.material, p.care_instructions
         """)).fetchall()
 
         products = []
         for r in rows:
             products.append({
                 "id": r[0], "name": r[1], "description": r[2],
-                "short_description": r[3],
-                "price": float(r[4]) if r[4] else 0,
-                "mrp": float(r[5]) if r[5] else None, "slug": r[6],
-                "is_active": r[7], "is_featured": r[8], "is_new_arrival": r[9],
-                "category_id": r[10], "created_at": str(r[11]) if r[11] else None,
-                "category_name": r[12],
-                "total_stock": int(r[13]) if r[13] else 0,
-                "image_url": r[14] or "",
-                "sku": r[15] or "",
-                "sizes": r[16] or "",
-                "colors": r[17] or "",
-                "tags": r[18] or "",
+                "price": float(r[3]) if r[3] else 0,
+                "mrp": float(r[4]) if r[4] else None, "slug": r[5],
+                "is_active": r[6], "is_featured": r[7], "is_new_arrival": r[8],
+                "category_id": r[9], "created_at": str(r[10]) if r[10] else None,
+                "category_name": r[11],
+                "total_stock": int(r[12]) if r[12] else 0,
+                "image_url": r[13] or "",
+                "sku": r[14] or "",
+                "sizes": r[15] or "",
+                "colors": r[16] or "",
+                "tags": r[17] or "",
+                "material": r[18] or "",
+                "care_instructions": r[19] or "",
             })
 
         index_products_bulk(products)

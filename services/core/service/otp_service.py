@@ -141,8 +141,9 @@ class OTPService:
     def verify_otp(self, request) -> dict:
         """
         Verify OTP code.
-        
+
         Fix #10: Added server-side expiry validation with specific error codes.
+        Fix RACE: Uses atomic read-and-delete via Lua script to prevent double-use.
         Returns specific error code for expired OTP so frontend can show appropriate message.
         """
         email = request.email
@@ -157,19 +158,7 @@ class OTPService:
         # Get OTP key
         otp_key = self._get_otp_key(otp_type, email, phone)
 
-        # Get stored OTP
-        stored_otp = redis_client.get_otp(otp_key)
-
-        # Fix #10: Server-side expiry validation
-        if not stored_otp:
-            return {
-                "success": False,
-                "message": "OTP has expired or not found",
-                "verified": False,
-                "error_code": "EXPIRED"  # Specific error code for expired OTP
-            }
-
-        # Check attempts — increment_otp_attempts returns a dict {attempts, locked, remaining}
+        # FIX: Check attempts FIRST before consuming the OTP
         attempts_result = redis_client.increment_otp_attempts(otp_key)
         if isinstance(attempts_result, dict):
             attempts = attempts_result.get("attempts", 1)
@@ -177,19 +166,27 @@ class OTPService:
             attempts = int(attempts_result)
 
         if attempts > settings.OTP_MAX_ATTEMPTS:
-            redis_client.delete_otp(otp_key)
             return {
                 "success": False,
                 "message": "Too many attempts. Please request a new OTP.",
                 "verified": False,
-                "error_code": "LOCKED"  # Specific error code for locked OTP
+                "error_code": "LOCKED"
+            }
+
+        # ATOMIC read-and-delete via Lua script — prevents double-use race condition
+        stored_otp = redis_client.get_and_delete_otp(otp_key)
+
+        # Server-side expiry validation
+        if not stored_otp:
+            return {
+                "success": False,
+                "message": "OTP has expired or not found",
+                "verified": False,
+                "error_code": "EXPIRED"
             }
 
         # Verify OTP
         if stored_otp == otp_code:
-            # Clear OTP and attempts
-            redis_client.delete_otp(otp_key)
-
             return {
                 "success": True,
                 "message": "OTP verified successfully",
@@ -203,7 +200,7 @@ class OTPService:
             "success": False,
             "message": f"Invalid OTP. {remaining_attempts} attempt(s) remaining.",
             "verified": False,
-            "error_code": "INVALID"  # Specific error code for invalid OTP
+            "error_code": "INVALID"
         }
     
     def resend_otp(self, request) -> dict:

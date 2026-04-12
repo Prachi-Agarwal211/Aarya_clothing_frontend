@@ -465,20 +465,20 @@ export class BaseApiClient {
 }
 
 /**
- * Get the core API base URL from environment configuration.
+ * Base URL for API requests (same origin in production).
  *
- * SINGLE SOURCE OF TRUTH for all API base URLs in the application.
- * Uses lazy evaluation to ensure correct URL at call time (critical for SSR).
+ * Despite the name, this is the **nginx gateway** origin, not only the Core service.
+ * Paths like `/api/v1/site/*` → core, `/api/v1/landing/*` → admin, `/api/v1/cart/*` → commerce,
+ * etc. (see `docker/nginx/nginx.conf`). Use this for any browser or SSR `fetch` to `/api/v1/...`.
+ *
+ * SINGLE SOURCE OF TRUTH — lazy evaluation at call time (critical for SSR).
  *
  * Priority order:
- * 1. Browser environment - use current origin (CSP compliant)
- * 2. Server-side - use NEXT_PUBLIC_API_URL (including internal Docker hostnames like nginx)
- * 3. Relative URL fallback for production behind nginx
+ * 1. Browser — `window.location.origin`
+ * 2. Server — `NEXT_PUBLIC_API_URL` (e.g. `http://nginx:80` in Docker)
+ * 3. Relative URL fallback (`''`) so requests are same-origin relative paths
  *
- * IMPORTANT: Internal Docker hostnames (nginx, core, commerce, etc.) are VALID for SSR.
- * They are only blocked when returned to the browser (client-side).
- *
- * @returns {string} The base URL for API requests
+ * @returns {string} Gateway base URL for `/api/v1/*` calls
  */
 export function getCoreBaseUrl() {
   // Priority 1: Browser environment - use current origin (CSP compliant)

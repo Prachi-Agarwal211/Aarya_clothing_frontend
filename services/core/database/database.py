@@ -13,9 +13,10 @@ if settings is not None:
     DATABASE_MAX_OVERFLOW = settings.DATABASE_MAX_OVERFLOW
     DEBUG = settings.DEBUG
 else:
+    # Fallback to environment variables with safe defaults
     DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:password@localhost/aarya_clothing")
-    DATABASE_POOL_SIZE = 20
-    DATABASE_MAX_OVERFLOW = 30
+    DATABASE_POOL_SIZE = int(os.getenv("DATABASE_POOL_SIZE", "8"))  # Aligned with shared/base_config.py
+    DATABASE_MAX_OVERFLOW = int(os.getenv("DATABASE_MAX_OVERFLOW", "7"))  # Aligned with shared/base_config.py
     DEBUG = False
 
 # Create optimized engine with connection pooling
@@ -25,7 +26,8 @@ engine = create_engine(
     pool_size=DATABASE_POOL_SIZE,      # Base connections
     max_overflow=DATABASE_MAX_OVERFLOW, # Additional connections under load
     pool_pre_ping=True,                 # Validate connections before use
-    pool_recycle=3600,                  # Recycle connections every hour
+    pool_recycle=1800,                  # Recycle every 30m — complements pooler / stale connections
+    pool_timeout=30,                    # Fail fast when pool exhausted (avoid hung requests)
     echo=DEBUG
 )
 

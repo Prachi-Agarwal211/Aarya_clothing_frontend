@@ -2452,8 +2452,9 @@ main {
     contain-intrinsic-size: 0 800px;
   }
 
-  /* PERFORMANCE: Optimize image rendering */
-  img {
+  /* PERFORMANCE: Optimize image rendering for SVG icons only */
+  /* Note: crisp-edges makes product photos look harsh, so avoid blanket img rules */
+  img[src$=".svg"] {
     image-rendering: -webkit-optimize-contrast;
     image-rendering: crisp-edges;
   }

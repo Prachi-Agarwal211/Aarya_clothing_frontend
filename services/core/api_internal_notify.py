@@ -3,6 +3,7 @@ Internal API: Commerce calls these to send transactional order notifications.
 Secured with X-Internal-Secret (same as payment→commerce internal calls).
 SMTP and SMS (MSG91) live in Core — routing prefers email vs SMS from user verification flags.
 """
+import hmac
 import logging
 import os
 from typing import Optional
@@ -38,7 +39,7 @@ def _verify_internal_secret(x_internal_secret: Optional[str]) -> None:
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Internal notifications not configured",
         )
-    if not x_internal_secret or x_internal_secret != expected:
+    if not x_internal_secret or not hmac.compare_digest(x_internal_secret, expected):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid internal secret")
 
 

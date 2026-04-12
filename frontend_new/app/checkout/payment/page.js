@@ -132,11 +132,15 @@ export default function CheckoutPaymentPage() {
       sessionStorage.setItem('checkout_idempotency_key', idempotencyKey);
       logger.info('Generated idempotency key:', idempotencyKey);
 
-      // Validate stock
+      // Validate stock (backend returns { valid, out_of_stock, message })
       try {
         const stockValidation = await cartApi.validateStock();
-        if (stockValidation?.out_of_stock?.length > 0) {
-          setStockError({ items: stockValidation.out_of_stock });
+        if (stockValidation?.valid === false) {
+          if (stockValidation?.out_of_stock?.length > 0) {
+            setStockError({ items: stockValidation.out_of_stock });
+          } else {
+            setError(stockValidation?.message || 'Your cart cannot be checked out.');
+          }
           setRedirectProcessing(false);
           return;
         }
@@ -267,8 +271,12 @@ export default function CheckoutPaymentPage() {
       // Validate stock
       try {
         const stockValidation = await cartApi.validateStock();
-        if (stockValidation?.out_of_stock?.length > 0) {
-          setStockError({ items: stockValidation.out_of_stock });
+        if (stockValidation?.valid === false) {
+          if (stockValidation?.out_of_stock?.length > 0) {
+            setStockError({ items: stockValidation.out_of_stock });
+          } else {
+            setQrError(stockValidation?.message || 'Your cart cannot be checked out.');
+          }
           setQrPaymentState('idle');
           return;
         }

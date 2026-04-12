@@ -119,8 +119,9 @@ const ACTION_LABELS = {
   create_product_draft: 'Create Product Draft',
 };
 
-function ConfirmActionModal({ actions, onConfirm, onDismiss, confirming }) {
-  if (!actions?.length) return null;
+function ConfirmActionModal({ actions, onConfirm, onDismiss, confirming, isOpen }) {
+  // Only render when explicitly opened AND has actions
+  if (!isOpen || !actions?.length) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onDismiss} />
@@ -757,6 +758,7 @@ export default function AdminAiAssistantPage() {
       {/* Modals */}
       <ConfirmActionModal
         actions={pendingActions}
+        isOpen={showConfirmModal}
         onConfirm={handleConfirmActions}
         onDismiss={() => setShowConfirmModal(false)}
         confirming={confirming}

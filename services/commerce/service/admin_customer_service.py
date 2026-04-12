@@ -88,12 +88,17 @@ class AdminCustomerService:
         
         if not customer:
             return None
-        
-        # Get order stats
-        orders = self.db.query(Order).filter(Order.user_id == customer_id).all()
-        
-        total_orders = len(orders)
-        total_spent = sum(float(o.total_amount) for o in orders)
+
+        # Get total order count (accurate, not limited)
+        total_orders = self.db.query(Order).filter(Order.user_id == customer_id).count()
+
+        # Get total spending across ALL orders (not just recent 100)
+        total_spent_row = self.db.query(func.sum(Order.total_amount)).filter(Order.user_id == customer_id).first()
+        total_spent = float(total_spent_row[0] or 0) if total_spent_row else 0
+
+        # Get most recent 100 orders for details (not for counting)
+        orders = self.db.query(Order).filter(Order.user_id == customer_id).order_by(Order.created_at.desc()).limit(100).all()
+
         last_order = max(orders, key=lambda o: o.created_at, default=None)
         
         return {

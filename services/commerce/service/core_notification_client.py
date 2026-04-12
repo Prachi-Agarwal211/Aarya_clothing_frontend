@@ -12,6 +12,8 @@ from typing import TYPE_CHECKING, Optional
 
 import httpx
 
+from service.guest_tracking_token import create_guest_tracking_token
+
 if TYPE_CHECKING:
     from models.order import Order
 
@@ -28,6 +30,16 @@ def _internal_secret() -> str:
 
 def public_app_url() -> str:
     return os.getenv("PUBLIC_APP_URL", "https://aaryaclothing.in").rstrip("/")
+
+
+def public_track_order_url(order: "Order") -> str:
+    """Signed guest tracking URL; falls back to profile orders if signing fails."""
+    base = public_app_url()
+    try:
+        tok = create_guest_tracking_token(order.id)
+        return f"{base}/orders/track/{tok}"
+    except Exception:
+        return f"{base}/profile/orders"
 
 
 def _post(path: str, payload: dict) -> bool:
@@ -89,8 +101,7 @@ def notify_order_confirmation_email(order: "Order", user) -> bool:
             """
 
     estimated_delivery = (order.created_at + timedelta(days=7)).strftime("%B %d, %Y")
-    base = public_app_url()
-    track_order_url = f"{base}/profile/orders"
+    track_order_url = public_track_order_url(order)
 
     payload = {
         "to_email": user.email,
@@ -115,8 +126,7 @@ def notify_order_shipped_email(order: "Order", user, tracking_number: Optional[s
         return False
 
     estimated_delivery = (order.created_at + timedelta(days=7)).strftime("%B %d, %Y")
-    base = public_app_url()
-    track_url = f"{base}/profile/orders"
+    track_url = public_track_order_url(order)
     payload = {
         "to_email": user.email,
         "customer_name": user.username or "Customer",
@@ -132,12 +142,11 @@ def notify_order_shipped_email(order: "Order", user, tracking_number: Optional[s
 def notify_order_delivered_email(order: "Order", user) -> bool:
     if not user or not getattr(user, "email", None):
         return False
-    base = public_app_url()
     delivery_date = (
         order.delivered_at.strftime("%B %d, %Y") if order.delivered_at else "Today"
     )
-    details_url = f"{base}/profile/orders"
-    review_url = f"{base}/profile/orders"
+    details_url = public_track_order_url(order)
+    review_url = public_track_order_url(order)
     payload = {
         "to_email": user.email,
         "customer_name": user.username or "Customer",

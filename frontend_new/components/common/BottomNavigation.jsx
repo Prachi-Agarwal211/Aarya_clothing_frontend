@@ -1,22 +1,19 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Home, ShoppingBag, Heart, User, Search } from 'lucide-react';
 import { useCart } from '@/lib/cartContext';
 import { useAuth } from '@/lib/authContext';
 import { cn } from '@/lib/utils';
+import { useIntroVideoOverlay } from '@/lib/introVideoOverlayContext';
 
 const BottomNavigation = () => {
     const pathname = usePathname();
+    const { introOverlayActive } = useIntroVideoOverlay();
     const { itemCount } = useCart();
     const { user, isAuthenticated } = useAuth();
-    const [isMounted, setIsMounted] = useState(false);
-
-    useEffect(() => {
-        setIsMounted(true);
-    }, []);
 
     const isStaff = user?.role === 'super_admin' || user?.role === 'admin' || user?.role === 'staff';
 
@@ -54,9 +51,10 @@ const BottomNavigation = () => {
         }
     ];
 
-    if (!isMounted) return null;
+    // CSS md:hidden handles desktop hiding — no SSR gate needed
     if (pathname.startsWith('/admin')) return null;
     if (pathname.startsWith('/checkout')) return null;
+    if (introOverlayActive) return null;
 
     return (
         <div className="md:hidden fixed bottom-0 left-0 right-0 z-[100] bg-[#0B0608]/95 backdrop-blur-md border-t border-[#B76E79]/20 pb-safe">

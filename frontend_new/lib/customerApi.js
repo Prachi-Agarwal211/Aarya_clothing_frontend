@@ -346,6 +346,8 @@ export const returnsApi = {
 };
 
 // ==================== Landing / Site Config API ====================
+// Landing: `/api/v1/landing/*` → admin. Site config: `/api/v1/site/*` → core.
+// coreClient uses getCoreBaseUrl() (nginx gateway — see baseApi.js); naming is historical.
 export const landingApi = {
   /**
    * @param {object} [requestOptions] - Pass `{ signal }` to abort (e.g. client-side timeout).

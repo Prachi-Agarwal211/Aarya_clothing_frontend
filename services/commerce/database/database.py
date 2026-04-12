@@ -12,7 +12,8 @@ engine = create_engine(
     pool_size=settings.DATABASE_POOL_SIZE,      # Base connections
     max_overflow=settings.DATABASE_MAX_OVERFLOW, # Additional connections under load
     pool_pre_ping=True,                          # Validate connections before use
-    pool_recycle=3600,                           # Recycle connections every hour
+    pool_recycle=1800,
+    pool_timeout=30,
     echo=False
 )
 

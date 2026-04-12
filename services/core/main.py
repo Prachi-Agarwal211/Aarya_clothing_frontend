@@ -1238,6 +1238,11 @@ async def get_site_config(db: Session = Depends(get_db)):
     - New format: { desktop: string, mobile: string }
     - Backward compatible: intro_video_url (legacy) is migrated to desktop variant
     """
+    cache_key = "public:site:config:v1"
+    cached = redis_client.get_cache(cache_key)
+    if cached is not None:
+        return cached
+
     from core.config import settings as core_settings
     r2_public = getattr(core_settings, "R2_PUBLIC_URL", "") or ""
 
@@ -1268,7 +1273,7 @@ async def get_site_config(db: Session = Depends(get_db)):
     if video_mobile and not video_mobile.startswith(('http://', 'https://')):
         video_mobile = f"{r2_public}/{video_mobile}" if r2_public else video_mobile
 
-    return {
+    payload = {
         "logo": db_config.get("logo_url") or (f"{r2_public}/logo.png" if r2_public else "/logo.png"),
         "video": {
             "desktop": video_desktop or (f"{r2_public}/Create_a_video_202602141450_ub9p5.mp4" if r2_public else "/Create_a_video_202602141450_ub9p5.mp4"),
@@ -1282,6 +1287,8 @@ async def get_site_config(db: Session = Depends(get_db)):
         "smsOtpEnabled": core_settings.sms_enabled,
         "sms_otp_enabled": core_settings.sms_enabled,
     }
+    redis_client.set_cache(cache_key, payload, ttl=60)
+    return payload
 
 
 # ==================== Run Server ====================

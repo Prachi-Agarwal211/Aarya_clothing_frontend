@@ -200,7 +200,8 @@ class PromotionService:
         promotion.used_count += 1
         
         self.db.add(usage)
-        self.db.commit()
+        # Do not commit here — callers (e.g. order placement) commit in one transaction with the order.
+        self.db.flush()
         self.db.refresh(usage)
-        
+
         return usage

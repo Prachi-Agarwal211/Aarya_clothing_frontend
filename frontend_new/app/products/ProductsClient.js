@@ -180,7 +180,8 @@ export default function ProductsContent({ initialFilters }) {
   useEffect(() => {
     console.log('[ProductsClient] fetchProducts useEffect running', { filters });
     fetchProducts(filters);
-  }, [filters, fetchProducts]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters.collection_id, filters.minPrice, filters.maxPrice, filters.sort, filters.page, fetchProducts]);
 
   useEffect(() => {
     if (debouncedSearch !== filters.search) {
@@ -443,7 +444,7 @@ export default function ProductsContent({ initialFilters }) {
                       const productHref = product.id ? `/products/${product.slug || product.id}` : '/products';
                       return (
                         <Link
-                          key={product.id || `product-${product.sku || Math.random()}`}
+                          key={product.id ?? `product-${product.sku ?? product.slug ?? 'unknown'}`}
                           href={productHref}
                           className="group"
                         >

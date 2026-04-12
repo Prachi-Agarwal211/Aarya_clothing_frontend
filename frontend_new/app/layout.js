@@ -12,6 +12,7 @@ import ErrorBoundary from '../components/ErrorBoundary';
 import CustomerChatWidget from '../components/chat/CustomerChatWidget';
 import BottomNavigation from '../components/common/BottomNavigation';
 import WebVitalsInit from '../components/WebVitalsInit';
+import { IntroVideoOverlayProvider } from '../lib/introVideoOverlayContext';
 
 // Optimize font loading with next/font/google
 const cinzel = Cinzel({
@@ -30,6 +31,10 @@ const playfair = Playfair_Display({
   weight: ['400', '500', '600'],
   style: ['normal', 'italic'],
 });
+
+export const viewport = {
+  viewportFit: 'cover',
+};
 
 export const metadata = {
   title: 'Aarya Clothing - Premium Ethnic Wear',
@@ -86,13 +91,15 @@ export default function RootLayout({ children }) {
               <CartAnimationProvider>
                 <SiteConfigProvider>
                   <ToastProvider>
-                    {/* Main landmark wrapper */}
-                    <div className="relative z-10">
-                      {children}
-                    </div>
-                    <CartDrawer />
-                    <BottomNavigation />
-                    <CustomerChatWidget />
+                    <IntroVideoOverlayProvider>
+                      {/* Main landmark wrapper */}
+                      <div className="relative z-10">
+                        {children}
+                      </div>
+                      <CartDrawer />
+                      <BottomNavigation />
+                      <CustomerChatWidget />
+                    </IntroVideoOverlayProvider>
                   </ToastProvider>
                 </SiteConfigProvider>
               </CartAnimationProvider>

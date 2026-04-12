@@ -149,6 +149,23 @@ const Collections = ({
             );
           })}
         </div>
+
+        {/* View All Collections CTA */}
+        <div className="text-center mt-12 md:mt-16">
+          <Link
+            href="/collections"
+            className="
+              inline-flex items-center gap-2 px-8 py-3.5
+              bg-gradient-to-r from-[#7A2F57] to-[#B76E79]
+              text-white rounded-xl hover:opacity-90 transition-opacity
+              font-semibold text-sm sm:text-base
+              tracking-wide
+            "
+          >
+            View All Collections
+            <ArrowRight className="w-4 h-4" />
+          </Link>
+        </div>
       </div>
     </section>
   );

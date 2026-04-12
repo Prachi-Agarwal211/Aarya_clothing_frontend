@@ -30,16 +30,55 @@ def _r2_url(path: str) -> str:
 
 class CartService:
     """Service for shopping cart management with stock reservation."""
-    
+
     CART_KEY_PREFIX = "cart:"
     RESERVATION_KEY_PREFIX = "cart:reservation:"
+    LOCK_KEY_PREFIX = "cart:lock:"
     RESERVATION_TTL = 900  # 15 minutes in seconds
-    
+    LOCK_TTL = 5  # 5 seconds max lock hold time (prevents deadlocks)
+
     def __init__(self, db: Session = None):
         """Initialize cart service."""
         self.db = db
         self.inventory_service = InventoryService(db) if db else None
-    
+
+    def _acquire_cart_lock(self, user_id: int, timeout: float = 2.0) -> Optional[str]:
+        """Acquire distributed lock for cart mutations using Redis SETNX."""
+        import time
+        import uuid
+        lock_key = f"{self.LOCK_KEY_PREFIX}{user_id}"
+        lock_token = str(uuid.uuid4())
+        deadline = time.monotonic() + timeout
+        rc = redis_client.client if hasattr(redis_client, 'client') else None
+        if rc is None:
+            return lock_token  # No Redis — skip locking (degraded mode)
+        while time.monotonic() < deadline:
+            acquired = rc.set(lock_key, lock_token, nx=True, ex=self.LOCK_TTL)
+            if acquired:
+                return lock_token
+            time.sleep(0.05)  # 50ms retry
+        return None  # Lock not acquired within timeout
+
+    def _release_cart_lock(self, user_id: int, lock_token: Optional[str]):
+        """Release cart lock atomically via Lua script — prevents TOCTOU race."""
+        if not lock_token:
+            return
+        lock_key = f"{self.LOCK_KEY_PREFIX}{user_id}"
+        rc = redis_client.client if hasattr(redis_client, 'client') else None
+        if rc is None:
+            return
+        script = """
+        if redis.call('GET', KEYS[1]) == ARGV[1] then
+            return redis.call('DEL', KEYS[1])
+        else
+            return 0
+        end
+        """
+        try:
+            rc.eval(script, 1, lock_key, lock_token)
+        except Exception as e:
+            logger.warning(f"Cart lock release failed: {e}")
+
     def get_cart(self, user_id: int) -> Dict:
         """Get user's cart with reservation expiry info."""
         cart_key = f"{self.CART_KEY_PREFIX}{user_id}"
@@ -142,7 +181,7 @@ class CartService:
     ) -> Dict:
         """
         Add item to cart with inventory reservation.
-        Reserves stock for 15 minutes.
+        LOCK FIX: Uses distributed lock to prevent lost updates under concurrency.
         """
         if not self.db:
             raise ValueError("Database session required for add_to_cart")
@@ -152,13 +191,13 @@ class CartService:
             Product.id == product_id,
             Product.is_active == True
         ).first()
-        
+
         if not product:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Product not found"
             )
-        
+
         # Get inventory/variant
         inventory = None
         if variant_id:
@@ -176,10 +215,10 @@ class CartService:
             inventory = self.db.query(Inventory).filter(
                 Inventory.product_id == product_id
             ).first()
-        
+
         sku = inventory.sku if inventory else None
         price = inventory.effective_price if inventory else float(product.price)
-        
+
         # Check stock availability (no reservation — stock deducted atomically at order time)
         if inventory:
             available = inventory.available_quantity
@@ -188,7 +227,25 @@ class CartService:
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"Only {available} items available"
                 )
-        
+
+        # LOCK: Acquire distributed lock before read-modify-write
+        lock_token = self._acquire_cart_lock(user_id)
+        try:
+            return self._add_to_cart_unlocked(user_id, product, inventory, sku, price, quantity, variant_id)
+        finally:
+            self._release_cart_lock(user_id, lock_token)
+
+    def _add_to_cart_unlocked(
+        self,
+        user_id: int,
+        product,
+        inventory,
+        sku: Optional[str],
+        price: float,
+        quantity: int,
+        variant_id: Optional[int]
+    ) -> Dict:
+        """Internal add-to-cart logic (must be called under lock)."""
         # Get current cart
         cart = self.get_cart(user_id)
         
@@ -261,24 +318,37 @@ class CartService:
         new_quantity: int,
         variant_id: Optional[int] = None
     ) -> Dict:
-        """Update item quantity in cart."""
+        """Update item quantity in cart. LOCK FIX: Uses distributed lock."""
+        lock_token = self._acquire_cart_lock(user_id)
+        try:
+            return self._update_quantity_unlocked(user_id, product_id, new_quantity, variant_id)
+        finally:
+            self._release_cart_lock(user_id, lock_token)
+
+    def _update_quantity_unlocked(
+        self,
+        user_id: int,
+        product_id: int,
+        new_quantity: int,
+        variant_id: Optional[int] = None
+    ) -> Dict:
         cart = self.get_cart(user_id)
-        
+
         item = next(
-            (item for item in cart["items"] 
+            (item for item in cart["items"]
              if item["product_id"] == product_id and item.get("variant_id") == variant_id),
             None
         )
-        
+
         if not item:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Item not in cart"
             )
-        
+
         old_quantity = item["quantity"]
         quantity_diff = new_quantity - old_quantity
-        
+
         # Stock check for increases (no reservation — deducted at order time)
         if quantity_diff > 0 and item.get("sku"):
             inventory = self.db.query(Inventory).filter(Inventory.sku == item["sku"]).first() if self.db else None
@@ -289,13 +359,13 @@ class CartService:
                 )
 
         item["quantity"] = new_quantity
-        
+
         # Recalculate
         self._recalculate_cart(cart)
-        
+
         # Save
         self.save_cart(user_id, cart)
-        
+
         return cart
     
     def remove_from_cart(self, user_id: int, product_id: int, variant_id: Optional[int] = None) -> Dict:
@@ -329,7 +399,14 @@ class CartService:
         return cart
     
     def clear_cart(self, user_id: int, release_reservations: bool = True) -> Dict:
-        """Clear cart."""
+        """Clear cart. LOCK FIX: Uses distributed lock."""
+        lock_token = self._acquire_cart_lock(user_id)
+        try:
+            return self._clear_cart_unlocked(user_id, release_reservations)
+        finally:
+            self._release_cart_lock(user_id, lock_token)
+
+    def _clear_cart_unlocked(self, user_id: int, release_reservations: bool = True) -> Dict:
         # Delete cart
         cart_key = f"{self.CART_KEY_PREFIX}{user_id}"
         redis_client.delete_cache(cart_key)
@@ -352,21 +429,66 @@ class CartService:
             "promo_code": None,
             "reservation_expires_at": None
         }
-    
+
     def apply_promotion(self, user_id: int, promo_code: str, discount_amount: Decimal) -> Dict:
-        """Apply promotion code to cart."""
+        """Apply promotion code to cart. LOCK FIX: Uses distributed lock."""
+        lock_token = self._acquire_cart_lock(user_id)
+        try:
+            return self._apply_promotion_unlocked(user_id, promo_code, discount_amount)
+        finally:
+            self._release_cart_lock(user_id, lock_token)
+
+    def _apply_promotion_unlocked(self, user_id: int, promo_code: str, discount_amount: Decimal) -> Dict:
         cart = self.get_cart(user_id)
-        
+
         cart["promo_code"] = promo_code
         cart["discount"] = float(discount_amount)
-        
+
         # Recalculate all totals consistently (total = subtotal - discount)
         self._recalculate_cart(cart)
-        
+
         # Save
         self.save_cart(user_id, cart)
-        
+
         return cart
+
+    def checkout_stock_preview(self, user_id: int) -> Dict:
+        """
+        Non-throwing stock snapshot for /checkout/validate.
+        Matches frontend: { valid, out_of_stock: [{ sku, name, requested, available }] }.
+        """
+        cart = self.get_cart(user_id)
+        out_of_stock: list = []
+        if not cart.get("items"):
+            return {
+                "valid": False,
+                "out_of_stock": [],
+                "message": "Cart is empty",
+            }
+        if not self.db:
+            return {"valid": True, "out_of_stock": [], "message": "Cart is valid for checkout"}
+
+        for item in cart["items"]:
+            if not item.get("sku"):
+                continue
+            inventory = self.db.query(Inventory).filter(Inventory.sku == item["sku"]).first()
+            avail = inventory.available_quantity if inventory else 0
+            req = item["quantity"]
+            if not inventory or avail < req:
+                out_of_stock.append({
+                    "sku": item.get("sku"),
+                    "name": item.get("name", item["sku"]),
+                    "requested": req,
+                    "available": avail,
+                })
+
+        if out_of_stock:
+            return {
+                "valid": False,
+                "out_of_stock": out_of_stock,
+                "message": "Some items no longer have enough stock",
+            }
+        return {"valid": True, "out_of_stock": [], "message": "Cart is valid for checkout"}
     
     def confirm_cart_for_checkout(self, user_id: int) -> bool:
         """

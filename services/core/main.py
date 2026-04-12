@@ -300,22 +300,25 @@ async def register(
     http_request: Request,
     db: Session = Depends(get_db)
 ):
-    """Register endpoint with IP-based rate limiting."""
+    """Register endpoint with per-customer rate limiting (email/phone, not IP)."""
     if not _should_bypass_local_rate_limit(http_request):
         try:
-            client_ip = _get_client_ip(http_request)
-            limit_key = f"rate_limit:register:{client_ip}"
+            # Rate limit per customer identifier, NOT per-IP.
+            # Multiple users behind NAT/mobile networks share one IP —
+            # blocking by IP blocks ALL legitimate users on that network.
+            customer_id = (user_data.email or user_data.phone or 'unknown').lower().strip()
+            limit_key = f'rate_limit:register:{customer_id}'
             count = redis_client.get_cache(limit_key) or 0
             if int(count) >= 5:
                 raise HTTPException(
                     status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                    detail="Too many registration attempts. Please try again in 1 hour."
+                    detail='Too many registration attempts for this account. Please check your email for the OTP or try again in 1 hour.'
                 )
             redis_client.set_cache(limit_key, int(count) + 1, ttl=3600)
         except HTTPException:
             raise
         except Exception as e:
-            logger.warning(f"Rate limit error on register (skipping): {e}")
+            logger.warning(f'Rate limit error on register (skipping): {e}')
     auth_service = AuthService(db)
     try:
         result = auth_service.create_user(user_data)
@@ -657,22 +660,24 @@ async def login(
     Login with username/email and password.
     Sets HTTP-Only cookies for 24-hour session.
     """
-    # IP-based rate limiting to prevent brute-force across accounts
+    # Per-account rate limiting to prevent brute-force without blocking shared IPs.
+    # Using the submitted username as the rate limit key — blocks attacks on specific
+    # accounts while allowing other users behind the same NAT to log in freely.
     if not _should_bypass_local_rate_limit(http_request):
         try:
-            client_ip = _get_client_ip(http_request)
-            limit_key = f"rate_limit:login:{client_ip}"
+            account_id = request.username.lower().strip() if request.username else 'unknown'
+            limit_key = f'rate_limit:login:{account_id}'
             count = redis_client.get_cache(limit_key) or 0
             if int(count) >= settings.LOGIN_RATE_LIMIT:
                 raise HTTPException(
                     status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                    detail="Too many login attempts. Please try again later."
+                    detail='Too many login attempts for this account. Please wait 5 minutes and try again.'
                 )
             redis_client.set_cache(limit_key, int(count) + 1, ttl=settings.LOGIN_RATE_WINDOW)
         except HTTPException:
             raise
         except Exception as e:
-            logger.warning(f"Login rate limiting error (skipping): {e}")
+            logger.warning(f'Login rate limiting error (skipping): {e}')
 
     try:
         auth_service = AuthService(db)

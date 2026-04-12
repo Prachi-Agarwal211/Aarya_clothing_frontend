@@ -381,15 +381,18 @@ def _should_bypass_local_rate_limit(request: Request) -> bool:
     return parsed_ip.is_loopback or parsed_ip.is_private
 
 
-def _check_rate_limit(request: Request, endpoint: str, limit: int, window: int = 60) -> bool:
+def _check_rate_limit(request: Request, endpoint: str, limit: int, window: int = 60, user_identifier: str = None) -> bool:
     """
-    Check if request exceeds rate limit.
+    Check rate limit for a specific endpoint.
+    Uses user_identifier when provided (per-customer), falls back to IP only
+    for unauthenticated endpoints (search, public pages).
     
     Args:
         request: FastAPI request object
         endpoint: Endpoint identifier (e.g., 'cart_add', 'order_create')
         limit: Maximum requests allowed in window
         window: Time window in seconds (default: 60)
+        user_identifier: Customer identifier (email/user_id). If None, uses IP.
     
     Returns:
         True if within limit, False if exceeded
@@ -398,8 +401,10 @@ def _check_rate_limit(request: Request, endpoint: str, limit: int, window: int =
         return True
     
     try:
-        client_ip = _get_client_ip(request)
-        limit_key = f"rate_limit:{endpoint}:{client_ip}"
+        # Use user identifier when available — blocks abuse per customer,
+        # not per IP. Shared IPs (office/mobile/NAT) would block innocent users.
+        rate_id = user_identifier if user_identifier else _get_client_ip(request)
+        limit_key = f'rate_limit:{endpoint}:{rate_id}'
         count = redis_client.get_cache(limit_key) or 0
         
         if int(count) >= limit:
@@ -408,7 +413,7 @@ def _check_rate_limit(request: Request, endpoint: str, limit: int, window: int =
         redis_client.set_cache(limit_key, int(count) + 1, ttl=window)
         return True
     except Exception as e:
-        logger.warning(f"Rate limit check error (skipping): {e}")
+        logger.warning(f'Rate limit check error (skipping): {e}')
         return True  # Allow on error (fail open)
 
 
@@ -1669,7 +1674,7 @@ async def create_order(
 ):
     """Create a new order from cart."""
     # Rate limiting: 10 orders per minute per IP
-    if not _check_rate_limit(request, "order_create", limit=10, window=60):
+    if not _check_rate_limit(request, "order_create", limit=10, window=60, user_identifier=str(current_user["user_id"])):
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="Too many order creation attempts. Please try again later."

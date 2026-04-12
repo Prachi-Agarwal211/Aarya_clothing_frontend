@@ -273,7 +273,7 @@ class CouponService:
         }
         
         # Rate limiting check
-        rate_limit_id = f"{user_id}:{user_ip}" if user_ip else str(user_id)
+        rate_limit_id = str(user_id)  # Per-customer only, not per-IP
         is_allowed, remaining = self.check_rate_limit(rate_limit_id)
         metadata["rate_limit_remaining"] = remaining
         

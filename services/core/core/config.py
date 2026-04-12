@@ -32,7 +32,7 @@ class Settings(SharedBaseSettings):
     PASSWORD_REQUIRE_SPECIAL: bool = False
     
     # ==================== Rate Limiting ====================
-    LOGIN_RATE_LIMIT: int = 5  # attempts per window
+    LOGIN_RATE_LIMIT: int = 10  # attempts per window
     LOGIN_RATE_WINDOW: int = 300  # seconds (5 minutes)
     
     # ==================== Account Security ====================

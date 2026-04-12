@@ -64,3 +64,6 @@ next-env.d.ts
 
 # PgBouncer credentials (auto-generated, contains passwords)
 docker/pgbouncer/userlist.txt
+
+# Local PostgreSQL dumps (scripts/backup-db.sh, daily-backup.sh)
+backups/

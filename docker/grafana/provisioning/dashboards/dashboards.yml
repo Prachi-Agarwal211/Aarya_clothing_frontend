@@ -1,0 +1,16 @@
+# Grafana dashboard provisioning
+apiVersion: 1
+
+providers:
+  - name: "Aarya Dashboards"
+    orgId: 1
+    folder: "Aarya Clothing"
+    folderUid: "aarya-main"
+    type: file
+    disableDeletion: false
+    editable: true
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: false

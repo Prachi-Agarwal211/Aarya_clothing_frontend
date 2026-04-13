@@ -193,6 +193,13 @@ app.add_middleware(
     ],
 )
 
+# Prometheus metrics — /metrics endpoint for scraping
+try:
+    from prometheus_fastapi_instrumentator import Instrumentator
+    Instrumentator().instrument(app).expose(app, endpoint="/metrics")
+except Exception:
+    pass  # Graceful degradation if prometheus lib is missing
+
 # Request ID
 app.add_middleware(RequestIDMiddleware)
 

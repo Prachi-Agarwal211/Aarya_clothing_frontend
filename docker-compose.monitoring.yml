@@ -1,0 +1,203 @@
+# Aarya Clothing - Monitoring Stack
+# Prometheus + Grafana + Exporters
+#
+# Usage: docker compose -f docker-compose.yml -f docker-compose.monitoring.yml up -d
+#
+# Resource Budget (4 vCPU / 16GB RAM VPS):
+#   Prometheus:     256MB / 0.5 CPU
+#   Grafana:        256MB / 0.5 CPU
+#   node-exporter:  128MB / 0.25 CPU
+#   postgres-exp:   128MB / 0.25 CPU
+#   redis-exp:      128MB / 0.25 CPU
+#   cadvisor:       256MB / 0.5 CPU
+#   ---------------------------------
+#   TOTAL:          1152MB / 2.0 CPU  (within 1.2GB budget)
+
+services:
+  # ============================================================
+  # PROMETHEUS - Metrics Collection & Storage
+  # ============================================================
+
+  prometheus:
+    image: prom/prometheus:v2.48.1
+    container_name: aarya_prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=15d'
+      - '--storage.tsdb.retention.size=2GB'
+      - '--web.enable-lifecycle'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+    expose:
+      - "9090"
+    volumes:
+      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./docker/prometheus/rules:/etc/prometheus/rules:ro
+      - prometheus_data:/prometheus
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+    networks:
+      - backend_network
+    restart: unless-stopped
+
+  # ============================================================
+  # GRAFANA - Visualization & Dashboards
+  # ============================================================
+
+  grafana:
+    image: grafana/grafana:10.2.3
+    container_name: aarya_grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-aarya_grafana_admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_ROOT_URL=/grafana
+      - GF_SERVER_SERVE_FROM_SUB_PATH=true
+      - GF_AUTH_PROXY_ENABLED=false
+      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/var/lib/grafana/dashboards/system-overview.json
+    expose:
+      - "3000"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./docker/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./docker/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./docker/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+    networks:
+      - backend_network
+    restart: unless-stopped
+
+  # ============================================================
+  # NODE EXPORTER - Host/VPS Hardware Metrics
+  # ============================================================
+
+  node-exporter:
+    image: prom/node-exporter:v1.7.0
+    container_name: aarya_node_exporter
+    command:
+      - '--path.rootfs=/host'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    expose:
+      - "9100"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.25'
+    networks:
+      - backend_network
+    restart: unless-stopped
+    pid: host
+
+  # ============================================================
+  # POSTGRES EXPORTER - PostgreSQL Database Metrics
+  # ============================================================
+
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.15.0
+    container_name: aarya_postgres_exporter
+    environment:
+      - DATA_SOURCE_NAME=postgresql://postgres:${POSTGRES_PASSWORD:-postgres123}@postgres:5432/aarya_clothing?sslmode=disable
+    expose:
+      - "9187"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.25'
+    networks:
+      - backend_network
+    restart: unless-stopped
+
+  # ============================================================
+  # REDIS EXPORTER - Redis Cache Metrics
+  # ============================================================
+
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.55.0
+    container_name: aarya_redis_exporter
+    environment:
+      - REDIS_ADDR=redis://redis:6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+    expose:
+      - "9121"
+    depends_on:
+      redis:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.25'
+    networks:
+      - backend_network
+    restart: unless-stopped
+
+  # ============================================================
+  # CADVISOR - Docker Container Resource Metrics
+  # ============================================================
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    container_name: aarya_cadvisor
+    command:
+      - '--housekeeping_interval=30s'
+      - '--max_housekeeping_interval=60s'
+      - '--docker_only=true'
+    expose:
+      - "8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+    networks:
+      - backend_network
+    restart: unless-stopped
+    privileged: true
+    devices:
+      - /dev/kmsg
+
+# ============================================================
+# VOLUME DEFINITIONS (monitoring-specific)
+# ============================================================
+
+volumes:
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local

@@ -1,0 +1,401 @@
+# Alerting and Recording rules for Aarya Clothing
+#
+# Alerting rules trigger notifications when thresholds are breached.
+# Recording rules pre-compute expensive queries for dashboard performance.
+
+groups:
+  # ────────────────────────────────────────────────────────────
+  # RECORDING RULES - Pre-compute expensive queries
+  # ────────────────────────────────────────────────────────────
+  - name: recording_rules
+    interval: 15s
+    rules:
+      # HTTP request rate per service (5m average)
+      - record: job:http_requests_total:rate5m
+        expr: sum(rate(http_requests_total[5m])) by (service)
+
+      # HTTP error rate per service (5m average)
+      - record: job:http_errors_total:rate5m
+        expr: sum(rate(http_requests_total{status=~"5.."}[5m])) by (service)
+
+      # HTTP error ratio (errors / total)
+      - record: job:http_error_ratio:rate5m
+        expr: |
+          sum(rate(http_requests_total{status=~"5.."}[5m])) by (service)
+          /
+          sum(rate(http_requests_total[5m])) by (service)
+
+      # p50 latency per service
+      - record: job:http_request_duration_seconds:p50
+        expr: |
+          histogram_quantile(0.50,
+            sum(rate(http_request_duration_seconds_bucket[5m])) by (le, service)
+          )
+
+      # p95 latency per service
+      - record: job:http_request_duration_seconds:p95
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(http_request_duration_seconds_bucket[5m])) by (le, service)
+          )
+
+      # p99 latency per service
+      - record: job:http_request_duration_seconds:p99
+        expr: |
+          histogram_quantile(0.99,
+            sum(rate(http_request_duration_seconds_bucket[5m])) by (le, service)
+          )
+
+      # Container CPU usage percentage
+      - record: instance:container_cpu_usage:percent
+        expr: |
+          sum(rate(container_cpu_usage_seconds_total[5m])) by (name)
+          * 100
+
+      # Container memory usage in bytes
+      - record: instance:container_memory_usage:bytes
+        expr: |
+          sum(container_memory_usage_bytes) by (name)
+
+  # ────────────────────────────────────────────────────────────
+  # SERVICE HEALTH ALERTS
+  # ────────────────────────────────────────────────────────────
+  - name: service_health
+    interval: 30s
+    rules:
+      # Service is down (no scrape data for 2 min)
+      - alert: ServiceDown
+        expr: up == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service {{ $labels.job }} is down"
+          description: "{{ $labels.instance }} has been unreachable for over 2 minutes."
+
+      # High HTTP 5xx error rate (>5% over 5 min)
+      - alert: HighErrorRate
+        expr: job:http_error_ratio:rate5m > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High 5xx error rate on {{ $labels.service }} ({{ $value | humanizePercentage }})"
+          description: "More than 5% of requests are failing with 5xx errors."
+
+      # Critical error rate (>10%)
+      - alert: CriticalErrorRate
+        expr: job:http_error_ratio:rate5m > 0.10
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Critical error rate on {{ $labels.service }} ({{ $value | humanizePercentage }})"
+          description: "More than 10% of requests are failing with 5xx errors."
+
+      # High request latency (p95 > 2s)
+      - alert: HighLatency
+        expr: job:http_request_duration_seconds:p95 > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High p95 latency on {{ $labels.service }}"
+          description: "p95 latency is {{ $value }}s (threshold: 2s)."
+
+      # Critical latency (p95 > 5s)
+      - alert: CriticalLatency
+        expr: job:http_request_duration_seconds:p95 > 5
+        for: 3m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Critical p95 latency on {{ $labels.service }}"
+          description: "p95 latency is {{ $value }}s (threshold: 5s)."
+
+      # High p99 latency (>10s)
+      - alert: HighP99Latency
+        expr: job:http_request_duration_seconds:p99 > 10
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High p99 latency on {{ $labels.service }}"
+          description: "p99 latency is {{ $value }}s (threshold: 10s)."
+
+  # ────────────────────────────────────────────────────────────
+  # DATABASE HEALTH ALERTS
+  # ────────────────────────────────────────────────────────────
+  - name: database_health
+    interval: 30s
+    rules:
+      # PostgreSQL connections near max (>80%)
+      - alert: PostgresConnectionsHigh
+        expr: |
+          pg_stat_activity_count / pg_settings_max_connections * 100
+          > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "PostgreSQL connections at {{ $value }}%"
+          description: "Database connection pool is nearly full."
+
+      # PostgreSQL long-running queries (>30s)
+      - alert: PostgresLongRunningQuery
+        expr: |
+          max by (datname, usename) (pg_stat_activity_max_tx_duration{state="active"})
+          > 30
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Long-running query on {{ $labels.datname }}"
+          description: "Query by {{ $labels.usename }} running for {{ $value }}s."
+
+      # PostgreSQL dead tuple bloat (>10% dead tuples)
+      - alert: PostgresDeadTuplesHigh
+        expr: |
+          sum(pg_stat_user_tables_n_dead_tup) / sum(pg_stat_user_tables_n_live_tup) * 100
+          > 10
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "PostgreSQL dead tuples at {{ $value }}%"
+          description: "Database has excessive dead tuples - consider VACUUM."
+
+      # PostgreSQL cache hit ratio (<95%)
+      - alert: PostgresCacheHitRatioLow
+        expr: |
+          sum(pg_stat_database_blks_hit) / sum(pg_stat_database_blks_hit + pg_stat_database_blks_read) * 100
+          < 95
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "PostgreSQL cache hit ratio at {{ $value }}%"
+          description: "Database cache hit ratio is below 95%."
+
+      # PostgreSQL replication lag (>30s) - if replicas exist
+      - alert: PostgresReplicationLag
+        expr: pg_replication_lag_seconds > 30
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "PostgreSQL replication lag is {{ $value }}s"
+          description: "Replication lag exceeds 30 seconds."
+
+      # PostgreSQL exporter is down
+      - alert: PostgresExporterDown
+        expr: up{job="postgres"} == 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "PostgreSQL exporter is down"
+          description: "Cannot collect PostgreSQL metrics."
+
+  # ────────────────────────────────────────────────────────────
+  # REDIS HEALTH ALERTS
+  # ────────────────────────────────────────────────────────────
+  - name: redis_health
+    interval: 30s
+    rules:
+      # Redis memory usage > 80% of maxmemory
+      - alert: RedisMemoryHigh
+        expr: |
+          redis_memory_used_bytes / redis_memory_max_bytes * 100
+          > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis memory usage at {{ $value }}%"
+          description: "Redis is approaching its memory limit."
+
+      # Redis memory critical (>90%)
+      - alert: RedisMemoryCritical
+        expr: |
+          redis_memory_used_bytes / redis_memory_max_bytes * 100
+          > 90
+        for: 3m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Redis memory critical at {{ $value }}%"
+          description: "Redis is at risk of OOM eviction."
+
+      # Redis connected clients high (>150)
+      - alert: RedisClientsHigh
+        expr: redis_connected_clients > 150
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis has {{ $value }} connected clients"
+          description: "High number of Redis client connections."
+
+      # Redis evictions occurring
+      - alert: RedisEvictions
+        expr: rate(redis_evicted_keys_total[5m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis is evicting keys"
+          description: "{{ $value }} keys evicted per second."
+
+      # Redis exporter is down
+      - alert: RedisExporterDown
+        expr: up{job="redis"} == 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis exporter is down"
+          description: "Cannot collect Redis metrics."
+
+  # ────────────────────────────────────────────────────────────
+  # HOST/INFRASTRUCTURE ALERTS
+  # ────────────────────────────────────────────────────────────
+  - name: host_health
+    interval: 30s
+    rules:
+      # Disk usage > 80%
+      - alert: DiskSpaceWarning
+        expr: |
+          (node_filesystem_size_bytes{mountpoint="/"} - node_filesystem_avail_bytes{mountpoint="/"})
+          / node_filesystem_size_bytes{mountpoint="/"} * 100
+          > 80
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Disk usage at {{ $value }}%"
+          description: "Root filesystem is approaching capacity."
+
+      # Disk usage > 90%
+      - alert: DiskSpaceCritical
+        expr: |
+          (node_filesystem_size_bytes{mountpoint="/"} - node_filesystem_avail_bytes{mountpoint="/"})
+          / node_filesystem_size_bytes{mountpoint="/"} * 100
+          > 90
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Disk space critical at {{ $value }}%"
+          description: "Root filesystem is nearly full - immediate action required."
+
+      # Memory usage > 85%
+      - alert: HostMemoryWarning
+        expr: |
+          (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100
+          > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Host memory usage at {{ $value }}%"
+          description: "Available memory is running low."
+
+      # Memory usage > 95%
+      - alert: HostMemoryCritical
+        expr: |
+          (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100
+          > 95
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Host memory critical at {{ $value }}%"
+          description: "System is at risk of OOM kills."
+
+      # CPU usage > 85% sustained
+      - alert: HostCPUWarning
+        expr: |
+          100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)
+          > 85
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Host CPU usage at {{ $value }}%"
+          description: "CPU usage is consistently high."
+
+      # CPU usage > 95%
+      - alert: HostCPUCritical
+        expr: |
+          100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)
+          > 95
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Host CPU critical at {{ $value }}%"
+          description: "CPU is saturated - service degradation likely."
+
+      # Load average > 4.0 (4 vCPU system)
+      - alert: HostLoadAverageHigh
+        expr: node_load1 > 4.0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Host load average is {{ $value }}"
+          description: "1-minute load average exceeds CPU count."
+
+  # ────────────────────────────────────────────────────────────
+  # CONTAINER ALERTS (cAdvisor)
+  # ────────────────────────────────────────────────────────────
+  - name: container_health
+    interval: 30s
+    rules:
+      # Container restarted (possible crash loop)
+      - alert: ContainerRestarted
+        expr: increase(kube_pod_container_status_restarts_total[1h]) > 3
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Container restarted {{ $value }} times in 1h"
+          description: "Container may be in a crash loop."
+
+      # Container memory approaching limit
+      - alert: ContainerMemoryHigh
+        expr: |
+          container_memory_working_set_bytes
+          / container_spec_memory_limit_bytes
+          * 100 > 90
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Container {{ $labels.name }} memory at {{ $value }}%"
+          description: "Container is approaching its memory limit."
+
+  # ────────────────────────────────────────────────────────────
+  # NODE EXPORTER ALERT
+  # ────────────────────────────────────────────────────────────
+  - name: exporter_health
+    interval: 30s
+    rules:
+      - alert: NodeExporterDown
+        expr: up{job="node"} == 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Node exporter is down"
+          description: "Cannot collect host metrics."
+
+      - alert: CadvisorDown
+        expr: up{job="cadvisor"} == 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "cAdvisor is down"
+          description: "Cannot collect container resource metrics."

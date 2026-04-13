@@ -640,6 +640,156 @@ services:
       - backend_network
 
   # ============================================================
+  # PROMETHEUS — Metrics Collection
+  # ============================================================
+
+  prometheus:
+    image: prom/prometheus:v2.51.0
+    container_name: aarya_prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+      - '--storage.tsdb.retention.size=4GB'
+      - '--web.enable-lifecycle'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+    volumes:
+      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./docker/prometheus/rules:/etc/prometheus/rules:ro
+      - prometheus_data:/prometheus
+    expose:
+      - "9090"
+    depends_on:
+      - core
+      - commerce
+      - payment
+      - admin
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+    networks:
+      - backend_network
+    restart: unless-stopped
+
+  # ============================================================
+  # GRAFANA — Metrics Dashboard
+  # ============================================================
+
+  grafana:
+    image: grafana/grafana:10.4.0
+    container_name: aarya_grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-aarya_grafana_2024}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_ROOT_URL=https://aaryaclothing.in/monitoring/
+      - GF_SERVER_SERVE_FROM_SUB_PATH=false
+      - GF_ANALYTICS_REPORTING_ENABLED=false
+      - GF_ANALYTICS_CHECK_FOR_UPDATES=false
+      - GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./docker/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    expose:
+      - "3000"
+    depends_on:
+      - prometheus
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+    networks:
+      - backend_network
+      - frontend_network
+    restart: unless-stopped
+
+  # ============================================================
+  # NODE EXPORTER — Host/OS Metrics (CPU, memory, disk, network)
+  # ============================================================
+
+  node-exporter:
+    image: prom/node-exporter:v1.7.0
+    container_name: aarya_node_exporter
+    command:
+      - '--path.rootfs=/host'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    volumes:
+      - /:/host:ro,rslave
+      - /sys:/host/sys:ro,rslave
+      - /proc:/host/proc:ro,rslave
+    expose:
+      - "9100"
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.25'
+    networks:
+      - backend_network
+    restart: unless-stopped
+    pid: host
+
+  # ============================================================
+  # POSTGRES EXPORTER — Database Metrics
+  # ============================================================
+
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.15.0
+    container_name: aarya_postgres_exporter
+    environment:
+      - DATA_SOURCE_NAME=postgresql://postgres:${POSTGRES_PASSWORD:-postgres123}@postgres:5432/aarya_clothing?sslmode=disable
+    expose:
+      - "9187"
+    depends_on:
+      - postgres
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.25'
+    networks:
+      - backend_network
+    restart: unless-stopped
+
+  # ============================================================
+  # REDIS EXPORTER — Cache Metrics
+  # ============================================================
+
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.58.0
+    container_name: aarya_redis_exporter
+    environment:
+      - REDIS_ADDR=redis://redis:6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-aarya_clothing_redis_password_2024}
+    expose:
+      - "9121"
+    depends_on:
+      - redis
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+          cpus: '0.25'
+    networks:
+      - backend_network
+    restart: unless-stopped
+
+  # ============================================================
   # DOZZLE - Real-time Container Log Viewer
   # ============================================================
 
@@ -702,4 +852,8 @@ volumes:
   meilisearch_data:
     driver: local
   portainer_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
     driver: local

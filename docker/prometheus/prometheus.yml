@@ -1,0 +1,115 @@
+# Prometheus Configuration for Aarya Clothing
+# Collects metrics from all services, databases, and infrastructure
+#
+# Usage: Mounted at /etc/prometheus/prometheus.yml in the prometheus container
+# Reload config: curl -X POST http://localhost:9090/-/reload
+
+global:
+  scrape_interval: 15s       # How often to scrape targets
+  evaluation_interval: 15s   # How often to evaluate rules
+  scrape_timeout: 10s
+
+# Alertmanager (future: wire up with Slack/email/webhook)
+# alerting:
+#   alertmanagers:
+#     - static_configs:
+#         - targets: ['alertmanager:9093']
+
+# Rule files for alerting and recording rules
+rule_files:
+  - "rules/*.yml"
+
+# Scrape targets
+scrape_configs:
+
+  # ── Prometheus self-monitoring ──────────────────────────────
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
+        labels: { instance: "prometheus" }
+
+  # ── FastAPI Microservices ──────────────────────────────────
+  # Each service exposes /metrics via custom monitoring_middleware.py
+  # Metrics: http_requests_total, http_request_duration_seconds, orders_total, etc.
+
+  - job_name: "core"
+    metrics_path: "/metrics"
+    static_configs:
+      - targets: ["core:5001"]
+        labels: { service: "core", role: "auth" }
+
+  - job_name: "commerce"
+    metrics_path: "/metrics"
+    static_configs:
+      - targets: ["commerce:5002"]
+        labels: { service: "commerce", role: "catalog" }
+
+  - job_name: "payment"
+    metrics_path: "/metrics"
+    static_configs:
+      - targets: ["payment:5003"]
+        labels: { service: "payment", role: "payments" }
+
+  - job_name: "admin"
+    metrics_path: "/metrics"
+    static_configs:
+      - targets: ["admin:5004"]
+        labels: { service: "admin", role: "admin" }
+
+  # ── Grafana ────────────────────────────────────────────────
+  - job_name: "grafana"
+    static_configs:
+      - targets: ["grafana:3000"]
+        labels: { service: "grafana", role: "visualization" }
+
+  # ── Node/Host Metrics (via node_exporter) ──────────────────
+  # CPU, memory, disk, network, filesystem metrics for the VPS
+  - job_name: "node"
+    static_configs:
+      - targets: ["node-exporter:9100"]
+        labels: { service: "host", role: "infrastructure" }
+
+  # ── PostgreSQL (via postgres_exporter) ─────────────────────
+  # Connections, query stats, cache hits, replication, lock info
+  - job_name: "postgres"
+    static_configs:
+      - targets: ["postgres-exporter:9187"]
+        labels: { service: "postgres", role: "database" }
+
+  # ── Redis (via redis_exporter) ────────────────────────────
+  # Memory, connections, hit rates, keys, eviction, persistence
+  - job_name: "redis"
+    static_configs:
+      - targets: ["redis-exporter:9121"]
+        labels: { service: "redis", role: "cache" }
+
+  # ── cAdvisor - Container Resource Metrics ──────────────────
+  # Per-container CPU, memory, network, filesystem usage
+  - job_name: "cadvisor"
+    static_configs:
+      - targets: ["cadvisor:8080"]
+        labels: { service: "cadvisor", role: "containers" }
+    metric_relabel_configs:
+      # Only keep container metrics, drop unnecessary ones
+      - source_labels: [__name__]
+        regex: '(container_cpu|container_memory|container_network|container_fs)_.+'
+        action: keep
+
+  # ── Nginx ─────────────────────────────────────────────────
+  # Nginx stub_status provides active connections, request rates
+  # Note: Requires nginx stub_status module (included in nginx:alpine)
+  # The /nginx_status location must be configured in nginx.conf
+  - job_name: "nginx"
+    metrics_path: "/nginx_status"
+    static_configs:
+      - targets: ["nginx:80"]
+        labels: { service: "nginx", role: "gateway" }
+
+  # ── Meilisearch Health ────────────────────────────────────
+  # Basic health check (Meilisearch doesn't expose Prometheus metrics natively)
+  - job_name: "meilisearch"
+    metrics_path: "/health"
+    scrape_interval: 60s
+    static_configs:
+      - targets: ["meilisearch:7700"]
+        labels: { service: "meilisearch", role: "search" }

@@ -6,10 +6,7 @@ import Link from 'next/link';
 import { gsap, ScrollTrigger } from '@/lib/gsapConfig';
 import { ArrowRight } from 'lucide-react';
 import { getCoreBaseUrl } from '@/lib/baseApi';
-
-// Detect mobile/touch devices for performance optimization (SSR-safe)
-const isMobileDevice = typeof window !== 'undefined' &&
-  (window.innerWidth < 768 || 'ontouchstart' in window || navigator.maxTouchPoints > 0);
+import { useViewport } from '@/lib/hooks/useViewport';
 
 /**
  * Collections - Modern section with overlapping cards
@@ -35,6 +32,7 @@ const Collections = ({
   const titleRef = useRef(null);
   const cardsContainerRef = useRef(null);
   const cardRefs = useRef([]);
+  const { isMobile } = useViewport();
 
   useEffect(() => {
     const section = sectionRef.current;
@@ -42,14 +40,13 @@ const Collections = ({
     const cards = cardRefs.current;
     if (!section) return;
 
-    // PERFORMANCE: Skip complex GSAP animations on mobile devices
-    // Mobile users get instant rendering with CSS transitions instead
-    if (isMobileDevice) {
-      // Simple fade-in for mobile - much faster than scrub animations
-      gsap.set([title, ...cards].filter(Boolean), { 
-        opacity: 1, 
-        y: 0, 
-        scale: 1 
+    // PERFORMANCE: Skip scrub-heavy GSAP on narrow viewports (matches app breakpoint 768px).
+    // useViewport updates on resize — touch laptops at full width keep full animations.
+    if (isMobile) {
+      gsap.set([title, ...cards].filter(Boolean), {
+        opacity: 1,
+        y: 0,
+        scale: 1,
       });
       return;
     }
@@ -124,7 +121,7 @@ const Collections = ({
       }
       ctx.revert();
     };
-  }, []);
+  }, [isMobile]);
 
   // Early return if no categories - render nothing instead of empty section
   if (!categories || categories.length === 0) {

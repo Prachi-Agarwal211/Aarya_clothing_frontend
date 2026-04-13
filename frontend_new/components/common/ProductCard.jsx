@@ -9,7 +9,6 @@ import { cn } from '@/lib/utils';
 import { useCart } from '@/lib/cartContext';
 import { useAuth } from '@/lib/authContext';
 import { useToast } from '@/components/ui/Toast';
-import { useViewport } from '@/lib/hooks/useViewport';
 import { AddToCartButton } from '@/components/cart/CartAnimation';
 import { wishlistApi } from '@/lib/customerApi';
 import { getCoreBaseUrl } from '@/lib/baseApi';
@@ -49,7 +48,6 @@ const ProductCard = ({
     ? initialWishlistStatus 
     : internalWishlistStatus;
 
-  const { isMobile } = useViewport();
   const { addItem, openCart } = useCart();
   const { isAuthenticated } = useAuth();
   const toast = useToast();

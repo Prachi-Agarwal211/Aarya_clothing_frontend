@@ -23,21 +23,24 @@ services:
     image: pgvector/pgvector:pg15
     container_name: aarya_postgres
     # Production-tuned PostgreSQL parameters for 16GB RAM server.
-    # With PgBouncer in transaction mode, max_connections=50 is safe.
+    # With PgBouncer in transaction mode, max_connections=200 supports high concurrency.
     command: >
       postgres
-      -c shared_buffers=2GB
-      -c work_mem=32MB
-      -c effective_cache_size=10GB
-      -c max_connections=100
+      -c shared_buffers=4GB
+      -c work_mem=128MB
+      -c effective_cache_size=12GB
+      -c max_connections=200
       -c random_page_cost=1.1
       -c checkpoint_completion_target=0.9
-      -c maintenance_work_mem=512MB
+      -c maintenance_work_mem=1GB
       -c wal_buffers=64MB
       -c effective_io_concurrency=200
       -c checkpoint_timeout=15min
       -c max_wal_size=2GB
       -c min_wal_size=512MB
+      -c max_parallel_workers=4
+      -c max_parallel_workers_per_gather=2
+      -c max_worker_processes=8
     environment:
       POSTGRES_DB: aarya_clothing
       POSTGRES_USER: postgres
@@ -58,7 +61,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 3G
+          memory: 4G
           cpus: '1.5'
     networks:
       - backend_network
@@ -126,7 +129,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512M
+          memory: 1G
           cpus: '0.75'
     networks:
       - backend_network
@@ -228,8 +231,8 @@ services:
       - EMAIL_OTP_USE_QUEUE=${EMAIL_OTP_USE_QUEUE:-true}
       - SMTP_SEND_MAX_ATTEMPTS=${SMTP_SEND_MAX_ATTEMPTS:-3}
       # Database connection pool (PgBouncer-compatible)
-      - DATABASE_POOL_SIZE=5
-      - DATABASE_MAX_OVERFLOW=5
+      - DATABASE_POOL_SIZE=15
+      - DATABASE_MAX_OVERFLOW=10
     expose:
       - "5001"
     depends_on:
@@ -246,7 +249,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1G
+          memory: 1.5G
           cpus: '0.75'
     networks:
       - backend_network
@@ -307,8 +310,12 @@ services:
       - AI_GLM_ENABLED=${AI_GLM_ENABLED:-true}
       - AI_NVIDIA_ENABLED=${AI_NVIDIA_ENABLED:-true}
       # Database connection pool (PgBouncer-compatible)
-      - DATABASE_POOL_SIZE=5
-      - DATABASE_MAX_OVERFLOW=5
+      - DATABASE_POOL_SIZE=15
+      - DATABASE_MAX_OVERFLOW=10
+      # Redis response caching for commerce (product listings, categories, etc.)
+      - CACHE_BACKEND=redis
+      - CACHE_URL=redis://:${REDIS_PASSWORD}@redis:6379/4
+      - CACHE_TTL=3600
     expose:
       - "5002"
     depends_on:
@@ -329,7 +336,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1.5G
+          memory: 2G
           cpus: '0.75'
     networks:
       - backend_network
@@ -380,8 +387,8 @@ services:
       - DEBUG=${AARYA_DEBUG:-false}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       # Database connection pool (PgBouncer-compatible)
-      - DATABASE_POOL_SIZE=5
-      - DATABASE_MAX_OVERFLOW=5
+      - DATABASE_POOL_SIZE=15
+      - DATABASE_MAX_OVERFLOW=10
     expose:
       - "5003"
     depends_on:
@@ -400,7 +407,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 768M
+          memory: 1G
           cpus: '0.75'
     networks:
       - backend_network
@@ -459,8 +466,8 @@ services:
       - AI_CUSTOMER_MAX_TOKENS=${AI_CUSTOMER_MAX_TOKENS:-512}
       - AI_ADMIN_MAX_TOKENS=${AI_ADMIN_MAX_TOKENS:-2048}
       # Database connection pool (PgBouncer-compatible)
-      - DATABASE_POOL_SIZE=5
-      - DATABASE_MAX_OVERFLOW=5
+      - DATABASE_POOL_SIZE=15
+      - DATABASE_MAX_OVERFLOW=10
     expose:
       - "5004"
     depends_on:
@@ -479,7 +486,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1G
+          memory: 1.5G
           cpus: '0.75'
     networks:
       - backend_network
@@ -515,7 +522,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1.5G
+          memory: 2G
           cpus: "2.0"
         reservations:
           memory: 512M
@@ -592,8 +599,8 @@ services:
       - COMMERCE_SERVICE_URL=http://commerce:5002
       - INTERNAL_SERVICE_SECRET=${INTERNAL_SERVICE_SECRET:-aarya_internal_secret_change_me}
       # Database connection pool (PgBouncer-compatible)
-      - DATABASE_POOL_SIZE=5
-      - DATABASE_MAX_OVERFLOW=5
+      - DATABASE_POOL_SIZE=15
+      - DATABASE_MAX_OVERFLOW=10
     depends_on:
       postgres:
         condition: service_healthy

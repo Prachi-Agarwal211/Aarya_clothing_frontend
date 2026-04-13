@@ -124,18 +124,30 @@ export const ScrollProgress = ({ className = '' }) => {
   const progressRef = useRef(null);
 
   useEffect(() => {
+    let rafId = null;
     const updateProgress = () => {
+      rafId = null;
       const scrollTop = window.scrollY;
       const docHeight = document.documentElement.scrollHeight - window.innerHeight;
-      const progress = (scrollTop / docHeight) * 100;
-      
+      const progress = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
+
       if (progressRef.current) {
         progressRef.current.style.width = `${progress}%`;
       }
     };
 
-    window.addEventListener('scroll', updateProgress, { passive: true });
-    return () => window.removeEventListener('scroll', updateProgress);
+    const onScroll = () => {
+      if (rafId == null) {
+        rafId = requestAnimationFrame(updateProgress);
+      }
+    };
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    updateProgress();
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      if (rafId != null) cancelAnimationFrame(rafId);
+    };
   }, []);
 
   return (
@@ -148,7 +160,7 @@ export const ScrollProgress = ({ className = '' }) => {
     >
       <div 
         ref={progressRef}
-        className="h-full bg-gradient-to-r from-[#7A2F57] via-[#B76E79] to-[#F2C29A] transition-all duration-100"
+        className="h-full bg-gradient-to-r from-[#7A2F57] via-[#B76E79] to-[#F2C29A]"
         style={{ width: '0%' }}
       />
     </div>

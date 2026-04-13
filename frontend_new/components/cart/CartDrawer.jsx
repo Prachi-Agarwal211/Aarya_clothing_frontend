@@ -80,12 +80,12 @@ export default function CartDrawer() {
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[54] cart-drawer-backdrop"
+        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] cart-drawer-backdrop"
         onClick={closeCart}
       />
 
       {/* Drawer */}
-      <div className="fixed right-0 top-0 h-full h-dvh w-full max-w-md bg-[#0B0608] border-l border-[#B76E79]/20 z-[55] cart-drawer flex flex-col">
+      <div className="fixed right-0 top-0 h-full h-dvh w-full max-w-md bg-[#0B0608] border-l border-[#B76E79]/20 z-[210] cart-drawer flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-[#B76E79]/15">
           <div className="flex items-center gap-2">
@@ -98,7 +98,7 @@ export default function CartDrawer() {
           
           <button
             onClick={closeCart}
-            className="p-2 text-[#EAE0D5]/50 hover:text-[#EAE0D5] transition-colors"
+            className="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center text-[#EAE0D5]/50 hover:text-[#EAE0D5] transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
@@ -216,20 +216,20 @@ export default function CartDrawer() {
                         <div className="flex items-center gap-1">
                           <button
                             onClick={() => handleDecrement(item)}
-                            className="p-1 text-[#EAE0D5]/50 hover:text-[#B76E79] transition-colors"
+                            className="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center text-[#EAE0D5]/50 hover:text-[#B76E79] transition-colors"
                             title={item.quantity <= 1 ? 'Remove item' : 'Decrease quantity'}
                           >
                             {item.quantity <= 1
-                              ? <Trash2 className="w-3.5 h-3.5" />
-                              : <Minus className="w-3.5 h-3.5" />}
+                              ? <Trash2 className="w-5 h-5" />
+                              : <Minus className="w-5 h-5" />}
                           </button>
                           <span className="w-8 text-center text-sm text-[#EAE0D5]">{item.quantity}</span>
                           <button
                             onClick={() => handleIncreaseQuantity(item)}
-                            className="p-1 text-[#EAE0D5]/50 hover:text-[#EAE0D5] transition-colors"
+                            className="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center text-[#EAE0D5]/50 hover:text-[#EAE0D5] transition-colors"
                             title="Increase quantity"
                           >
-                            <Plus className="w-3.5 h-3.5" />
+                            <Plus className="w-5 h-5" />
                           </button>
                         </div>
 
@@ -247,9 +247,9 @@ export default function CartDrawer() {
                   {/* Remove Button */}
                   <button
                     onClick={() => handleRemoveItem(item.product_id, item.variant_id)}
-                    className="p-1.5 text-[#EAE0D5]/30 hover:text-[#B76E79] transition-colors self-start"
+                    className="p-2.5 min-h-[44px] min-w-[44px] flex items-center justify-center text-[#EAE0D5]/30 hover:text-[#B76E79] transition-colors self-start"
                   >
-                    <Trash2 className="w-4 h-4" />
+                    <Trash2 className="w-5 h-5" />
                   </button>
                 </div>
                 );

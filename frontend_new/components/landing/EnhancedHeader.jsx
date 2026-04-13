@@ -361,7 +361,7 @@ const EnhancedHeader = () => {
       <div
         id="mobile-menu"
         className={cn(
-          "fixed inset-0 z-[90] flex flex-col items-center justify-center transition-all duration-400 md:hidden",
+          "fixed inset-0 z-[110] flex flex-col items-center justify-center transition-all duration-400 md:hidden",
           isMobileMenuOpen
             ? "opacity-100 pointer-events-auto translate-y-0"
             : "opacity-0 pointer-events-none translate-y-4"

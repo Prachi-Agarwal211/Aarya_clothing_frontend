@@ -544,7 +544,7 @@ export default function ProductsContent({ initialFilters }) {
                         <button
                           onClick={() => setFilters(prev => ({ ...prev, page: prev.page - 1 }))}
                           disabled={filters.page <= 1}
-                          className="p-2 rounded-lg border border-[#B76E79]/20 text-[#EAE0D5]/70 hover:border-[#B76E79]/40 hover:text-[#EAE0D5] disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                          className="p-3 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg border border-[#B76E79]/20 text-[#EAE0D5]/70 hover:border-[#B76E79]/40 hover:text-[#EAE0D5] disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                         >
                           <ChevronLeft className="w-4 h-4" />
                         </button>
@@ -554,7 +554,7 @@ export default function ProductsContent({ initialFilters }) {
                         <button
                           onClick={() => setFilters(prev => ({ ...prev, page: prev.page + 1 }))}
                           disabled={filters.page >= totalPages}
-                          className="p-2 rounded-lg border border-[#B76E79]/20 text-[#EAE0D5]/70 hover:border-[#B76E79]/40 hover:text-[#EAE0D5] disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                          className="p-3 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg border border-[#B76E79]/20 text-[#EAE0D5]/70 hover:border-[#B76E79]/40 hover:text-[#EAE0D5] disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                         >
                           <ChevronRightIcon className="w-4 h-4" />
                         </button>

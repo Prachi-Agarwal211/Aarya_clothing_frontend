@@ -58,7 +58,7 @@ export default function Footer({ id }) {
                     href="https://www.instagram.com/aaryaclothing"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center border border-[#F2C29A]/30 rounded-full hover:bg-[#F2C29A] hover:text-[#050203] transition-all duration-300 text-[#EAE0D5]"
+                    className="w-11 h-11 sm:w-10 sm:h-10 flex items-center justify-center border border-[#F2C29A]/30 rounded-full hover:bg-[#F2C29A] hover:text-[#050203] transition-all duration-300 text-[#EAE0D5]"
                     aria-label="Follow us on Instagram"
                   >
                     <Instagram className="w-4 h-4 sm:w-5 sm:h-5" aria-hidden="true" />
@@ -67,14 +67,14 @@ export default function Footer({ id }) {
                     href="https://www.facebook.com/aaryaclothing"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center border border-[#F2C29A]/30 rounded-full hover:bg-[#F2C29A] hover:text-[#050203] transition-all duration-300 text-[#EAE0D5]"
+                    className="w-11 h-11 sm:w-10 sm:h-10 flex items-center justify-center border border-[#F2C29A]/30 rounded-full hover:bg-[#F2C29A] hover:text-[#050203] transition-all duration-300 text-[#EAE0D5]"
                     aria-label="Follow us on Facebook"
                   >
                     <Facebook className="w-4 h-4 sm:w-5 sm:h-5" aria-hidden="true" />
                   </a>
                   <a
                     href="#"
-                    className="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center border border-[#F2C29A]/30 rounded-full hover:bg-[#F2C29A] hover:text-[#050203] transition-all duration-300 text-[#EAE0D5]"
+                    className="w-11 h-11 sm:w-10 sm:h-10 flex items-center justify-center border border-[#F2C29A]/30 rounded-full hover:bg-[#F2C29A] hover:text-[#050203] transition-all duration-300 text-[#EAE0D5]"
                     aria-label="Follow us on Twitter"
                   >
                     <Twitter className="w-4 h-4 sm:w-5 sm:h-5" aria-hidden="true" />
@@ -163,7 +163,7 @@ export default function Footer({ id }) {
                     type="email"
                     placeholder="Enter your email"
                     className="
-                      w-full h-9 sm:h-10 px-4 sm:px-5
+                      w-full h-11 sm:h-10 px-4 sm:px-5
                       bg-[#0B0608]/40 backdrop-blur-md
                       border border-[#B76E79]/25
                       rounded-xl text-[#EAE0D5] placeholder:text-[#8A6A5C]
@@ -176,7 +176,7 @@ export default function Footer({ id }) {
                 <Button
                   variant="luxury"
                   size="sm"
-                  className="w-full text-xs sm:text-sm h-9 sm:h-10"
+                  className="w-full text-xs sm:text-sm h-11 sm:h-10"
                   type="submit"
                 >
                   Subscribe

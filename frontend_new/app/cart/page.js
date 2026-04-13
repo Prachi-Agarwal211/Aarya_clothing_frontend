@@ -53,7 +53,7 @@ function CartPage() {
         <EnhancedHeader />
 
         <div className="page-content">
-          <div className="container mx-auto px-4 sm:px-6 md:px-8 header-spacing pb-bottom-nav">
+          <div className="container mx-auto px-4 sm:px-6 md:px-8 py-8 lg:py-12 pb-32 lg:pb-12">
             {/* Page Header */}
             <div className="mb-8">
               <h1
@@ -107,7 +107,7 @@ function CartPage() {
             ) : (
               <div className="grid lg:grid-cols-3 gap-8">
                 {/* Cart Items */}
-                <div className="lg:col-span-2 space-y-4 mb-44 lg:mb-0">
+                <div className="lg:col-span-2 space-y-4">
                   {/* Header */}
                   <div className="hidden md:grid grid-cols-12 gap-4 px-4 py-2 text-sm text-[#EAE0D5]/50">
                     <div className="col-span-6">Product</div>

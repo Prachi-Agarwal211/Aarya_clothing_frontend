@@ -1945,6 +1945,7 @@ CREATE TABLE public.reviews (
     rating integer NOT NULL,
     title character varying(255),
     comment text,
+    image_urls text[] DEFAULT '{}',
     is_verified_purchase boolean DEFAULT false,
     is_approved boolean DEFAULT false,
     helpful_count integer DEFAULT 0,

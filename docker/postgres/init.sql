@@ -474,6 +474,7 @@ CREATE TABLE IF NOT EXISTS reviews (
     rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
     title VARCHAR(255),
     comment TEXT,
+    image_urls TEXT[] DEFAULT '{}',
     is_verified_purchase BOOLEAN DEFAULT FALSE,
     is_approved BOOLEAN DEFAULT FALSE,
     helpful_count INTEGER DEFAULT 0,

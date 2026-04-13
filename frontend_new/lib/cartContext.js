@@ -169,7 +169,7 @@ export function CartProvider({ children }) {
       setError(null);
 
       const data = await cartApi.get();
-      
+
       if (!isUnmountingRef.current) {
         setCart(data);
         setHasFetched(true);
@@ -203,12 +203,14 @@ export function CartProvider({ children }) {
     }
   }, [cart, isAuthenticated]);
 
-  // Fetch cart when auth state changes
+  // Fetch cart when auth state changes - ONLY ONCE per session
   useEffect(() => {
-    if (!authLoading && isAuthenticated && !hasFetched) {
+    if (!authLoading && isAuthenticated && !hasFetched && !fetchingRef.current) {
       fetchCart();
     }
-  }, [isAuthenticated, authLoading, hasFetched, fetchCart]);
+    // Intentional: hasFetched and fetchCart excluded from deps — fetchingRef guards against re-fetch loops
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, authLoading]);
 
   // Open cart drawer
   const openCart = useCallback(() => {
@@ -314,6 +316,7 @@ export function CartProvider({ children }) {
   }, [isAuthenticated, clearPersistedCart]);
 
   // Memoize context value to prevent unnecessary re-renders
+  // Only include stable references and primitive values in deps
   const value = useMemo(() => ({
     cart,
     loading,
@@ -333,12 +336,15 @@ export function CartProvider({ children }) {
     persistCartToLocalStorage,
     loadCartFromLocalStorage,
     clearPersistedCart,
+    // Intentional: fetchCart excluded — it's stable via useCallback and only used internally
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [
     cart,
     loading,
     error,
     isOpen,
     isAuthenticated,
+    // Include stable callbacks only (they're memoized with useCallback)
     addItem,
     updateQuantity,
     removeItem,
@@ -346,7 +352,7 @@ export function CartProvider({ children }) {
     openCart,
     closeCart,
     toggleCart,
-    fetchCart,
+    // fetchCart is NOT included - it's only used internally by refreshCart
     persistCartToLocalStorage,
     loadCartFromLocalStorage,
     clearPersistedCart

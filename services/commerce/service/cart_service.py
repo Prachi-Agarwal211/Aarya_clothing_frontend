@@ -217,7 +217,13 @@ class CartService:
             ).first()
 
         sku = inventory.sku if inventory else None
-        price = inventory.effective_price if inventory else float(product.price)
+        price = float(inventory.effective_price) if inventory else float(product.base_price)
+
+        # Guard against zero/negative prices — fallback to MRP if effective_price is bad
+        if price <= 0 and inventory and inventory.mrp:
+            price = float(inventory.mrp)
+        if price <= 0:
+            price = float(product.base_price)
 
         # Check stock availability (no reservation — stock deducted atomically at order time)
         if inventory:
@@ -248,21 +254,21 @@ class CartService:
         """Internal add-to-cart logic (must be called under lock)."""
         # Get current cart
         cart = self.get_cart(user_id)
-        
+
         # Check if item already in cart (match by product AND variant)
         existing_item = next(
-            (item for item in cart["items"] 
-             if item["product_id"] == product_id and item.get("variant_id") == variant_id),
+            (item for item in cart["items"]
+             if item["product_id"] == product.id and item.get("variant_id") == variant_id),
             None
         )
-        
+
         if existing_item:
             existing_item["quantity"] += quantity
         else:
             # Use variant-specific image if set, otherwise fall back to product primary image
             variant_image = getattr(inventory, 'image_url', None) if inventory else None
             cart["items"].append({
-                "product_id": product_id,
+                "product_id": product.id,
                 "variant_id": variant_id,
                 "name": product.name,
                 "price": price,

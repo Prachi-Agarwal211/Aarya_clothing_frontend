@@ -72,17 +72,19 @@ class R2StorageService:
         return False
     
     async def upload_image(
-        self, 
-        file: UploadFile, 
-        folder: str = "products"
+        self,
+        file: UploadFile,
+        folder: str = "products",
+        custom_filename: Optional[str] = None
     ) -> str:
         """
         Upload an image to R2 storage.
-        
+
         Args:
             file: The uploaded file
-            folder: Subfolder in bucket (products, categories, etc.)
-            
+            folder: Subfolder in bucket (products, categories, reviews, etc.)
+            custom_filename: Optional custom filename (bypasses unique ID generation)
+
         Returns:
             The public URL of the uploaded image
         """
@@ -92,7 +94,7 @@ class R2StorageService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Invalid file type '{file.content_type}'. Allowed: {', '.join(ALLOWED_IMAGE_TYPES)}"
             )
-        
+
         # Read file content
         content = await file.read()
 
@@ -109,10 +111,13 @@ class R2StorageService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="File content does not match an allowed image type."
             )
-        
-        # Generate unique filename
-        key = self._generate_unique_filename(file.filename, folder)
-        
+
+        # Generate or use custom filename
+        if custom_filename:
+            key = f"{folder}/{custom_filename}"
+        else:
+            key = self._generate_unique_filename(file.filename, folder)
+
         try:
             # Upload to R2
             self.client.put_object(
@@ -121,13 +126,13 @@ class R2StorageService:
                 Body=content,
                 ContentType=file.content_type
             )
-            
+
             # Return public URL
             if settings.R2_PUBLIC_URL:
                 return f"{settings.R2_PUBLIC_URL.rstrip('/')}/{key}"
             else:
                 return f"https://{settings.R2_BUCKET_NAME}.{settings.R2_ACCOUNT_ID}.r2.cloudflarestorage.com/{key}"
-                
+
         except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

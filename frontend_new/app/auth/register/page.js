@@ -58,14 +58,20 @@ function RegisterPageContent() {
     const stepParam = searchParams?.get('step');
     const emailParam = searchParams?.get('email');
     const methodParam = searchParams?.get('method') || 'otp_email';
+    
+    // Only auto-send OTP once when coming from login redirect
     if (stepParam !== 'verify' || !emailParam || recoveryVerifySentRef.current) {
       return;
     }
+    
     recoveryVerifySentRef.current = true;
     const decodedEmail = decodeURIComponent(emailParam);
     setEmail(decodedEmail);
     const useSms = methodParam === 'otp_sms' && smsOtpEnabled;
     setVerificationMethod(useSms ? 'otp_sms' : 'otp_email');
+    
+    logger.info(`Auto-sending OTP for verification redirect: email=${decodedEmail}, method=${methodParam}`);
+    
     const sendOtp = async () => {
       try {
         if (useSms) {
@@ -79,10 +85,12 @@ function RegisterPageContent() {
             otp_type: 'EMAIL',
           });
         }
+        logger.info('OTP sent successfully for verification redirect');
         startOtpTimers();
         setStep(2);
       } catch (err) {
-        logger.warn('Failed to send verification code:', err?.message);
+        logger.warn('Failed to send verification code (will still show verification form):', err?.message);
+        // Still show verification form even if OTP sending failed - user can retry
         startOtpTimers();
         setStep(2);
       }

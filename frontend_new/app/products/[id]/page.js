@@ -23,6 +23,7 @@ import EnhancedHeader from '@/components/landing/EnhancedHeader';
 import Footer from '@/components/landing/Footer';
 import SizeGuideModal from '@/components/product/SizeGuideModal';
 import RelatedProducts from '@/components/product/RelatedProducts';
+import ReviewForm from '@/components/review/ReviewForm';
 import { productsApi, reviewsApi, wishlistApi } from '@/lib/customerApi';
 import { useCart } from '@/lib/cartContext';
 import { useAuth } from '@/lib/authContext';
@@ -40,6 +41,7 @@ export default function ProductDetailPage() {
 
   const [product, setProduct] = useState(null);
   const [reviews, setReviews] = useState([]);
+  const [showReviewForm, setShowReviewForm] = useState(false);
 
   const handleShare = async () => {
     const url = window.location.href;
@@ -67,6 +69,18 @@ export default function ProductDetailPage() {
   const [showSizeGuide, setShowSizeGuide] = useState(false);
   const [touchStartX, setTouchStartX] = useState(null);
 
+  // Reload reviews after successful submission
+  const handleReviewSuccess = async () => {
+    setShowReviewForm(false);
+    try {
+      const reviewsData = await reviewsApi.list(productId);
+      setReviews(reviewsData || []);
+      showAlert('Review submitted successfully!', 'success');
+    } catch (err) {
+      logger.error('Failed to reload reviews:', err);
+    }
+  };
+
   const handleImageTouchStart = (e) => setTouchStartX(e.touches[0].clientX);
   const handleImageTouchEnd = (e) => {
     if (touchStartX === null || !product?.images?.length) return;
@@ -82,6 +96,8 @@ export default function ProductDetailPage() {
 
   useEffect(() => {
     fetchProduct();
+    // Intentional: fetchProduct is stable via useCallback, only productId triggers re-fetch
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [productId]);
 
   // Update selected variant when size or color changes
@@ -681,10 +697,31 @@ export default function ProductDetailPage() {
                       </div>
                       <p className="text-sm text-[#EAE0D5]/50 mt-1">{product.reviews_count} reviews</p>
                     </div>
-                    <button className="ml-auto px-4 py-2 bg-[#7A2F57]/30 text-[#F2C29A] rounded-lg hover:bg-[#7A2F57]/40 transition-colors">
-                      Write a Review
+                    <button 
+                      onClick={() => {
+                        if (!isAuthenticated) {
+                          showAlert('Please login to write a review', 'info');
+                          router.push('/auth/login?redirect_url=' + encodeURIComponent(window.location.pathname));
+                          return;
+                        }
+                        setShowReviewForm(!showReviewForm);
+                      }}
+                      className="ml-auto px-4 py-2 bg-[#7A2F57]/30 text-[#F2C29A] rounded-lg hover:bg-[#7A2F57]/40 transition-colors"
+                    >
+                      {showReviewForm ? 'Cancel' : 'Write a Review'}
                     </button>
                   </div>
+
+                  {/* Review Form */}
+                  {showReviewForm && (
+                    <div className="mt-6">
+                      <ReviewForm
+                        productId={parseInt(productId)}
+                        onSuccess={handleReviewSuccess}
+                        onCancel={() => setShowReviewForm(false)}
+                      />
+                    </div>
+                  )}
 
                   {/* Reviews List */}
                   <div className="space-y-4">
@@ -705,6 +742,25 @@ export default function ProductDetailPage() {
                           <span className="text-xs text-[#EAE0D5]/50">{review.date || new Date(review.created_at || Date.now()).toLocaleDateString()}</span>
                         </div>
                         <p className="text-[#EAE0D5]/70 mt-2 text-sm">{review.comment || review.text || ''}</p>
+                        
+                        {/* Review images */}
+                        {review.image_urls && review.image_urls.length > 0 && (
+                          <div className="flex gap-2 mt-3 overflow-x-auto pb-2">
+                            {review.image_urls.map((imgUrl, imgIdx) => (
+                              <Image
+                                key={imgIdx}
+                                src={imgUrl}
+                                alt={`Review image ${imgIdx + 1}`}
+                                width={80}
+                                height={80}
+                                className="object-cover rounded-lg flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+                                onClick={() => window.open(imgUrl, '_blank')}
+                                unoptimized // R2 URLs are external; skip optimization for dynamic URLs
+                              />
+                            ))}
+                          </div>
+                        )}
+                        
                         <div className="flex items-center gap-4 mt-3">
                           <button className="flex items-center gap-1 text-xs text-[#EAE0D5]/50 hover:text-[#EAE0D5]">
                             <Check className="w-3 h-3" />
@@ -728,8 +784,14 @@ export default function ProductDetailPage() {
       </div>
 
       {/* Mobile Sticky Add-to-Cart Bar */}
+      {/* Z-index hierarchy:
+          - Chat widget button: z-[90]
+          - Chat widget window: z-[95]
+          - Bottom navigation: z-[100]
+          - Product sticky bar: z-[105] (below nav, above chat)
+      */}
       {product && (
-        <div className="fixed bottom-nav-offset inset-x-0 lg:hidden bg-[#0B0608]/95 backdrop-blur-md border-t border-[#B76E79]/15 px-3 pt-3 pb-safe-or-3 z-[110] flex items-center gap-3"
+        <div className="fixed inset-x-0 lg:hidden bg-[#0B0608]/95 backdrop-blur-md border-t border-[#B76E79]/15 px-3 pt-3 pb-3 z-[105] flex items-center gap-3"
           style={{ bottom: 'calc(4rem + env(safe-area-inset-bottom, 0px))' }}
         >
           <div className="flex-1 min-w-0">

@@ -197,11 +197,17 @@ export const reviewsApi = {
   list: (productId, params = {}) =>
     commerceClient.get(`/api/v1/products/${productId}/reviews`, params),
 
-  create: (productId, data) =>
-    commerceClient.post('/api/v1/reviews', { ...data, product_id: productId }),
+  create: (data) =>
+    commerceClient.post('/api/v1/reviews', data),
 
-  update: (reviewId, data) =>
-    Promise.reject(new Error(`Review updates are not supported for review ${reviewId}`)),
+  uploadImage: async (productId, formData) => {
+    // Direct fetch with FormData for file upload
+    const { coreClient } = await import('./baseApi');
+    return coreClient.uploadFile('/api/v1/reviews/upload-image', formData);
+  },
+
+  markHelpful: (reviewId) =>
+    commerceClient.post(`/api/v1/reviews/${reviewId}/helpful`),
 
   delete: (reviewId) =>
     commerceClient.delete(`/api/v1/reviews/${reviewId}`),

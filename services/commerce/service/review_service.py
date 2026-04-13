@@ -38,7 +38,8 @@ class ReviewService:
         rating: int,
         title: Optional[str] = None,
         comment: Optional[str] = None,
-        order_id: Optional[int] = None
+        order_id: Optional[int] = None,
+        image_urls: Optional[list] = None
     ) -> Review:
         """Create a product review."""
         # Validate product exists
@@ -48,26 +49,26 @@ class ReviewService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Product not found"
             )
-        
+
         # Validate rating
         if rating < 1 or rating > 5:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Rating must be between 1 and 5"
             )
-        
+
         # Check if user already reviewed this product
         existing = self.db.query(Review).filter(
             Review.product_id == product_id,
             Review.user_id == user_id
         ).first()
-        
+
         if existing:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="You have already reviewed this product"
             )
-        
+
         # Check verified purchase if order_id provided
         is_verified = False
         if order_id:
@@ -76,9 +77,9 @@ class ReviewService:
                 Order.user_id == user_id,
                 OrderItem.product_id == product_id
             ).first()
-            
+
             is_verified = order_item is not None
-        
+
         review = Review(
             product_id=product_id,
             user_id=user_id,
@@ -86,14 +87,15 @@ class ReviewService:
             rating=rating,
             title=title,
             comment=comment,
+            image_urls=image_urls or [],
             is_verified_purchase=is_verified,
             is_approved=False  # Requires moderation
         )
-        
+
         self.db.add(review)
         self.db.commit()
         self.db.refresh(review)
-        
+
         return review
     
     def approve_review(self, review_id: int) -> Review:

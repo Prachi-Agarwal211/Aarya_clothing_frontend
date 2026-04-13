@@ -3124,7 +3124,89 @@ async def create_review(
 ):
     """Create a product review."""
     review_service = ReviewService(db)
-    return review_service.create_review(current_user["user_id"], review_data)
+    return review_service.create_review(
+        current_user["user_id"],
+        product_id=review_data.product_id,
+        rating=review_data.rating,
+        title=review_data.title,
+        comment=review_data.comment,
+        order_id=review_data.order_id,
+        image_urls=review_data.image_urls or []
+    )
+
+
+@app.post("/api/v1/reviews/upload-image",
+          tags=["Reviews"])
+async def upload_review_image(
+    request: Request,
+    file: UploadFile = File(..., description="Review image file"),
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Upload a single image for a review.
+    Returns the public URL of the uploaded image.
+    Supports JPG, PNG, WebP (max 5MB).
+    Rate limited to 10 uploads per minute per user.
+    """
+    # Rate limiting: 10 uploads per minute per user
+    if not _check_rate_limit(
+        request,
+        "review_upload",
+        limit=10,
+        window=60,
+        user_identifier=str(current_user["user_id"])
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many image uploads. Please wait before uploading more images."
+        )
+
+    from service.r2_service import r2_service
+    import uuid
+
+    # Validate file type
+    allowed_types = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
+    if file.content_type not in allowed_types:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid file type. Allowed types: JPG, PNG, WebP"
+        )
+
+    # Validate file size (5MB max)
+    file.file.seek(0, 2)  # Seek to end
+    file_size = file.file.tell()
+    file.file.seek(0)  # Reset to beginning
+    
+    if file_size > 5 * 1024 * 1024:  # 5MB
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File size must be less than 5MB"
+        )
+
+    try:
+        # Upload to R2 with unique filename
+        ext = file.filename.split('.')[-1] if '.' in file.filename else 'jpg'
+        unique_name = f"review_{current_user['user_id']}_{uuid.uuid4().hex[:8]}.{ext}"
+        
+        image_url = await r2_service.upload_image(
+            file,
+            folder="reviews",
+            custom_filename=unique_name
+        )
+        
+        return {
+            "url": image_url,
+            "filename": unique_name,
+            "size": file_size
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Review image upload failed: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to upload image: {str(e)}"
+        )
 
 
 @app.get("/api/v1/products/{product_id}/reviews", response_model=List[ReviewResponse],

@@ -5,7 +5,8 @@
       "Bash(curl *)",
       "Bash(docker-compose *)",
       "Bash(git add *)",
-      "Bash(git ls-files *)"
+      "Bash(git ls-files *)",
+      "Bash(npx *)"
     ]
   },
   "$version": 3

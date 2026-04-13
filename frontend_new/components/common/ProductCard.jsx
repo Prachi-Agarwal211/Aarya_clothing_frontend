@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Heart, ShoppingBag } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -52,6 +53,19 @@ const ProductCard = ({
   const { addItem, openCart } = useCart();
   const { isAuthenticated } = useAuth();
   const toast = useToast();
+  const router = useRouter();
+
+  // Validate product ID - prevent null/undefined URLs
+  const productHref = id ? `/products/${id}` : '/products';
+
+  // Detect if we're on landing page to change button text
+  // Check pathname AND hash fragment for hash-routed landing pages
+  const isLandingPage = typeof window !== 'undefined' && (
+    window.location.pathname === '/' ||
+    window.location.hash?.startsWith('#new-arrivals') ||
+    window.location.hash?.startsWith('#collections')
+  );
+  const addToCartButtonText = isLandingPage ? 'View Details' : 'Add to Cart';
 
   // Internal wishlist check (fallback when prop not provided)
   useEffect(() => {
@@ -78,6 +92,15 @@ const ProductCard = ({
   }, [id, isAuthenticated, initialWishlistStatus]);
 
   const handleAddToCart = async (productData) => {
+    // On landing page / new arrivals, navigate to product page for size selection
+    // This ensures customers select the correct size before adding to cart
+    if (isLandingPage) {
+      // Client-side navigation to product detail page where user can select size
+      router.push(productHref);
+      return;
+    }
+
+    // On product browsing pages, require authentication and add to cart
     if (!isAuthenticated) {
       if (typeof window !== 'undefined') {
         const currentPath = window.location.pathname + window.location.search;
@@ -130,9 +153,6 @@ const ProductCard = ({
     }
   };
 
-  // Validate product ID - prevent null/undefined URLs
-  const productHref = id ? `/products/${id}` : '/products';
-  
   return (
     <>
       <div className={cn("group relative w-full product-card-enhanced", className)}>
@@ -197,7 +217,7 @@ const ProductCard = ({
               className="relative w-full min-h-[44px] bg-gradient-to-r from-[#EAE0D5] to-[#F2C29A] text-[#050203] rounded-full active:scale-95 flex items-center justify-center gap-2 font-medium transition-transform"
             >
               <ShoppingBag className="w-5 h-5" />
-              <span>Add to Cart</span>
+              <span>{addToCartButtonText}</span>
             </AddToCartButton>
           </div>
 
@@ -209,6 +229,7 @@ const ProductCard = ({
                 handleAddToCart(product);
               }}
               className="p-4 bg-gradient-to-r from-[#EAE0D5] to-[#F2C29A] text-[#050203] rounded-full transform translate-y-6 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-500 delay-100 hover:shadow-[0_0_30px_rgba(242,194,154,0.5)] active:scale-95 flex items-center justify-center"
+              title={isLandingPage ? "View product details and select size" : "Add to cart"}
             >
               <ShoppingBag className="w-5 h-5" />
             </AddToCartButton>

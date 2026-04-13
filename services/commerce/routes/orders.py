@@ -114,12 +114,16 @@ def _enrich_order_response(order: Order) -> OrderResponse:
             "price": item.price,
             "image_url": None,
         }
-        # Get image URL from inventory or product
+        # Get image URL from inventory first, then product primary_image
         raw_url = None
         if item.inventory and item.inventory.image_url:
             raw_url = item.inventory.image_url
-        elif hasattr(item, 'product') and item.product and hasattr(item.product, 'image_url'):
-            raw_url = item.product.image_url
+        elif hasattr(item, 'product') and item.product:
+            # Product.primary_image is a @property that returns the primary image URL
+            raw_url = getattr(item.product, 'primary_image', None)
+            # Fallback: check if product has image_url directly (legacy)
+            if not raw_url and hasattr(item.product, 'image_url'):
+                raw_url = item.product.image_url
 
         if raw_url:
             item_dict["image_url"] = _r2_url(raw_url)

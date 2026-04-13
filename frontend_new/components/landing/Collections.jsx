@@ -7,6 +7,10 @@ import { gsap, ScrollTrigger } from '@/lib/gsapConfig';
 import { ArrowRight } from 'lucide-react';
 import { getCoreBaseUrl } from '@/lib/baseApi';
 
+// Detect mobile/touch devices for performance optimization (SSR-safe)
+const isMobileDevice = typeof window !== 'undefined' &&
+  (window.innerWidth < 768 || 'ontouchstart' in window || navigator.maxTouchPoints > 0);
+
 /**
  * Collections - Modern section with overlapping cards
  *
@@ -20,6 +24,7 @@ import { getCoreBaseUrl } from '@/lib/baseApi';
  * - Glass morphism styling
  *
  * PERFORMANCE: Wrapped with React.memo to prevent unnecessary re-renders
+ * MOBILE: Simplified animations on mobile for faster load times
  */
 const Collections = ({
   id,
@@ -37,7 +42,19 @@ const Collections = ({
     const cards = cardRefs.current;
     if (!section) return;
 
-    // Use gsap.context for proper cleanup - only kills THIS component's animations
+    // PERFORMANCE: Skip complex GSAP animations on mobile devices
+    // Mobile users get instant rendering with CSS transitions instead
+    if (isMobileDevice) {
+      // Simple fade-in for mobile - much faster than scrub animations
+      gsap.set([title, ...cards].filter(Boolean), { 
+        opacity: 1, 
+        y: 0, 
+        scale: 1 
+      });
+      return;
+    }
+
+    // Desktop: Full GSAP animations with scroll triggers
     let ctx = gsap.context(() => {
       // Title animation with dynamic will-change
       gsap.set(title, { willChange: "transform, opacity" });
@@ -108,6 +125,11 @@ const Collections = ({
       ctx.revert();
     };
   }, []);
+
+  // Early return if no categories - render nothing instead of empty section
+  if (!categories || categories.length === 0) {
+    return null;
+  }
 
   return (
     <section id={id} ref={sectionRef} className="relative py-16 sm:py-20 md:py-24">

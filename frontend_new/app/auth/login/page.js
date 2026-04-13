@@ -24,7 +24,16 @@ function getLoginErrorMessage(err) {
     if (msg.toLowerCase().includes('deactivated')) return 'Your account has been disabled. Please contact support.';
     return 'Invalid credentials. Please check your username/email and password.';
   }
-  if (err.status === 403) return 'Your account has been disabled. Please contact support.';
+  // HTTP 403: Could be EMAIL_NOT_VERIFIED (handled separately with redirect) or truly disabled
+  if (err.status === 403) {
+    // If we reach here, the EMAIL_NOT_VERIFIED redirect logic didn't trigger
+    // This means it's a genuine account disabled error or parsing failed
+    const msg = err.message || '';
+    if (msg.includes('EMAIL_NOT_VERIFIED')) {
+      return 'Please verify your email before logging in. Request a new verification code if needed.';
+    }
+    return 'Your account has been disabled. Please contact support.';
+  }
   if (err.status === 429) return 'Too many login attempts. Please try again later.';
   if (err.message?.includes('network') || err.message?.includes('fetch')) return 'Network error. Please check your connection and try again.';
   return err.message || 'Login failed. Please try again.';
@@ -107,7 +116,19 @@ function LoginForm() {
       logger.error('Login failed:', err);
 
       // EMAIL_NOT_VERIFIED: redirect to OTP / verification step (method matches how they signed up)
-      let detail = err?.data?.detail ?? err?.response?.data?.detail;
+      // Try multiple ways to extract the error detail from the response
+      let detail = null;
+      
+      // Method 1: err.data.detail (from baseApi.js error.data)
+      if (err?.data) {
+        detail = err.data.detail ?? err.data;
+      }
+      // Method 2: err.response.data.detail (alternative structure)
+      if (!detail && err?.response?.data) {
+        detail = err.response.data.detail ?? err.response.data;
+      }
+      
+      // Parse stringified JSON if needed
       if (typeof detail === 'string') {
         try {
           detail = JSON.parse(detail);
@@ -116,9 +137,24 @@ function LoginForm() {
         }
       }
       if (!detail || typeof detail !== 'object') detail = {};
+      
+      // Check for EMAIL_NOT_VERIFIED error code
       if (err.status === 403 && detail.error_code === 'EMAIL_NOT_VERIFIED') {
         const email = detail.email || identifier.trim();
         const method = detail.signup_verification_method || 'otp_email';
+        logger.info(`Email not verified for ${email}, redirecting to verification page with method ${method}`);
+        router.push(
+          `/auth/register?step=verify&email=${encodeURIComponent(email)}&method=${encodeURIComponent(method)}`
+        );
+        return;
+      }
+      
+      // Also check error message string for EMAIL_NOT_VERIFIED (fallback)
+      if (err.message && err.message.includes('EMAIL_NOT_VERIFIED')) {
+        const parts = err.message.replace('EMAIL_NOT_VERIFIED:', '').split(':');
+        const email = parts[0] || identifier.trim();
+        const method = parts[1] || 'otp_email';
+        logger.info(`Email not verified (from message) for ${email}, redirecting to verification`);
         router.push(
           `/auth/register?step=verify&email=${encodeURIComponent(email)}&method=${encodeURIComponent(method)}`
         );

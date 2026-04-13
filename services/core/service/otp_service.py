@@ -55,7 +55,8 @@ class OTPService:
         cooldown_active = redis_client.get_cache(cooldown_key)
         
         if cooldown_active:
-            raise ValueError(f"Please wait {settings.OTP_RESEND_COOLDOWN_MINUTES} minute(s) before requesting a new code.")
+            cooldown_seconds = int(settings.OTP_RESEND_COOLDOWN_MINUTES * 60)
+            raise ValueError(f"Please wait {cooldown_seconds} second(s) before requesting a new code.")
         
         # Generate OTP
         otp_code = self._generate_otp()

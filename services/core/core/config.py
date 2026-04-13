@@ -43,7 +43,7 @@ class Settings(SharedBaseSettings):
     OTP_CODE_LENGTH: int = 6
     OTP_EXPIRY_MINUTES: int = 10
     OTP_MAX_ATTEMPTS: int = 5
-    OTP_RESEND_COOLDOWN_MINUTES: int = 0.5  # 30 seconds
+    OTP_RESEND_COOLDOWN_MINUTES: float = 0.5  # 30 seconds
     OTP_MAX_RESEND_PER_HOUR: int = 8
     
     # ==================== Email/SMTP Settings ====================

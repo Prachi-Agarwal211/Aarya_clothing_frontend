@@ -773,7 +773,8 @@ def prepare_invoice_data(order: Order, db: Session) -> dict:
         ]
         shipping_address = "\n".join([line for line in address_lines if line])
         billing_address = shipping_address  # Same as shipping for simplicity
-    except:
+    except (AttributeError, KeyError, TypeError):
+        # Failed to parse shipping address — use fallback
         customer_name = "Customer"
         customer_phone = "NA"
         customer_email = "NA"

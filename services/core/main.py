@@ -171,12 +171,10 @@ def set_auth_cookies(response: Response, auth_data: dict, remember_me: bool = Fa
     # Access token cookie (30 minutes)
     access_max_age = settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
 
-    # Refresh token cookie (24 hours if remember_me)
-    refresh_max_age = (
-        settings.REFRESH_TOKEN_EXPIRE_MINUTES * 60
-        if remember_me
-        else settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
-    )
+    # Refresh token cookie (ALWAYS 24 hours - "Remember Me" extends to 7 days in future)
+    # FIX: Previously used ACCESS_TOKEN_EXPIRE (30 min) when remember_me=False
+    # This caused users to be logged out after 30 minutes even with valid sessions
+    refresh_max_age = settings.REFRESH_TOKEN_EXPIRE_MINUTES * 60  # 24 hours
 
     # Session cookie (24 hours)
     session_max_age = settings.SESSION_EXPIRE_MINUTES * 60

@@ -4,6 +4,7 @@ import React, { useRef, useEffect, memo, useState } from 'react';
 import { gsap, ScrollTrigger } from '@/lib/gsapConfig';
 import ProductCard from '../common/ProductCard';
 import { wishlistApi } from '@/lib/customerApi';
+import { useViewport } from '@/lib/hooks/useViewport';
 
 /**
  * NewArrivals - Simplified section showing products directly on landing page
@@ -30,6 +31,7 @@ const NewArrivals = ({
   const headerRef = useRef(null);
   const productRefs = useRef([]);
   const [wishlistStatus, setWishlistStatus] = useState({});
+  const { isMobile } = useViewport();
 
   // Batch wishlist check for all products
   useEffect(() => {
@@ -45,6 +47,17 @@ const NewArrivals = ({
     const section = sectionRef.current;
     const header = headerRef.current;
     if (!section) return;
+
+    // Narrow viewports: skip scrub timeline (scroll-linked work is expensive on phones)
+    if (isMobile) {
+      const cards = productRefs.current.filter(Boolean);
+      gsap.set([header, ...cards].filter(Boolean), {
+        opacity: 1,
+        y: 0,
+        scale: 1,
+      });
+      return;
+    }
 
     // Use gsap.context for proper cleanup - only kills THIS component's animations
     let ctx = gsap.context(() => {
@@ -115,7 +128,7 @@ const NewArrivals = ({
       }
       ctx.revert();
     };
-  }, [products]);
+  }, [products, isMobile]);
 
   return (
     <section id={id} ref={sectionRef} className="relative py-16 sm:py-20 md:py-24">

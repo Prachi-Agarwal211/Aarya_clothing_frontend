@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { gsap, ScrollTrigger } from '@/lib/gsapConfig';
 import { Button } from '../ui/button';
 import { useLogo } from '@/lib/siteConfigContext';
+import { useViewport } from '@/lib/hooks/useViewport';
 
 /**
  * AboutSection - Modern about section with scroll animations
@@ -32,6 +33,7 @@ const AboutSection = ({
   const imageRefs = useRef([]);
   const statsRef = useRef(null);
   const decorRef = useRef(null);
+  const { isMobile } = useViewport();
 
   // Get logo URL from backend via context
   const logoUrl = useLogo();
@@ -88,17 +90,19 @@ const AboutSection = ({
           }
         );
 
-        // Parallax on scroll
-        gsap.to(img, {
-          yPercent: speed,
-          ease: "none",
-          scrollTrigger: {
-            trigger: section,
-            start: "top bottom",
-            end: "bottom top",
-            scrub: 1
-          }
-        });
+        // Parallax on scroll — desktop only (scrub ties animation to every scroll frame)
+        if (!isMobile) {
+          gsap.to(img, {
+            yPercent: speed,
+            ease: "none",
+            scrollTrigger: {
+              trigger: section,
+              start: "top bottom",
+              end: "bottom top",
+              scrub: 1
+            }
+          });
+        }
       });
 
       // Stats counter animation with dynamic will-change
@@ -125,28 +129,32 @@ const AboutSection = ({
         });
       }
 
-      // Decorative element animation with dynamic will-change
+      // Decorative element — scroll-scrubbed rotation on desktop only
       if (decorRef.current) {
-        gsap.set(decorRef.current, { willChange: "transform" });
-        gsap.fromTo(decorRef.current,
-          { rotation: 0 },
-          {
-            rotation: 360,
-            ease: "none",
-            scrollTrigger: {
-              trigger: section,
-              start: "top bottom",
-              end: "bottom top",
-              scrub: 1
-            },
-            onComplete: () => gsap.set(decorRef.current, { willChange: "auto" })
-          }
-        );
+        if (isMobile) {
+          gsap.set(decorRef.current, { rotation: 0, willChange: "auto" });
+        } else {
+          gsap.set(decorRef.current, { willChange: "transform" });
+          gsap.fromTo(decorRef.current,
+            { rotation: 0 },
+            {
+              rotation: 360,
+              ease: "none",
+              scrollTrigger: {
+                trigger: section,
+                start: "top bottom",
+                end: "bottom top",
+                scrub: 1
+              },
+              onComplete: () => gsap.set(decorRef.current, { willChange: "auto" })
+            }
+          );
+        }
       }
 
     }); // Close gsap.context
     return () => ctx.revert(); // Only kills this component's GSAP animations
-  }, []);
+  }, [isMobile]);
 
   return (
     <section id={id} ref={sectionRef} className="relative py-16 sm:py-20 md:py-24 lg:py-32">

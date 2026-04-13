@@ -17,6 +17,9 @@ from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 import base64
 import os
 import hashlib
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class APIKeyEncryptor:
@@ -31,20 +34,22 @@ class APIKeyEncryptor:
         """
         # Get key from parameter or environment
         key = encryption_key or os.getenv('ENCRYPTION_KEY')
-        
+
         if not key:
-            # Generate a new key if none exists (for initial setup)
-            key = self.generate_key()
-            print(f"⚠️  WARNING: Generated new encryption key. Add this to your .env file:")
-            print(f"ENCRYPTION_KEY={key}")
-            print(f"⚠️  Store this key securely! If lost, all encrypted API keys will be unrecoverable.")
+            # SECURITY: Fail hard instead of auto-generating a key
+            # Auto-generated keys cause data loss on container restart
+            raise RuntimeError(
+                "ENCRYPTION_KEY environment variable is not set. "
+                "Generate one with: python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())' "
+                "and add it to your .env file. WARNING: If you lose this key, all encrypted data becomes unrecoverable!"
+            )
         
         # If key is not base64-encoded, encode it
         try:
             # Try to decode as base64
             base64.b64decode(key)
             self.key = key.encode()
-        except:
+        except (ValueError, binascii.Error):
             # Key is not base64, encode it
             self.key = self._encode_key(key)
         
@@ -98,7 +103,7 @@ class APIKeyEncryptor:
             decrypted = self.cipher.decrypt(encrypted_bytes)
             return decrypted.decode('utf-8')
         except Exception as e:
-            print(f"❌ Failed to decrypt API key: {e}")
+            logger.error(f"Failed to decrypt API key: {e}")
             return None
     
     def _is_encrypted(self, value: str) -> bool:
@@ -111,7 +116,7 @@ class APIKeyEncryptor:
             decoded = base64.urlsafe_b64decode(value.encode('utf-8'))
             # Fernet tokens have a specific structure
             return len(decoded) > 40 and decoded.startswith(b'gAAAAA')
-        except:
+        except (ValueError, binascii.Error):
             return False
     
     def re_encrypt(self, old_encrypted_key: str, new_encryption_key: str) -> str:
@@ -168,12 +173,12 @@ if __name__ == "__main__":
     
     # Test encryption/decryption
     original_key = "sk-test-1234567890abcdefghijklmnop"
-    print(f"Original: {original_key}")
-    
+    logger.info(f"Original: {original_key}")
+
     encrypted = encryptor.encrypt(original_key)
-    print(f"Encrypted: {encrypted}")
-    
+    logger.info(f"Encrypted: {encrypted}")
+
     decrypted = encryptor.decrypt(encrypted)
-    print(f"Decrypted: {decrypted}")
-    
-    print(f"Match: {original_key == decrypted}")
+    logger.info(f"Decrypted: {decrypted}")
+
+    logger.info(f"Match: {original_key == decrypted}")

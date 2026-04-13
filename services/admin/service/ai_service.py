@@ -915,7 +915,8 @@ def _execute_customer_tool(db: Session, tool_name: str, args: Dict) -> str:
                         elif bust <= 38: recommendation = "L"
                         elif bust <= 40: recommendation = "XL"
                         else: recommendation = "XXL"
-                except:
+                except (ValueError, IndexError, TypeError):
+                    # Measurement parsing failed — skip recommendation
                     pass
 
             return json.dumps({

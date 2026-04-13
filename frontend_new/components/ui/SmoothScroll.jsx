@@ -66,12 +66,21 @@ export const ScrollToTop = ({
   const [visible, setVisible] = React.useState(false);
 
   useEffect(() => {
+    let rafId = null;
     const handleScroll = () => {
-      setVisible(window.scrollY > showAfter);
+      if (rafId != null) return;
+      rafId = requestAnimationFrame(() => {
+        rafId = null;
+        setVisible(window.scrollY > showAfter);
+      });
     };
 
     window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
+    handleScroll();
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      if (rafId != null) cancelAnimationFrame(rafId);
+    };
   }, [showAfter]);
 
   const scrollToTop = () => {

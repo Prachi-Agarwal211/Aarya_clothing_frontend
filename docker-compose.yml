@@ -44,7 +44,7 @@ services:
     environment:
       POSTGRES_DB: aarya_clothing
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres123}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD environment variable is required. Set it in your .env file}
       PGDATA: /var/lib/postgresql/data/pgdata
     expose:
       - "5432"
@@ -79,9 +79,9 @@ services:
       dockerfile: docker/pgbouncer/Dockerfile
     container_name: aarya_pgbouncer
     environment:
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres123}
-      - PGBOUNCER_AUTH_PASSWORD=${POSTGRES_PASSWORD:-postgres123}
-      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:-postgres123}@pgbouncer:6432/aarya_clothing
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD environment variable is required}
+      - PGBOUNCER_AUTH_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD environment variable is required}
+      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD environment variable is required}@pgbouncer:6432/aarya_clothing
     volumes:
       - ./docker/pgbouncer/pgbouncer.ini:/etc/pgbouncer/pgbouncer.ini:ro
       - ./docker/pgbouncer/userlist.txt:/etc/pgbouncer/userlist.txt:ro
@@ -115,7 +115,7 @@ services:
       redis-server /etc/redis/redis.conf
       --requirepass ${REDIS_PASSWORD}
       --maxmemory 1gb
-      --maxmemory-policy allkeys-lru
+      --maxmemory-policy volatile-lru
     expose:
       - "6379"
     volumes:
@@ -143,7 +143,7 @@ services:
     image: getmeili/meilisearch:v1.6
     container_name: aarya_meilisearch
     environment:
-      - MEILI_MASTER_KEY=${MEILI_MASTER_KEY:-dev_master_key}
+      - MEILI_MASTER_KEY=${MEILI_MASTER_KEY:?MEILI_MASTER_KEY environment variable is required}
       - MEILI_ENV=${MEILI_ENV:-development}
       - MEILI_DB_PATH=/meili_data
     expose:
@@ -180,7 +180,7 @@ services:
       - SERVICE_NAME=core
       - ENVIRONMENT=${ENVIRONMENT:-development}
       - SECRET_KEY=${SECRET_KEY}
-      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:-postgres123}@pgbouncer:6432/aarya_clothing
+      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD environment variable is required}@pgbouncer:6432/aarya_clothing
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
       - REDIS_DB=0
       - ALGORITHM=HS256
@@ -191,7 +191,7 @@ services:
       - DEBUG=${AARYA_DEBUG:-false}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       # Same secret as commerce/payment — internal order-email API from Commerce
-      - INTERNAL_SERVICE_SECRET=${INTERNAL_SERVICE_SECRET:-aarya_internal_secret_change_me}
+      - INTERNAL_SERVICE_SECRET=${INTERNAL_SERVICE_SECRET:?INTERNAL_SERVICE_SECRET environment variable is required}
       # Password Policy
       - PASSWORD_MIN_LENGTH=8
       - PASSWORD_REQUIRE_UPPERCASE=true
@@ -273,7 +273,7 @@ services:
       - SERVICE_NAME=commerce
       - ENVIRONMENT=${ENVIRONMENT:-development}
       - SECRET_KEY=${SECRET_KEY}
-      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:-postgres123}@pgbouncer:6432/aarya_clothing
+      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD environment variable is required}@pgbouncer:6432/aarya_clothing
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/1
       - REDIS_DB=1
       - CORE_SERVICE_URL=http://core:5001
@@ -290,8 +290,8 @@ services:
       - X_API_KEY=${X_API_KEY:-}
       # Meilisearch
       - MEILISEARCH_URL=http://meilisearch:7700
-      - MEILISEARCH_API_KEY=${MEILI_MASTER_KEY:-dev_master_key}
-      - INTERNAL_SERVICE_SECRET=${INTERNAL_SERVICE_SECRET:-aarya_internal_secret_change_me}
+      - MEILISEARCH_API_KEY=${MEILI_MASTER_KEY:?MEILI_MASTER_KEY environment variable is required}
+      - INTERNAL_SERVICE_SECRET=${INTERNAL_SERVICE_SECRET:?INTERNAL_SERVICE_SECRET environment variable is required}
       # R2 Storage (optional)
       - R2_ACCOUNT_ID=${R2_ACCOUNT_ID:-}
       - R2_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID:-}
@@ -360,7 +360,7 @@ services:
       - SERVICE_NAME=payment
       - ENVIRONMENT=${ENVIRONMENT:-development}
       - SECRET_KEY=${SECRET_KEY}
-      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:-postgres123}@pgbouncer:6432/aarya_clothing
+      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD environment variable is required}@pgbouncer:6432/aarya_clothing
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/2
       - REDIS_DB=2
       - CORE_SERVICE_URL=http://core:5001
@@ -382,7 +382,7 @@ services:
       - PAYMENT_FAILURE_URL=${PAYMENT_FAILURE_URL:-https://aaryaclothing.in/payment/failure}
       - PAYMENT_NOTIFY_URL=${PAYMENT_NOTIFY_URL:-https://aaryaclothing.in/api/v1/webhooks/razorpay}
       - COMMERCE_SERVICE_URL=http://commerce:5002
-      - INTERNAL_SERVICE_SECRET=${INTERNAL_SERVICE_SECRET:-aarya_internal_secret_change_me}
+      - INTERNAL_SERVICE_SECRET=${INTERNAL_SERVICE_SECRET:?INTERNAL_SERVICE_SECRET environment variable is required}
       - ALLOWED_ORIGINS=["http://localhost:6004","http://localhost:6005","http://127.0.0.1:6004","http://127.0.0.1:6005","https://aaryaclothing.in","https://www.aaryaclothing.in"]
       - DEBUG=${AARYA_DEBUG:-false}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
@@ -431,7 +431,7 @@ services:
       - SERVICE_NAME=admin
       - ENVIRONMENT=${ENVIRONMENT:-development}
       - SECRET_KEY=${SECRET_KEY}
-      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:-postgres123}@pgbouncer:6432/aarya_clothing
+      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD environment variable is required}@pgbouncer:6432/aarya_clothing
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/3
       - REDIS_DB=3
       - ALGORITHM=HS256
@@ -596,10 +596,10 @@ services:
     env_file:
       - .env
     environment:
-      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:-postgres123}@pgbouncer:6432/aarya_clothing
+      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD environment variable is required}@pgbouncer:6432/aarya_clothing
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/2
       - COMMERCE_SERVICE_URL=http://commerce:5002
-      - INTERNAL_SERVICE_SECRET=${INTERNAL_SERVICE_SECRET:-aarya_internal_secret_change_me}
+      - INTERNAL_SERVICE_SECRET=${INTERNAL_SERVICE_SECRET:?INTERNAL_SERVICE_SECRET environment variable is required}
       # Database connection pool (PgBouncer-compatible)
       - DATABASE_POOL_SIZE=15
       - DATABASE_MAX_OVERFLOW=10
@@ -637,7 +637,7 @@ services:
       - POSTGRES_HOST=postgres
       - POSTGRES_DB=aarya_clothing
       - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres123}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD environment variable is required}
       - SCHEDULE=@daily
       - BACKUP_KEEP_DAYS=7
       - BACKUP_KEEP_WEEKS=4
@@ -697,7 +697,7 @@ services:
     container_name: aarya_grafana
     environment:
       - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-aarya_grafana_2024}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD environment variable is required}
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_SERVER_ROOT_URL=https://aaryaclothing.in/monitoring/
       - GF_SERVER_SERVE_FROM_SUB_PATH=true
@@ -762,7 +762,7 @@ services:
     image: prometheuscommunity/postgres-exporter:v0.15.0
     container_name: aarya_postgres_exporter
     environment:
-      - DATA_SOURCE_NAME=postgresql://postgres:${POSTGRES_PASSWORD:-postgres123}@postgres:5432/aarya_clothing?sslmode=disable
+      - DATA_SOURCE_NAME=postgresql://postgres:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD environment variable is required}@postgres:5432/aarya_clothing?sslmode=disable
     expose:
       - "9187"
     depends_on:

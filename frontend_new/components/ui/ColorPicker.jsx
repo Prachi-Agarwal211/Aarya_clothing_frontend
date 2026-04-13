@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { Pipette, ChevronDown } from 'lucide-react';
+import { getColorName } from '@/lib/colorMap';
 
 /**
  * Professional HSL gradient color picker.
@@ -79,7 +80,7 @@ function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
 
 // Derive a readable color name from hex
 function nameFromHex(hex) {
-  return hex.toUpperCase();
+  return getColorName(hex) || hex.toUpperCase();
 }
 
 export default function ColorPicker({ value, onChange, label = 'Color' }) {

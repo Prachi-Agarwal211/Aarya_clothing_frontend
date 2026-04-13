@@ -55,8 +55,9 @@ const ProductCard = ({
   const toast = useToast();
   const router = useRouter();
 
-  // Validate product ID - prevent null/undefined URLs
-  const productHref = id ? `/products/${id}` : '/products';
+  // Build product URL from slug first (preferred), then id
+  const productHandle = product.slug || id;
+  const productHref = productHandle ? `/products/${productHandle}` : '/products';
 
   // Detect if we're on landing page to change button text
   // Check pathname AND hash fragment for hash-routed landing pages

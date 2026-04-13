@@ -33,6 +33,7 @@ class InventoryResponse(BaseModel):
     size: Optional[str] = None
     color: Optional[str] = None
     color_hex: Optional[str] = None
+    color_name: Optional[str] = None
     image_url: Optional[str] = None
     quantity: int
     reserved_quantity: int
@@ -41,7 +42,7 @@ class InventoryResponse(BaseModel):
     is_low_stock: bool
     is_out_of_stock: bool
     updated_at: datetime
-    
+
     class Config:
         from_attributes = True
 

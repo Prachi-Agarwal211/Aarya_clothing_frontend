@@ -56,6 +56,68 @@ def _r2_url(path: str) -> str:
     return f"{r2_base}/{path.lstrip('/')}"
 
 
+# Common hex color to human-readable name mapping
+HEX_COLOR_TO_NAME = {
+    '#000000': 'Black',
+    '#FFFFFF': 'White',
+    '#DC2626': 'Red',
+    '#800000': 'Maroon',
+    '#EC4899': 'Pink',
+    '#F43F5E': 'Rose',
+    '#FFDAB9': 'Peach',
+    '#FF7F50': 'Coral',
+    '#F97316': 'Orange',
+    '#B7410E': 'Rust',
+    '#E3A849': 'Mustard',
+    '#FFD700': 'Gold',
+    '#EAB308': 'Yellow',
+    '#C5D94C': 'Lime Yellow',
+    '#84CC16': 'Lime',
+    '#22C55E': 'Green',
+    '#2E8B57': 'Sea Green',
+    '#4A7C59': 'Mahendi',
+    '#808000': 'Olive',
+    '#14B8A6': 'Teal',
+    '#40E0D0': 'Turquoise',
+    '#87CEEB': 'Sky Blue',
+    '#3B82F6': 'Blue',
+    '#1E3A5F': 'Navy',
+    '#A855F7': 'Purple',
+    '#E6E6FA': 'Lavender',
+    '#C8A2C8': 'Lilac',
+    '#E0B0FF': 'Mauve',
+    '#FF00FF': 'Magenta',
+    '#722F37': 'Wine',
+    '#800020': 'Burgundy',
+    '#92400E': 'Brown',
+    '#F5F5DC': 'Beige',
+    '#FFFFF0': 'Ivory',
+    '#FFFDD0': 'Cream',
+    '#9CA3AF': 'Grey',
+    '#C0C0C0': 'Silver',
+    '#36454F': 'Charcoal',
+    '#0A5C4A': 'Emerald Green',
+    '#2C2A5A': 'Navy Blue',
+    '#2F7F7A': 'Teal Green',
+}
+
+
+def _is_hex_color(value: str) -> bool:
+    """Check if a string is a hex color code."""
+    if not value:
+        return False
+    import re
+    return bool(re.match(r'^#[0-9a-fA-F]{6}$', value.strip()))
+
+
+def _hex_to_color_name(hex_color: str) -> str:
+    """Convert hex color to human-readable name."""
+    if not hex_color:
+        return None
+    hex_upper = hex_color.strip().upper()
+    return HEX_COLOR_TO_NAME.get(hex_upper, None)
+
+
 def _enrich_images(images) -> list:
     """Convert product image ORM list to enriched dicts with full R2 URLs."""
     return [
@@ -75,13 +137,13 @@ def _enrich_images(images) -> list:
 def _enrich_inventory(inventory, user_role: str = None) -> list:
     """
     Convert inventory ORM list to enriched dicts.
-    
+
     Role-based filtering:
     - Admin/Staff: See full inventory data (quantities, thresholds, etc.)
-    - Customers/Unauthenticated: See only size, color, and in_stock boolean
+    - Customers/Unauthenticated: See only size, color, color_name, and in_stock boolean
     """
     is_admin_user = is_staff(user_role) if user_role else False
-    
+
     if is_admin_user:
         # Full inventory data for admin/staff
         return [
@@ -92,6 +154,7 @@ def _enrich_inventory(inventory, user_role: str = None) -> list:
                 "size": inv.size,
                 "color": inv.color,
                 "color_hex": getattr(inv, 'color_hex', None),
+                "color_name": inv.color if inv.color and not _is_hex_color(inv.color) else _hex_to_color_name(getattr(inv, 'color_hex', '')),
                 "quantity": inv.quantity,
                 "reserved_quantity": inv.reserved_quantity,
                 "available_quantity": inv.available_quantity,
@@ -110,6 +173,7 @@ def _enrich_inventory(inventory, user_role: str = None) -> list:
                 "size": inv.size,
                 "color": inv.color,
                 "color_hex": getattr(inv, 'color_hex', None),
+                "color_name": inv.color if inv.color and not _is_hex_color(inv.color) else _hex_to_color_name(getattr(inv, 'color_hex', '')),
                 "in_stock": not inv.is_out_of_stock,
             }
             for inv in (inventory or [])
@@ -130,11 +194,17 @@ def _enrich_product(product, db: Session = None, user_role: str = None) -> dict:
     colors = sorted({inv.color for inv in inventory_list if inv.color})
     is_admin_user = is_staff(user_role) if user_role else False
 
-    # Build color hex map from inventory data
+    # Build color hex map and color name map from inventory data
     color_hex_map = {}
+    color_name_map = {}
     for inv in inventory_list:
-        if inv.color and getattr(inv, 'color_hex', None):
-            color_hex_map[inv.color] = inv.color_hex
+        if inv.color:
+            if getattr(inv, 'color_hex', None):
+                color_hex_map[inv.color] = inv.color_hex
+            # Store human-readable color name
+            color_name = inv.color if not _is_hex_color(inv.color) else _hex_to_color_name(getattr(inv, 'color_hex', ''))
+            if color_name:
+                color_name_map[inv.color] = color_name
 
     return {
         "id": product.id,
@@ -157,7 +227,7 @@ def _enrich_product(product, db: Session = None, user_role: str = None) -> dict:
         "images": _enrich_images(product.images),
         "inventory": _enrich_inventory(inventory_list, user_role),
         "sizes": sizes,
-        "colors": [{"name": c, "hex": color_hex_map.get(c, "#888888")} for c in colors],
+        "colors": [{"name": c, "hex": color_hex_map.get(c, "#888888"), "display_name": color_name_map.get(c, c)} for c in colors],
         "is_active": product.is_active,
         "is_featured": product.is_featured,
         "is_new_arrival": product.is_new_arrival,

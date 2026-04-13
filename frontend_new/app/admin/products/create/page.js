@@ -500,6 +500,11 @@ export default function CreateProductPage() {
                             }}
                             label="Color"
                           />
+                          {variant.color && (
+                            <p className="text-[11px] text-[#EAE0D5]/50 mt-1">
+                              Name: {variant.color}
+                            </p>
+                          )}
                         </div>
                       </div>
                       {/* Row 2: Qty + Low Stock + Delete */}

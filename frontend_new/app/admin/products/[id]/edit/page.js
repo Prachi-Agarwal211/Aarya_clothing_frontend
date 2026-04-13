@@ -855,6 +855,9 @@ export default function EditProductPage() {
                         }}
                         label={<>Color <span className="text-red-400">*</span></>}
                       />
+                      {variantForm.color && (
+                        <p className="text-[11px] text-[#EAE0D5]/50 mt-1">Name: {variantForm.color}</p>
+                      )}
                       {variantErrors.color && <p className="text-red-400 text-xs mt-1">{variantErrors.color}</p>}
                     </div>
                     <div>

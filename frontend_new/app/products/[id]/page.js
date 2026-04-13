@@ -29,7 +29,29 @@ import { useCart } from '@/lib/cartContext';
 import { useAuth } from '@/lib/authContext';
 import logger from '@/lib/logger';
 import { useAlertToast } from '@/lib/useAlertToast';
-import { getHexFromName } from '@/lib/colorMap';
+import { getColorName, getHexFromName } from '@/lib/colorMap';
+
+const HEX_COLOR_RE = /^#([0-9a-f]{6})$/i;
+
+const normalizeHex = (value) => {
+  if (!value || typeof value !== 'string') return null;
+  const v = value.trim();
+  if (!HEX_COLOR_RE.test(v)) return null;
+  return v.toUpperCase();
+};
+
+const isHexColorValue = (value) => !!normalizeHex(value);
+
+const getVariantColorKey = (variant) => {
+  if (!variant) return null;
+  return (
+    normalizeHex(variant.color_hex) ||
+    normalizeHex(variant.color) ||
+    normalizeHex(variant.color_name) ||
+    normalizeHex(getHexFromName(variant.color)) ||
+    normalizeHex(getHexFromName(variant.color_name))
+  );
+};
 
 export default function ProductDetailPage() {
   const params = useParams();
@@ -100,15 +122,56 @@ export default function ProductDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [productId]);
 
+  const selectedColorKey = selectedColor
+    ? (normalizeHex(selectedColor.hex) || normalizeHex(getHexFromName(selectedColor.name)))
+    : null;
+
+  const getMatchingVariant = (size, colorKey = selectedColorKey) => {
+    if (!product?.inventory?.length) return null;
+    return product.inventory.find((inv) => (
+      inv.size === size && (!colorKey || getVariantColorKey(inv) === colorKey)
+    )) || null;
+  };
+
+  const getVariantAvailableQty = (variant) => {
+    if (!variant) return null;
+    if (typeof variant.available_quantity === 'number') return variant.available_quantity;
+    if (typeof variant.quantity === 'number' && typeof variant.reserved_quantity === 'number') {
+      return Math.max(0, variant.quantity - variant.reserved_quantity);
+    }
+    if (typeof variant.quantity === 'number') return variant.quantity;
+    return null;
+  };
+
+  const isSizeAvailable = (size) => {
+    const v = getMatchingVariant(size);
+    return !!v?.in_stock;
+  };
+
+  const colorHasAnyStock = (color) => {
+    const colorKey = normalizeHex(color?.hex) || normalizeHex(getHexFromName(color?.name));
+    if (!product?.inventory?.length || !colorKey) return true;
+    return product.inventory.some((inv) => getVariantColorKey(inv) === colorKey && inv.in_stock);
+  };
+
   // Update selected variant when size or color changes
   useEffect(() => {
-    if (product && product.inventory) {
-      const variant = product.inventory.find(
-        (inv) => inv.size === selectedSize && (!selectedColor || inv.color === selectedColor.name)
-      );
-      setSelectedVariant(variant);
+    if (product?.inventory?.length) {
+      const variant = getMatchingVariant(selectedSize);
+      setSelectedVariant(variant || null);
     }
-  }, [selectedSize, selectedColor, product]);
+  }, [selectedSize, selectedColorKey, product]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Keep selected size valid for the currently selected color.
+  useEffect(() => {
+    if (!product?.sizes?.length) return;
+    if (selectedSize && isSizeAvailable(selectedSize)) return;
+
+    const firstAvailable = product.sizes.find((size) => isSizeAvailable(size));
+    if (firstAvailable) {
+      setSelectedSize(firstAvailable);
+    }
+  }, [selectedColorKey, product]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchProduct = async () => {
     try {
@@ -146,9 +209,29 @@ export default function ProductDetailPage() {
         const colorsFromInv = [...new Map(
           (product.inventory || [])
             .filter(i => i.color)
-            .map(i => [i.color, { name: i.color, hex: i.color_hex || getHexFromName(i.color) }])
+            .map(i => {
+              const hex = normalizeHex(i.color_hex) || normalizeHex(getHexFromName(i.color)) || '#888888';
+              // Prefer color_name from API, then color field (if it's a name), then fallback to hex-to-name lookup
+              const displayName = i.color_name || (
+                isHexColorValue(i.color)
+                  ? (getColorName(hex) || i.color.toUpperCase())
+                  : i.color
+              );
+              return [hex, { name: i.color, displayName, hex }];
+            })
         ).values()];
         product.colors = colorsFromInv;
+      } else {
+        product.colors = product.colors.map((color) => {
+          const hex = normalizeHex(color.hex) || normalizeHex(color.name) || normalizeHex(getHexFromName(color.name)) || '#888888';
+          // Prefer display_name/displayName from API, then fallback to hex-to-name lookup
+          const displayName = color.display_name || color.displayName || (
+            isHexColorValue(color.name)
+              ? (getColorName(hex) || color.name.toUpperCase())
+              : color.name
+          );
+          return { ...color, hex, displayName };
+        });
       }
 
       setProduct(product);
@@ -163,9 +246,20 @@ export default function ProductDetailPage() {
       const reviewsData = await reviewsApi.list(product.id);
       setReviews(reviewsData.reviews || reviewsData || []);
 
-      // Auto-select first available size/color
-      if (product.sizes?.length > 0) setSelectedSize(product.sizes[0]);
-      if (product.colors?.length > 0) setSelectedColor(product.colors[0]);
+      // Auto-select first color/size that is actually in stock.
+      const firstColorWithStock = product.colors?.find((color) => {
+        const colorKey = normalizeHex(color.hex) || normalizeHex(getHexFromName(color.name));
+        return (product.inventory || []).some((inv) => getVariantColorKey(inv) === colorKey && inv.in_stock);
+      }) || product.colors?.[0];
+      if (firstColorWithStock) setSelectedColor(firstColorWithStock);
+
+      const firstSizeWithStock = product.sizes?.find((size) => {
+        if (!firstColorWithStock) return true;
+        const colorKey = normalizeHex(firstColorWithStock.hex) || normalizeHex(getHexFromName(firstColorWithStock.name));
+        const inv = (product.inventory || []).find((item) => item.size === size && getVariantColorKey(item) === colorKey);
+        return inv?.in_stock;
+      }) || product.sizes?.[0];
+      if (firstSizeWithStock) setSelectedSize(firstSizeWithStock);
 
       // Check if in wishlist
       if (isAuthenticated) {
@@ -196,6 +290,17 @@ export default function ProductDetailPage() {
     const hasSizes = product?.sizes?.length > 0;
     if (hasSizes && !selectedSize) {
       showAlert('Please select a size');
+      return;
+    }
+
+    if (hasSizes && !selectedVariant?.in_stock) {
+      showAlert('Selected size/color is out of stock', 'error');
+      return;
+    }
+
+    const availableQty = getVariantAvailableQty(selectedVariant);
+    if (availableQty !== null && availableQty < quantity) {
+      showAlert(`Only ${availableQty} left for this variant`, 'error');
       return;
     }
 
@@ -282,6 +387,7 @@ export default function ProductDetailPage() {
   const discountPercent = product?.mrp > product?.price
     ? Math.round(((product.mrp - product.price) / product.mrp) * 100)
     : 0;
+  const requiresVariantSelection = (product?.sizes?.length ?? 0) > 0;
 
   if (loading) {
     return (
@@ -499,20 +605,28 @@ export default function ProductDetailPage() {
               {/* Color Selection */}
               {product.colors && product.colors.length > 0 && (
                 <div>
-                  <p className="text-sm text-[#EAE0D5]/70 mb-2">Color: <span className="text-[#EAE0D5]">{selectedColor?.name || 'Select'}</span></p>
+                  <p className="text-sm text-[#EAE0D5]/70 mb-2">
+                    Color: <span className="text-[#EAE0D5]">{selectedColor?.displayName || selectedColor?.name || 'Select'}</span>
+                  </p>
                   <div className="flex gap-3">
-                    {product.colors.map((color) => (
+                    {product.colors.map((color) => {
+                      const colorOutOfStock = !colorHasAnyStock(color);
+                      const colorKey = normalizeHex(color?.hex) || normalizeHex(getHexFromName(color?.name));
+                      return (
                       <button
                         key={color.name}
-                        onClick={() => setSelectedColor(color)}
-                        className={`w-10 h-10 rounded-full border-2 transition-all ${selectedColor?.name === color.name
+                        onClick={() => !colorOutOfStock && setSelectedColor(color)}
+                        disabled={colorOutOfStock}
+                        className={`w-10 h-10 rounded-full border-2 transition-all ${selectedColorKey === colorKey
                           ? 'border-[#F2C29A] scale-110'
-                          : 'border-[#B76E79]/20 hover:border-[#B76E79]/40'
-                          }`}
+                          : 'border-[#B76E79]/20 hover:border-[#B76E79]/40'} ${
+                          colorOutOfStock ? 'opacity-30 cursor-not-allowed' : ''
+                        }`}
                         style={{ backgroundColor: color.hex }}
-                        title={color.name}
+                        title={`${color.displayName || color.name}${colorOutOfStock ? ' (Out of Stock)' : ''}`}
                       />
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -530,19 +644,48 @@ export default function ProductDetailPage() {
                   </button>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  {product.sizes?.map((size) => (
-                    <button
-                      key={size}
-                      onClick={() => setSelectedSize(size)}
-                      className={`px-4 py-2 rounded-lg border transition-all ${selectedSize === size
-                        ? 'bg-[#7A2F57]/30 border-[#B76E79] text-[#F2C29A]'
-                        : 'bg-[#0B0608]/40 border-[#B76E79]/20 text-[#EAE0D5]/70 hover:border-[#B76E79]/40'
+                  {product.sizes?.map((size) => {
+                    const variant = getMatchingVariant(size);
+                    const hasVariant = variant !== null;
+                    const inStock = !!variant?.in_stock;
+                    const availableQty = getVariantAvailableQty(variant);
+                    const lowStock = inStock && availableQty !== null && availableQty > 0 && availableQty <= 3;
+                    const sizeNotAvailableForColor = !hasVariant && selectedColorKey;
+                    return (
+                      <button
+                        key={size}
+                        onClick={() => inStock && setSelectedSize(size)}
+                        disabled={!inStock}
+                        className={`px-4 py-2 rounded-lg border transition-all ${
+                          sizeNotAvailableForColor
+                            ? 'bg-[#0B0608]/20 border-[#B76E79]/10 text-[#EAE0D5]/30 cursor-not-allowed'
+                            : !inStock
+                              ? 'bg-[#0B0608]/20 border-[#B76E79]/10 text-[#EAE0D5]/30 cursor-not-allowed line-through'
+                              : selectedSize === size
+                                ? 'bg-[#7A2F57]/30 border-[#B76E79] text-[#F2C29A]'
+                                : 'bg-[#0B0608]/40 border-[#B76E79]/20 text-[#EAE0D5]/70 hover:border-[#B76E79]/40'
                         }`}
-                    >
-                      {size}
-                    </button>
-                  ))}
+                        title={sizeNotAvailableForColor ? `${size} not available for this color` : !inStock ? `${size} is out of stock` : `${size}`}
+                      >
+                        <div className="leading-tight">
+                          <div>{size}</div>
+                          {sizeNotAvailableForColor && <div className="text-[10px] text-[#EAE0D5]/40 mt-0.5">N/A</div>}
+                          {!sizeNotAvailableForColor && !inStock && <div className="text-[10px] text-red-300/80 mt-0.5">Out</div>}
+                          {lowStock && <div className="text-[10px] text-amber-300 mt-0.5">Only {availableQty} left</div>}
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
+                {selectedVariant?.in_stock && (() => {
+                  const qty = getVariantAvailableQty(selectedVariant);
+                  return qty !== null && qty > 0 && qty <= 3 ? (
+                    <p className="text-xs text-amber-300 mt-2">Only {qty} left in selected variant</p>
+                  ) : null;
+                })()}
+                {!selectedVariant?.in_stock && selectedSize && (
+                  <p className="text-xs text-red-300 mt-2">Selected size/color is out of stock</p>
+                )}
               </div>
 
               {/* Quantity */}
@@ -574,10 +717,10 @@ export default function ProductDetailPage() {
               <div className="flex gap-3">
                 <button
                   onClick={handleAddToCart}
-                  disabled={!product.in_stock || addingToCart}
+                  disabled={!product.in_stock || (requiresVariantSelection && !selectedVariant?.in_stock) || addingToCart}
                   className="flex-1 py-3.5 bg-gradient-to-r from-[#7A2F57] to-[#B76E79] text-white font-semibold rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {addingToCart ? 'Adding...' : 'Add to Cart'}
+                  {!product.in_stock ? 'Out of Stock' : (requiresVariantSelection && !selectedVariant?.in_stock) ? 'Variant Out of Stock' : addingToCart ? 'Adding...' : 'Add to Cart'}
                 </button>
                 <button
                   onClick={handleWishlist}
@@ -800,10 +943,10 @@ export default function ProductDetailPage() {
           </div>
           <button
             onClick={handleAddToCart}
-            disabled={!product.in_stock || addingToCart}
+            disabled={!product.in_stock || (requiresVariantSelection && !selectedVariant?.in_stock) || addingToCart}
             className="flex-shrink-0 px-5 py-2.5 bg-gradient-to-r from-[#7A2F57] to-[#B76E79] text-white font-semibold rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed text-sm"
           >
-            {!product.in_stock ? 'Out of Stock' : addingToCart ? 'Adding...' : 'Add to Cart'}
+            {!product.in_stock ? 'Out of Stock' : (requiresVariantSelection && !selectedVariant?.in_stock) ? 'Variant Out' : addingToCart ? 'Adding...' : 'Add to Cart'}
           </button>
         </div>
       )}

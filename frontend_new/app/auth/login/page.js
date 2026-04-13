@@ -71,6 +71,7 @@ function LoginForm() {
   // Get redirect URL from query params (set by middleware or referring page)
   // Note: Only redirect_url is supported (redirect param removed for consistency)
   const redirectUrl = searchParams.get('redirect_url') || null;
+  const showSessionResetNotice = searchParams.get('reason') === 'session_reset';
 
   // NOTE: Redirect after login is handled in handleSubmit, not in useEffect
   // This prevents race conditions between form handler and effect
@@ -118,26 +119,33 @@ function LoginForm() {
       // EMAIL_NOT_VERIFIED: redirect to OTP / verification step (method matches how they signed up)
       // Try multiple ways to extract the error detail from the response
       let detail = null;
-      
-      // Method 1: err.data.detail (from baseApi.js error.data)
-      if (err?.data) {
+
+      // Method 1: err.data.error.details (actual structured error from our backend)
+      if (err?.data?.error?.details) {
+        detail = err.data.error.details;
+      }
+      // Method 2: err.data.detail (standard FastAPI HTTPException detail)
+      else if (err?.data) {
         detail = err.data.detail ?? err.data;
       }
-      // Method 2: err.response.data.detail (alternative structure)
+      // Method 3: err.response?.data?.detail (alternative structure)
       if (!detail && err?.response?.data) {
         detail = err.response.data.detail ?? err.response.data;
       }
-      
-      // Parse stringified JSON if needed
-      if (typeof detail === 'string') {
-        try {
-          detail = JSON.parse(detail);
-        } catch {
-          detail = {};
+      // Method 4: Parse Python repr string from err.message
+      if (!detail || typeof detail === 'string') {
+        const msg = err.message || '';
+        if (msg.includes('EMAIL_NOT_VERIFIED')) {
+          detail = { error_code: 'EMAIL_NOT_VERIFIED' };
+          // Extract email from the Python dict string: 'email': 'test@example.com'
+          const emailMatch = msg.match(/'email':\s*'([^']+)'/);
+          if (emailMatch) detail.email = emailMatch[1];
+          const methodMatch = msg.match(/'signup_verification_method':\s*'([^']+)'/);
+          if (methodMatch) detail.signup_verification_method = methodMatch[1];
         }
       }
       if (!detail || typeof detail !== 'object') detail = {};
-      
+
       // Check for EMAIL_NOT_VERIFIED error code
       if (err.status === 403 && detail.error_code === 'EMAIL_NOT_VERIFIED') {
         const email = detail.email || identifier.trim();
@@ -150,10 +158,9 @@ function LoginForm() {
       }
       
       // Also check error message string for EMAIL_NOT_VERIFIED (fallback)
-      if (err.message && err.message.includes('EMAIL_NOT_VERIFIED')) {
-        const parts = err.message.replace('EMAIL_NOT_VERIFIED:', '').split(':');
-        const email = parts[0] || identifier.trim();
-        const method = parts[1] || 'otp_email';
+      if (!detail?.error_code && err.message && err.message.includes('EMAIL_NOT_VERIFIED')) {
+        const email = detail.email || identifier.trim();
+        const method = detail.signup_verification_method || 'otp_email';
         logger.info(`Email not verified (from message) for ${email}, redirecting to verification`);
         router.push(
           `/auth/register?step=verify&email=${encodeURIComponent(email)}&method=${encodeURIComponent(method)}`
@@ -210,6 +217,14 @@ function LoginForm() {
       </div>
 
       {/* Redirect notice */}
+      {showSessionResetNotice && (
+        <div className="w-full mb-4 p-3 bg-amber-900/20 border border-amber-500/40 rounded-xl text-center" role="status">
+          <p className="text-amber-200 text-sm">
+            Security update applied. Please sign in again to continue.
+          </p>
+        </div>
+      )}
+
       {redirectUrl && (
         <div className="w-full mb-4 p-3 bg-[#7A2F57]/20 border border-[#B76E79]/30 rounded-xl text-center" role="status">
           <p className="text-[#F2C29A] text-sm">

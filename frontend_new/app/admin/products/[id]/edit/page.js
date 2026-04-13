@@ -253,8 +253,12 @@ export default function EditProductPage() {
 
   // Remove existing image
   const removeExistingImage = async (imageId) => {
+    if (!numericProductId) {
+      setErrors(prev => ({ ...prev, _general: 'Product ID is not ready yet. Please refresh and try again.' }));
+      return;
+    }
     try {
-      await productsApi.deleteImage(productId, imageId);
+      await productsApi.deleteImage(numericProductId, imageId);
       setExistingImages(prev => prev.filter(img => img.id !== imageId));
     } catch (err) {
       setErrors(prev => ({ ...prev, _general: 'Failed to delete image' }));
@@ -263,8 +267,12 @@ export default function EditProductPage() {
 
   // Set image as primary
   const setAsPrimaryImage = async (imageId) => {
+    if (!numericProductId) {
+      setErrors(prev => ({ ...prev, _general: 'Product ID is not ready yet. Please refresh and try again.' }));
+      return;
+    }
     try {
-      await productsApi.setPrimaryImage(productId, imageId);
+      await productsApi.setPrimaryImage(numericProductId, imageId);
       // Update local state to reflect the change
       setExistingImages(prev => prev.map(img => ({
         ...img,
@@ -287,9 +295,10 @@ export default function EditProductPage() {
 
   // Save image order to backend
   const saveImageOrder = async () => {
+    if (!numericProductId) return;
     try {
       const imageIds = existingImages.map(img => img.id);
-      await productsApi.reorderImages(productId, imageIds);
+      await productsApi.reorderImages(numericProductId, imageIds);
     } catch (err) {
       logger.error('Failed to save image order:', err);
     }

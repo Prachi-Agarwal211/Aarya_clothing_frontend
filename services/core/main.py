@@ -345,9 +345,13 @@ async def register(
                 otp_type=OTPType.EMAIL,
                 purpose="registration"
             )
-            otp_service.send_otp(otp_request)
+            try:
+                otp_service.send_otp(otp_request)
+            except ValueError as e:
+                # Rate limited or cooldown — still return success, OTP will be sent later
+                logger.warning(f"OTP send failed during registration (queue will retry): {e}")
             message = "Account created successfully. Please check your email for the verification code."
-        
+
         elif user_data.verification_method == "otp_sms":
             # SMS OTP verification
             from service.otp_service import OTPService
@@ -358,7 +362,10 @@ async def register(
                 otp_type=OTPType.SMS,
                 purpose="registration"
             )
-            otp_service.send_otp(otp_request)
+            try:
+                otp_service.send_otp(otp_request)
+            except ValueError as e:
+                logger.warning(f"SMS OTP send failed during registration (queue will retry): {e}")
             message = "Account created successfully. Please check your phone for the verification code."
 
         return {
@@ -598,8 +605,16 @@ async def send_verification_otp(
 
     otp_service = OTPService(db)
     otp_request = otp_request_in.model_copy(update={"purpose": "registration"})
-    result = otp_service.send_otp(otp_request)
-    return result
+    try:
+        return otp_service.send_otp(otp_request)
+    except ValueError as e:
+        message = str(e)
+        if "Too many OTP requests" in message or "Please wait" in message:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=message,
+            )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=message)
 
 
 @app.post("/api/v1/auth/resend-verification",

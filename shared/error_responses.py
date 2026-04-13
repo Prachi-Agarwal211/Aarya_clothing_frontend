@@ -2,6 +2,7 @@
 Standardized error response format for all Aarya Clothing microservices.
 Ensures consistent error shape across Core, Commerce, Payment, Admin services.
 """
+import json
 import logging
 import traceback
 from typing import Any, Optional
@@ -42,14 +43,21 @@ def error_response(
 
 async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
     """Consistent JSON format for HTTPException."""
+    if isinstance(exc.detail, dict):
+        # Extract a human-readable message from structured error details
+        message = exc.detail.get("message", str(exc.detail))
+        details = exc.detail
+    else:
+        message = str(exc.detail)
+        details = None
     return JSONResponse(
         status_code=exc.status_code,
         content=error_response(
             error_type=_status_to_type(exc.status_code),
-            message=exc.detail if isinstance(exc.detail, str) else str(exc.detail),
+            message=message,
             status_code=exc.status_code,
             path=str(request.url.path),
-            details=exc.detail if not isinstance(exc.detail, str) else None,
+            details=details,
         ),
     )
 

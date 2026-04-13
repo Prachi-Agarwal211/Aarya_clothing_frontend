@@ -67,3 +67,12 @@ docker/pgbouncer/userlist.txt
 
 # Local PostgreSQL dumps (scripts/backup-db.sh, daily-backup.sh)
 backups/
+
+# Let's Encrypt / Certbot SSL certificates (auto-generated, contain sensitive data)
+docker/certbot/conf/
+docker/certbot/www/
+
+# Memory files (AI agent workspace)
+memory/
+
+# OS / IDE

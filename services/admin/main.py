@@ -971,20 +971,28 @@ async def bulk_update_inventory(
 
 @app.get("/api/v1/staff/products/{product_id}/variants", tags=["Staff Variants"])
 async def get_variants(
-    product_id: int, db: Session = Depends(get_db), user: dict = Depends(require_staff)
+    product_id: str, db: Session = Depends(get_db), user: dict = Depends(require_staff)
 ):
+    # Resolve slug or ID to actual product ID
+    resolved = db.execute(
+        text("SELECT id FROM products WHERE id::text = :pid OR slug = :pid"),
+        {"pid": product_id},
+    ).fetchone()
+    if not resolved:
+        raise HTTPException(status_code=404, detail="Product not found")
+    pid = resolved[0]
     rows = db.execute(
         text(
             "SELECT * FROM inventory WHERE product_id = :pid ORDER BY size, color, sku"
         ),
-        {"pid": product_id},
+        {"pid": pid},
     ).fetchall()
     return {"variants": [dict(r._mapping) for r in rows]}
 
 
 @app.post("/api/v1/staff/products/{product_id}/variants", tags=["Staff Variants"])
 async def create_variant(
-    product_id: int,
+    product_id: str,
     data: VariantCreate,
     db: Session = Depends(get_db),
     user: dict = Depends(require_staff),
@@ -2672,7 +2680,7 @@ async def refresh_all_embeddings_force(
 
 @app.post("/api/v1/ai/embeddings/product/{product_id}", tags=["AI Embeddings"])
 async def refresh_single_embedding(
-    product_id: int,
+    product_id: str,
     db: Session = Depends(get_db),
     current_user: dict = Depends(require_admin),
 ):
@@ -3497,7 +3505,7 @@ async def add_landing_product(
     "/api/v1/admin/landing/products/{landing_product_id}", tags=["Landing Config"]
 )
 async def update_landing_product(
-    landing_product_id: int,
+    landing_product_id: str,
     data: LandingProductUpdate,
     db: Session = Depends(get_db),
     user: dict = Depends(require_admin),
@@ -3524,7 +3532,7 @@ async def update_landing_product(
     "/api/v1/admin/landing/products/{landing_product_id}", tags=["Landing Config"]
 )
 async def delete_landing_product(
-    landing_product_id: int,
+    landing_product_id: str,
     db: Session = Depends(get_db),
     user: dict = Depends(require_admin),
 ):
@@ -4749,15 +4757,23 @@ async def admin_create_product(
 
 @app.patch("/api/v1/admin/products/{product_id}", tags=["Admin Products"])
 async def admin_update_product(
-    product_id: int,
+    product_id: str,
     data: ProductUpdate,
     db: Session = Depends(get_db),
     user: dict = Depends(require_admin),
 ):
     """Update a product (admin only)."""
+    # Resolve slug or ID
+    resolved = db.execute(
+        text("SELECT id FROM products WHERE id::text = :pid OR slug = :pid"),
+        {"pid": product_id},
+    ).fetchone()
+    if not resolved:
+        raise HTTPException(status_code=404, detail="Product not found")
+    pid = resolved[0]
     sets, params = (
         ["updated_at = :now"],
-        {"id": product_id, "now": datetime.now(timezone.utc)},
+        {"id": pid, "now": datetime.now(timezone.utc)},
     )
     update_map = {
         "name": "name",
@@ -4801,22 +4817,30 @@ async def admin_update_product(
     "/api/v1/admin/products/{product_id}", status_code=204, tags=["Admin Products"]
 )
 async def admin_delete_product(
-    product_id: int, db: Session = Depends(get_db), user: dict = Depends(require_admin)
+    product_id: str, db: Session = Depends(get_db), user: dict = Depends(require_admin)
 ):
     """Delete a product and its R2 images (admin only)."""
+    # Resolve slug or ID
+    resolved = db.execute(
+        text("SELECT id FROM products WHERE id::text = :pid OR slug = :pid"),
+        {"pid": product_id},
+    ).fetchone()
+    if not resolved:
+        raise HTTPException(status_code=404, detail="Product not found")
+    pid = resolved[0]
     # Delete R2 images first
     images = db.execute(
         text("SELECT image_url FROM product_images WHERE product_id = :pid"),
-        {"pid": product_id},
+        {"pid": pid},
     ).fetchall()
     for img in images:
         if img[0]:
             await r2_service.delete_image(img[0])
     db.execute(
-        text("DELETE FROM product_images WHERE product_id = :pid"), {"pid": product_id}
+        text("DELETE FROM product_images WHERE product_id = :pid"), {"pid": pid}
     )
     result = db.execute(
-        text("DELETE FROM products WHERE id = :id RETURNING id"), {"id": product_id}
+        text("DELETE FROM products WHERE id = :id RETURNING id"), {"id": pid}
     )
     if not result.fetchone():
         raise HTTPException(status_code=404, detail="Product not found")
@@ -5007,7 +5031,7 @@ async def admin_bulk_delete_products(
     tags=["Admin Products"],
 )
 async def admin_upload_product_image(
-    product_id: int,
+    product_id: str,
     file: UploadFile = File(...),
     alt_text: Optional[str] = None,
     is_primary: bool = False,
@@ -5016,10 +5040,12 @@ async def admin_upload_product_image(
 ):
     """Upload a product image to R2 (admin only)."""
     product = db.execute(
-        text("SELECT id, name FROM products WHERE id = :id"), {"id": product_id}
+        text("SELECT id, name FROM products WHERE id::text = :pid OR slug = :pid"),
+        {"pid": product_id},
     ).fetchone()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
+    resolved_product_id = int(product[0])
     full_url = await r2_service.upload_image(file, folder="products")
     r2_base = settings.R2_PUBLIC_URL.rstrip("/") if settings.R2_PUBLIC_URL else ""
     relative_path = (
@@ -5032,12 +5058,12 @@ async def admin_upload_product_image(
             text(
                 "UPDATE product_images SET is_primary = false WHERE product_id = :pid"
             ),
-            {"pid": product_id},
+            {"pid": resolved_product_id},
         )
     img_count = (
         db.execute(
             text("SELECT COUNT(*) FROM product_images WHERE product_id = :pid"),
-            {"pid": product_id},
+            {"pid": resolved_product_id},
         ).scalar()
         or 0
     )
@@ -5047,7 +5073,7 @@ async def admin_upload_product_image(
         VALUES (:pid, :url, :alt, :primary, :order, :now) RETURNING id
     """),
         {
-            "pid": product_id,
+            "pid": resolved_product_id,
             "url": relative_path,
             "alt": alt_text or f"{product[1]} - Image {img_count + 1}",
             "primary": is_primary,
@@ -5061,7 +5087,7 @@ async def admin_upload_product_image(
     redis_client.invalidate_pattern("public:landing:*")
     return {
         "id": image_id,
-        "product_id": product_id,
+        "product_id": resolved_product_id,
         "image_url": _get_r2_public_url(relative_path),
         "alt_text": alt_text or f"{product[1]} - Image {img_count + 1}",
         "is_primary": is_primary,
@@ -5075,17 +5101,25 @@ async def admin_upload_product_image(
     tags=["Admin Products"],
 )
 async def admin_delete_product_image(
-    product_id: int,
+    product_id: str,
     image_id: int,
     db: Session = Depends(get_db),
     user: dict = Depends(require_admin),
 ):
     """Delete a product image from R2 and DB (admin only)."""
+    product = db.execute(
+        text("SELECT id FROM products WHERE id::text = :pid OR slug = :pid"),
+        {"pid": product_id},
+    ).fetchone()
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    resolved_product_id = int(product[0])
+
     img = db.execute(
         text(
             "SELECT image_url FROM product_images WHERE id = :id AND product_id = :pid"
         ),
-        {"id": image_id, "pid": product_id},
+        {"id": image_id, "pid": resolved_product_id},
     ).fetchone()
     if not img:
         raise HTTPException(status_code=404, detail="Image not found")
@@ -5101,23 +5135,25 @@ async def admin_delete_product_image(
     "/api/v1/admin/products/{product_id}/images/reorder", tags=["Admin Products"]
 )
 async def admin_reorder_product_images(
-    product_id: int,
+    product_id: str,
     image_ids: List[int],
     db: Session = Depends(get_db),
     user: dict = Depends(require_admin),
 ):
     """Reorder product images by providing new display order (list of image IDs in desired order)."""
     product = db.execute(
-        text("SELECT id FROM products WHERE id = :id"), {"id": product_id}
+        text("SELECT id FROM products WHERE id::text = :pid OR slug = :pid"),
+        {"pid": product_id},
     ).fetchone()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
+    resolved_product_id = int(product[0])
     for idx, img_id in enumerate(image_ids):
         db.execute(
             text(
                 "UPDATE product_images SET display_order = :order WHERE id = :id AND product_id = :pid"
             ),
-            {"order": idx, "id": img_id, "pid": product_id},
+            {"order": idx, "id": img_id, "pid": resolved_product_id},
         )
     db.commit()
     redis_client.invalidate_pattern("products:*")
@@ -5130,21 +5166,29 @@ async def admin_reorder_product_images(
     tags=["Admin Products"],
 )
 async def admin_set_primary_image(
-    product_id: int,
+    product_id: str,
     image_id: int,
     db: Session = Depends(get_db),
     user: dict = Depends(require_admin),
 ):
     """Set a specific image as the primary image for a product."""
+    product = db.execute(
+        text("SELECT id FROM products WHERE id::text = :pid OR slug = :pid"),
+        {"pid": product_id},
+    ).fetchone()
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    resolved_product_id = int(product[0])
+
     img = db.execute(
         text("SELECT id FROM product_images WHERE id = :id AND product_id = :pid"),
-        {"id": image_id, "pid": product_id},
+        {"id": image_id, "pid": resolved_product_id},
     ).fetchone()
     if not img:
         raise HTTPException(status_code=404, detail="Image not found")
     db.execute(
         text("UPDATE product_images SET is_primary = false WHERE product_id = :pid"),
-        {"pid": product_id},
+        {"pid": resolved_product_id},
     )
     db.execute(
         text("UPDATE product_images SET is_primary = true WHERE id = :id"),
@@ -5158,16 +5202,25 @@ async def admin_set_primary_image(
 
 @app.get("/api/v1/admin/products/{product_id}", tags=["Admin Products"])
 async def admin_get_product(
-    product_id: int, db: Session = Depends(get_db), user: dict = Depends(require_admin)
+    product_id: str, db: Session = Depends(get_db), user: dict = Depends(require_admin)
 ):
-    """Get a single product by ID with images and inventory (admin only)."""
+    """Get a single product by ID or slug with images and inventory (admin only)."""
     logger = logging.getLogger(__name__)
 
     # Sanitize user input to prevent log injection attacks
     import re
     safe_sub = re.sub(r'[\n\r\t]', '', str(user.get('sub', 'unknown')))
-    logger.info(f"[AdminProduct] Fetching product ID={product_id} for user={safe_sub}")
-    
+    logger.info(f"[AdminProduct] Fetching product ID/slug={product_id} for user={safe_sub}")
+
+    # Resolve slug or ID
+    resolved = db.execute(
+        text("SELECT id FROM products WHERE id::text = :pid OR slug = :pid"),
+        {"pid": product_id},
+    ).fetchone()
+    if not resolved:
+        raise HTTPException(status_code=404, detail="Product not found")
+    pid = resolved[0]
+
     row = db.execute(
         text("""
         SELECT p.id, p.name, p.slug, p.base_price, p.mrp, p.short_description,
@@ -5184,7 +5237,7 @@ async def admin_get_product(
                  p.category_id, c.name, p.brand, p.meta_title, p.meta_description,
                  p.created_at, p.updated_at
         """),
-        {"id": product_id},
+        {"id": pid},
     ).fetchone()
     
     if not row:
@@ -5246,12 +5299,19 @@ async def admin_get_product(
 
 @app.get("/api/v1/admin/products/{product_id}/variants", tags=["Admin Products"])
 async def admin_get_product_variants(
-    product_id: int, db: Session = Depends(get_db), user: dict = Depends(require_staff)
+    product_id: str, db: Session = Depends(get_db), user: dict = Depends(require_staff)
 ):
     """Get all inventory variants for a product."""
+    resolved = db.execute(
+        text("SELECT id FROM products WHERE id::text = :pid OR slug = :pid"),
+        {"pid": product_id},
+    ).fetchone()
+    if not resolved:
+        raise HTTPException(status_code=404, detail="Product not found")
+    pid = resolved[0]
     rows = db.execute(
         text("SELECT * FROM inventory WHERE product_id = :pid ORDER BY size, color"),
-        {"pid": product_id},
+        {"pid": pid},
     ).fetchall()
     return {"variants": [dict(r._mapping) for r in rows]}
 
@@ -5262,20 +5322,23 @@ async def admin_get_product_variants(
     tags=["Admin Products"],
 )
 async def admin_create_product_variant(
-    product_id: int,
+    product_id: str,
     data: VariantCreate,
     db: Session = Depends(get_db),
     user: dict = Depends(require_admin),
 ):
     """Create an inventory variant for a product."""
+    # Resolve slug or ID
     product = db.execute(
-        text("SELECT id FROM products WHERE id = :id"), {"id": product_id}
+        text("SELECT id FROM products WHERE id::text = :pid OR slug = :pid"),
+        {"pid": product_id},
     ).fetchone()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
+    pid = product[0]
     existing = db.execute(
         text("SELECT id FROM inventory WHERE product_id = :pid AND sku = :sku"),
-        {"pid": product_id, "sku": data.sku},
+        {"pid": pid, "sku": data.sku},
     ).fetchone()
     if existing:
         raise HTTPException(
@@ -5287,7 +5350,7 @@ async def admin_create_product_variant(
         VALUES (:pid, :sku, :size, :color, :color_hex, :qty, 5, :now, :now) RETURNING id
     """),
         {
-            "pid": product_id,
+            "pid": pid,
             "sku": data.sku,
             "size": data.size,
             "color": data.color,
@@ -5306,16 +5369,24 @@ async def admin_create_product_variant(
     "/api/v1/admin/products/{product_id}/variants/{variant_id}", tags=["Admin Products"]
 )
 async def admin_update_product_variant(
-    product_id: int,
+    product_id: str,
     variant_id: int,
     data: VariantUpdate,
     db: Session = Depends(get_db),
     user: dict = Depends(require_admin),
 ):
     """Update a product inventory variant."""
+    # Resolve slug or ID
+    resolved = db.execute(
+        text("SELECT id FROM products WHERE id::text = :pid OR slug = :pid"),
+        {"pid": product_id},
+    ).fetchone()
+    if not resolved:
+        raise HTTPException(status_code=404, detail="Product not found")
+    pid = resolved[0]
     inv = db.execute(
         text("SELECT id FROM inventory WHERE id = :id AND product_id = :pid"),
-        {"id": variant_id, "pid": product_id},
+        {"id": variant_id, "pid": pid},
     ).fetchone()
     if not inv:
         raise HTTPException(status_code=404, detail="Variant not found")
@@ -5347,15 +5418,23 @@ async def admin_update_product_variant(
     tags=["Admin Products"],
 )
 async def admin_delete_product_variant(
-    product_id: int,
+    product_id: str,
     variant_id: int,
     db: Session = Depends(get_db),
     user: dict = Depends(require_admin),
 ):
     """Delete a product inventory variant."""
+    # Resolve slug or ID
+    resolved = db.execute(
+        text("SELECT id FROM products WHERE id::text = :pid OR slug = :pid"),
+        {"pid": product_id},
+    ).fetchone()
+    if not resolved:
+        raise HTTPException(status_code=404, detail="Product not found")
+    pid = resolved[0]
     result = db.execute(
         text("DELETE FROM inventory WHERE id = :id AND product_id = :pid RETURNING id"),
-        {"id": variant_id, "pid": product_id},
+        {"id": variant_id, "pid": pid},
     )
     if not result.fetchone():
         raise HTTPException(status_code=404, detail="Variant not found")
@@ -5368,7 +5447,7 @@ async def admin_delete_product_variant(
     tags=["Admin Products"],
 )
 async def admin_adjust_variant_stock(
-    product_id: int,
+    product_id: str,
     variant_id: int,
     data: InventoryAdjustRequest,
     db: Session = Depends(get_db),

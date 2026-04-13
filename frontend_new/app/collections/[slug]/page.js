@@ -7,8 +7,8 @@ import CollectionDetailClient from './CollectionDetailClient';
 // Force dynamic rendering - API is not available during build time
 export const dynamic = 'force-dynamic';
 
-// Timeout for API calls (10 seconds)
-const API_TIMEOUT_MS = 10000;
+// Timeout for API calls (15 seconds - generous for SSR under load)
+const API_TIMEOUT_MS = 15000;
 
 function isInvalidCollectionSlug(slug) {
   return (
@@ -86,15 +86,10 @@ export async function generateMetadata({ params }) {
   }
 }
 
-// Fetch collection and products server-side with timeout
+// Fetch collection and products server-side
 async function getCollectionData(slug) {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
-
   try {
     const collection = await collectionsApi.getBySlug(slug);
-
-    clearTimeout(timeoutId);
 
     if (!collection) {
       return null;
@@ -112,7 +107,6 @@ async function getCollectionData(slug) {
       products: allProducts
     };
   } catch (error) {
-    clearTimeout(timeoutId);
     console.error('Error fetching collection data:', error);
     return null;
   }

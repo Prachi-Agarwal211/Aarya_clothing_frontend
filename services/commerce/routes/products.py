@@ -11,6 +11,7 @@ Product catalog management endpoints:
 
 import logging
 import hashlib
+import asyncio
 from typing import List, Optional
 from decimal import Decimal
 from fastapi import APIRouter, Depends, HTTPException, status, Request, UploadFile, File, Query
@@ -326,10 +327,12 @@ async def list_products(
             "has_more": offset + limit < total
         }
 
-    # Use L1+L2 cache for non-search queries
+    # Use L1+L2 cache for non-search queries (run sync Redis in thread pool to avoid blocking event loop)
     if not db_search:
         try:
-            cached_result = await cache.get_or_set(cache_key, _fetch_products, ttl=300)
+            cached_result = await asyncio.to_thread(
+                cache.get_or_set_sync, cache_key, _fetch_products, ttl=120
+            )
             return cached_result
         except Exception as e:
             logger.warning(f"Cache miss fallback for products list: {e}")

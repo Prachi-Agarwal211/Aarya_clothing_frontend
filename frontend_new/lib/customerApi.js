@@ -200,7 +200,7 @@ export const reviewsApi = {
   create: (data) =>
     commerceClient.post('/api/v1/reviews', data),
 
-  uploadImage: async (productId, formData) => {
+  uploadImage: async (formData) => {
     // Direct fetch with FormData for file upload
     const { coreClient } = await import('./baseApi');
     return coreClient.uploadFile('/api/v1/reviews/upload-image', formData);

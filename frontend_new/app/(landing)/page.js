@@ -113,7 +113,6 @@ export default function Home() {
   const [landingData, setLandingData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
-  const [retryCount, setRetryCount] = useState(0);
 
   // Fetch landing page data from backend with timeout and retry
   // Backend returns fully formatted, ready-to-use data
@@ -257,7 +256,6 @@ export default function Home() {
           {hasError && (
             <button
               onClick={() => {
-                setRetryCount(0);
                 fetchLandingData();
               }}
               className="mt-2 px-4 py-2 bg-[#7A2F57]/30 text-[#F2C29A] rounded-lg hover:bg-[#7A2F57]/50 transition-colors text-sm"

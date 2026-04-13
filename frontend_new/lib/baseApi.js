@@ -514,9 +514,10 @@ export function getCommerceBaseUrl() {
   if (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_INTERNAL_COMMERCE_URL) {
     return process.env.NEXT_PUBLIC_INTERNAL_COMMERCE_URL.trim();
   }
+
+  // SSR fallback: bypass nginx if gateway networking is flaky for server-side fetches
+  return 'http://commerce:5002';
   
-  // Fallback to core base URL
-  return getCoreBaseUrl();
 }
 
 export function getAdminBaseUrl() {

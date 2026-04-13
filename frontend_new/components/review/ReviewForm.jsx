@@ -121,8 +121,7 @@ export default function ReviewForm({ productId, onSuccess, onCancel }) {
           const uploadPromises = images.map(async (file) => {
             const formData = new FormData();
             formData.append('file', file);
-            // Upload to review images endpoint
-            const response = await customerApi.reviews.uploadImage(productId, formData);
+            const response = await customerApi.reviews.uploadImage(formData);
             return response.url;
           });
 

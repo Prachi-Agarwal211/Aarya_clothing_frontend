@@ -128,7 +128,8 @@ export function AuthProvider({ children }) {
           setIsAuthenticated(false);
           // Redirect to login
           if (typeof window !== 'undefined') {
-            window.location.href = '/auth/login';
+            const currentPath = `${window.location.pathname}${window.location.search || ''}`;
+            window.location.href = `/auth/login?reason=session_reset&redirect_url=${encodeURIComponent(currentPath)}`;
           }
         } else {
           // Network error or server error — don't clear auth, retry next interval

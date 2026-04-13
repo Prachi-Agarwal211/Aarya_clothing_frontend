@@ -5,6 +5,7 @@ from decimal import Decimal
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 import logging
+import json
 
 logger = logging.getLogger(__name__)
 from sqlalchemy import and_, or_
@@ -27,6 +28,12 @@ def _audit_payment_event(db: Session, event_type: str, success: bool, **kwargs):
     """
     try:
         from sqlalchemy import text
+        
+        def _serialize_if_needed(value):
+            if isinstance(value, (dict, list, tuple)):
+                return json.dumps(value, default=str)
+            return value
+
         db.execute(text("""
             INSERT INTO payment_order_audit (
                 event_type, event_id, razorpay_order_id, razorpay_payment_id,
@@ -53,12 +60,12 @@ def _audit_payment_event(db: Session, event_type: str, success: bool, **kwargs):
             "transaction_id": kwargs.get("transaction_id"),
             "amount": kwargs.get("amount"),
             "currency": kwargs.get("currency", "INR"),
-            "cart_items": kwargs.get("cart_items"),
+            "cart_items": _serialize_if_needed(kwargs.get("cart_items")),
             "shipping_address": kwargs.get("shipping_address"),
             "success": success,
             "error_message": kwargs.get("error_message"),
-            "error_details": kwargs.get("error_details"),
-            "response_data": kwargs.get("response_data"),
+            "error_details": _serialize_if_needed(kwargs.get("error_details")),
+            "response_data": _serialize_if_needed(kwargs.get("response_data")),
         })
         # FIX: Do NOT commit here — let caller manage transaction
     except Exception as e:

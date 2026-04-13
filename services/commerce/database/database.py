@@ -97,6 +97,22 @@ def _ensure_products_material_care_columns() -> None:
         log.warning("Could not ensure material/care_instructions columns on products: %s", e)
 
 
+def _ensure_reviews_image_urls_column() -> None:
+    """Add image_urls column to reviews table if it doesn't exist."""
+    import logging
+
+    log = logging.getLogger(__name__)
+    try:
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    "ALTER TABLE reviews ADD COLUMN IF NOT EXISTS image_urls TEXT[] DEFAULT '{}'"
+                )
+            )
+    except Exception as e:
+        log.warning("Could not ensure image_urls column on reviews: %s", e)
+
+
 def init_db():
     """Initialize database tables."""
     from models.product import Product
@@ -115,6 +131,7 @@ def init_db():
     _ensure_users_phone_verified_column()
     _ensure_users_signup_verification_method_column()
     _ensure_products_material_care_columns()
+    _ensure_reviews_image_urls_column()
 
 
 def get_pool_status() -> dict:

@@ -39,8 +39,6 @@ def sync_invoice_sequence(db: Session) -> None:
     except Exception as e:
         logger.warning(f"⚠ Could not sync invoice_number_seq: {e}")
 
-logger = logging.getLogger(__name__)
-
 # Order emails: Commerce → HTTP → Core (SMTP + templates live in Core only)
 from service import core_notification_client as _core_notify
 
@@ -327,7 +325,7 @@ class OrderService:
                     detail=f"Product '{cart_item.get('name', cart_item['product_id'])}' no longer exists"
                 )
             authoritative_price = Decimal(str(
-                db_inventory.effective_price if db_inventory else float(db_product.price)
+                db_inventory.effective_price if db_inventory else float(db_product.base_price)
             ))
             subtotal += authoritative_price * cart_item["quantity"]
         

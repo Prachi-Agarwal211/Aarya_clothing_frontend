@@ -3150,7 +3150,7 @@ CREATE INDEX idx_analytics_cache_key ON public.analytics_cache USING btree (cach
 -- Name: idx_audit_logs_created; Type: INDEX; Schema: public; Owner: postgres
 --
 
-CREATE INDEX idx_audit_logs_created ON public.audit_logs USING btree (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_created ON public.audit_logs USING btree (created_at DESC);
 
 
 --

@@ -35,17 +35,17 @@ class AdvancedCache:
     async def get_or_set(self, key: str, fetch_func: Callable, ttl: int = 300) -> Any:
         """
         Get value from cache or fetch and store it.
-        
+
         Args:
             key: Cache key
             fetch_func: Async function to fetch data if cache miss
             ttl: Time to live in seconds
-            
+
         Returns:
             The cached or freshly fetched data
         """
         now = time.time()
-        
+
         # L1 Check (In-Memory)
         if key in self.local_cache:
             entry = self.local_cache[key]
@@ -53,7 +53,7 @@ class AdvancedCache:
                 return entry['data']
             else:
                 del self.local_cache[key]
-        
+
         # L2 Check (Redis)
         try:
             cached_data = self.redis.get_cache(key)
@@ -71,25 +71,76 @@ class AdvancedCache:
         # Cache Miss - Fetch Data
         try:
             data = await fetch_func()
-            
+
             # Allow data to be None? Usually we don't cache negative results, but let's cache them for 30s to prevent stampedes
             cache_ttl = ttl if data is not None else 30
-            
+
             # Store L1
             self._enforce_l1_limits()
             self.local_cache[key] = {
                 'data': data,
                 'expires_at': now + min(cache_ttl, 60)
             }
-            
+
             # Store L2
             try:
                 self.redis.set_cache(key, data, ttl=cache_ttl)
             except Exception as e:
                 logger.warning(f"L2 Cache write failed for {key}: {e}")
-                
+
             return data
-            
+
+        except Exception as e:
+            logger.error(f"Fetch function failed for cache key {key}: {e}")
+            raise
+
+    def get_or_set_sync(self, key: str, fetch_func: Callable, ttl: int = 300) -> Any:
+        """
+        Synchronous version of get_or_set — safe to call from a thread pool.
+
+        The fetch_func is called synchronously. Use this when the calling
+        context is already inside asyncio.to_thread().
+        """
+        now = time.time()
+
+        # L1 Check
+        if key in self.local_cache:
+            entry = self.local_cache[key]
+            if now < entry['expires_at']:
+                return entry['data']
+            else:
+                del self.local_cache[key]
+
+        # L2 Check (sync Redis call — OK inside thread)
+        try:
+            cached_data = self.redis.get_cache(key)
+            if cached_data is not None:
+                self._enforce_l1_limits()
+                self.local_cache[key] = {
+                    'data': cached_data,
+                    'expires_at': now + min(ttl, 60)
+                }
+                return cached_data
+        except Exception as e:
+            logger.warning(f"L2 Cache read failed for {key}: {e}")
+
+        # Cache Miss — Fetch
+        try:
+            data = fetch_func()
+            cache_ttl = ttl if data is not None else 30
+
+            self._enforce_l1_limits()
+            self.local_cache[key] = {
+                'data': data,
+                'expires_at': now + min(cache_ttl, 60)
+            }
+
+            try:
+                self.redis.set_cache(key, data, ttl=cache_ttl)
+            except Exception as e:
+                logger.warning(f"L2 Cache write failed for {key}: {e}")
+
+            return data
         except Exception as e:
             logger.error(f"Fetch function failed for cache key {key}: {e}")
             raise

@@ -3686,6 +3686,15 @@ async def cart_summary(user_id: int):
 
 # ==================== Customer Profile ====================
 
+@app.get("/api/v1/me", tags=["Customer Profile"])
+async def get_customer_me(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    """Backward-compatible alias for clients calling /api/v1/me."""
+    return await get_customer_profile(db=db, current_user=current_user)
+
+
 @app.get("/api/v1/me/profile", tags=["Customer Profile"])
 async def get_customer_profile(
     db: Session = Depends(get_db),

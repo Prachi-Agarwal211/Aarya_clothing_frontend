@@ -196,10 +196,10 @@ services:
       - PASSWORD_REQUIRE_NUMBER=true
       - PASSWORD_REQUIRE_SPECIAL=false
       # Rate Limiting & Security
-      - LOGIN_RATE_LIMIT=5
+      - LOGIN_RATE_LIMIT=10
       - LOGIN_RATE_WINDOW=300
       - MAX_LOGIN_ATTEMPTS=5
-      - ACCOUNT_LOCKOUT_MINUTES=30
+      - ACCOUNT_LOCKOUT_MINUTES=15
       # Cookie Settings
       - COOKIE_SECURE=${COOKIE_SECURE:-false}
       - COOKIE_HTTPONLY=true
@@ -221,9 +221,9 @@ services:
       # OTP Settings
       - OTP_CODE_LENGTH=6
       - OTP_EXPIRY_MINUTES=10
-      - OTP_MAX_ATTEMPTS=3
-      - OTP_RESEND_COOLDOWN_MINUTES=1
-      - OTP_MAX_RESEND_PER_HOUR=5
+      - OTP_MAX_ATTEMPTS=5
+      - OTP_RESEND_COOLDOWN_MINUTES=0.5
+      - OTP_MAX_RESEND_PER_HOUR=8
       # Async OTP email queue + SMTP retries (see services/core/service/email_queue.py)
       - EMAIL_OTP_USE_QUEUE=${EMAIL_OTP_USE_QUEUE:-true}
       - SMTP_SEND_MAX_ATTEMPTS=${SMTP_SEND_MAX_ATTEMPTS:-3}

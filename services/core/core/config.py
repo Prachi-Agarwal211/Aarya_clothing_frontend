@@ -34,17 +34,17 @@ class Settings(SharedBaseSettings):
     # ==================== Rate Limiting ====================
     LOGIN_RATE_LIMIT: int = 10  # attempts per window
     LOGIN_RATE_WINDOW: int = 300  # seconds (5 minutes)
-    
+
     # ==================== Account Security ====================
     MAX_LOGIN_ATTEMPTS: int = 5
-    ACCOUNT_LOCKOUT_MINUTES: int = 30
-    
+    ACCOUNT_LOCKOUT_MINUTES: int = 15
+
     # ==================== OTP Settings ====================
     OTP_CODE_LENGTH: int = 6
     OTP_EXPIRY_MINUTES: int = 10
-    OTP_MAX_ATTEMPTS: int = 3
-    OTP_RESEND_COOLDOWN_MINUTES: int = 1
-    OTP_MAX_RESEND_PER_HOUR: int = 5
+    OTP_MAX_ATTEMPTS: int = 5
+    OTP_RESEND_COOLDOWN_MINUTES: int = 0.5  # 30 seconds
+    OTP_MAX_RESEND_PER_HOUR: int = 8
     
     # ==================== Email/SMTP Settings ====================
     SMTP_HOST: str = "smtp.gmail.com"
@@ -68,7 +68,7 @@ class Settings(SharedBaseSettings):
 
     # ==================== Password Reset Settings ====================
     PASSWORD_RESET_TOKEN_EXPIRE_HOURS: int = 24
-    PASSWORD_RESET_RATE_LIMIT: int = 3
+    PASSWORD_RESET_RATE_LIMIT: int = 5
     PASSWORD_RESET_RATE_WINDOW: int = 3600  # 1 hour
 
     @property

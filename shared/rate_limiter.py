@@ -19,7 +19,7 @@ LIMITS = {
     "auth_otp": (6, 600),  # 6 OTP attempts / 10 min
     "search": (60, 60),  # 60 searches / 1 min
     "cart_write": (30, 60),  # 30 cart mutations / 1 min
-    "review_create": (3, 3600),  # 3 reviews / 1 hr
+    "review_create": (10, 3600),  # 10 reviews / 1 hr (was 3)
     "default": (120, 60),  # 120 requests / 1 min
 }
 

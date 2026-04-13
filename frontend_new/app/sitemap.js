@@ -8,7 +8,14 @@ const API_BASE = BASE_URL;  // Use public URL for sitemap
 
 async function fetchJson(url) {
   try {
-    const res = await fetch(url, { next: { revalidate: 3600 } });
+    // Add 10s timeout to prevent build hangs
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+    const res = await fetch(url, {
+      next: { revalidate: 3600 },
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
     if (!res.ok) return null;
     return await res.json();
   } catch {

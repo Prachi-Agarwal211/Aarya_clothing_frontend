@@ -20,4 +20,4 @@ PyJWT==2.8.0
 # MSG91 SMS - uses httpx (already included above)
 
 # Monitoring
-prometheus-fastapi-instrumentator>=6.1.0
+prometheus_client==0.19.0

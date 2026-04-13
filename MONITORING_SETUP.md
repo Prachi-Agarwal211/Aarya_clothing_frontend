@@ -38,13 +38,16 @@ Complete Prometheus + Grafana monitoring for the Aarya Clothing e-commerce platf
 
 | Service | Memory | CPU | Purpose |
 |---------|--------|-----|---------|
-| Prometheus | 512MB | 0.5 | Metrics collection & storage |
-| Grafana | 256MB | 0.5 | Dashboard visualization |
+| Prometheus | 1GB | 0.5 | Metrics collection & storage |
+| Grafana | 512MB | 0.5 | Dashboard visualization |
 | node-exporter | 128MB | 0.25 | VPS hardware metrics |
 | postgres-exporter | 128MB | 0.25 | PostgreSQL metrics |
-| redis-exporter | 128MB | 0.25 | Redis metrics |
+| redis-exporter | 64MB | 0.25 | Redis metrics |
 | cAdvisor | 256MB | 0.5 | Container resource metrics |
-| **TOTAL** | **~1.4GB** | **2.0** | Well within 16GB VPS budget |
+| **TOTAL** | **~2.1GB** | **2.0** | Within 16GB VPS budget |
+
+> Note: Prometheus is allocated 1GB memory with 4GB TSDB retention (30 days).
+> The total monitoring stack fits within the available headroom on a 16GB VPS.
 
 ---
 
@@ -455,8 +458,7 @@ docker compose down -v prometheus_data grafana_data
 
 ```
 Aarya_clothing_frontend/
-├── docker-compose.yml                          # Main services
-├── docker-compose.monitoring.yml               # Monitoring stack (NEW)
+├── docker-compose.yml                          # All services including monitoring (UPDATED)
 ├── .env.monitoring.example                     # Monitoring env template (NEW)
 ├── MONITORING_SETUP.md                         # This file (NEW)
 ├── services/
@@ -467,20 +469,20 @@ Aarya_clothing_frontend/
 ├── shared/monitoring_middleware.py              # Already existed
 ├── docker/
 │   ├── prometheus/
-│   │   ├── prometheus.yml                      # Updated with all targets
+│   │   ├── prometheus.yml                      # Updated with all targets + cAdvisor
 │   │   └── rules/
-│   │       └── alerts.yml                      # Comprehensive alerts + recording rules
+│   │       └── alerts.yml                      # Comprehensive alerts + recording rules (NEW)
 │   ├── grafana/
 │   │   ├── dashboards/
-│   │   │   ├── system-overview.json            # VPS hardware metrics
-│   │   │   ├── services-overview.json          # Microservice health
-│   │   │   ├── database-overview.json          # PostgreSQL metrics
-│   │   │   ├── redis-overview.json             # Redis cache metrics
-│   │   │   ├── containers-overview.json        # Docker container metrics
-│   │   │   └── business-metrics.json           # E-commerce KPIs
+│   │   │   ├── system-overview.json            # VPS hardware metrics (NEW)
+│   │   │   ├── services-overview.json          # Microservice health (NEW)
+│   │   │   ├── database-overview.json          # PostgreSQL metrics (NEW)
+│   │   │   ├── redis-overview.json             # Redis cache metrics (NEW)
+│   │   │   ├── containers-overview.json        # Docker container metrics (NEW)
+│   │   │   └── business-metrics.json           # E-commerce KPIs (NEW)
 │   │   └── provisioning/
-│   │       ├── datasources/prometheus.yml      # Auto-configured datasource
-│   │       └── dashboards/dashboards.yml       # Auto-loaded dashboards
+│   │       ├── datasources/prometheus.yml      # Already existed
+│   │       └── dashboards/dashboards.yml       # Updated (UPDATED)
 │   └── nginx/
-│       └── nginx.conf                          # + /grafana + /nginx_status
+│       └── nginx.conf                          # + /monitoring/ + /nginx_status (UPDATED)
 ```

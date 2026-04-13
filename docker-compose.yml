@@ -510,6 +510,8 @@ services:
     environment:
       - NODE_ENV=production
       - DOCKER_ENV=true
+      - NODE_OPTIONS=--max-old-space-size=1024
+      - NEXT_SHARP_PATH=/app/node_modules/sharp
       # SSR needs absolute URL for Node.js fetch() - nginx will proxy to backend
       # Client-side code uses window.location.origin (CSP compliant)
       - NEXT_PUBLIC_API_URL=http://nginx:80

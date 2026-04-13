@@ -5,7 +5,6 @@ providers:
   - name: "Aarya Dashboards"
     orgId: 1
     folder: "Aarya Clothing"
-    folderUid: "aarya-main"
     type: file
     disableDeletion: false
     editable: true
@@ -14,3 +13,11 @@ providers:
     options:
       path: /var/lib/grafana/dashboards
       foldersFromFilesStructure: false
+      # Explicitly load these dashboard files:
+      #   system-overview.json
+      #   services-overview.json
+      #   database-overview.json
+      #   redis-overview.json
+      #   containers-overview.json
+      #   business-metrics.json
+      #   overview.json (legacy)

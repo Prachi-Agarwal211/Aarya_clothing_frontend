@@ -41,5 +41,5 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:5001/health')" || exit 1
 
 # Multi-worker API — adjust via build arg if needed (default 2 keeps RAM predictable on small VPS)
-ENV UVICORN_WORKERS=6
+ENV UVICORN_WORKERS=3
 CMD ["sh", "-c", "exec uvicorn main:app --host 0.0.0.0 --port 5001 --workers ${UVICORN_WORKERS} --log-level info"]

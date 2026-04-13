@@ -58,7 +58,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 4G
+          memory: 3G
           cpus: '1.5'
     networks:
       - backend_network
@@ -126,7 +126,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1536M
+          memory: 512M
           cpus: '0.75'
     networks:
       - backend_network
@@ -155,7 +155,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512M
+          memory: 256M
           cpus: '0.5'
     networks:
       - backend_network
@@ -246,7 +246,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 768M
+          memory: 1G
           cpus: '0.75'
     networks:
       - backend_network
@@ -329,7 +329,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1G
+          memory: 1.5G
           cpus: '0.75'
     networks:
       - backend_network
@@ -479,7 +479,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 768M
+          memory: 1G
           cpus: '0.75'
     networks:
       - backend_network
@@ -515,10 +515,10 @@ services:
     deploy:
       resources:
         limits:
-          memory: 3G
+          memory: 1.5G
           cpus: "2.0"
         reservations:
-          memory: 1G
+          memory: 512M
           cpus: "1.0"
     networks:
       - frontend_network
@@ -691,10 +691,11 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-aarya_grafana_2024}
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_SERVER_ROOT_URL=https://aaryaclothing.in/monitoring/
-      - GF_SERVER_SERVE_FROM_SUB_PATH=false
+      - GF_SERVER_SERVE_FROM_SUB_PATH=true
       - GF_ANALYTICS_REPORTING_ENABLED=false
       - GF_ANALYTICS_CHECK_FOR_UPDATES=false
       - GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES=false
+      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/var/lib/grafana/dashboards/system-overview.json
     volumes:
       - grafana_data:/var/lib/grafana
       - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
@@ -788,6 +789,37 @@ services:
     networks:
       - backend_network
     restart: unless-stopped
+
+  # ============================================================
+  # CADVISOR — Container Resource Metrics (CPU, memory, network per container)
+  # ============================================================
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    container_name: aarya_cadvisor
+    command:
+      - '--housekeeping_interval=30s'
+      - '--max_housekeeping_interval=60s'
+      - '--docker_only=true'
+    expose:
+      - "8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+    networks:
+      - backend_network
+    restart: unless-stopped
+    privileged: true
+    devices:
+      - /dev/kmsg
 
   # ============================================================
   # DOZZLE - Real-time Container Log Viewer

@@ -31,5 +31,5 @@ EXPOSE 5003
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:5003/health')" || exit 1
 
-ENV UVICORN_WORKERS=4
+ENV UVICORN_WORKERS=2
 CMD ["sh", "-c", "exec uvicorn main:app --host 0.0.0.0 --port 5003 --workers ${UVICORN_WORKERS} --log-level info"]

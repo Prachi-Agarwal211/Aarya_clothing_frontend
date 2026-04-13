@@ -6,7 +6,8 @@
       "Bash(docker-compose *)",
       "Bash(git add *)",
       "Bash(git ls-files *)",
-      "Bash(npx *)"
+      "Bash(npx *)",
+      "mcp__sequentialthinking__sequentialthinking"
     ]
   },
   "$version": 3

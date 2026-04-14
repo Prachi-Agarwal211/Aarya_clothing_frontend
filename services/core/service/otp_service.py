@@ -68,7 +68,7 @@ class OTPService:
         redis_client.store_otp(otp_key, otp_code, expires_in=settings.OTP_EXPIRY_MINUTES * 60)
 
         # Set short-lived cooldown key to prevent rapid resends
-        redis_client.set_cache(cooldown_key, "1", ttl=settings.OTP_RESEND_COOLDOWN_MINUTES * 60)
+        redis_client.set_cache(cooldown_key, "1", ttl=int(settings.OTP_RESEND_COOLDOWN_MINUTES * 60))
         
         # Send OTP based on type
         if email and otp_type == "EMAIL":

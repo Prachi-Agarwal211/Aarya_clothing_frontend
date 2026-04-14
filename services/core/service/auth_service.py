@@ -311,7 +311,7 @@ class AuthService:
         self, user_id: int, token: str, token_type: str = "email_verification"
     ) -> None:
         """Save verification token to the database using the ORM."""
-        expires_at = datetime.now(timezone.utc) + timedelta(hours=24)
+        expires_at = datetime.now() + timedelta(hours=24)
         verification = EmailVerification(
             user_id=user_id, token=token, token_type=token_type, expires_at=expires_at
         )
@@ -339,14 +339,14 @@ class AuthService:
 
         # Ensure expires_at is timezone-aware if it's naive (assuming UTC)
         expires_at = verification.expires_at
-        if expires_at.tzinfo is None:
-            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        # Normalize to naive datetime for DB comparison
+        expires_naive = expires_at.replace(tzinfo=None) if expires_at.tzinfo else expires_at
 
-        if verification.verified_at or expires_at < datetime.now(timezone.utc):
+        if verification.verified_at or expires_naive < datetime.now():
             return None
 
         # Mark token as verified
-        verification.verified_at = datetime.now(timezone.utc)
+        verification.verified_at = datetime.now()
 
         # Update user's email_verified status and activate account
         user = verification.user
@@ -396,10 +396,10 @@ class AuthService:
         if (
             user.security
             and user.security.locked_until
-            and user.security.locked_until > datetime.now(timezone.utc)
+            and user.security.locked_until > datetime.now()
         ):
             remaining = (
-                user.security.locked_until - datetime.now(timezone.utc)
+                user.security.locked_until - datetime.now()
             ).seconds // 60
             raise ValueError(f"Account locked. Try again in {remaining} minutes")
 
@@ -414,7 +414,7 @@ class AuthService:
                     user.security.failed_login_attempts or 0
                 ) + 1
                 if user.security.failed_login_attempts >= settings.MAX_LOGIN_ATTEMPTS:
-                    user.security.locked_until = datetime.now(timezone.utc) + timedelta(
+                    user.security.locked_until = datetime.now() + timedelta(
                         minutes=settings.ACCOUNT_LOCKOUT_MINUTES
                     )
                     self.db.commit()
@@ -437,7 +437,7 @@ class AuthService:
         if user.security:
             user.security.failed_login_attempts = 0
             user.security.locked_until = None
-            user.security.last_login_at = datetime.now(timezone.utc)
+            user.security.last_login_at = datetime.now()
             self.db.commit()
 
         # Generate tokens with user data
@@ -549,7 +549,7 @@ class AuthService:
 
         user.hashed_password = self.get_password_hash(new_password)
         if user.security:
-            user.security.last_password_change = datetime.now(timezone.utc)
+            user.security.last_password_change = datetime.now()
 
         self.db.commit()
         self.logout_all(user.id)
@@ -593,13 +593,13 @@ class AuthService:
 
         # Ensure expires_at is timezone-aware (matches fix in verify_email_token)
         expires_at = verification.expires_at
-        if expires_at is not None and expires_at.tzinfo is None:
-            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        # Normalize to naive datetime for DB comparison
+        expires_naive = expires_at.replace(tzinfo=None) if expires_at and expires_at.tzinfo else expires_at
 
         if (
             not verification
             or verification.verified_at
-            or expires_at < datetime.now(timezone.utc)
+            or (expires_naive and expires_naive < datetime.now())
         ):
             return None
 
@@ -629,9 +629,9 @@ class AuthService:
         if user.security:
             user.security.failed_login_attempts = 0
             user.security.locked_until = None
-            user.security.last_password_change = datetime.now(timezone.utc)
+            user.security.last_password_change = datetime.now()
 
-        verification.verified_at = datetime.now(timezone.utc)
+        verification.verified_at = datetime.now()
 
         self.db.commit()
         self.logout_all(user.id)

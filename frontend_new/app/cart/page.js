@@ -7,7 +7,7 @@ import { ShoppingBag, Trash2, Plus, Minus, ArrowRight, Lock, Package, Check } fr
 import EnhancedHeader from '@/components/landing/EnhancedHeader';
 import Footer from '@/components/landing/Footer';
 import { useCart } from '@/lib/cartContext';
-import { useRequireAuth } from '@/lib/useAuthAction';
+import { useAuth } from '@/lib/authContext';
 
 function CartPage() {
   const { cart, loading: cartLoading, updateQuantity, removeItem, clearCart, refreshCart } = useCart();
@@ -27,14 +27,25 @@ function CartPage() {
     }
   };
 
-  const { requireAuth } = useRequireAuth();
+  const { isAuthenticated, loading: authLoading } = useAuth();
 
   // Fetch cart when this page loads
   useEffect(() => {
-    // Guard cart access with auth check
-    if (!requireAuth('/cart')) return;
+    // Wait for auth to finish loading before deciding anything
+    if (authLoading) return;
+
+    // User is not authenticated — redirect to login
+    if (!isAuthenticated) {
+      const currentPath = typeof window !== 'undefined'
+        ? window.location.pathname + window.location.search + window.location.hash
+        : '/cart';
+      window.location.href = `/auth/login?redirect_url=${encodeURIComponent(currentPath)}`;
+      return;
+    }
+
+    // User is authenticated — load the cart
     refreshCart();
-  }, [refreshCart, requireAuth]);
+  }, [refreshCart, isAuthenticated, authLoading]);
 
   // Format currency
   const formatCurrency = (amount) => {

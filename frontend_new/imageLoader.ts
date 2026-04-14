@@ -13,20 +13,16 @@ import type { ImageLoaderProps } from "next/image";
  * 3. Frontend fetches API → Backend converts to full R2 URL
  * 4. Frontend <Image> → This loader optimizes via Cloudflare CDN
  *
- * Features:
- * - Automatic WebP/AVIF format negotiation
- * - On-demand resizing at edge locations
- * - Quality optimization
- * - 50-70% file size reduction
- * - Global CDN delivery
- *
- * R2 Configuration:
+ * R2 Configuration (dynamic via env var):
  * - Bucket: aarya-clothing-images
- * - Public URL: https://pub-7846c786f7154610b57735df47899fa0.r2.dev
+ * - Public URL: configured via NEXT_PUBLIC_R2_PUBLIC_URL env var
+ *   (falls back to hardcoded value if env var not set)
  * - Folders: /collections/, /products/, /hero/, /about/, /landing/
  */
 
-const R2_PUBLIC_URL = "https://pub-7846c786f7154610b57735df47899fa0.r2.dev";
+const R2_PUBLIC_URL =
+  (typeof process !== "undefined" && process.env?.NEXT_PUBLIC_R2_PUBLIC_URL) ||
+  "https://pub-7846c786f7154610b57735df47899fa0.r2.dev";
 
 const normalizeSrc = (src: string): string => {
   // If it's already a full URL, keep it as is

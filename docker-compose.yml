@@ -506,6 +506,7 @@ services:
         # SSR uses internal Docker URL, client uses window.location.origin
         - NEXT_PUBLIC_API_URL=http://nginx:80
         - NEXT_PUBLIC_INTERNAL_COMMERCE_URL=http://commerce:5002
+        - NEXT_PUBLIC_R2_PUBLIC_URL=https://pub-7846c786f7154610b57735df47899fa0.r2.dev
     container_name: aarya_frontend
     environment:
       - NODE_ENV=production
@@ -516,6 +517,7 @@ services:
       # Client-side code uses window.location.origin (CSP compliant)
       - NEXT_PUBLIC_API_URL=http://nginx:80
       - NEXT_PUBLIC_INTERNAL_COMMERCE_URL=http://commerce:5002
+      - NEXT_PUBLIC_R2_PUBLIC_URL=https://pub-7846c786f7154610b57735df47899fa0.r2.dev
     expose:
       - "3000"
     depends_on:

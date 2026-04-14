@@ -130,19 +130,29 @@ export function CartProvider({ children }) {
     }
   }, []);
 
-  // Reset cart when user logs out
+  // Reset cart when user logs out (authenticated → unauthenticated transition)
+  // CRITICAL: Must NOT fire during the initial auth check window on mobile.
+  // We track the previous auth state to detect a genuine true→false transition
+  // (logout) vs. the initial false state before checkAuth completes.
+  const prevAuthRef = useRef(!authLoading && !isAuthenticated);
+
   useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
-      // Prevent multiple state updates during logout
+    // Only reset cart on a genuine logout (true → false transition)
+    // Not during initial load when authLoading is true or just finished
+    const wasAuthenticated = prevAuthRef.current;
+    prevAuthRef.current = !authLoading && isAuthenticated;
+
+    if (!authLoading && wasAuthenticated && !isAuthenticated) {
+      // Genuine logout — clear everything
       if (isUnmountingRef.current) return;
-      
-      // Batch state updates to prevent render storm
+
       setCart(EMPTY_CART);
       setHasFetched(false);
       setError(null);
       setIsSyncing(false);
+      clearPersistedCart();
     }
-  }, [isAuthenticated, authLoading]);
+  }, [isAuthenticated, authLoading, clearPersistedCart]);
 
   // Fetch cart when user is authenticated
   const fetchCart = useCallback(async (force = false) => {

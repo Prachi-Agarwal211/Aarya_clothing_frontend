@@ -1,1 +1,133 @@
-{"DATABASE_URL=postgresql": "user:password@localhost:5432/core_db\n\n# Redis\nREDIS_HOST=localhost\nREDIS_PORT=6379\nREDIS_DB=0\n\n# JWT\nSECRET_KEY=your-secret-key\nALGORITHM=HS256\nACCESS_TOKEN_EXPIRE_MINUTES=30\nREFRESH_TOKEN_EXPIRE_MINUTES=1440\n\n# Session\nSESSION_EXPIRE_MINUTES=1440\n\n# Password Policy\nPASSWORD_MIN_LENGTH=8\nPASSWORD_REQUIRE_UPPERCASE=true\nPASSWORD_REQUIRE_LOWERCASE=true\nPASSWORD_REQUIRE_NUMBER=true\nPASSWORD_REQUIRE_SPECIAL=true\n\n# Rate Limiting\nLOGIN_RATE_LIMIT=5\nLOGIN_RATE_WINDOW=60\nMAX_LOGIN_ATTEMPTS=5\nACCOUNT_LOCKOUT_MINUTES=15\nPASSWORD_RESET_RATE_LIMIT=3\nPASSWORD_RESET_RATE_WINDOW=3600\n\n# Cookies\nCOOKIE_HTTPONLY=true\nCOOKIE_SECURE=false\nCOOKIE_SAMESITE=lax\n\n# CORS\nALLOWED_ORIGINS=http://localhost:3000", "http": "localhost:3001\n\n# Email (for password reset)\nSMTP_HOST=smtp.gmail.com\nSMTP_PORT=587\nSMTP_USER=your-email@gmail.com\nSMTP_PASSWORD=your-app-password\nSMTP_FROM=noreply@aaryaclothing.com\n```\n\n## Technology Stack\n\n- **Framework**: FastAPI 0.109.0\n- **Database**: PostgreSQL 15\n- **Cache**: Redis 7\n- **ORM**: SQLAlchemy 2.0.25\n- **Authentication**: python-jose 3.3.0\n- **Password Hashing**: passlib[bcrypt] 1.7.4\n- **Validation**: Pydantic 2.12.5\n\n## Installation\n\n### Prerequisites\n\n- Python 3.11+\n- PostgreSQL 15+\n- Redis 7+\n\n### Setup\n\n1. **Clone the repository**\n   ```bash\n   cd services/core\n   ```\n\n2. **Create virtual environment**\n   ```bash\n   python -m venv venv\n   source venv/bin/activate  # On Windows: venvScriptsactivate\n   ```\n\n3. **Install dependencies**\n   ```bash\n   pip install -r requirements.txt\n   ```\n\n4. **Configure environment**\n   ```bash\n   cp .env.example .env\n   # Edit .env with your configuration\n   ```\n\n5. **Initialize database**\n   ```bash\n   # Database tables are created automatically on startup\n   ```\n\n## Running the Service\n\n### Development\n\n```bash\n# Run with auto-reload\nuvicorn main:app --reload --host 0.0.0.0 --port 8001\n```\n\n### Production\n\n```bash\n# Run with multiple workers\nuvicorn main:app --host 0.0.0.0 --port 8001 --workers 4\n```\n\n### Docker\n\n```bash\n# Build image\ndocker build -t aarya-core-service .\n\n# Run container\ndocker run -p 8001:8001 --env-file .env aarya-core-service\n```\n\n## Database Schema\n\n### Users Table\n\n| Column | Type | Description |\n|--------|------|-------------|\n| id | Integer | Primary key |\n| email | String | User email (unique) |\n| username | String | Username (unique) |\n| full_name | String | Full name |\n| hashed_password | String | Bcrypt hashed password |\n| phone | String | Phone number (optional) |\n| role | Enum | User role (CUSTOMER", "Hashing**": "Bcrypt with salt\n- **JWT Tokens**: Signed with HS256 algorithm\n- **HTTP-Only Cookies**: Prevents XSS attacks\n- **CSRF Protection**: SameSite cookie attribute\n- **Rate Limiting**: Prevents brute force attacks\n- **Account Lockout**: Automatic lockout after failed attempts\n- **Token Blacklisting**: Revoked tokens are blacklisted in Redis\n\n## Usage Examples\n\n### Register User\n\n```bash\ncurl -X POST http://localhost:8001/api/v1/auth/register \n  -H", "Content-Type": "application/json", "{\n    \"email\": \"user@example.com\",\n    \"username\": \"johndoe\",\n    \"full_name\": \"John Doe\",\n    \"password\": \"SecurePass123!\"\n  }": "Login\n\n```bash\ncurl -X POST http://localhost:8001/api/v1/auth/login \n  -H", "{\n    \"username\": \"johndoe\",\n    \"password\": \"SecurePass123!\",\n    \"remember_me\": true\n  }": "c cookies.txt\n```\n\n### Get Current User\n\n```bash\ncurl -X GET http://localhost:8001/api/v1/users/me \n  -b cookies.txt\n```\n\n### Send OTP\n\n```bash\ncurl -X POST http://localhost:8001/api/v1/auth/send-otp \n  -H", "{\n    \"identifier\": \"user@example.com\",\n    \"type\": \"EMAIL\"\n  }'\n```\n\n## Testing\n\n```bash\n# Run tests\npytest tests/\n\n# Run with coverage\npytest --cov=services/core tests/\n```\n\n## Troubleshooting\n\n### Common Issues\n\n**Service won": "start**\n- Check if port 8001 is available\n- Verify PostgreSQL and Redis are running\n- Check environment variables in .env file\n\n**Redis connection failed**\n- Ensure Redis is running: `redis-cli ping`\n- Check Redis host and port in configuration\n\n**Database connection failed**\n- Verify PostgreSQL is running\n- Check DATABASE_URL in .env file\n- Ensure database exists\n\n**Token validation fails**\n- Check SECRET_KEY is consistent across services\n- Verify token hasn't expired\n- Ensure token isn't blacklisted\n\n**Email not sending**\n- Verify SMTP credentials\n- Check SMTP host and port\n- Ensure email provider allows app passwords\n\n## API Documentation\n\nOnce the service is running", "documentation": "Swagger UI**: http://localhost:8001/docs\n- **ReDoc**: http://localhost:8001/redoc\n\n## Contributing\n\nSee the main [CONTRIBUTING.md](../../CONTRIBUTING.md) for guidelines.\n\n## License\n\nThis service is part of the Aarya Clothing project."}
+# Core Service — Authentication & Users
+
+**Port:** 5001 (internal Docker) | **Exposed via nginx:** `/api/v1/auth/`, `/api/v1/users/`, `/api/v1/site/`
+
+## Responsibilities
+- User registration, login, password reset
+- OTP-based email verification
+- Session management (JWT tokens in httpOnly cookies)
+- Email delivery (SMTP / Amazon SES)
+- Site configuration (logo, settings)
+
+## Technology Stack
+- **Framework:** FastAPI
+- **Database:** PostgreSQL 15 (via PgBouncer)
+- **Cache:** Redis (DB 0)
+- **ORM:** SQLAlchemy 2.0
+- **Auth:** python-jose (JWT HS256)
+- **Password Hashing:** passlib[bcrypt]
+
+## Environment Variables
+
+See `.env` at project root. Key variables for this service:
+
+```env
+SECRET_KEY=your-secret-key
+ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=30
+REFRESH_TOKEN_EXPIRE_MINUTES=1440
+SESSION_EXPIRE_MINUTES=1440
+DATABASE_URL=postgresql://postgres:PASSWORD@pgbouncer:6432/aarya_clothing
+REDIS_URL=redis://:REDIS_PASSWORD@redis:6379/0
+
+# Email (SMTP or SES)
+SMTP_HOST=smtp.hostinger.com
+SMTP_PORT=465
+SMTP_USER=noreply@aaryaclothing.in
+SMTP_PASSWORD=your-password
+SMTP_TLS=true
+EMAIL_FROM=noreply@aaryaclothing.in
+EMAIL_FROM_NAME=Aarya Clothing
+
+# MSG91 SMS
+MSG91_AUTH_KEY=...
+MSG91_TEMPLATE_ID=...
+MSG91_SENDER_ID=...
+
+# Password Policy
+PASSWORD_MIN_LENGTH=8
+PASSWORD_REQUIRE_UPPERCASE=true
+PASSWORD_REQUIRE_LOWERCASE=true
+PASSWORD_REQUIRE_NUMBER=true
+
+# Rate Limiting
+LOGIN_RATE_LIMIT=10
+LOGIN_RATE_WINDOW=300
+MAX_LOGIN_ATTEMPTS=5
+ACCOUNT_LOCKOUT_MINUTES=15
+
+# Cookie Settings
+COOKIE_SECURE=false
+COOKIE_HTTPONLY=true
+COOKIE_SAMESITE=lax
+```
+
+## Running Locally
+
+```bash
+# From project root (uses Docker Compose)
+docker-compose up -d core
+
+# Or standalone (after setting .env)
+cd services/core
+uvicorn main:app --reload --host 0.0.0.0 --port 5001
+```
+
+## API Endpoints (via nginx)
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/v1/auth/register` | Register new user |
+| POST | `/api/v1/auth/login` | Login with email/password |
+| POST | `/api/v1/auth/send-verification-otp` | Send email verification OTP |
+| POST | `/api/v1/auth/verify-email` | Verify email with OTP |
+| POST | `/api/v1/auth/forgot-password-otp` | Request password reset OTP |
+| POST | `/api/v1/auth/reset-password` | Reset password with OTP |
+| GET  | `/api/v1/users/me` | Get current user profile |
+| GET  | `/api/v1/site/config` | Get site configuration (logo, etc.) |
+| GET  | `/api/v1/health` | Health check |
+
+## Running the Service
+
+```bash
+# Docker (recommended)
+cd /opt/Aarya_clothing_frontend
+docker-compose up -d core
+
+# Standalone development
+cd services/core
+uvicorn main:app --reload --host 0.0.0.0 --port 5001
+
+# Production (6 workers)
+uvicorn main:app --host 0.0.0.0 --port 5001 --workers 6
+```
+
+## API Documentation
+
+When running locally:
+- **Swagger UI:** http://localhost:5001/docs
+- **ReDoc:** http://localhost:5001/redoc
+
+## Troubleshooting
+
+### Email not sending
+- Check SMTP credentials in `.env`
+- Verify `SMTP_HOST`, `SMTP_PORT`, `SMTP_TLS` settings
+- Check logs: `docker logs aarya_core --tail 100 | grep -i email`
+- Hostinger SMTP has rate limits — consider switching to Amazon SES
+
+### Redis connection failed
+- Ensure Redis container is running: `docker exec aarya_redis redis-cli ping`
+- Check `REDIS_URL` in `.env`
+
+### Database connection failed
+- Ensure PostgreSQL and PgBouncer are healthy
+- Check `DATABASE_URL` in `.env`
+
+### Token validation fails
+- Check `SECRET_KEY` is consistent across all 4 services
+- Verify token hasn't expired
+
+## Contributing
+
+See the main project `AGENTS.md` and `.qwen/skills/` for development workflows.

@@ -483,31 +483,39 @@ function RegisterPageContent() {
 
             {/* Password Strength — compact */}
             {passwordStrength && (
-              <div className="flex flex-wrap items-center gap-2 text-[10px] sm:text-xs" aria-live="polite">
-                <div className="flex gap-0.5 flex-1 min-w-[120px] max-w-[200px]" role="progressbar" aria-valuenow={passwordStrength.passed} aria-valuemin="0" aria-valuemax="4">
-                  {[1, 2, 3, 4].map((level) => (
-                    <div
-                      key={level}
-                      className={`flex-1 h-1 rounded-full transition-all duration-300 ${
-                        passwordStrength.passed >= level
-                          ? passwordStrength.passed === 4
-                            ? 'bg-green-500'
-                            : passwordStrength.passed >= 3
-                            ? 'bg-yellow-500'
-                            : 'bg-red-500'
-                          : 'bg-white/10'
-                      }`}
-                    />
-                  ))}
+              <div className="space-y-2" aria-live="polite">
+                <div className="flex flex-wrap items-center gap-2 text-[10px] sm:text-xs">
+                  <div className="flex gap-0.5 flex-1 min-w-[120px] max-w-[200px]" role="progressbar" aria-valuenow={passwordStrength.passed} aria-valuemin="0" aria-valuemax="4">
+                    {[1, 2, 3, 4].map((level) => (
+                      <div
+                        key={level}
+                        className={`flex-1 h-1 rounded-full transition-all duration-300 ${
+                          passwordStrength.passed >= level
+                            ? passwordStrength.passed === 4
+                              ? 'bg-green-500'
+                              : passwordStrength.passed >= 3
+                              ? 'bg-yellow-500'
+                              : 'bg-red-500'
+                            : 'bg-white/10'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                  <span className="text-[#EAE0D5]/50 whitespace-nowrap">
+                    {[
+                      ['length', '8+'],
+                      ['upper', 'A-Z'],
+                      ['lower', 'a-z'],
+                      ['number', '0-9'],
+                    ].map(([key]) => (passwordStrength.checks[key] ? '●' : '○')).join(' ')} <span className="text-[#F2C29A]/90">{passwordStrength.passed}/4</span>
+                  </span>
                 </div>
-                <span className="text-[#EAE0D5]/50 whitespace-nowrap">
-                  {[
-                    ['length', '8+'],
-                    ['upper', 'A-Z'],
-                    ['lower', 'a-z'],
-                    ['number', '0-9'],
-                  ].map(([key]) => (passwordStrength.checks[key] ? '●' : '○')).join(' ')} <span className="text-[#F2C29A]/90">{passwordStrength.passed}/4</span>
-                </span>
+                <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[10px] sm:text-xs text-[#EAE0D5]/70">
+                  <span className={passwordStrength.checks.length ? 'text-green-400' : 'text-[#EAE0D5]/50'}>{passwordStrength.checks.length ? '✓' : '○'} 8+ characters</span>
+                  <span className={passwordStrength.checks.upper ? 'text-green-400' : 'text-[#EAE0D5]/50'}>{passwordStrength.checks.upper ? '✓' : '○'} One uppercase</span>
+                  <span className={passwordStrength.checks.lower ? 'text-green-400' : 'text-[#EAE0D5]/50'}>{passwordStrength.checks.lower ? '✓' : '○'} One lowercase</span>
+                  <span className={passwordStrength.checks.number ? 'text-green-400' : 'text-[#EAE0D5]/50'}>{passwordStrength.checks.number ? '✓' : '○'} One number</span>
+                </div>
               </div>
             )}
 
@@ -538,7 +546,7 @@ function RegisterPageContent() {
                 <button
                   type="button"
                   disabled={!smsOtpEnabled}
-                  title={!smsOtpEnabled ? 'SMS verification is not configured. Use email.' : undefined}
+                  aria-describedby={!smsOtpEnabled ? 'sms-otp-status' : undefined}
                   onClick={() => smsOtpEnabled && setVerificationMethod('otp_sms')}
                   className={`flex flex-col items-center gap-1 p-2.5 sm:p-3 rounded-xl border-2 transition-all duration-300 ${
                     !smsOtpEnabled
@@ -554,6 +562,10 @@ function RegisterPageContent() {
                     {smsOtpEnabled ? 'Code by SMS' : 'MSG91 off'}
                   </p>
                 </button>
+              </div>
+              <div className="rounded-lg border border-[#B76E79]/20 bg-[#0B0608]/25 px-3 py-2 text-[10px] sm:text-[11px] text-[#EAE0D5]/70">
+                <p>• Email OTP: <span className="text-green-400">Available</span></p>
+                <p id="sms-otp-status">• SMS OTP: {smsOtpEnabled ? <span className="text-green-400">Available</span> : <span className="text-amber-300">Currently unavailable (MSG91 off)</span>}</p>
               </div>
               <p className="text-center text-[10px] sm:text-[11px] text-[#EAE0D5]/55">
                 6-digit code to your {verificationMethod === 'otp_email' ? 'email' : 'phone'}.

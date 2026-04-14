@@ -92,6 +92,11 @@ async def _send_one_email(to_email: str, code: str, purpose: str, semaphore: asy
         else:
             logger.error("[EmailQueue] SMTP failed for queued OTP to %s", to_email)
 
+    # Add a delay between sends to avoid SMTP rate limiting
+    # Hostinger limit is ~30 emails/min, so we space them out by 2.5s
+    base_delay = getattr(settings, "SMTP_SEND_DELAY_SECONDS", 2.5) or 2.5
+    await asyncio.sleep(base_delay)
+
 
 async def run_otp_email_worker() -> None:
     """Background task: BLPOP jobs and send OTP emails via async Redis.

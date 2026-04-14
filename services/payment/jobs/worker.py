@@ -28,11 +28,26 @@ REDIS_URL = os.getenv("REDIS_URL", "redis://aarya_redis:6002")
 QUEUE_NAME = "payment-jobs"
 
 
+def _get_redis_connection():
+    """Create a resilient Redis connection with retry settings."""
+    return redis.from_url(
+        REDIS_URL,
+        retry_on_timeout=True,
+        socket_connect_timeout=10,
+        socket_timeout=30,
+        health_check_interval=30,
+        retry=redis.retry.Retry(
+            redis.backoff.ExponentialBackoff(base=1, cap=30),
+            3  # 3 retries: 1s, 2s, 4s
+        ),
+    )
+
+
 def start_worker():
     """Start the RQ worker to process payment jobs."""
     logger.info(f"Starting RQ worker on queue '{QUEUE_NAME}' at {REDIS_URL}")
 
-    redis_conn = redis.from_url(REDIS_URL)
+    redis_conn = _get_redis_connection()
 
     with Connection(redis_conn):
         worker = Worker([Queue(QUEUE_NAME)])
@@ -41,7 +56,7 @@ def start_worker():
 
 def enqueue_job(func, *args, job_id=None, **kwargs):
     """Enqueue a job to the payment-jobs queue."""
-    redis_conn = redis.from_url(REDIS_URL)
+    redis_conn = _get_redis_connection()
     queue = Queue(QUEUE_NAME, connection=redis_conn)
 
     job = queue.enqueue(

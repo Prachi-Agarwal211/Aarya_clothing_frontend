@@ -167,13 +167,15 @@ def _enrich_inventory(inventory, user_role: str = None) -> list:
             for inv in (inventory or [])
         ]
     else:
-        # Limited inventory data for customers - no quantities exposed
+        # Limited inventory data for customers - include quantities for stock display
         return [
             {
                 "size": inv.size,
                 "color": inv.color,
                 "color_hex": getattr(inv, 'color_hex', None),
                 "color_name": inv.color if inv.color and not _is_hex_color(inv.color) else _hex_to_color_name(getattr(inv, 'color_hex', '')),
+                "quantity": inv.quantity,
+                "available_quantity": inv.available_quantity,
                 "in_stock": not inv.is_out_of_stock,
             }
             for inv in (inventory or [])
@@ -212,6 +214,9 @@ def _enrich_product(product, db: Session = None, user_role: str = None) -> dict:
             if color_name:
                 color_name_map[inv.color] = color_name
 
+    # Compute actual in_stock from inventory items (not from total_stock which may be null)
+    actual_in_stock = any(not inv.is_out_of_stock for inv in inventory_list)
+
     return {
         "id": product.id,
         "name": product.name,
@@ -238,10 +243,10 @@ def _enrich_product(product, db: Session = None, user_role: str = None) -> dict:
         "is_featured": product.is_featured,
         "is_new_arrival": product.is_new_arrival,
         "is_new": product.is_new_arrival,
-        # Stock visibility: admin sees quantities, customers see only boolean
-        "total_stock": product.total_stock or 0 if is_admin_user else None,
-        "stock_quantity": product.total_stock or 0 if is_admin_user else None,
-        "in_stock": (product.total_stock or 0) > 0,
+        # Stock visibility: admin sees quantities, customers see actual stock boolean + qty
+        "total_stock": product.total_stock or 0 if is_admin_user else (product.total_stock or 0),
+        "stock_quantity": product.total_stock or 0 if is_admin_user else (product.total_stock or 0),
+        "in_stock": actual_in_stock,  # Computed from actual inventory, not total_stock field
         "is_on_sale": product.is_on_sale,
         "discount_percentage": product.discount_percentage,
         "average_rating": float(product.average_rating) if product.average_rating else 0,

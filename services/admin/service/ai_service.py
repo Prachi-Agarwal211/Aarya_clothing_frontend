@@ -959,7 +959,7 @@ def _execute_customer_tool(db: Session, tool_name: str, args: Dict) -> str:
                 },
                 "return": {
                     "keywords": ["return", "exchange", "refund", "send back"],
-                    "answer": "We offer 15-day easy returns. Items must be unused with tags intact. Free pickup available. Refund processed within 5-7 business days after quality check."
+                    "answer": "We accept returns for damaged/defective items within 7 days of delivery. Items must be unused with tags intact. Unboxing video required. Free pickup available. Refund processed within 5-7 business days after quality check."
                 },
                 "payment": {
                     "keywords": ["pay", "payment", "razorpay", "card", "upi", "wallet"],

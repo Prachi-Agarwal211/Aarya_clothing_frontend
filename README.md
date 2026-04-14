@@ -9,7 +9,7 @@ A modern, production-ready e-commerce platform built with Next.js 15, React 19, 
 - **Responsive Design** - Mobile-first approach
 - **AI-Powered Chat** - Customer support chatbot
 - **Video Uploads** - Cloudflare R2 storage integration
-- **Dual Payment** - Razorpay + Cashfree integration
+- **Razorpay Payment** — UPI, cards, net banking, wallets
 - **OTP Authentication** - Email and SMS verification
 - **Admin Dashboard** - Complete inventory and order management
 - **E2E Tests** - Playwright test suite
@@ -18,7 +18,7 @@ A modern, production-ready e-commerce platform built with Next.js 15, React 19, 
 - **Core Service** - Authentication, users, profiles
 - **Commerce Service** - Products, orders, cart, inventory
 - **Admin Service** - Dashboard, analytics, AI monitoring
-- **Payment Service** - Dual gateway integration
+- **Payment Service** - Razorpay payment processing
 
 ### Infrastructure
 - **Docker** - Complete containerization
@@ -113,18 +113,13 @@ See the `docs/` folder for detailed guides:
 - Rate limiting
 - SQL injection prevention
 
-## 💳 Payment Gateways
+## 💳 Payment Gateway
 
-### Razorpay (Primary)
+### Razorpay
 - UPI support
 - Credit/Debit cards
 - Net banking
 - Wallets
-
-### Cashfree (Alternative)
-- UPI
-- Cards
-- Net banking
 
 ## 🎯 Key Features
 

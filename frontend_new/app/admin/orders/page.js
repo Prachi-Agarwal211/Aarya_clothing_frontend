@@ -41,6 +41,7 @@ const DELIVERY_PARTNERS = [
   { value: 'Gati', label: 'Gati' },
   { value: 'GoJavas', label: 'GoJavas' },
   { value: 'Pickrr', label: 'Pickrr' },
+  { value: 'Tirupati', label: 'Tirupati Courier' },
   { value: 'Other', label: 'Other' },
 ];
 
@@ -155,7 +156,7 @@ function OrdersContent() {
   const handleBulkStatus = async (newStatus) => {
     if (!selected.size) return;
     if (newStatus === 'shipped') {
-      const deliveryPartner = prompt(`Enter delivery partner for ${selected.size} order(s) (e.g. Delhivery, BlueDart, DTDC):`);
+      const deliveryPartner = prompt(`Enter delivery partner for ${selected.size} order(s) (e.g. Delhivery, BlueDart, DTDC, Tirupati):`);
       if (!deliveryPartner || !deliveryPartner.trim()) { showAlert('Delivery partner is required.'); return; }
       const pod = prompt(`Enter POD number for ${selected.size} order(s):`);
       if (!pod || !pod.trim()) { showAlert('POD number is required.'); return; }

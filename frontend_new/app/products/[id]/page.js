@@ -42,15 +42,82 @@ const normalizeHex = (value) => {
 
 const isHexColorValue = (value) => !!normalizeHex(value);
 
+/**
+ * Normalize color names to handle variants like "Dusty Rose" vs "Dusty Rose Pink".
+ * Strips trailing whitespace, normalizes common prefixes/suffixes.
+ * Returns a canonical form for matching.
+ */
+const normalizeColorName = (name) => {
+  if (!name || typeof name !== 'string') return '';
+  return name.trim().toLowerCase().replace(/\s+/g, ' ');
+};
+
+/**
+ * Check if two color names refer to the same color family.
+ * Handles cases like "Dusty Rose" / "Dusty Rose Pink", "Navy" / "Navy Blue", etc.
+ */
+const colorsMatch = (name1, name2) => {
+  if (!name1 || !name2) return false;
+  const n1 = normalizeColorName(name1);
+  const n2 = normalizeColorName(name2);
+  if (n1 === n2) return true;
+  // Check if one contains the other (handles "Dusty Rose" in "Dusty Rose Pink")
+  if (n1.includes(n2) || n2.includes(n1)) {
+    // Only match if the shorter name is at least 4 chars (avoid "Red" matching "Reddish")
+    const shorter = n1.length < n2.length ? n1 : n2;
+    if (shorter.length >= 4) return true;
+  }
+  return false;
+};
+
 const getVariantColorKey = (variant) => {
   if (!variant) return null;
-  return (
-    normalizeHex(variant.color_hex) ||
-    normalizeHex(variant.color) ||
-    normalizeHex(variant.color_name) ||
-    normalizeHex(getHexFromName(variant.color)) ||
-    normalizeHex(getHexFromName(variant.color_name))
-  );
+  // Priority: hex code first (most reliable), then name-based matching
+  const hexKey = normalizeHex(variant.color_hex);
+  if (hexKey) return hexKey;
+  // Fall back to normalized color name for matching
+  // Also check all possible color name variants stored in the variant
+  const colorName = normalizeColorName(variant.color) || normalizeColorName(variant.color_name);
+  return colorName;
+};
+
+/**
+ * Enhanced color matching: checks if a variant matches the selected color.
+ * Handles: exact hex match, exact name match, and fuzzy name matching.
+ */
+const variantMatchesColor = (inv, colorKey) => {
+  if (!inv || !colorKey) return true;
+  const invKey = getVariantColorKey(inv);
+  if (!invKey) return true; // No color info on variant, match it
+
+  // Exact match (for hex keys like #3B82F6)
+  if (invKey === colorKey) return true;
+
+  // If invKey is a hex color and colorKey is also hex, they must match exactly
+  const isHexKey = (k) => k && typeof k === 'string' && k.startsWith('#') && k.length === 7;
+  if (isHexKey(invKey) && isHexKey(colorKey)) return false;
+
+  // If invKey is a name (non-hex), try fuzzy name matching against colorKey
+  if (!isHexKey(invKey)) {
+    // colorKey might be a hex fallback (#888888) when no real hex exists
+    // In that case, also try matching the variant's name against all known color names
+    if (isHexKey(colorKey)) {
+      // The selected color uses a fallback hex — try name-based matching
+      // This handles the case where both "Dusty Rose" and "Dusty Rose Pink" get #888888
+      // and the user selects that merged color
+      return true; // If we're here, the color was already selected from the UI, so trust it
+    }
+    // Both are names — fuzzy match
+    if (typeof colorKey === 'string' && colorsMatch(invKey, colorKey)) return true;
+  }
+
+  // If invKey is hex but colorKey is a name, try reverse lookup
+  if (isHexKey(invKey) && !isHexKey(colorKey)) {
+    // This shouldn't normally happen but handle it anyway
+    return false;
+  }
+
+  return false;
 };
 
 export default function ProductDetailPage() {
@@ -126,11 +193,25 @@ export default function ProductDetailPage() {
     ? (normalizeHex(selectedColor.hex) || normalizeHex(getHexFromName(selectedColor.name)))
     : null;
 
-  const getMatchingVariant = (size, colorKey = selectedColorKey) => {
+  const getMatchingVariant = (size, colorKey = selectedColorKey, color = selectedColor) => {
     if (!product?.inventory?.length) return null;
-    return product.inventory.find((inv) => (
-      inv.size === size && (!colorKey || getVariantColorKey(inv) === colorKey)
-    )) || null;
+    return product.inventory.find((inv) => {
+      if (inv.size !== size) return false;
+      // Primary: exact hex match on color_hex (most reliable)
+      const selHex = color ? normalizeHex(color.hex) : colorKey;
+      if (selHex && inv.color_hex) {
+        const invHex = normalizeHex(inv.color_hex);
+        if (invHex === selHex) return true;
+      }
+      // Fallback: if no hex on variant, match by color name
+      if (color?._variantNames?.size) {
+        const invNormalizedName = normalizeColorName(inv.color) || normalizeColorName(inv.color_name);
+        if (invNormalizedName && color._variantNames.has(invNormalizedName)) return true;
+      }
+      // Last resort: if both have no hex, they belong to same group
+      if (selHex && !inv.color_hex) return true;
+      return false;
+    }) || null;
   };
 
   const getVariantAvailableQty = (variant) => {
@@ -149,18 +230,29 @@ export default function ProductDetailPage() {
   };
 
   const colorHasAnyStock = (color) => {
-    const colorKey = normalizeHex(color?.hex) || normalizeHex(getHexFromName(color?.name));
-    if (!product?.inventory?.length || !colorKey) return true;
-    return product.inventory.some((inv) => getVariantColorKey(inv) === colorKey && inv.in_stock);
+    if (!product?.inventory?.length || !color) return true;
+    // Use the color's hex directly (from API). For merged colors, this is the shared hex.
+    // Do NOT use getHexFromName fuzzy matching here — it causes false matches
+    // (e.g., "Dusty Rose" contains "Rose" → returns #F43F5E instead of #888888).
+    const selHex = normalizeHex(color.hex);
+    if (!selHex) return true; // No hex data, assume in stock
+
+    const hasStock = product.inventory.some((inv) => {
+      // Prefer the variant's color_hex, otherwise derive from the color's hex
+      // since variants in the same merged group share the same hex
+      const invHex = normalizeHex(inv.color_hex) || selHex;
+      return invHex === selHex && inv.in_stock;
+    });
+    return hasStock;
   };
 
   // Update selected variant when size or color changes
   useEffect(() => {
     if (product?.inventory?.length) {
-      const variant = getMatchingVariant(selectedSize);
+      const variant = getMatchingVariant(selectedSize, selectedColorKey, selectedColor);
       setSelectedVariant(variant || null);
     }
-  }, [selectedSize, selectedColorKey, product]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selectedSize, selectedColorKey, selectedColor, product]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Keep selected size valid for the currently selected color.
   useEffect(() => {
@@ -206,32 +298,58 @@ export default function ProductDetailPage() {
         product.sizes = sizesFromInv;
       }
       if (!product.colors || product.colors.length === 0) {
-        const colorsFromInv = [...new Map(
-          (product.inventory || [])
-            .filter(i => i.color)
-            .map(i => {
-              const hex = normalizeHex(i.color_hex) || normalizeHex(getHexFromName(i.color)) || '#888888';
-              // Prefer color_name from API, then color field (if it's a name), then fallback to hex-to-name lookup
-              const displayName = i.color_name || (
-                isHexColorValue(i.color)
-                  ? (getColorName(hex) || i.color.toUpperCase())
-                  : i.color
-              );
-              return [hex, { name: i.color, displayName, hex }];
-            })
-        ).values()];
-        product.colors = colorsFromInv;
+        // Group inventory by hex key, merge similar color names under one color
+        const colorMap = new Map();
+        (product.inventory || [])
+          .filter(i => i.color)
+          .forEach(i => {
+            const hex = normalizeHex(i.color_hex) || normalizeHex(getHexFromName(i.color)) || '#888888';
+            const displayName = i.color_name || (
+              isHexColorValue(i.color)
+                ? (getColorName(hex) || i.color.trim())
+                : i.color.trim()
+            );
+            if (!colorMap.has(hex)) {
+              colorMap.set(hex, { name: i.color.trim(), displayName, hex, _variantNames: new Set() });
+            }
+            const entry = colorMap.get(hex);
+            // Track all original variant color names for matching
+            entry._variantNames.add(normalizeColorName(i.color));
+            // Keep the most descriptive name as displayName
+            if (displayName.length > (entry.displayName || '').length) {
+              entry.displayName = displayName;
+            }
+          });
+        product.colors = [...colorMap.values()].map(({ _variantNames, ...c }) => ({ ...c, _variantNames }));
       } else {
-        product.colors = product.colors.map((color) => {
+        // Backend provided colors - deduplicate by hex and add _variantNames from inventory
+        const colorMap = new Map();
+        product.colors.forEach((color) => {
           const hex = normalizeHex(color.hex) || normalizeHex(color.name) || normalizeHex(getHexFromName(color.name)) || '#888888';
-          // Prefer display_name/displayName from API, then fallback to hex-to-name lookup
           const displayName = color.display_name || color.displayName || (
             isHexColorValue(color.name)
               ? (getColorName(hex) || color.name.toUpperCase())
               : color.name
           );
-          return { ...color, hex, displayName };
+          if (!colorMap.has(hex)) {
+            colorMap.set(hex, { name: color.name, displayName, hex, _variantNames: new Set() });
+          } else {
+            const existing = colorMap.get(hex);
+            if (displayName.length > (existing.displayName || '').length) {
+              existing.displayName = displayName;
+              existing.name = color.name;
+            }
+          }
         });
+        // Add _variantNames from inventory for name-based matching
+        (product.inventory || []).filter(i => i.color).forEach(i => {
+          const hex = normalizeHex(i.color_hex) || normalizeHex(getHexFromName(i.color)) || '#888888';
+          const normalizedName = normalizeColorName(i.color);
+          if (colorMap.has(hex) && normalizedName) {
+            colorMap.get(hex)._variantNames.add(normalizedName);
+          }
+        });
+        product.colors = [...colorMap.values()];
       }
 
       setProduct(product);
@@ -248,15 +366,33 @@ export default function ProductDetailPage() {
 
       // Auto-select first color/size that is actually in stock.
       const firstColorWithStock = product.colors?.find((color) => {
+        // Use _variantNames for matching if available
+        if (color._variantNames?.size) {
+          return (product.inventory || []).some((inv) => {
+            const invName = normalizeColorName(inv.color) || normalizeColorName(inv.color_name);
+            return invName && color._variantNames.has(invName) && inv.in_stock;
+          });
+        }
+        // Fallback to hex matching
         const colorKey = normalizeHex(color.hex) || normalizeHex(getHexFromName(color.name));
-        return (product.inventory || []).some((inv) => getVariantColorKey(inv) === colorKey && inv.in_stock);
+        return (product.inventory || []).some((inv) => variantMatchesColor(inv, colorKey) && inv.in_stock);
       }) || product.colors?.[0];
       if (firstColorWithStock) setSelectedColor(firstColorWithStock);
 
       const firstSizeWithStock = product.sizes?.find((size) => {
         if (!firstColorWithStock) return true;
+        // Use _variantNames for matching if available
+        if (firstColorWithStock._variantNames?.size) {
+          const inv = (product.inventory || []).find((item) => {
+            if (item.size !== size) return false;
+            const invName = normalizeColorName(item.color) || normalizeColorName(item.color_name);
+            return invName && firstColorWithStock._variantNames.has(invName);
+          });
+          return inv?.in_stock;
+        }
+        // Fallback to hex matching
         const colorKey = normalizeHex(firstColorWithStock.hex) || normalizeHex(getHexFromName(firstColorWithStock.name));
-        const inv = (product.inventory || []).find((item) => item.size === size && getVariantColorKey(item) === colorKey);
+        const inv = (product.inventory || []).find((item) => item.size === size && variantMatchesColor(item, colorKey));
         return inv?.in_stock;
       }) || product.sizes?.[0];
       if (firstSizeWithStock) setSelectedSize(firstSizeWithStock);

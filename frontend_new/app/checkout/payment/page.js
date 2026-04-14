@@ -619,7 +619,7 @@ export default function CheckoutPaymentPage() {
             <div className="flex items-center gap-2">
               <RefreshCw className="w-5 h-5 text-green-400" />
               <div>
-                <p className="text-sm text-[#F2C29A]">Easy Returns Available</p>
+                <p className="text-sm text-[#F2C29A]">Return Protection</p>
                 <p className="text-xs text-[#EAE0D5]/50">Defective items? Submit return with video proof within 7 days. <Link href="/returns" className="underline hover:text-[#F2C29A]">Learn more</Link></p>
               </div>
             </div>

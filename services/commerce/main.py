@@ -185,12 +185,18 @@ def _enrich_product(product, user_role: str = None) -> dict:
              "color_hex": getattr(inv, 'color_hex', None),
              "color_name": inv.color if inv.color and not _is_hex_color(inv.color) else _hex_to_color_name(getattr(inv, 'color_hex', '')),
              "image_url": getattr(inv, 'image_url', None),
+             "quantity": inv.quantity,
+             "available_quantity": inv.available_quantity,
              "in_stock": not inv.is_out_of_stock}
             for inv in (product.inventory or [])
         ]
 
     # Extract unique sizes and colors from inventory for frontend selection
-    sizes = sorted(list(set(inv.size for inv in (product.inventory or []) if inv.size)))
+    SIZE_ORDER = {'XS': 0, 'S': 1, 'M': 2, 'L': 3, 'XL': 4, 'XXL': 5, 'XXXL': 6, '3XL': 6, '4XL': 7, 'Free Size': 99}
+    sizes = sorted(
+        list(set(inv.size for inv in (product.inventory or []) if inv.size)),
+        key=lambda s: SIZE_ORDER.get(s.upper(), 50)
+    )
     colors = sorted(list(set(inv.color for inv in (product.inventory or []) if inv.color)))
 
     # Build color objects with hex codes and human-readable names from inventory data
@@ -211,6 +217,9 @@ def _enrich_product(product, user_role: str = None) -> dict:
          "display_order": img.display_order}
         for img in (product.images or [])
     ]
+
+    # Compute actual in_stock from inventory items (not from total_stock which is null for customers)
+    actual_in_stock = any(not inv.is_out_of_stock for inv in (product.inventory or []))
 
     return {
         "id": product.id,
@@ -237,11 +246,11 @@ def _enrich_product(product, user_role: str = None) -> dict:
         "is_featured": product.is_featured,
         "is_new_arrival": product.is_new_arrival,
         "is_new": product.is_new_arrival,  # Alias for frontend
-        # Stock visibility: admin sees quantities, customers see only boolean
-        "total_stock": product.total_stock or 0 if is_admin_user else None,
+        # Stock visibility: admin sees quantities, customers see boolean + available qty
+        "total_stock": product.total_stock or 0 if is_admin_user else (product.total_stock or 0),
         "inventory_count": product.total_stock or 0 if is_admin_user else None,
-        "stock_quantity": product.total_stock or 0 if is_admin_user else None,  # Alias for frontend
-        "in_stock": (product.total_stock or 0) > 0,  # Boolean for frontend Add to Cart
+        "stock_quantity": product.total_stock or 0 if is_admin_user else (product.total_stock or 0),
+        "in_stock": actual_in_stock,  # Computed from actual inventory, not total_stock
         "is_on_sale": product.is_on_sale,
         "discount_percentage": product.discount_percentage,
         "rating": float(product.average_rating) if product.average_rating else 0,
@@ -3513,121 +3522,10 @@ async def cancel_return_request(
     return {"message": "Return request cancelled successfully", "id": return_id}
 
 
-# ==================== Product Sorting & Filtering ====================
-# IMPORTANT: /browse route MUST come before /{product_id}/related to avoid route matching conflicts
-# FastAPI matches routes in order, and "browse" would be interpreted as a product_id otherwise
-
-
-def _browse_products_payload(
-    db: Session,
-    user_role: Optional[str],
-    category_id: Optional[int],
-    category_slug: Optional[str],
-    min_price: Optional[float],
-    max_price: Optional[float],
-    sort_by: str,
-    in_stock_only: bool,
-    skip: int,
-    limit: int,
-) -> dict:
-    """Build browse response (used by cached and uncached paths)."""
-    query = db.query(Product).filter(Product.is_active == True)
-
-    if category_id:
-        query = query.filter(Product.category_id == category_id)
-    elif category_slug:
-        cat = db.query(Category).filter(Category.slug == category_slug).first()
-        if cat:
-            query = query.filter(Product.category_id == cat.id)
-
-    if min_price is not None:
-        query = query.filter(Product.base_price >= min_price)
-    if max_price is not None:
-        query = query.filter(Product.base_price <= max_price)
-
-    if in_stock_only:
-        from models.inventory import Inventory as _Inv
-        in_stock_ids = db.query(_Inv.product_id).filter(_Inv.quantity > 0).subquery()
-        query = query.filter(Product.id.in_(in_stock_ids))
-
-    if sort_by == "price_low":
-        query = query.order_by(Product.base_price.asc())
-    elif sort_by == "price_high":
-        query = query.order_by(Product.base_price.desc())
-    elif sort_by == "popular":
-        query = query.order_by(Product.average_rating.desc())
-    elif sort_by == "name_asc":
-        query = query.order_by(Product.name.asc())
-    elif sort_by == "name_desc":
-        query = query.order_by(Product.name.desc())
-    else:
-        query = query.order_by(Product.created_at.desc())
-
-    total = query.count()
-    products = query.offset(skip).limit(limit).all()
-
-    return {
-        "products": [_enrich_product(p, user_role) for p in products],
-        "total": total,
-        "page": skip // limit + 1,
-        "total_pages": (total + limit - 1) // limit,
-        "sort_by": sort_by,
-        "filters": {
-            "category_id": category_id,
-            "min_price": min_price,
-            "max_price": max_price,
-            "in_stock_only": in_stock_only,
-        },
-    }
-
-
-@app.get("/api/v1/products/browse", tags=["Products"])
-async def browse_products_main(
-    category_id: Optional[int] = None,
-    category_slug: Optional[str] = None,
-    min_price: Optional[float] = None,
-    max_price: Optional[float] = None,
-    sort_by: str = Query("newest", regex="^(newest|price_low|price_high|popular|name_asc|name_desc)$"),
-    size: Optional[str] = None,
-    color: Optional[str] = None,
-    in_stock_only: bool = True,
-    skip: int = Query(0, ge=0),
-    limit: int = Query(24, ge=1, le=100),
-    current_user: Optional[dict] = Depends(get_current_user_optional),
-):
-    """Browse products with advanced filtering, sorting, and pagination."""
-    user_role = current_user.get("role") if current_user else None
-    role_key = user_role or "guest"
-    nk = lambda x: "none" if x is None else str(x)
-    cache_key = (
-        f"products:browse:v1:{role_key}:{nk(category_id)}:{nk(category_slug)}:"
-        f"{nk(min_price)}:{nk(max_price)}:{sort_by}:{nk(size)}:{nk(color)}:"
-        f"{in_stock_only}:{skip}:{limit}"
-    )
-
-    def _fetch_sync():
-        # Own session in thread pool — SQLAlchemy Session is not thread-safe across asyncio.to_thread
-        db = SessionLocal()
-        try:
-            return _browse_products_payload(
-                db,
-                user_role,
-                category_id,
-                category_slug,
-                min_price,
-                max_price,
-                sort_by,
-                in_stock_only,
-                skip,
-                limit,
-            )
-        finally:
-            db.close()
-
-    async def fetch_browse():
-        return await asyncio.to_thread(_fetch_sync)
-
-    return await cache.get_or_set(cache_key, fetch_browse, ttl=120)
+# NOTE: /api/v1/products/browse is handled by routes/products.py (registered via router at line 560).
+# The route module version is the SINGLE source of truth for product browsing.
+# The duplicate endpoint below was removed to prevent confusion and stale cache issues.
+# (Previously caused products to show as out-of-stock due to missing db parameter in _enrich_product)
 
 
 @app.get("/api/v1/products/{product_id}/related", tags=["Products"])

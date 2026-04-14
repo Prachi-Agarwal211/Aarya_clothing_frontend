@@ -10,21 +10,25 @@ The Commerce Service handles all product catalog, inventory management, shopping
 - **Shopping Cart** - Real-time cart management with Redis persistence
 - **Order Processing** - Complete order lifecycle management
 - **Category Management** - Hierarchical category organization
-- **Search & Filtering** - Advanced product search capabilities
+- **Search & Filtering** - Advanced product search capabilities (Meilisearch)
 - **Price Management** - Dynamic pricing and discount handling
 - **Product Analytics** - Sales tracking and reporting
+- **AI Product Embeddings** - pgvector-based semantic search
+- **R2 Image Storage** - Cloudflare R2 product images
 
 ### Service Details
-- **Port**: 8010
-- **Framework**: FastAPI 0.109.0
-- **Database**: PostgreSQL 15
-- **Cache**: Redis 7
+- **Port**: 5002 (internal Docker)
+- **Exposed via nginx:** `/api/v1/products/`, `/api/v1/cart/`, `/api/v1/orders/`, etc.
+- **Framework**: FastAPI
+- **Database**: PostgreSQL 15 (via PgBouncer)
+- **Cache**: Redis (DB 1 + DB 4 for response cache)
+- **Search**: Meilisearch
 - **Authentication**: JWT integration with Core Service
 
 ## 🏗️ Architecture
 
 ```
-Commerce Service (Port 8010)
+Commerce Service (Port 5002)
 ├── Product Management
 │   ├── Product Catalog
 │   ├── Category Management
@@ -104,7 +108,7 @@ DATABASE_URL=postgresql://postgres:password@localhost:5432/aarya_clothing
 REDIS_URL=redis://localhost:6379/0
 
 # Core Service Integration
-CORE_SERVICE_URL=http://localhost:8001
+CORE_SERVICE_URL=http://localhost:5001
 JWT_SECRET_KEY=shared-jwt-secret-key
 
 # Payment Service Integration
@@ -128,7 +132,7 @@ DEBUG=true
 LOG_LEVEL=INFO
 
 # CORS Settings
-ALLOWED_ORIGINS=["http://localhost:3000","http://localhost:8001"]
+ALLOWED_ORIGINS=["http://localhost:3000","http://localhost:5001"]
 
 # Search Configuration
 ELASTICSEARCH_URL=http://localhost:9200
@@ -501,7 +505,7 @@ cart:{user_id} -> {
 docker build -t aarya-clothing-commerce .
 
 # Run container
-docker run -p 8010:8010 \
+docker run -p 5002:5002 \
   -e DATABASE_URL=postgresql://... \
   -e REDIS_URL=redis://... \
   -e CORE_SERVICE_URL=http://... \
@@ -520,23 +524,23 @@ venv_commerce\Scripts\activate  # Windows
 pip install -r requirements.txt
 
 # Run service
-uvicorn main:app --host 0.0.0.0 --port 8010 --reload
+uvicorn main:app --host 0.0.0.0 --port 5002 --reload
 ```
 
 ## 🧪 Testing
 
 ### Health Check
 ```bash
-curl http://localhost:8010/health
+curl http://localhost:5002/health
 ```
 
 ### API Testing
 ```bash
 # Test product listing
-curl -X GET "http://localhost:8010/api/v1/products?page=1&limit=10"
+curl -X GET "http://localhost:5002/api/v1/products?page=1&limit=10"
 
 # Test product creation (admin)
-curl -X POST "http://localhost:8010/api/v1/products" \
+curl -X POST "http://localhost:5002/api/v1/products" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <admin_token>" \
   -d '{
@@ -547,7 +551,7 @@ curl -X POST "http://localhost:8010/api/v1/products" \
   }'
 
 # Test cart operations
-curl -X POST "http://localhost:8010/api/v1/cart/123/add" \
+curl -X POST "http://localhost:5002/api/v1/cart/123/add" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer <access_token>" \
   -d '{
@@ -608,7 +612,7 @@ python -c "import redis; r=redis.from_url('redis://localhost:6379'); print(r.pin
 #### 3. Core Service Integration Issues
 ```bash
 # Test Core Service connectivity
-curl http://localhost:8001/health
+curl http://localhost:5001/health
 
 # Verify JWT secret matches
 echo $JWT_SECRET_KEY
@@ -631,7 +635,7 @@ export DEBUG=true
 export LOG_LEVEL=DEBUG
 
 # Run with verbose output
-uvicorn main:app --host 0.0.0.0 --port 8010 --reload --log-level debug
+uvicorn main:app --host 0.0.0.0 --port 5002 --reload --log-level debug
 ```
 
 ## 📚 Dependencies

@@ -70,14 +70,16 @@ class EmailService:
         html_content: str,
         text_content: Optional[str] = None
     ) -> bool:
-        """Send email synchronously."""
+        """Send email synchronously with rate-limit aware retries."""
         if not self.user or not self.password:
             logger.info(f"[EMAIL] SMTP not configured. Would send to: {to_email}")
             logger.info(f"[EMAIL] Subject: {subject}")
             return True  # Pretend success for development
 
         max_attempts = getattr(settings, "SMTP_SEND_MAX_ATTEMPTS", 3) or 3
-        delay = 1.0
+        # Base delay between sends to avoid rate limiting (Hostinger limit: ~30/min)
+        base_delay = getattr(settings, "SMTP_SEND_DELAY_SECONDS", 2.5) or 2.5
+        delay = base_delay
         last_exc = None
 
         for attempt in range(max_attempts):
@@ -126,9 +128,32 @@ class EmailService:
                 logger.error(f"[EMAIL] SMTP timeout connecting to {self.host}:{self.port} - {str(e)}")
                 if attempt + 1 >= max_attempts:
                     return False
+            except smtplib.SMTPDataError as e:
+                # Rate limit errors: (451, b'4.7.1 Ratelimit "hostinger_out_ratelimit" exceeded')
+                last_exc = e
+                error_str = str(e)
+                is_rate_limit = "451" in error_str or "Ratelimit" in error_str or "rate limit" in error_str.lower()
+                if is_rate_limit:
+                    logger.warning(
+                        f"[EMAIL] Rate limited by SMTP server. "
+                        f"Waiting {delay}s before retry {attempt+2}/{max_attempts}…"
+                    )
+                else:
+                    logger.error(f"[EMAIL] SMTP data error sending to {to_email}: {error_str}")
+                if attempt + 1 >= max_attempts:
+                    return False
             except Exception as e:
                 last_exc = e
-                logger.error(f"[EMAIL] Unexpected error sending to {to_email}: {str(e)}")
+                error_str = str(e)
+                # Detect rate limit in generic exceptions
+                is_rate_limit = "451" in error_str or "Ratelimit" in error_str or "rate limit" in error_str.lower()
+                if is_rate_limit:
+                    logger.warning(
+                        f"[EMAIL] Rate limited by SMTP server. "
+                        f"Waiting {delay}s before retry {attempt+2}/{max_attempts}…"
+                    )
+                else:
+                    logger.error(f"[EMAIL] Unexpected error sending to {to_email}: {error_str}")
                 if attempt + 1 >= max_attempts:
                     logger.error(f"[EMAIL] Connection: {self.host}:{self.port}, TLS: {self.use_tls}")
                     return False
@@ -141,7 +166,11 @@ class EmailService:
                     delay,
                 )
                 time.sleep(delay)
+                # Exponential backoff with rate-limit awareness
                 delay = min(delay * 2, 30.0)
+                # For rate limit errors, add extra delay to let the server reset
+                if 'is_rate_limit' in dir() and is_rate_limit:
+                    delay = max(delay, 10.0)  # At least 10s for rate limit
 
         if last_exc:
             logger.error("[EMAIL] All SMTP attempts failed for %s", to_email)

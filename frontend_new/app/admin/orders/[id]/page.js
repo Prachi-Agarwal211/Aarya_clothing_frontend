@@ -49,6 +49,7 @@ const DELIVERY_PARTNERS = [
   { value: 'Gati', label: 'Gati' },
   { value: 'GoJavas', label: 'GoJavas' },
   { value: 'Pickrr', label: 'Pickrr' },
+  { value: 'Tirupati', label: 'Tirupati Courier' },
   { value: 'Other', label: 'Other' },
 ];
 

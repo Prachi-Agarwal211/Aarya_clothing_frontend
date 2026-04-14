@@ -1,0 +1,34 @@
+# PostgreSQL Exporter Configuration
+# This file configures the postgres_exporter for Aarya Clothing monitoring.
+
+# Connection settings are provided via DATA_SOURCE_NAME environment variable
+# in docker-compose.yml, so no auth sections needed here.
+
+# Metrics to collect
+auth_modules: {}
+
+# Custom metrics for Aarya Clothing database
+custom_metrics:
+  # Product catalog metrics
+  aarya_products_total:
+    query: "SELECT COUNT(*) as total FROM products WHERE is_active = true"
+    metrics:
+      - total:
+          usage: "GAUGE"
+          description: "Total number of active products"
+
+  # Order metrics
+  aarya_orders_today:
+    query: "SELECT COUNT(*) as total FROM orders WHERE created_at >= NOW() - INTERVAL '24 hours'"
+    metrics:
+      - total:
+          usage: "GAUGE"
+          description: "Number of orders in the last 24 hours"
+
+  # User metrics
+  aarya_users_active:
+    query: "SELECT COUNT(*) as total FROM users WHERE is_active = true"
+    metrics:
+      - total:
+          usage: "GAUGE"
+          description: "Total number of active users"

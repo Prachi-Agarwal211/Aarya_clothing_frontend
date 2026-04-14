@@ -159,16 +159,44 @@ export default function SizeGuideModal({ isOpen, onClose, category = 'kurta' }) 
  * Size Chart Table Component
  */
 function SizeChart({ sizeData, measurementLabels }) {
-  if (!sizeData?.size_chart) {
-    return (
-      <div className="text-center py-12 text-[#EAE0D5]/60">
-        <p>No size chart available for this category.</p>
-      </div>
-    );
-  }
+  // Default size chart for Aarya Clothing (Indian sizing)
+  // Maps standard sizes to chest/bust measurements
+  const defaultSizeChart = [
+    { size: 'S', chest: 36, chestCm: 91.4, waist: 30, waistCm: 76.2, hip: 38, hipCm: 96.5, length: 41, lengthCm: 104.1 },
+    { size: 'M', chest: 38, chestCm: 96.5, waist: 32, waistCm: 81.3, hip: 40, hipCm: 101.6, length: 42, lengthCm: 106.7 },
+    { size: 'L', chest: 40, chestCm: 101.6, waist: 34, waistCm: 86.4, hip: 42, hipCm: 106.7, length: 43, lengthCm: 109.2 },
+    { size: 'XL', chest: 42, chestCm: 106.7, waist: 36, waistCm: 91.4, hip: 44, hipCm: 111.8, length: 44, lengthCm: 111.8 },
+    { size: 'XXL', chest: 44, chestCm: 111.8, waist: 38, waistCm: 96.5, hip: 46, hipCm: 116.8, length: 45, lengthCm: 114.3 },
+  ];
 
-  const sizes = sizeData.size_chart;
+  // Use backend data if available, otherwise use default
+  const sizes = sizeData?.size_chart?.length > 0 ? sizeData.size_chart : defaultSizeChart;
   const measurements = sizes[0] ? Object.keys(sizes[0]).filter(k => k !== 'size') : [];
+
+  // Friendly measurement labels
+  const friendlyLabels = {
+    chest: 'Chest (inches)',
+    chestCm: 'Chest (cm)',
+    waist: 'Waist (inches)',
+    waistCm: 'Waist (cm)',
+    hip: 'Hip (inches)',
+    hipCm: 'Hip (cm)',
+    length: 'Length (inches)',
+    lengthCm: 'Length (cm)',
+    shoulder: 'Shoulder',
+    inseam: 'Inseam',
+    chest_bust: 'Chest/Bust',
+  };
+
+  // Map keys like "chest" and "chestCm" to friendly names
+  const getFriendlyLabel = (key) => {
+    if (friendlyLabels[key]) return friendlyLabels[key];
+    return key.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase());
+  };
+
+  // Group primary and secondary measurements
+  const primaryMeasurements = measurements.filter(k => !k.endsWith('Cm'));
+  const secondaryMeasurements = measurements.filter(k => k.endsWith('Cm'));
 
   return (
     <div className="space-y-4">
@@ -177,15 +205,15 @@ function SizeChart({ sizeData, measurementLabels }) {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-[#B76E79]/20">
-              <th className="text-left py-3 px-3 text-[#F2C29A] font-semibold sticky left-0 bg-[#0B0608]">
+              <th className="text-left py-3 px-3 text-[#F2C29A] font-semibold sticky left-0 bg-[#0B0608] z-10">
                 Size
               </th>
-              {measurements.map((measurement) => (
+              {primaryMeasurements.map((measurement) => (
                 <th
                   key={measurement}
                   className="text-center py-3 px-3 text-[#F2C29A] font-semibold whitespace-nowrap"
                 >
-                  {measurementLabels[measurement] || measurement.replace('_', ' ').toUpperCase()}
+                  {getFriendlyLabel(measurement)}
                 </th>
               ))}
             </tr>
@@ -198,19 +226,23 @@ function SizeChart({ sizeData, measurementLabels }) {
                   index % 2 === 0 ? 'bg-[#0B0608]/20' : 'bg-[#0B0608]/40'
                 }`}
               >
-                <td className="py-3 px-3 text-[#F2C29A] font-bold sticky left-0 bg-inherit">
+                <td className="py-3 px-3 text-[#F2C29A] font-bold sticky left-0 bg-inherit z-10">
                   {size.size}
                 </td>
-                {measurements.map((measurement) => {
+                {primaryMeasurements.map((measurement) => {
+                  const cmKey = measurement + 'Cm';
                   const value = size[measurement];
+                  const cmValue = size[cmKey];
                   return (
                     <td key={measurement} className="text-center py-3 px-3 text-[#EAE0D5]">
-                      {value ? (
+                      {value !== undefined && value !== null ? (
                         <div className="flex flex-col items-center">
-                          <span className="font-medium">{value.inches}"</span>
-                          <span className="text-xs text-[#EAE0D5]/50">
-                            ({value.centimeters} cm)
-                          </span>
+                          <span className="font-medium">{value}"</span>
+                          {cmValue && (
+                            <span className="text-xs text-[#EAE0D5]/50">
+                              ({cmValue} cm)
+                            </span>
+                          )}
                         </div>
                       ) : (
                         <span className="text-[#EAE0D5]/30">-</span>
@@ -224,14 +256,29 @@ function SizeChart({ sizeData, measurementLabels }) {
         </table>
       </div>
 
+      {/* Size ↔ Number Reference */}
+      <div className="bg-[#7A2F57]/10 border border-[#B76E79]/20 rounded-lg p-4">
+        <h3 className="text-sm font-semibold text-[#F2C29A] mb-3">📐 Quick Size Reference</h3>
+        <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
+          {defaultSizeChart.map((s) => (
+            <div key={s.size} className="text-center bg-[#0B0608]/40 rounded-lg py-2 px-3">
+              <div className="text-lg font-bold text-[#F2C29A]">{s.size}</div>
+              <div className="text-sm text-[#EAE0D5]/70">= {s.chest}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* Size Selection Tips */}
       <div className="bg-[#7A2F57]/10 border border-[#B76E79]/20 rounded-lg p-4 mt-6">
         <h3 className="text-sm font-semibold text-[#F2C29A] mb-2">💡 Size Selection Tips</h3>
         <ul className="text-xs text-[#EAE0D5]/70 space-y-1.5 list-disc list-inside">
-          <li>Choose your size based on your largest measurement</li>
-          <li>For a relaxed fit, consider sizing up</li>
-          <li>For a fitted look, choose your exact measurements</li>
-          <li>Check the fit type (Regular/Slim/Relaxed) on the product page</li>
+          <li><strong>S (36)</strong> — Chest: 36&quot; / 91.4 cm</li>
+          <li><strong>M (38)</strong> — Chest: 38&quot; / 96.5 cm</li>
+          <li><strong>L (40)</strong> — Chest: 40&quot; / 101.6 cm</li>
+          <li><strong>XL (42)</strong> — Chest: 42&quot; / 106.7 cm</li>
+          <li><strong>XXL (44)</strong> — Chest: 44&quot; / 111.8 cm</li>
+          <li className="pt-1">For a relaxed fit, consider sizing up</li>
           <li>When in between sizes, we recommend sizing up for comfort</li>
         </ul>
       </div>

@@ -2032,17 +2032,24 @@ async def bulk_update_order_status(
         text("""
         UPDATE orders
         SET status = :status, updated_at = :now
+            """ + (""", tracking_number = :pod, courier_name = :courier, shipped_at = :now""" if data.status == "shipped" and data.pod_number else "") + """
         WHERE id = ANY(:order_ids)
         RETURNING id
     """),
-        {"status": data.status, "now": now, "order_ids": data.order_ids},
+        {
+            "status": data.status,
+            "now": now,
+            "order_ids": data.order_ids,
+            "pod": data.pod_number if data.status == "shipped" else None,
+            "courier": getattr(data, 'courier_name', None) if data.status == "shipped" else None,
+        },
     ).fetchall()
 
     for row in updated:
         db.execute(
             text("""
-            INSERT INTO order_tracking (order_id, status, notes, updated_by, created_at)
-            VALUES (:order_id, :status, :notes, :updated_by, :created_at)
+            INSERT INTO order_tracking (order_id, status, notes, updated_by, created_at""" + (", tracking_number, courier_name" if data.status == "shipped" and data.pod_number else "") + """)
+            VALUES (:order_id, :status, :notes, :updated_by, :created_at""" + (", :pod, :courier" if data.status == "shipped" and data.pod_number else "") + """)
         """),
             {
                 "order_id": row[0],
@@ -2050,6 +2057,8 @@ async def bulk_update_order_status(
                 "notes": data.notes,
                 "updated_by": current_user.get("user_id"),
                 "created_at": now,
+                "pod": data.pod_number if data.status == "shipped" else None,
+                "courier": getattr(data, 'courier_name', None) if data.status == "shipped" else None,
             },
         )
 

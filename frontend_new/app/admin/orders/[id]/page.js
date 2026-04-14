@@ -36,6 +36,22 @@ const STATUS_ADMIN_LABELS = {
 // R2 public URL for product images
 const R2_BASE_URL = 'https://pub-7846c786f7154610b57735df47899fa0.r2.dev';
 
+// Delivery partners — common Indian courier services
+const DELIVERY_PARTNERS = [
+  { value: 'Delhivery', label: 'Delhivery' },
+  { value: 'BlueDart', label: 'Blue Dart' },
+  { value: 'DTDC', label: 'DTDC' },
+  { value: 'Xpressbees', label: 'Xpressbees' },
+  { value: 'Shadowfax', label: 'Shadowfax' },
+  { value: 'Ecom Express', label: 'Ecom Express' },
+  { value: 'India Post', label: 'India Post (Speed Post)' },
+  { value: 'FedEx', label: 'FedEx' },
+  { value: 'Gati', label: 'Gati' },
+  { value: 'GoJavas', label: 'GoJavas' },
+  { value: 'Pickrr', label: 'Pickrr' },
+  { value: 'Other', label: 'Other' },
+];
+
 // Helper to convert relative image URLs to full R2 URLs
 const getImageUrl = (url) => {
   if (!url) return null;
@@ -62,6 +78,7 @@ export default function OrderDetailPage({ params }) {
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [newStatus, setNewStatus] = useState('');
   const [podNumber, setPodNumber] = useState('');
+  const [deliveryPartner, setDeliveryPartner] = useState('');
   const [notes, setNotes] = useState('');
   const [trackingHistory, setTrackingHistory] = useState([]);
 
@@ -102,12 +119,14 @@ export default function OrderDetailPage({ params }) {
       await ordersApi.updateStatus(orderId, {
         status: newStatus,
         pod_number: podNumber.trim() || undefined,
+        courier_name: deliveryPartner || undefined,
         notes: notes || undefined,
       });
       await fetchOrder();
       setShowStatusModal(false);
       setNewStatus('');
       setPodNumber('');
+      setDeliveryPartner('');
       setNotes('');
     } catch (err) {
       logger.error('Error updating status:', err);
@@ -537,19 +556,36 @@ export default function OrderDetailPage({ params }) {
               </div>
 
               {newStatus === 'shipped' && (
-                <div>
-                  <label className="block text-sm text-[#EAE0D5]/70 mb-2">
-                    POD / Tracking Number <span className="text-red-400">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={podNumber}
-                    onChange={(e) => setPodNumber(e.target.value)}
-                    placeholder="e.g. DTDC1234567890"
-                    autoFocus
-                    className="w-full px-4 py-2.5 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-xl text-[#EAE0D5] placeholder-[#EAE0D5]/40 focus:outline-none focus:border-[#B76E79]/40"
-                  />
-                  <p className="text-xs text-[#EAE0D5]/40 mt-1">This POD number will be displayed to the customer for tracking.</p>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm text-[#EAE0D5]/70 mb-2">
+                      Delivery Partner <span className="text-red-400">*</span>
+                    </label>
+                    <select
+                      value={deliveryPartner}
+                      onChange={(e) => setDeliveryPartner(e.target.value)}
+                      autoFocus
+                      className="w-full px-4 py-2.5 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-xl text-[#EAE0D5] focus:outline-none focus:border-[#B76E79]/40"
+                    >
+                      <option value="">Select delivery partner...</option>
+                      {DELIVERY_PARTNERS.map(dp => (
+                        <option key={dp.value} value={dp.value} className="bg-[#0B0608]">{dp.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm text-[#EAE0D5]/70 mb-2">
+                      POD / Tracking Number <span className="text-red-400">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={podNumber}
+                      onChange={(e) => setPodNumber(e.target.value)}
+                      placeholder="e.g. DTDC1234567890"
+                      className="w-full px-4 py-2.5 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-xl text-[#EAE0D5] placeholder-[#EAE0D5]/40 focus:outline-none focus:border-[#B76E79]/40"
+                    />
+                    <p className="text-xs text-[#EAE0D5]/40 mt-1">This POD number will be displayed to the customer for tracking.</p>
+                  </div>
                 </div>
               )}
 
@@ -574,7 +610,7 @@ export default function OrderDetailPage({ params }) {
               </button>
               <button
                 onClick={updateStatus}
-                disabled={updating || !newStatus || (newStatus === 'shipped' && !podNumber.trim())}
+                disabled={updating || !newStatus || (newStatus === 'shipped' && (!podNumber.trim() || !deliveryPartner))}
                 className="flex-1 px-4 py-2.5 bg-[#7A2F57]/30 border border-[#B76E79]/30 rounded-xl text-[#F2C29A] hover:bg-[#7A2F57]/40 transition-colors disabled:opacity-50"
               >
                 {updating ? 'Updating...' : 'Update Status'}

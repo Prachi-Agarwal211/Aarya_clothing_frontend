@@ -71,6 +71,7 @@ class BulkOrderUpdate(BaseModel):
     order_ids: List[int]
     status: str  # Must be one of: confirmed, shipped, delivered, cancelled
     pod_number: Optional[str] = None
+    courier_name: Optional[str] = None
     notes: Optional[str] = None
 
 class OrderResponse(BaseModel):

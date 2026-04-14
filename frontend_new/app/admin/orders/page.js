@@ -28,6 +28,22 @@ import { ordersApi } from '@/lib/adminApi';
 import logger from '@/lib/logger';
 import { useAlertToast } from '@/lib/useAlertToast';
 
+// Delivery partners — common Indian courier services
+const DELIVERY_PARTNERS = [
+  { value: 'Delhivery', label: 'Delhivery' },
+  { value: 'BlueDart', label: 'Blue Dart' },
+  { value: 'DTDC', label: 'DTDC' },
+  { value: 'Xpressbees', label: 'Xpressbees' },
+  { value: 'Shadowfax', label: 'Shadowfax' },
+  { value: 'Ecom Express', label: 'Ecom Express' },
+  { value: 'India Post', label: 'India Post (Speed Post)' },
+  { value: 'FedEx', label: 'FedEx' },
+  { value: 'Gati', label: 'Gati' },
+  { value: 'GoJavas', label: 'GoJavas' },
+  { value: 'Pickrr', label: 'Pickrr' },
+  { value: 'Other', label: 'Other' },
+];
+
 const STATUS_OPTIONS = [
   { value: '', label: 'All Orders' },
   { value: 'confirmed', label: 'Confirmed (Awaiting Shipment)' },
@@ -139,12 +155,14 @@ function OrdersContent() {
   const handleBulkStatus = async (newStatus) => {
     if (!selected.size) return;
     if (newStatus === 'shipped') {
+      const deliveryPartner = prompt(`Enter delivery partner for ${selected.size} order(s) (e.g. Delhivery, BlueDart, DTDC):`);
+      if (!deliveryPartner || !deliveryPartner.trim()) { showAlert('Delivery partner is required.'); return; }
       const pod = prompt(`Enter POD number for ${selected.size} order(s):`);
       if (!pod || !pod.trim()) { showAlert('POD number is required.'); return; }
-      if (!confirm(`Ship ${selected.size} order(s) with POD: ${pod}?`)) return;
+      if (!confirm(`Ship ${selected.size} order(s) via ${deliveryPartner.trim()} with POD: ${pod}?`)) return;
       setBulkLoading(true);
       try {
-        await ordersApi.bulkUpdate({ order_ids: [...selected], status: 'shipped', pod_number: pod.trim() });
+        await ordersApi.bulkUpdate({ order_ids: [...selected], status: 'shipped', pod_number: pod.trim(), courier_name: deliveryPartner.trim() });
         setSelected(new Set());
         fetchOrders();
       } catch (err) { setError(err?.message || 'Failed to update orders.'); }
@@ -201,6 +219,10 @@ function OrdersContent() {
   const confirmShip = async () => {
     if (!shipModal.podNumber.trim()) {
       showAlert('POD number is required to ship an order.');
+      return;
+    }
+    if (!shipModal.courierName.trim()) {
+      showAlert('Delivery partner is required to ship an order.');
       return;
     }
     try {
@@ -913,16 +935,19 @@ function OrdersContent() {
                 </div>
               </div>
               <div>
-                <label className="block text-sm text-[#EAE0D5]/70 mb-1">Courier Name (optional)</label>
+                <label className="block text-sm text-[#EAE0D5]/70 mb-1">Delivery Partner <span className="text-red-400">*</span></label>
                 <div className="flex items-center border border-[#B76E79]/30 rounded-xl overflow-hidden">
                   <Truck className="w-4 h-4 text-[#B76E79] ml-3 flex-shrink-0" />
-                  <input
-                    type="text"
+                  <select
                     value={shipModal.courierName}
                     onChange={(e) => setShipModal(prev => ({ ...prev, courierName: e.target.value }))}
-                    placeholder="e.g. Delhivery, BlueDart, DTDC"
-                    className="flex-1 px-3 py-2.5 bg-transparent text-[#EAE0D5] placeholder-[#EAE0D5]/30 focus:outline-none text-sm"
-                  />
+                    className="flex-1 px-3 py-2.5 bg-transparent text-[#EAE0D5] focus:outline-none text-sm"
+                  >
+                    <option value="">Select delivery partner...</option>
+                    {DELIVERY_PARTNERS.map(dp => (
+                      <option key={dp.value} value={dp.value} className="bg-[#0B0608]">{dp.label}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
               <div>
@@ -945,7 +970,7 @@ function OrdersContent() {
               </button>
               <button
                 onClick={confirmShip}
-                disabled={!shipModal.podNumber.trim() || updatingOrder}
+                disabled={!shipModal.podNumber.trim() || !shipModal.courierName.trim() || updatingOrder}
                 className="flex-1 px-4 py-2.5 bg-gradient-to-r from-[#7A2F57] to-[#B76E79] rounded-xl text-white font-semibold hover:opacity-90 transition-opacity disabled:opacity-40"
               >
                 <Truck className="w-4 h-4 inline mr-2" />

@@ -58,11 +58,12 @@ export const ordersApi = {
       notes: notes || undefined,
     }),
 
-  bulkUpdate: ({ order_ids, status, pod_number, notes }) =>
+  bulkUpdate: ({ order_ids, status, pod_number, courier_name, notes }) =>
     adminClient.patch('/api/v1/admin/orders/bulk-status', {
       order_ids,
       status,
       pod_number: pod_number || undefined,
+      courier_name: courier_name || undefined,
       notes: notes || undefined,
     }),
 

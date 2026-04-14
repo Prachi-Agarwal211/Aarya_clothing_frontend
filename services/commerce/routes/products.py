@@ -323,8 +323,14 @@ async def list_products(
     cache_key_hash = hashlib.md5(cache_params.encode()).hexdigest()[:12]
     cache_key = f"products:list:{cache_key_hash}"
 
-    async def _fetch_products():
-        """Execute the database query for product listing."""
+    def _fetch_products():
+        """Execute the database query for product listing.
+
+        Must be a sync function because it is called from
+        cache.get_or_set_sync() which runs inside asyncio.to_thread().
+        Using async def here would return a coroutine object instead of
+        the actual result, causing FastAPI ResponseValidationError.
+        """
         query = db.query(Product).options(
             joinedload(Product.collection),
             selectinload(Product.images),
@@ -408,7 +414,7 @@ async def list_products(
             logger.warning(f"Cache miss fallback for products list: {e}")
 
     # Fallback: direct DB query (for search or cache failure)
-    return await _fetch_products()
+    return _fetch_products()
 
 
 @router.get("/search")

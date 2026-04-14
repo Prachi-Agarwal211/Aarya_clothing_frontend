@@ -190,7 +190,13 @@ def _enrich_product(product, db: Session = None, user_role: str = None) -> dict:
     """
     primary_image = product.primary_image
     inventory_list = list(product.inventory or [])
-    sizes = sorted({inv.size for inv in inventory_list if inv.size})
+
+    # Logical size ordering (not alphabetical) — matches Indian apparel sizing
+    SIZE_ORDER = {'XS': 0, 'S': 1, 'M': 2, 'L': 3, 'XL': 4, 'XXL': 5, 'XXXL': 6, '3XL': 6, '4XL': 7, 'Free Size': 99}
+    sizes = sorted(
+        {inv.size for inv in inventory_list if inv.size},
+        key=lambda s: SIZE_ORDER.get(s.upper(), 50)
+    )
     colors = sorted({inv.color for inv in inventory_list if inv.color})
     is_admin_user = is_staff(user_role) if user_role else False
 

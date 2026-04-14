@@ -419,12 +419,6 @@ export default function OrderDetailPage({ params }) {
                 <Phone className="w-4 h-4" />
                 <span className="text-sm">{order.customer?.phone}</span>
               </div>
-              <Link
-                href={`/admin/customers/${order.customer?.id}`}
-                className="block text-center text-sm text-[#B76E79] hover:text-[#F2C29A] transition-colors"
-              >
-                View Customer Profile →
-              </Link>
             </div>
           </div>
 

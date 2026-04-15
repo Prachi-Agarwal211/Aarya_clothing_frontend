@@ -256,7 +256,16 @@ export function CartProvider({ children }) {
         await fetchCart();
       }
 
-      const data = await cartApi.addItem(productId, quantity, variant?.id);
+      const variantCandidate =
+        typeof variant === 'object' && variant !== null
+          ? variant.id
+          : variant;
+      const parsedVariantId = Number(variantCandidate);
+      const normalizedVariantId = Number.isInteger(parsedVariantId) && parsedVariantId > 0
+        ? parsedVariantId
+        : null;
+
+      const data = await cartApi.addItem(productId, quantity, normalizedVariantId);
       setCart(data);
 
       // Open cart drawer to show the added item
@@ -327,6 +336,8 @@ export function CartProvider({ children }) {
 
   // Memoize context value to prevent unnecessary re-renders
   // Only include stable references and primitive values in deps
+  const refreshCart = useCallback(() => fetchCart(true), [fetchCart]);
+
   const value = useMemo(() => ({
     cart,
     loading,
@@ -341,7 +352,7 @@ export function CartProvider({ children }) {
     openCart,
     closeCart,
     toggleCart,
-    refreshCart: () => fetchCart(true),
+    refreshCart,
     clearError: () => setError(null),
     persistCartToLocalStorage,
     loadCartFromLocalStorage,
@@ -362,10 +373,11 @@ export function CartProvider({ children }) {
     openCart,
     closeCart,
     toggleCart,
-    // fetchCart is NOT included - it's only used internally by refreshCart
+    // fetchCart is NOT included - refreshCart wraps it via useCallback
     persistCartToLocalStorage,
     loadCartFromLocalStorage,
-    clearPersistedCart
+    clearPersistedCart,
+    refreshCart,
   ]);
 
   return (

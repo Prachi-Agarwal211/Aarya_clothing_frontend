@@ -7,6 +7,7 @@ import { X, Minus, Plus, ShoppingBag, Trash2, AlertCircle } from 'lucide-react';
 import { useCart } from '@/lib/cartContext';
 import { useAuth } from '@/lib/authContext';
 import { useStockStream } from '@/lib/hooks/useStockStream';
+import { getColorName } from '@/lib/colorMap';
 
 export default function CartDrawer() {
   const { cart, loading, isOpen, closeCart, updateQuantity, removeItem, itemCount } = useCart();
@@ -42,6 +43,16 @@ export default function CartDrawer() {
       currency: 'INR',
       maximumFractionDigits: 0,
     }).format(amount || 0);
+  };
+
+  const formatColorLabel = (color) => {
+    if (!color || typeof color !== 'string') return '';
+    const trimmed = color.trim();
+    if (!trimmed) return '';
+    if (/^#[0-9a-fA-F]{6}$/.test(trimmed)) {
+      return getColorName(trimmed) || 'Custom';
+    }
+    return trimmed;
   };
 
   // Handle quantity increase with stock validation
@@ -204,7 +215,7 @@ export default function CartDrawer() {
                       <p className="text-xs text-[#EAE0D5]/50 mt-1">
                         {item.size && <span>Size: {item.size}</span>}
                         {item.size && item.color && <span> • </span>}
-                        {item.color && <span>Color: {item.color}</span>}
+                        {item.color && <span>Color: {formatColorLabel(item.color)}</span>}
                       </p>
                     )}
 

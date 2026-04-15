@@ -118,6 +118,33 @@ def _hex_to_color_name(hex_color: str) -> str:
     return HEX_COLOR_TO_NAME.get(hex_upper, None)
 
 
+def _resolve_display_color_name(color_value: Optional[str], color_hex: Optional[str]) -> Optional[str]:
+    """
+    Return customer-friendly color labels.
+
+    Priority:
+    1) Explicit non-hex color value from DB (e.g. "Wine")
+    2) Named lookup from color_hex
+    3) Named lookup from color_value when it itself is hex
+    4) Safe fallback
+    """
+    if color_value:
+        value = color_value.strip()
+        if value and not _is_hex_color(value):
+            return value
+
+    from_hex = _hex_to_color_name(color_hex or "")
+    if from_hex:
+        return from_hex
+
+    if color_value and _is_hex_color(color_value):
+        from_color_hex = _hex_to_color_name(color_value)
+        if from_color_hex:
+            return from_color_hex
+
+    return "Custom"
+
+
 def _enrich_images(images) -> list:
     """Convert product image ORM list to enriched dicts with full R2 URLs."""
     return [
@@ -154,13 +181,14 @@ def _enrich_inventory(inventory, user_role: str = None) -> list:
                 "size": inv.size,
                 "color": inv.color,
                 "color_hex": getattr(inv, 'color_hex', None),
-                "color_name": inv.color if inv.color and not _is_hex_color(inv.color) else _hex_to_color_name(getattr(inv, 'color_hex', '')),
+                "color_name": _resolve_display_color_name(inv.color, getattr(inv, 'color_hex', None)),
                 "quantity": inv.quantity,
                 "reserved_quantity": inv.reserved_quantity,
                 "available_quantity": inv.available_quantity,
                 "low_stock_threshold": inv.low_stock_threshold,
                 "is_low_stock": inv.is_low_stock,
                 "is_out_of_stock": inv.is_out_of_stock,
+                "variant_price": float(inv.variant_price) if getattr(inv, "variant_price", None) is not None else None,
                 "created_at": inv.created_at,
                 "updated_at": inv.updated_at,
             }
@@ -170,13 +198,16 @@ def _enrich_inventory(inventory, user_role: str = None) -> list:
         # Limited inventory data for customers - include quantities for stock display
         return [
             {
+                "id": inv.id,
+                "sku": inv.sku,
                 "size": inv.size,
                 "color": inv.color,
                 "color_hex": getattr(inv, 'color_hex', None),
-                "color_name": inv.color if inv.color and not _is_hex_color(inv.color) else _hex_to_color_name(getattr(inv, 'color_hex', '')),
+                "color_name": _resolve_display_color_name(inv.color, getattr(inv, 'color_hex', None)),
                 "quantity": inv.quantity,
                 "available_quantity": inv.available_quantity,
                 "in_stock": not inv.is_out_of_stock,
+                "variant_price": float(inv.variant_price) if getattr(inv, "variant_price", None) is not None else None,
             }
             for inv in (inventory or [])
         ]
@@ -210,7 +241,7 @@ def _enrich_product(product, db: Session = None, user_role: str = None) -> dict:
             if getattr(inv, 'color_hex', None):
                 color_hex_map[inv.color] = inv.color_hex
             # Store human-readable color name
-            color_name = inv.color if not _is_hex_color(inv.color) else _hex_to_color_name(getattr(inv, 'color_hex', ''))
+            color_name = _resolve_display_color_name(inv.color, getattr(inv, 'color_hex', None))
             if color_name:
                 color_name_map[inv.color] = color_name
 
@@ -523,16 +554,25 @@ async def browse_products(
     category_slug: Optional[str] = None,
     min_price: Optional[float] = None,
     max_price: Optional[float] = None,
-    sort_by: str = Query("newest", regex="^(newest|price_low|price_high|popular|name_asc|name_desc)$"),
+    sort_by: Optional[str] = Query(None, regex="^(newest|price_low|price_high|popular|name_asc|name_desc)$"),
+    sort: Optional[str] = Query(None, regex="^(created_at|base_price|average_rating|name|price|rating|newest)$"),
+    order: str = Query("desc", regex="^(asc|desc)$"),
     size: Optional[str] = None,
     color: Optional[str] = None,
     in_stock_only: bool = True,
-    skip: int = Query(0, ge=0),
+    page: Optional[int] = Query(None, ge=1),
+    skip: Optional[int] = Query(None, ge=0),
     limit: int = Query(24, ge=1, le=100),
     db: Session = Depends(get_db),
     current_user: Optional[dict] = Depends(get_current_user_optional)
 ):
-    """Browse products with advanced filtering, sorting, and pagination."""
+    """
+    Browse products with advanced filtering, sorting, and pagination.
+
+    Backward-compatible pagination:
+    - New clients can send page+limit
+    - Existing clients can keep sending skip+limit
+    """
     from models.inventory import Inventory as _Inv
     
     user_role = current_user.get("role") if current_user else None
@@ -558,29 +598,51 @@ async def browse_products(
         in_stock_ids = db.query(_Inv.product_id).filter(_Inv.quantity > 0).subquery()
         query = query.filter(Product.id.in_(in_stock_ids))
 
+    # Normalize pagination params (support both page and skip styles)
+    effective_skip = skip if skip is not None else ((page - 1) * limit if page else 0)
+    effective_page = (effective_skip // limit) + 1 if limit > 0 else 1
+
+    # Normalize sorting params (support both sort_by and sort+order styles)
+    effective_sort_by = sort_by
+    if not effective_sort_by and sort:
+        sort_key = sort.lower()
+        if sort_key in ("newest", "created_at"):
+            effective_sort_by = "newest" if order == "desc" else "name_asc"
+        elif sort_key in ("price", "base_price"):
+            effective_sort_by = "price_high" if order == "desc" else "price_low"
+        elif sort_key in ("rating", "average_rating"):
+            effective_sort_by = "popular"
+        elif sort_key == "name":
+            effective_sort_by = "name_desc" if order == "desc" else "name_asc"
+    if not effective_sort_by:
+        effective_sort_by = "newest"
+
     # Sorting
-    if sort_by == "price_low":
+    if effective_sort_by == "price_low":
         query = query.order_by(Product.base_price.asc())
-    elif sort_by == "price_high":
+    elif effective_sort_by == "price_high":
         query = query.order_by(Product.base_price.desc())
-    elif sort_by == "popular":
+    elif effective_sort_by == "popular":
         query = query.order_by(Product.average_rating.desc())  # Proxy for popularity
-    elif sort_by == "name_asc":
+    elif effective_sort_by == "name_asc":
         query = query.order_by(Product.name.asc())
-    elif sort_by == "name_desc":
+    elif effective_sort_by == "name_desc":
         query = query.order_by(Product.name.desc())
     else:  # newest
         query = query.order_by(Product.created_at.desc())
 
     total = query.count()
-    products = query.offset(skip).limit(limit).all()
+    products = query.offset(effective_skip).limit(limit).all()
+    enriched_products = [_enrich_product(p, db, user_role) for p in products]
 
     return {
-        "products": [_enrich_product(p, db, user_role) for p in products],
+        "items": enriched_products,
+        "products": enriched_products,
         "total": total,
-        "page": skip // limit + 1,
+        "page": effective_page,
+        "skip": effective_skip,
         "total_pages": (total + limit - 1) // limit,
-        "sort_by": sort_by,
+        "sort_by": effective_sort_by,
         "filters": {
             "category_id": category_id,
             "min_price": min_price,

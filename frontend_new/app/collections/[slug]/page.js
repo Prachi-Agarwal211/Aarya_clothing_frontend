@@ -10,6 +10,15 @@ export const dynamic = 'force-dynamic';
 // Timeout for API calls (15 seconds - generous for SSR under load)
 const API_TIMEOUT_MS = 15000;
 
+function isTransientFetchError(error) {
+  return (
+    error?.name === 'TimeoutError' ||
+    error?.name === 'AbortError' ||
+    error?.isNetworkError === true ||
+    error?.status === 0
+  );
+}
+
 function isInvalidCollectionSlug(slug) {
   return (
     slug == null ||
@@ -34,10 +43,10 @@ export async function generateMetadata({ params }) {
     // Fetch with timeout
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
-    
+
     try {
       const collection = await collectionsApi.getBySlug(slug);
-      clearTimeout(timeoutId);
+        clearTimeout(timeoutId);
 
       if (!collection) {
         return {
@@ -74,7 +83,13 @@ export async function generateMetadata({ params }) {
         },
       };
     } catch (fetchError) {
-      clearTimeout(timeoutId);
+      if (isTransientFetchError(fetchError)) {
+        console.warn(`Collection metadata fetch timed out for slug "${slug}"`);
+        return {
+          title: 'Collections | Aarya Clothing',
+          description: 'Explore our collections of premium ethnic wear.',
+        };
+      }
       throw fetchError;
     }
   } catch (error) {
@@ -89,7 +104,22 @@ export async function generateMetadata({ params }) {
 // Fetch collection and products server-side
 async function getCollectionData(slug) {
   try {
-    const collection = await collectionsApi.getBySlug(slug);
+    let collection;
+    // Fetch with timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
+
+    try {
+      collection = await collectionsApi.getBySlug(slug);
+        clearTimeout(timeoutId);
+    } catch (error) {
+      // Real 404 should map to Next.js notFound(), but transient fetch issues
+      // should render route-level error UI, not a false 404 page.
+      if (error?.status === 404) {
+        return null;
+      }
+      throw error;
+    }
 
     if (!collection) {
       return null;

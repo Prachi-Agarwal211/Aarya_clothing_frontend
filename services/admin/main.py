@@ -193,12 +193,20 @@ app.add_middleware(
     ],
 )
 
-# Prometheus metrics — /metrics endpoint for scraping
+# Prometheus metrics — /metrics endpoint for scraping.
+# If fastapi-instrumentator is unavailable, expose a basic endpoint so
+# Prometheus scraping does not fail with 404.
 try:
     from prometheus_fastapi_instrumentator import Instrumentator
+
     Instrumentator().instrument(app).expose(app, endpoint="/metrics")
-except Exception:
-    pass  # Graceful degradation if prometheus lib is missing
+except Exception as exc:
+    logger.warning("Prometheus instrumentator unavailable in admin service: %s", exc)
+    from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
+
+    @app.get("/metrics")
+    async def metrics_fallback():
+        return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 # Request ID
 app.add_middleware(RequestIDMiddleware)
@@ -1037,6 +1045,9 @@ async def update_variant(
     if data.size is not None:
         sets.append("size = :size")
         params["size"] = data.size
+    if data.sku is not None:
+        sets.append("sku = :sku")
+        params["sku"] = data.sku
     if data.color is not None:
         sets.append("color = :color")
         params["color"] = data.color
@@ -5264,11 +5275,11 @@ async def admin_get_product(
     
     images = db.execute(
         text("SELECT id, image_url, alt_text, is_primary, display_order FROM product_images WHERE product_id = :pid ORDER BY is_primary DESC, display_order"),
-        {"pid": product_id},
+        {"pid": pid},
     ).fetchall()
     inventory = db.execute(
         text("SELECT * FROM inventory WHERE product_id = :pid ORDER BY size, color"),
-        {"pid": product_id},
+        {"pid": pid},
     ).fetchall()
     r2_base = settings.R2_PUBLIC_URL.rstrip("/") if settings.R2_PUBLIC_URL else ""
 
@@ -5362,8 +5373,8 @@ async def admin_create_product_variant(
         )
     result = db.execute(
         text("""
-        INSERT INTO inventory (product_id, sku, size, color, color_hex, quantity, low_stock_threshold, created_at, updated_at)
-        VALUES (:pid, :sku, :size, :color, :color_hex, :qty, 5, :now, :now) RETURNING id
+        INSERT INTO inventory (product_id, sku, size, color, color_hex, quantity, low_stock_threshold, variant_price, created_at, updated_at)
+        VALUES (:pid, :sku, :size, :color, :color_hex, :qty, :low_stock_threshold, :variant_price, :now, :now) RETURNING id
     """),
         {
             "pid": pid,
@@ -5372,6 +5383,8 @@ async def admin_create_product_variant(
             "color": data.color,
             "color_hex": data.color_hex,
             "qty": data.quantity,
+            "low_stock_threshold": data.low_stock_threshold if data.low_stock_threshold is not None else 5,
+            "variant_price": data.price,
             "now": datetime.now(timezone.utc),
         },
     )
@@ -5422,6 +5435,12 @@ async def admin_update_product_variant(
     if data.quantity is not None:
         sets.append("quantity = :qty")
         params["qty"] = data.quantity
+    if data.low_stock_threshold is not None:
+        sets.append("low_stock_threshold = :low_stock_threshold")
+        params["low_stock_threshold"] = data.low_stock_threshold
+    if data.price is not None:
+        sets.append("variant_price = :variant_price")
+        params["variant_price"] = data.price
     db.execute(text(f"UPDATE inventory SET {', '.join(sets)} WHERE id = :id"), params)
     db.commit()
     redis_client.invalidate_pattern("products:*")
@@ -5470,9 +5489,17 @@ async def admin_adjust_variant_stock(
     user: dict = Depends(require_staff),
 ):
     """Adjust stock for a specific inventory variant."""
+    resolved = db.execute(
+        text("SELECT id FROM products WHERE id::text = :pid OR slug = :pid"),
+        {"pid": product_id},
+    ).fetchone()
+    if not resolved:
+        raise HTTPException(status_code=404, detail="Product not found")
+    pid = resolved[0]
+
     inv = db.execute(
         text("SELECT id, quantity FROM inventory WHERE id = :id AND product_id = :pid"),
-        {"id": variant_id, "pid": product_id},
+        {"id": variant_id, "pid": pid},
     ).fetchone()
     if not inv:
         raise HTTPException(status_code=404, detail="Variant not found")

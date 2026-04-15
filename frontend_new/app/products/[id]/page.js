@@ -208,8 +208,6 @@ export default function ProductDetailPage() {
         const invNormalizedName = normalizeColorName(inv.color) || normalizeColorName(inv.color_name);
         if (invNormalizedName && color._variantNames.has(invNormalizedName)) return true;
       }
-      // Last resort: if both have no hex, they belong to same group
-      if (selHex && !inv.color_hex) return true;
       return false;
     }) || null;
   };
@@ -254,16 +252,18 @@ export default function ProductDetailPage() {
     }
   }, [selectedSize, selectedColorKey, selectedColor, product]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Keep selected size valid for the currently selected color.
+  // Initial size bootstrap only.
+  // IMPORTANT: never auto-reset size on color change; customers should see
+  // out-of-stock state for their chosen size instead of silent fallback.
   useEffect(() => {
     if (!product?.sizes?.length) return;
-    if (selectedSize && isSizeAvailable(selectedSize)) return;
+    if (selectedSize) return;
 
-    const firstAvailable = product.sizes.find((size) => isSizeAvailable(size));
+    const firstAvailable = product.sizes.find((size) => getMatchingVariant(size)) || product.sizes[0];
     if (firstAvailable) {
       setSelectedSize(firstAvailable);
     }
-  }, [selectedColorKey, product]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [product, selectedSize]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchProduct = async () => {
     try {
@@ -429,12 +429,17 @@ export default function ProductDetailPage() {
       return;
     }
 
-    if (hasSizes && !selectedVariant?.in_stock) {
+    // Resolve variant at click time so stale state can never add wrong size/color.
+    const resolvedVariant = hasSizes
+      ? getMatchingVariant(selectedSize, selectedColorKey, selectedColor)
+      : selectedVariant;
+
+    if (hasSizes && !resolvedVariant?.in_stock) {
       showAlert('Selected size/color is out of stock', 'error');
       return;
     }
 
-    const availableQty = getVariantAvailableQty(selectedVariant);
+    const availableQty = getVariantAvailableQty(resolvedVariant);
     if (availableQty !== null && availableQty < quantity) {
       showAlert(`Only ${availableQty} left for this variant`, 'error');
       return;
@@ -443,7 +448,7 @@ export default function ProductDetailPage() {
     try {
       setAddingToCart(true);
       // Pass the actual variant ID from our matching logic
-      await addItem(product.id, quantity, { id: selectedVariant?.id });
+      await addItem(product.id, quantity, { id: resolvedVariant?.id });
       openCart();
     } catch (err) {
       logger.error('Error adding to cart:', err);
@@ -1076,6 +1081,11 @@ export default function ProductDetailPage() {
           <div className="flex-1 min-w-0">
             <p className="text-[#F2C29A] font-semibold text-sm line-clamp-1">{product.name}</p>
             <p className="text-[#F2C29A] font-bold">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(product.price)}</p>
+              {(selectedSize || (selectedColor && selectedColor.name)) && (
+                <p className="text-xs text-[#F2C29A]/70 mt-0.5">
+                  {[selectedSize, selectedColor && (selectedColor.displayName || selectedColor.name)].filter(Boolean).join(" · ")}
+                </p>
+              )}
           </div>
           <button
             onClick={handleAddToCart}

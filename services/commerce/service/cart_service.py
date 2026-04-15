@@ -211,10 +211,17 @@ class CartService:
                     detail="Variant not found"
                 )
         else:
-            # Get first available inventory if no variant specified
-            inventory = self.db.query(Inventory).filter(
+            # Check if product has size/color variants requiring explicit selection
+            has_variants = self.db.query(Inventory).filter(
                 Inventory.product_id == product_id
             ).first()
+            if has_variants and (has_variants.size or has_variants.color):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Please select a size before adding to cart"
+                )
+            # Product has no size/color variants - use first inventory entry
+            inventory = has_variants
 
         sku = inventory.sku if inventory else None
         price = float(inventory.effective_price) if inventory else float(product.base_price)

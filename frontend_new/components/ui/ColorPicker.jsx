@@ -80,7 +80,7 @@ function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
 
 // Derive a readable color name from hex
 function nameFromHex(hex) {
-  return getColorName(hex) || hex.toUpperCase();
+  return getColorName(hex) || 'Custom';
 }
 
 export default function ColorPicker({ value, onChange, label = 'Color' }) {

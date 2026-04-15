@@ -130,8 +130,11 @@ export default function ProductsContent({ initialFilters }) {
 
       const [sortField, sortOrder] = (activeFilters.sort || 'created_at:desc').split(':');
 
+      const currentPage = activeFilters.page || 1;
+      const skip = (currentPage - 1) * PAGE_SIZE;
+
       const params = {
-        page: activeFilters.page || 1,
+        skip: skip,
         limit: PAGE_SIZE,
         sort: sortField,
         order: sortOrder || 'desc',
@@ -142,7 +145,7 @@ export default function ProductsContent({ initialFilters }) {
       if (activeFilters.minPrice) params.min_price = parseFloat(activeFilters.minPrice);
       if (activeFilters.maxPrice) params.max_price = parseFloat(activeFilters.maxPrice);
 
-      console.log('[ProductsClient] Fetching from URL:', `/api/v1/products/browse?${new URLSearchParams(params).toString()}`);
+      console.log('[ProductsClient] Fetching from URL:', `/api/v1/products?${new URLSearchParams(params).toString()}`);
       
       const data = await fetchProductsAPI(params);
       console.log('[ProductsClient] Fetch successful, received:', data);

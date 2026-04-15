@@ -123,14 +123,17 @@ class VariantCreate(BaseModel):
     color: Optional[str] = None
     color_hex: Optional[str] = None
     quantity: int = 0
+    low_stock_threshold: Optional[int] = 5
     price: Optional[float] = None
     barcode: Optional[str] = None
 
 class VariantUpdate(BaseModel):
+    sku: Optional[str] = None
     size: Optional[str] = None
     color: Optional[str] = None
     color_hex: Optional[str] = None
     quantity: Optional[int] = None
+    low_stock_threshold: Optional[int] = None
     price: Optional[float] = None
     barcode: Optional[str] = None
 

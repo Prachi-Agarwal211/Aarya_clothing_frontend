@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 import os
 from fastapi import FastAPI, Depends, HTTPException, status, Request, Header, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, Response
 from sqlalchemy.orm import Session
 from typing import Optional, List
 from decimal import Decimal
@@ -94,12 +94,20 @@ app.add_middleware(
     allow_headers=["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin", "X-CSRF-Token", "X-Razorpay-Signature"],
 )
 
-# Prometheus metrics — /metrics endpoint for scraping
+# Prometheus metrics — /metrics endpoint for scraping.
+# If fastapi-instrumentator is unavailable, expose a basic endpoint so
+# Prometheus scraping does not fail with 404.
 try:
     from prometheus_fastapi_instrumentator import Instrumentator
+
     Instrumentator().instrument(app).expose(app, endpoint="/metrics")
-except Exception:
-    pass  # Graceful degradation if prometheus lib is missing
+except Exception as exc:
+    logger.warning("Prometheus instrumentator unavailable in payment service: %s", exc)
+    from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
+
+    @app.get("/metrics")
+    async def metrics_fallback():
+        return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 # Exception handlers
 setup_exception_handlers(app)

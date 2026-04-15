@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { ShoppingBag, Trash2, Plus, Minus, ArrowRight, Lock, Package, Check } from 'lucide-react';
@@ -8,10 +8,14 @@ import EnhancedHeader from '@/components/landing/EnhancedHeader';
 import Footer from '@/components/landing/Footer';
 import { useCart } from '@/lib/cartContext';
 import { useAuth } from '@/lib/authContext';
+import { getColorName } from '@/lib/colorMap';
 
 function CartPage() {
   const { cart, loading: cartLoading, updateQuantity, removeItem, clearCart, refreshCart } = useCart();
   const [removingId, setRemovingId] = React.useState(null);
+  const [isRedirecting, setIsRedirecting] = useState(false);
+  const initialCartLoadDoneRef = useRef(false);
+  const redirectTimerRef = useRef(null);
 
   const handleRemove = async (productId, variantId) => {
     const key = `${productId}_${variantId || 0}`;
@@ -29,22 +33,48 @@ function CartPage() {
 
   const { isAuthenticated, loading: authLoading } = useAuth();
 
-  // Fetch cart when this page loads
   useEffect(() => {
-    // Wait for auth to finish loading before deciding anything
-    if (authLoading) return;
+    return () => {
+      if (redirectTimerRef.current) {
+        clearTimeout(redirectTimerRef.current);
+      }
+    };
+  }, []);
 
-    // User is not authenticated — redirect to login
-    if (!isAuthenticated) {
-      const currentPath = typeof window !== 'undefined'
-        ? window.location.pathname + window.location.search + window.location.hash
-        : '/cart';
-      window.location.href = `/auth/login?redirect_url=${encodeURIComponent(currentPath)}`;
+  // Auth + cart boot flow (avoid redirect/fetch race flicker on mobile)
+  useEffect(() => {
+    if (authLoading) {
       return;
     }
 
-    // User is authenticated — load the cart
-    refreshCart();
+    if (isAuthenticated) {
+      if (redirectTimerRef.current) {
+        clearTimeout(redirectTimerRef.current);
+        redirectTimerRef.current = null;
+      }
+      setIsRedirecting(false);
+
+      // Load only once on initial auth confirmation to avoid double-sync flicker.
+      if (!initialCartLoadDoneRef.current) {
+        initialCartLoadDoneRef.current = true;
+        refreshCart();
+      }
+      return;
+    }
+
+    // Reset this when session is gone so future auth can re-trigger load.
+    initialCartLoadDoneRef.current = false;
+    setIsRedirecting(true);
+
+    // Small delay avoids transient auth state flips causing in-out navigation.
+    if (!redirectTimerRef.current) {
+      redirectTimerRef.current = setTimeout(() => {
+        const currentPath = typeof window !== 'undefined'
+          ? window.location.pathname + window.location.search + window.location.hash
+          : '/cart';
+        window.location.href = `/auth/login?redirect_url=${encodeURIComponent(currentPath)}`;
+      }, 220);
+    }
   }, [refreshCart, isAuthenticated, authLoading]);
 
   // Format currency
@@ -55,6 +85,42 @@ function CartPage() {
       maximumFractionDigits: 0,
     }).format(amount || 0);
   };
+
+  const formatColorLabel = (color) => {
+    if (!color || typeof color !== 'string') return '';
+    const trimmed = color.trim();
+    if (!trimmed) return '';
+    if (/^#[0-9a-fA-F]{6}$/.test(trimmed)) {
+      return getColorName(trimmed) || 'Custom';
+    }
+    return trimmed;
+  };
+
+  const itemCount = cart?.items?.length || 0;
+  const hasCartItems = itemCount > 0;
+
+  if (authLoading || isRedirecting) {
+    return (
+      <main className="min-h-screen text-[#EAE0D5] selection:bg-[#F2C29A] selection:text-[#050203]">
+        <div className="relative z-10 page-wrapper">
+          <EnhancedHeader />
+          <div className="page-content">
+            <div className="container mx-auto px-4 sm:px-6 md:px-8 py-8 lg:py-12 pb-32 lg:pb-12">
+              <div className="animate-pulse grid lg:grid-cols-3 gap-8">
+                <div className="lg:col-span-2 space-y-4">
+                  {[...Array(3)].map((_, i) => (
+                    <div key={i} className="h-32 bg-[#B76E79]/10 rounded-2xl" />
+                  ))}
+                </div>
+                <div className="h-64 bg-[#B76E79]/10 rounded-2xl" />
+              </div>
+            </div>
+          </div>
+          <Footer />
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen text-[#EAE0D5] selection:bg-[#F2C29A] selection:text-[#050203]">
@@ -74,7 +140,7 @@ function CartPage() {
                 Shopping Cart
               </h1>
               <p className="text-[#EAE0D5]/60 mt-2">
-                {cart?.items?.length || 0} {cart?.items?.length === 1 ? 'item' : 'items'} in your cart
+                {itemCount} {itemCount === 1 ? 'item' : 'items'} in your cart
               </p>
             </div>
 
@@ -168,7 +234,7 @@ function CartPage() {
                             <p className="text-sm text-[#EAE0D5]/50 mt-1">
                               {item.size && <span>Size: {item.size}</span>}
                               {item.size && item.color && <span> • </span>}
-                              {item.color && <span>Color: {item.color}</span>}
+                              {item.color && <span>Color: {formatColorLabel(item.color)}</span>}
                             </p>
                           )}
                           <button
@@ -296,22 +362,31 @@ function CartPage() {
         <Footer />
       </div>
 
+      {/* Mobile Sticky Checkout Bar Placeholder (prevents layout shift) */}
+      <div className="lg:hidden h-[90px] w-full" aria-hidden="true" />
+
       {/* Mobile Sticky Checkout Bar */}
-      {cart?.items && cart.items.length > 0 && (
-        <div className="fixed bottom-nav-offset inset-x-0 lg:hidden bg-[#0B0608]/95 backdrop-blur-md border-t border-[#B76E79]/15 p-4 z-[110]">
+      <div
+        className={`fixed bottom-nav-offset inset-x-0 lg:hidden bg-[#0B0608]/95 backdrop-blur-md border-t border-[#B76E79]/15 p-4 z-[110] transition-all duration-300 ${
+          hasCartItems ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3 pointer-events-none'
+        }`}
+        style={{ minHeight: '90px' }}
+        aria-hidden={!hasCartItems}
+      >
           <div className="flex items-center justify-between mb-3">
-            <span className="text-[#EAE0D5]/70 text-sm">{cart.items.length} {cart.items.length === 1 ? 'item' : 'items'}</span>
+            <span className="text-[#EAE0D5]/70 text-sm">{itemCount} {itemCount === 1 ? 'item' : 'items'}</span>
             <span className="text-[#F2C29A] font-bold text-lg">{formatCurrency(cart.total)}</span>
           </div>
           <Link
             href="/checkout"
-            className="flex items-center justify-center gap-2 w-full py-3.5 bg-gradient-to-r from-[#7A2F57] to-[#B76E79] text-white font-semibold rounded-xl hover:opacity-90 transition-opacity"
+            className={`flex items-center justify-center gap-2 w-full py-3.5 bg-gradient-to-r from-[#7A2F57] to-[#B76E79] text-white font-semibold rounded-xl transition-opacity ${
+              hasCartItems ? 'hover:opacity-90' : 'pointer-events-none opacity-70'
+            }`}
           >
             Proceed to Checkout
             <ArrowRight className="w-4 h-4" />
           </Link>
-        </div>
-      )}
+      </div>
     </main>
   );
 }

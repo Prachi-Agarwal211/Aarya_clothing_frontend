@@ -254,7 +254,7 @@ const ProductCard = ({
                   key={color.name}
                   className="w-3 h-3 rounded-full border border-white/20"
                   style={{ backgroundColor: color.hex || '#888888' }}
-                  title={color.name}
+                  title={color.display_name || color.displayName || color.color_name || color.name}
                 />
               ))}
               {product.colors.length > 4 && (

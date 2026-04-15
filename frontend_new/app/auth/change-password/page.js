@@ -7,6 +7,7 @@ import { Lock, Eye, EyeOff, CheckCircle, XCircle } from 'lucide-react';
 import Link from 'next/link';
 import { authApi } from '../../../lib/customerApi';
 import { useLogo } from '../../../lib/siteConfigContext';
+import { validatePassword } from '../../../lib/authHelpers';
 
 export default function ChangePasswordPage() {
   const logoUrl = useLogo();
@@ -22,12 +23,10 @@ export default function ChangePasswordPage() {
 
   // Password validation
   const passwordRequirements = [
-    { label: 'At least 8 characters', test: (p) => p.length >= 8 },
-    { label: 'One uppercase letter', test: (p) => /[A-Z]/.test(p) },
-    { label: 'One lowercase letter', test: (p) => /[a-z]/.test(p) },
-    { label: 'One number', test: (p) => /\d/.test(p) },
+    { label: 'At least 5 characters', key: 'length' },
   ];
 
+  const passwordValidation = newPassword ? validatePassword(newPassword) : null;
   const passwordsMatch = newPassword && confirmPassword && newPassword === confirmPassword;
 
   const handleSubmit = async (e) => {
@@ -41,6 +40,10 @@ export default function ChangePasswordPage() {
     }
     if (!passwordsMatch) {
       setError('Passwords do not match.');
+      return;
+    }
+    if (!passwordValidation?.valid) {
+      setError('Password must be at least 5 characters.');
       return;
     }
 
@@ -78,7 +81,7 @@ export default function ChangePasswordPage() {
           Change Password
         </h2>
         <p className="text-[#8A6A5C] text-sm uppercase tracking-[0.2em] font-light">
-          Update your security
+          Create your password
         </p>
       </div>
 
@@ -161,16 +164,16 @@ export default function ChangePasswordPage() {
 
         {/* Password Requirements */}
         <div className="text-xs sm:text-sm text-[#6E5E58] space-y-1" aria-live="polite">
-          <p>New password must contain:</p>
+          <p>New password must be:</p>
           <ul className="space-y-0.5 ml-2">
             {passwordRequirements.map((req, index) => (
               <li key={index} className="flex items-center gap-2">
-                {req.test(newPassword) ? (
+                {passwordValidation?.strength?.checks[req.key] ? (
                   <CheckCircle className="w-4 h-4 text-[#C27A4E]" aria-hidden="true" />
                 ) : (
                   <XCircle className="w-4 h-4 text-[#6E5E58]" aria-hidden="true" />
                 )}
-                <span className={req.test(newPassword) ? 'text-[#C27A4E]' : ''}>{req.label}</span>
+                <span className={passwordValidation?.strength?.checks[req.key] ? 'text-[#C27A4E]' : ''}>{req.label}</span>
               </li>
             ))}
           </ul>

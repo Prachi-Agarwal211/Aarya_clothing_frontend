@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { Bell, Lock, Eye, EyeOff, Shield, Save, Check } from 'lucide-react';
 import { userApi } from '@/lib/customerApi';
 import { useAlertToast } from '@/lib/useAlertToast';
+import { validatePassword } from '@/lib/authHelpers';
 
 export default function SettingsPage() {
   const { showAlert } = useAlertToast();
@@ -29,8 +30,9 @@ export default function SettingsPage() {
       return;
     }
 
-    if (passwordForm.new_password.length < 8) {
-      showAlert('Password must be at least 8 characters');
+    const passwordValidation = validatePassword(passwordForm.new_password);
+    if (!passwordValidation.valid) {
+      showAlert('Password must be at least 5 characters');
       return;
     }
 
@@ -111,6 +113,7 @@ export default function SettingsPage() {
                 type={showNewPassword ? 'text' : 'password'}
                 value={passwordForm.new_password}
                 onChange={(e) => setPasswordForm(prev => ({ ...prev, new_password: e.target.value }))}
+                inputMode="text"
                 className="w-full px-3 py-2.5 pr-10 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-lg text-[#EAE0D5] focus:outline-none focus:border-[#B76E79]/40"
               />
               <button
@@ -129,6 +132,7 @@ export default function SettingsPage() {
               type="password"
               value={passwordForm.confirm_password}
               onChange={(e) => setPasswordForm(prev => ({ ...prev, confirm_password: e.target.value }))}
+              inputMode="text"
               className="w-full px-3 py-2.5 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-lg text-[#EAE0D5] focus:outline-none focus:border-[#B76E79]/40"
             />
           </div>

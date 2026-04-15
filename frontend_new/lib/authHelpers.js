@@ -62,25 +62,22 @@ export function validatePassword(password) {
   if (!password) {
     return {
       valid: false,
-      strength: { checks: {}, passed: 0, total: 4 },
+      strength: { checks: {}, passed: 0, total: 1 },
       message: 'Password is required',
     };
   }
 
   const checks = {
-    length: password.length >= 8,
-    upper: /[A-Z]/.test(password),
-    lower: /[a-z]/.test(password),
-    number: /[0-9]/.test(password),
+    length: password.length >= 5,
   };
   
   const passed = Object.values(checks).filter(Boolean).length;
-  const isValid = passed === 4;
+  const isValid = passed === 1;
 
   return {
     valid: isValid,
-    strength: { checks, passed, total: 4 },
-    message: isValid ? '' : 'Password must meet all requirements',
+    strength: { checks, passed, total: 1 },
+    message: isValid ? '' : 'Password must be at least 5 characters',
   };
 }
 

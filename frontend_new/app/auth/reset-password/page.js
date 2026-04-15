@@ -65,10 +65,7 @@ function ResetPasswordForm() {
 
   // Password validation
   const passwordRequirements = [
-    { label: 'At least 8 characters', test: (p) => p.length >= 8 },
-    { label: 'One uppercase letter', test: (p) => /[A-Z]/.test(p) },
-    { label: 'One lowercase letter', test: (p) => /[a-z]/.test(p) },
-    { label: 'One number', test: (p) => /\d/.test(p) },
+    { label: 'At least 5 characters', key: 'length' },
   ];
 
   const passwordValidation = password ? validatePassword(password) : null;
@@ -81,7 +78,7 @@ function ResetPasswordForm() {
 
     // Validate password
     if (!passwordValidation?.valid) {
-      setError('Password does not meet requirements.');
+      setError('Password must be at least 5 characters.');
       return;
     }
 
@@ -256,7 +253,7 @@ function ResetPasswordForm() {
           New password
         </h2>
         <p className="text-[#8A6A5C] text-xs uppercase tracking-wider">
-          Choose a strong password
+          Choose your password
         </p>
       </div>
 
@@ -342,16 +339,12 @@ function ResetPasswordForm() {
         <div className="text-[10px] sm:text-xs text-white/55 grid grid-cols-2 gap-x-2 gap-y-0.5" aria-live="polite">
             {passwordRequirements.map((req, index) => (
               <div key={index} className="flex items-center gap-1.5">
-                {passwordValidation?.strength?.checks[
-                  index === 0 ? 'length' : index === 1 ? 'upper' : index === 2 ? 'lower' : 'number'
-                ] ? (
+                {passwordValidation?.strength?.checks[req.key] ? (
                   <CheckCircle className="w-3 h-3 text-[#C27A4E] shrink-0" aria-hidden="true" />
                 ) : (
                   <XCircle className="w-3 h-3 text-[#6E5E58] shrink-0" aria-hidden="true" />
                 )}
-                <span className={passwordValidation?.strength?.checks[
-                  index === 0 ? 'length' : index === 1 ? 'upper' : index === 2 ? 'lower' : 'number'
-                ] ? 'text-[#C27A4E]/90' : ''}>{req.label}</span>
+                <span className={passwordValidation?.strength?.checks[req.key] ? 'text-[#C27A4E]/90' : ''}>{req.label}</span>
               </div>
             ))}
         </div>

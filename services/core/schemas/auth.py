@@ -50,7 +50,7 @@ class UserBase(BaseModel):
 
 class UserCreate(UserBase):
     """Schema for creating a user. Includes profile info."""
-    password: str = Field(..., min_length=8)
+    password: str = Field(..., min_length=5)
     full_name: str = Field(..., min_length=1, max_length=100)
     phone: str = Field(..., min_length=10, max_length=20, description="Phone number is required")
     role: UserRole = UserRole.customer
@@ -127,7 +127,7 @@ class LoginResponse(BaseModel):
 class ChangePasswordRequest(BaseModel):
     """Schema for changing password."""
     current_password: str
-    new_password: str = Field(..., min_length=8)
+    new_password: str = Field(..., min_length=5)
 
 
 class ForgotPasswordRequest(BaseModel):
@@ -144,14 +144,14 @@ class PasswordResetRequest(BaseModel):
 class PasswordResetConfirm(BaseModel):
     """Schema for confirming password reset."""
     token: str
-    new_password: str = Field(..., min_length=8)
+    new_password: str = Field(..., min_length=5)
 
 
 class ResetPasswordWithOtpRequest(BaseModel):
     """Schema for resetting password with OTP verification."""
     identifier: str = Field(..., description="Email or phone number")
     otp_code: str = Field(..., min_length=6, max_length=6, description="6-digit OTP code")
-    new_password: str = Field(..., min_length=8, description="New password")
+    new_password: str = Field(..., min_length=5, description="5-character password")
     otp_type: str = Field(default="SMS", description="EMAIL or SMS")
 
 

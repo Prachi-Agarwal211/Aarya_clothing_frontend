@@ -25,10 +25,10 @@ class Settings(SharedBaseSettings):
     SESSION_EXPIRE_MINUTES: int = 1440  # 24 hours
     
     # ==================== Password Policy ====================
-    PASSWORD_MIN_LENGTH: int = 8
-    PASSWORD_REQUIRE_UPPERCASE: bool = True
-    PASSWORD_REQUIRE_LOWERCASE: bool = True
-    PASSWORD_REQUIRE_NUMBER: bool = True
+    PASSWORD_MIN_LENGTH: int = 5
+    PASSWORD_REQUIRE_UPPERCASE: bool = False
+    PASSWORD_REQUIRE_LOWERCASE: bool = False
+    PASSWORD_REQUIRE_NUMBER: bool = False
     PASSWORD_REQUIRE_SPECIAL: bool = False
     
     # ==================== Rate Limiting ====================

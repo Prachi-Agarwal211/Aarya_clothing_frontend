@@ -193,10 +193,10 @@ services:
       # Same secret as commerce/payment — internal order-email API from Commerce
       - INTERNAL_SERVICE_SECRET=${INTERNAL_SERVICE_SECRET:?INTERNAL_SERVICE_SECRET environment variable is required}
       # Password Policy
-      - PASSWORD_MIN_LENGTH=8
-      - PASSWORD_REQUIRE_UPPERCASE=true
-      - PASSWORD_REQUIRE_LOWERCASE=true
-      - PASSWORD_REQUIRE_NUMBER=true
+      - PASSWORD_MIN_LENGTH=5
+      - PASSWORD_REQUIRE_UPPERCASE=false
+      - PASSWORD_REQUIRE_LOWERCASE=false
+      - PASSWORD_REQUIRE_NUMBER=false
       - PASSWORD_REQUIRE_SPECIAL=false
       # Rate Limiting & Security
       - LOGIN_RATE_LIMIT=10

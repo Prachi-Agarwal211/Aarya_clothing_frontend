@@ -646,13 +646,13 @@ class AuthService:
 
         Args:
             identifier: Email or phone number
-            otp_type: "EMAIL" or "SMS"
+            otp_type: "EMAIL", "SMS", or "WHATSAPP"
 
         Returns:
             Dict with success message
 
         Fix #2: When otp_type="EMAIL", search only by email.
-                When otp_type="SMS", search only by phone.
+                When otp_type="SMS" or "WHATSAPP", search only by phone.
                 This prevents sending OTP to wrong user.
         """
         # Find user by email or phone based on otp_type (Fix #2)
@@ -662,8 +662,8 @@ class AuthService:
         if otp_type == "EMAIL":
             # Search ONLY by email for EMAIL OTP
             user = self.db.query(User).filter(User.email == identifier).first()
-        elif otp_type == "SMS":
-            # Search ONLY by phone for SMS OTP
+        elif otp_type in ["SMS", "WHATSAPP"]:
+            # Search ONLY by phone for SMS/WHATSAPP OTP
             user = (
                 self.db.query(User)
                 .join(UserProfile, User.id == UserProfile.user_id)
@@ -680,13 +680,20 @@ class AuthService:
         from schemas.otp import OTPSendRequest
         from schemas.otp import OTPType
 
+        if otp_type == "EMAIL":
+            final_otp_type = OTPType.EMAIL
+        elif otp_type == "WHATSAPP":
+            final_otp_type = OTPType.WHATSAPP
+        else:
+            final_otp_type = OTPType.SMS
+
         otp_service = OTPService(self.db)
         request = OTPSendRequest(
-            email=user.email if otp_type == "EMAIL" else None,
+            email=user.email if final_otp_type == OTPType.EMAIL else None,
             phone=user.profile.phone
-            if otp_type == "SMS" and user.profile
+            if final_otp_type in [OTPType.SMS, OTPType.WHATSAPP] and user.profile
             else None,
-            otp_type=OTPType.EMAIL if otp_type == "EMAIL" else OTPType.SMS,
+            otp_type=final_otp_type,
             purpose="password_reset",
         )
 

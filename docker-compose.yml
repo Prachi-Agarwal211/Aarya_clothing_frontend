@@ -213,6 +213,13 @@ services:
       - MSG91_SENDER_ID=${MSG91_SENDER_ID:-}
       # Optional: DLT-registered Flow template for order SMS (var1/2/3; separate from OTP template)
       - MSG91_ORDER_FLOW_TEMPLATE_ID=${MSG91_ORDER_FLOW_TEMPLATE_ID:-}
+      # Meta WhatsApp API
+      - WHATSAPP_ACCESS_TOKEN=${WHATSAPP_ACCESS_TOKEN:-}
+      - WHATSAPP_PHONE_NUMBER_ID=${WHATSAPP_PHONE_NUMBER_ID:-}
+      - WHATSAPP_WABA_ID=${WHATSAPP_WABA_ID:-}
+      - WHATSAPP_TEMPLATE_OTP=${WHATSAPP_TEMPLATE_OTP:-auth_otp}
+      - WHATSAPP_TEMPLATE_ORDER_CONFIRMED=${WHATSAPP_TEMPLATE_ORDER_CONFIRMED:-order_confirmation}
+      - WHATSAPP_TEMPLATE_ORDER_SHIPPED=${WHATSAPP_TEMPLATE_ORDER_SHIPPED:-order_shipped}
       # SMTP Configuration - Hostinger
       - SMTP_HOST=smtp.hostinger.com
       - SMTP_PORT=465

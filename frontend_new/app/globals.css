@@ -1450,11 +1450,11 @@ header {
 
 /* Cart drawer */
 .cart-drawer {
-  z-index: 55;
+  z-index: 500;
 }
 
 .cart-drawer-backdrop {
-  z-index: 54;
+  z-index: 499;
 }
 
 /* Toast container - highest z-index for visibility */

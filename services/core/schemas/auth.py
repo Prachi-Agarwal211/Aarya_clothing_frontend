@@ -20,6 +20,7 @@ class VerificationMethod(str, Enum):
     link = "link"  # Email link (recommended, default)
     otp_email = "otp_email"  # Email OTP (6-digit code)
     otp_sms = "otp_sms"  # SMS OTP (6-digit code)
+    otp_whatsapp = "otp_whatsapp"  # WhatsApp OTP (6-digit code)
 
 
 # ==================== User Schemas ====================

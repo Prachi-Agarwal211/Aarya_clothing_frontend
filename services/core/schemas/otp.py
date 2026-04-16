@@ -113,5 +113,6 @@ class VerifyRegistrationOTPBody(BaseModel):
                 raise ValueError('email is required when otp_type is EMAIL')
         else:
             if not self.phone and not self.email:
-                raise ValueError('phone or email is required when otp_type is SMS')
+                raise ValueError('phone or email is required when otp_type is SMS/WHATSAPP')
         return self
+     return self

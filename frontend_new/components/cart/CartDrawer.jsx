@@ -91,12 +91,12 @@ export default function CartDrawer() {
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] cart-drawer-backdrop"
+        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[499] cart-drawer-backdrop"
         onClick={closeCart}
       />
 
       {/* Drawer */}
-      <div className="fixed right-0 top-0 h-full h-dvh w-full max-w-md bg-[#0B0608] border-l border-[#B76E79]/20 z-[210] cart-drawer flex flex-col">
+      <div className="fixed right-0 top-0 h-full h-dvh w-full max-w-md bg-[#0B0608] border-l border-[#B76E79]/20 z-[500] cart-drawer flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-[#B76E79]/15">
           <div className="flex items-center gap-2">

@@ -46,7 +46,7 @@ function RegisterPageContent() {
   const router = useRouter();
   const { login, isAuthenticated, loading, user, isStaff, checkAuth } = useAuth();
   const logoUrl = useLogo();
-  const { smsOtpEnabled } = useSiteConfig();
+  const { smsOtpEnabled, whatsappEnabled } = useSiteConfig();
 
   const passwordValidation = password ? validatePassword(password) : null;
   const passwordStrength = passwordValidation?.strength;
@@ -183,6 +183,13 @@ function RegisterPageContent() {
     }
 
     try {
+      let otp_type = 'EMAIL';
+      if (verificationMethod === 'otp_whatsapp') {
+        otp_type = 'WHATSAPP';
+      } else if (verificationMethod === 'otp_sms') {
+        otp_type = 'SMS';
+      }
+
       await authApi.register({
           full_name: fullName.trim(),
           username: username.trim(),
@@ -190,7 +197,7 @@ function RegisterPageContent() {
           phone: phone.trim(),
           password,
           role: 'customer',
-          verification_method: verificationMethod,
+          otp_type,
       });
 
       setOtpDigits(['', '', '', '', '', '']);
@@ -265,7 +272,12 @@ function RegisterPageContent() {
     setStatus('');
 
     try {
-      const otpType = verificationMethod === 'otp_email' ? 'EMAIL' : 'SMS';
+      let otpType = 'EMAIL';
+      if (verificationMethod === 'otp_whatsapp') {
+        otpType = 'WHATSAPP';
+      } else if (verificationMethod === 'otp_sms') {
+        otpType = 'SMS';
+      }
 
       await authApi.resendVerificationOtp({
         ...(verificationMethod === 'otp_email' ? { email } : { phone }),
@@ -273,7 +285,8 @@ function RegisterPageContent() {
       });
 
       setOtpDigits(['', '', '', '', '', '']);
-      setStatus(`New code sent to ${verificationMethod === 'otp_email' ? 'email' : 'SMS'}.`);
+      const methodLabel = verificationMethod === 'otp_email' ? 'Email' : verificationMethod === 'otp_whatsapp' ? 'WhatsApp' : 'SMS';
+      setStatus(`New code sent to ${methodLabel}.`);
       startOtpTimers();
       setTimeout(() => otpRefs.current[0]?.focus(), 100);
     } catch (err) {
@@ -533,6 +546,25 @@ function RegisterPageContent() {
 
                 <button
                   type="button"
+                  disabled={!whatsappEnabled}
+                  onClick={() => whatsappEnabled && setVerificationMethod('otp_whatsapp')}
+                  className={`flex flex-col items-center gap-1 p-2.5 sm:p-3 rounded-xl border-2 transition-all duration-300 ${
+                    !whatsappEnabled
+                      ? 'opacity-50 cursor-not-allowed bg-[#7A2F57]/5 border-[#B76E79]/20'
+                      : verificationMethod === 'otp_whatsapp'
+                        ? 'bg-[#7A2F57]/20 border-[#F2C29A]/60 shadow-[0_0_20px_rgba(242,194,154,0.15)]'
+                        : 'bg-[#7A2F57]/10 border-[#B76E79]/30 hover:border-[#F2C29A]/40'
+                  }`}
+                >
+                  <MessageCircle className={`w-5 h-5 transition-colors ${verificationMethod === 'otp_whatsapp' ? 'text-[#F2C29A]' : 'text-[#B76E79]'}`} />
+                  <p className="text-[10px] sm:text-xs text-[#EAE0D5]/90 font-bold tracking-widest uppercase">WhatsApp</p>
+                  <p className="text-[9px] text-[#EAE0D5]/50 text-center leading-tight">
+                    {whatsappEnabled ? 'Code to WhatsApp' : 'Not available'}
+                  </p>
+                </button>
+
+                <button
+                  type="button"
                   disabled={!smsOtpEnabled}
                   aria-describedby={!smsOtpEnabled ? 'sms-otp-status' : undefined}
                   onClick={() => smsOtpEnabled && setVerificationMethod('otp_sms')}
@@ -553,6 +585,7 @@ function RegisterPageContent() {
               </div>
               <div className="rounded-lg border border-[#B76E79]/20 bg-[#0B0608]/25 px-3 py-2 text-[10px] sm:text-[11px] text-[#EAE0D5]/70">
                 <p>• Email OTP: <span className="text-green-400">Available</span></p>
+                <p>• WhatsApp OTP: {whatsappEnabled ? <span className="text-green-400">Available</span> : <span className="text-amber-300">Currently unavailable</span>}</p>
                 <p id="sms-otp-status">• SMS OTP: {smsOtpEnabled ? <span className="text-green-400">Available</span> : <span className="text-amber-300">Currently unavailable</span>}</p>
               </div>
               <p className="text-center text-[10px] sm:text-[11px] text-[#EAE0D5]/55">
@@ -721,6 +754,17 @@ function RegisterPageContent() {
 }
 
 export default function RegisterPage() {
+  return (
+    <Suspense fallback={
+      <div className="w-full min-h-[60vh] flex items-center justify-center">
+        <div className="w-12 h-12 border-2 border-[#B76E79]/30 border-t-[#F2C29A] rounded-full animate-spin" />
+      </div>
+    }>
+      <RegisterPageContent />
+    </Suspense>
+  );
+}
+t function RegisterPage() {
   return (
     <Suspense fallback={
       <div className="w-full min-h-[60vh] flex items-center justify-center">

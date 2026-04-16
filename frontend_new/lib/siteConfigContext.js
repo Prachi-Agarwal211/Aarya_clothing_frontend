@@ -62,6 +62,7 @@ export function SiteConfigProvider({ children }) {
           noise: response.noise && response.noise.trim() !== '' ? response.noise : DEFAULT_CONFIG.noise,
           r2BaseUrl: response.r2BaseUrl || '',
           smsOtpEnabled: Boolean(response.smsOtpEnabled ?? response.sms_otp_enabled),
+          whatsappEnabled: Boolean(response.whatsappEnabled),
         });
         logger.log('Site config loaded from backend');
       }
@@ -160,3 +161,4 @@ export function useIntroVideo() {
 
 // Export default
 export default SiteConfigContext;
+ontext;

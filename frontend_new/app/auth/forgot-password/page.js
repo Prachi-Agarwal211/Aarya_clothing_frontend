@@ -121,7 +121,12 @@ export default function ForgotPasswordPage() {
     }
 
     try {
-      const otpType = verificationMethod === 'otp_email' ? 'EMAIL' : 'SMS';
+      let otpType = 'EMAIL';
+      if (verificationMethod === 'otp_whatsapp') {
+        otpType = 'WHATSAPP';
+      } else if (verificationMethod === 'otp_sms') {
+        otpType = 'SMS';
+      }
 
       // Fix #3: Use identifier field (not email) to match backend ForgotPasswordRequest schema
       // Fix #5: Use authApi.forgotPassword() instead of raw apiFetch
@@ -224,13 +229,18 @@ export default function ForgotPasswordPage() {
     setStatus('');
 
     try {
-      const otpType = verificationMethod === 'otp_email' ? 'EMAIL' : 'SMS';
+      let otpType = 'EMAIL';
+      if (verificationMethod === 'otp_whatsapp') {
+        otpType = 'WHATSAPP';
+      } else if (verificationMethod === 'otp_sms') {
+        otpType = 'SMS';
+      }
 
-      // Fix #5: Use authApi.forgotPassword() instead of raw apiFetch
-      await authApi.forgotPassword(identifier.trim(), otpType);
+      await authApi.forgotPassword(identifier, otpType);
 
       setOtpDigits(['', '', '', '', '', '']);
-      setStatus(`New code sent to ${verificationMethod === 'otp_email' ? 'email' : 'SMS'}.`);
+      const methodLabel = verificationMethod === 'otp_email' ? 'Email' : verificationMethod === 'otp_whatsapp' ? 'WhatsApp' : 'SMS';
+      setStatus(`New code sent to your ${methodLabel}.`);
       startOtpTimers();
       setTimeout(() => otpRefs.current[0]?.focus(), 100);
     } catch (err) {
@@ -348,7 +358,7 @@ export default function ForgotPasswordPage() {
           <form className="w-full space-y-3 sm:space-y-3.5 animate-fade-in-up-delay" onSubmit={handleRequestOtp} noValidate>
             <div className="space-y-2">
               <p className="text-[#EAE0D5]/60 text-[10px] uppercase tracking-widest">Verification</p>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 <button
                   type="button"
                   onClick={() => setVerificationMethod('otp_email')}
@@ -359,13 +369,30 @@ export default function ForgotPasswordPage() {
                   }`}
                 >
                   <Mail className={`w-5 h-5 transition-colors ${verificationMethod === 'otp_email' ? 'text-[#F2C29A]' : 'text-[#B76E79]'}`} />
-                  <p className="text-[10px] sm:text-xs text-[#EAE0D5]/90 font-bold tracking-widest">EMAIL</p>
+                  <p className="text-[10px] sm:text-[11px] text-[#EAE0D5]/90 font-bold tracking-widest">EMAIL</p>
+                </button>
+
+                <button
+                  type="button"
+                  disabled={!whatsappEnabled}
+                  title={!whatsappEnabled ? 'WhatsApp verification is not configured.' : undefined}
+                  onClick={() => whatsappEnabled && setVerificationMethod('otp_whatsapp')}
+                  className={`flex flex-col items-center gap-1 p-2.5 rounded-xl border-2 transition-all duration-300 ${
+                    !whatsappEnabled
+                      ? 'opacity-50 cursor-not-allowed bg-[#7A2F57]/5 border-[#B76E79]/20'
+                      : verificationMethod === 'otp_whatsapp'
+                        ? 'bg-[#7A2F57]/20 border-[#F2C29A]/60 shadow-[0_0_20px_rgba(242,194,154,0.15)]'
+                        : 'bg-[#7A2F57]/10 border-[#B76E79]/30 hover:border-[#F2C29A]/40'
+                  }`}
+                >
+                  <MessageCircle className={`w-5 h-5 transition-colors ${verificationMethod === 'otp_whatsapp' ? 'text-[#F2C29A]' : 'text-[#B76E79]'}`} />
+                  <p className="text-[10px] sm:text-[11px] text-[#EAE0D5]/90 font-bold tracking-widest">WA</p>
                 </button>
 
                 <button
                   type="button"
                   disabled={!smsOtpEnabled}
-                  title={!smsOtpEnabled ? 'SMS verification is not configured. Use email.' : undefined}
+                  title={!smsOtpEnabled ? 'SMS verification is not configured.' : undefined}
                   onClick={() => smsOtpEnabled && setVerificationMethod('otp_sms')}
                   className={`flex flex-col items-center gap-1 p-2.5 rounded-xl border-2 transition-all duration-300 ${
                     !smsOtpEnabled
@@ -376,7 +403,7 @@ export default function ForgotPasswordPage() {
                   }`}
                 >
                   <Smartphone className={`w-5 h-5 transition-colors ${verificationMethod === 'otp_sms' ? 'text-[#F2C29A]' : 'text-[#B76E79]'}`} />
-                  <p className="text-[10px] sm:text-xs text-[#EAE0D5]/90 font-bold tracking-widest">SMS</p>
+                  <p className="text-[10px] sm:text-[11px] text-[#EAE0D5]/90 font-bold tracking-widest">SMS</p>
                 </button>
               </div>
             </div>

@@ -66,6 +66,27 @@ class Settings(SharedBaseSettings):
     # Optional Flow template for order/shipping SMS (DLT-registered body in MSG91 console)
     MSG91_ORDER_FLOW_TEMPLATE_ID: Optional[str] = None
 
+    # ==================== Meta WhatsApp Cloud API ====================
+    # From Meta Developer Portal -> WhatsApp -> API Setup
+    WHATSAPP_ACCESS_TOKEN: Optional[str] = None
+    WHATSAPP_PHONE_NUMBER_ID: Optional[str] = None
+    WHATSAPP_WABA_ID: Optional[str] = None
+    WHATSAPP_API_VERSION: str = "v20.0"
+    
+    # Template Names (Must match exactly what you created in Meta Dashboard)
+    WHATSAPP_TEMPLATE_OTP: str = "auth_otp"
+    WHATSAPP_TEMPLATE_ORDER_CONFIRMED: str = "order_confirmation"
+    WHATSAPP_TEMPLATE_ORDER_SHIPPED: str = "order_shipped"
+    WHATSAPP_TEMPLATE_ORDER_DELIVERED: str = "order_delivered"
+
+    @property
+    def whatsapp_enabled(self) -> bool:
+        """Check if Meta WhatsApp integration is enabled."""
+        return bool(
+            self.WHATSAPP_ACCESS_TOKEN and
+            self.WHATSAPP_PHONE_NUMBER_ID
+        )
+
     # ==================== Password Reset Settings ====================
     PASSWORD_RESET_TOKEN_EXPIRE_HOURS: int = 24
     PASSWORD_RESET_RATE_LIMIT: int = 5

@@ -125,8 +125,13 @@ async function getCollectionData(slug) {
       return null;
     }
 
-    // Fetch products filtered by category_id (collection.id)
-    const productsResponse = await productsApi.list({ category_id: collection.id, limit: 100 }).catch(() => ({ items: [] }));
+    // Fetch products filtered by category_id (collection.id) - initial page only
+    const PAGE_SIZE = 24;
+    const productsResponse = await productsApi.list({
+      category_id: collection.id,
+      page: 1,
+      limit: PAGE_SIZE
+    }).catch(() => ({ items: [] }));
 
     const allProducts = Array.isArray(productsResponse)
       ? productsResponse

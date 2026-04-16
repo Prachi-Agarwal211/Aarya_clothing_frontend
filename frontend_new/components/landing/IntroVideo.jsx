@@ -88,8 +88,8 @@ export default function IntroVideo({ onVideoEnd }) {
     window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   useEffect(() => {
-    const seenRecently = hasSeenIntroRecently();
-    const seenInSession = !!sessionStorage.getItem('hasSeenIntroVideo');
+    const seenRecently = false; // hasSeenIntroRecently(); - Disable for debugging/fixing
+    const seenInSession = false; // !!sessionStorage.getItem('hasSeenIntroVideo'); - Disable for debugging/fixing
     const skip =
       seenRecently ||
       seenInSession ||

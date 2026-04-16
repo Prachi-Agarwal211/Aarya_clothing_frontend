@@ -15,26 +15,27 @@ from sqlalchemy.orm import Session, joinedload
 from models.user import User
 from service.email_service import email_service
 from service.sms_service import sms_service
+from service.whatsapp_service import whatsapp_service
 
 logger = logging.getLogger(__name__)
 
 
 def _email_only_channel(user: Optional[User]) -> bool:
     """
-    If True, send transactional email only (no SMS attempt).
-    If False, try SMS first, then fall back to email when appropriate.
+    If True, send transactional email only (no SMS/WhatsApp attempt).
+    If False, try WhatsApp first, then SMS, then fall back to email.
     """
     if not user:
         return True
     ev = bool(user.email_verified)
     pv = bool(getattr(user, "phone_verified", False))
-    # Email-only verified: keep email as the channel (no duplicate SMS).
+    # Email-only verified: keep email as the channel.
     if ev and not pv:
         return True
     # Legacy / unknown: neither verified → email path.
     if not ev and not pv:
         return True
-    # Phone-only or both verified → prefer SMS first with email fallback.
+    # Phone-only or both verified → prefer WhatsApp/SMS first.
     return False
 
 
@@ -45,21 +46,18 @@ def _phone_for_sms(user: Optional[User]) -> Optional[str]:
     return p.strip() if p else None
 
 
-def _try_sms_first_then_email(
+def _try_mobile_first_then_email(
     *,
     send_email_fn,
     phone: Optional[str],
-    sms_fn,
+    mobile_fn,
 ) -> bool:
-    """Try SMS; if it fails or is unconfigured, send email."""
-    if phone and sms_service is not None:
-        r = sms_fn()
+    """Try WhatsApp/SMS; if it fails or is unconfigured, send email."""
+    if phone:
+        r = mobile_fn()
         if isinstance(r, dict) and r.get("success"):
             return True
-        if isinstance(r, dict) and r.get("error") == "order_flow_template_not_configured":
-            logger.info("Order SMS template not configured — falling back to email")
-        else:
-            logger.warning("Order SMS send failed — falling back to email")
+    
     ok = send_email_fn()
     return bool(ok)
 
@@ -95,9 +93,21 @@ def dispatch_order_confirmation(db: Session, body) -> dict:
         ok = send_mail()
         return {"success": bool(ok)}
 
-    def sms():
+    def mobile_dispatch():
+        # Try WhatsApp First
+        if whatsapp_service and whatsapp_service.access_token:
+            res = whatsapp_service.send_order_confirmation(
+                phone, 
+                customer_name=body.customer_name,
+                order_number=body.order_number,
+                total_amount=f"₹{body.total}"
+            )
+            if res.get("success"):
+                return res
+        
+        # Fallback to SMS
         if sms_service is None:
-            return {"success": False, "error": "sms_disabled"}
+            return {"success": False, "error": "mobile_disabled"}
         if not phone:
             return {"success": False, "error": "no_phone"}
         return sms_service.send_order_flow_sms(
@@ -107,7 +117,7 @@ def dispatch_order_confirmation(db: Session, body) -> dict:
             link=body.track_order_url or "",
         )
 
-    ok = _try_sms_first_then_email(send_email_fn=send_mail, phone=phone, sms_fn=sms)
+    ok = _try_mobile_first_then_email(send_email_fn=send_mail, phone=phone, mobile_fn=mobile_dispatch)
     return {"success": ok}
 
 

@@ -183,8 +183,7 @@ export default function ProductsContent({ initialFilters }) {
   useEffect(() => {
     console.log('[ProductsClient] fetchProducts useEffect running', { filters });
     fetchProducts(filters);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.collection_id, filters.minPrice, filters.maxPrice, filters.sort, filters.page, fetchProducts]);
+  }, [filters.collection_id, filters.minPrice, filters.maxPrice, filters.sort, filters.page]);
 
   useEffect(() => {
     if (debouncedSearch !== filters.search) {

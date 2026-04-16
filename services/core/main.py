@@ -373,6 +373,22 @@ async def register(
                 logger.warning(f"SMS OTP send failed during registration (queue will retry): {e}")
             message = "Account created successfully. Please check your phone for the verification code."
 
+        elif user_data.verification_method == "otp_whatsapp":
+            # WhatsApp OTP verification
+            from service.otp_service import OTPService
+            from schemas.otp import OTPSendRequest, OTPType
+            otp_service = OTPService(db)
+            otp_request = OTPSendRequest(
+                phone=user_response_data['profile']['phone'],
+                otp_type=OTPType.WHATSAPP,
+                purpose="registration"
+            )
+            try:
+                otp_service.send_otp(otp_request)
+            except ValueError as e:
+                logger.warning(f"WhatsApp OTP send failed during registration: {e}")
+            message = "Account created successfully. Please check your WhatsApp for the verification code."
+
         return {
             "message": message,
             "user": user_response_data,
@@ -1283,14 +1299,12 @@ async def get_site_config(db: Session = Depends(get_db)):
     if not video_desktop:
         # Try legacy intro_video_url
         video_desktop = db_config.get("intro_video_url")
-    if not video_mobile:
-        # Default to desktop if no mobile variant
-        video_mobile = video_desktop
     
-    # CRITICAL: Desktop should also fallback to mobile if desktop is missing
-    # This ensures if admin uploads only mobile video, desktop users still see it
+    # CROSS-FALLBACK: If desktop is missing, use mobile; if mobile is missing, use desktop
     if not video_desktop:
         video_desktop = video_mobile
+    if not video_mobile:
+        video_mobile = video_desktop
     
     # Construct full URLs if needed
     if video_desktop and not video_desktop.startswith(('http://', 'https://')):
@@ -1298,11 +1312,14 @@ async def get_site_config(db: Session = Depends(get_db)):
     if video_mobile and not video_mobile.startswith(('http://', 'https://')):
         video_mobile = f"{r2_public}/{video_mobile}" if r2_public else video_mobile
 
+    # Final hardcoded fallback if BOTH are missing (using mobile URL from DB as baseline if available)
+    default_video = "https://pub-7846c786f7154610b57735df47899fa0.r2.dev/Create_a_video_202602141450_ub9p5.mp4"
+    
     payload = {
         "logo": db_config.get("logo_url") or (f"{r2_public}/logo.png" if r2_public else "/logo.png"),
         "video": {
-            "desktop": video_desktop or (f"{r2_public}/Create_a_video_202602141450_ub9p5.mp4" if r2_public else "/Create_a_video_202602141450_ub9p5.mp4"),
-            "mobile": video_mobile or (f"{r2_public}/Create_a_video_202602141450_ub9p5.mp4" if r2_public else "/Create_a_video_202602141450_ub9p5.mp4"),
+            "desktop": video_desktop or default_video,
+            "mobile": video_mobile or default_video,
             "enabled": db_config.get("intro_video_enabled", "true").lower() == "true"
         },
         "brand_name": db_config.get("brand_name", "Aarya Clothing"),
@@ -1311,6 +1328,7 @@ async def get_site_config(db: Session = Depends(get_db)):
         # MSG91 fully configured — frontend hides SMS OTP when false
         "smsOtpEnabled": core_settings.sms_enabled,
         "sms_otp_enabled": core_settings.sms_enabled,
+        "whatsappEnabled": core_settings.whatsapp_enabled,
     }
     redis_client.set_cache(cache_key, payload, ttl=60)
     return payload

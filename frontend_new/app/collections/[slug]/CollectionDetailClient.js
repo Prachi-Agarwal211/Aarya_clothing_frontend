@@ -12,6 +12,8 @@ import {
   Grid,
   List,
   RefreshCw,
+  ChevronLeft,
+  ChevronRight as ChevronRightIcon,
 } from 'lucide-react';
 import EnhancedHeader from '@/components/landing/EnhancedHeader';
 import Footer from '@/components/landing/Footer';
@@ -48,6 +50,8 @@ const PRICE_RANGES = [
   { value: '1000+', label: 'Above ₹1000' },
 ];
 
+const PAGE_SIZE = 24;
+
 // Timeout and retry constants
 const API_TIMEOUT_MS = 10000;
 const MAX_RETRIES = 2;
@@ -61,12 +65,14 @@ export default function CollectionDetailClient({ initialCollection, initialProdu
 
   const [products, setProducts] = useState(initialProducts || []);
   const [category, setCategory] = useState(initialCollection);
+  const [totalProducts, setTotalProducts] = useState(0);
   const [viewMode, setViewMode] = useState('grid');
   const [filters, setFilters] = useState({
     priceRange: '',
     maxPrice: '',
     sort: 'newest',
     search: '',
+    page: 1,
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -99,6 +105,13 @@ export default function CollectionDetailClient({ initialCollection, initialProdu
       });
   }, [products, isAuthenticated]);
 
+  // Fetch products when category or page changes
+  useEffect(() => {
+    if (category) {
+      fetchProducts();
+    }
+  }, [category, filters.page, fetchProducts]);
+
   // Fetch products for collection with timeout and retry
   const fetchProducts = useCallback(async (isRetry = false, currentRetryCount = retryCount) => {
     if (!isRetry) {
@@ -110,14 +123,21 @@ export default function CollectionDetailClient({ initialCollection, initialProdu
     const timeoutId = setTimeout(() => controller.abort(), API_TIMEOUT_MS);
 
     try {
-      // Fetch products filtered by category_id (collection.id)
+      // Fetch products filtered by category_id (collection.id) with pagination
       const categoryId = category?.id || null;
-      const data = await productsApi.list({ category_id: categoryId, limit: 100 });
+      const skip = (filters.page - 1) * PAGE_SIZE;
+      const data = await productsApi.list({
+        category_id: categoryId,
+        skip: skip,
+        limit: PAGE_SIZE
+      });
       clearTimeout(timeoutId);
 
-      const allProducts = Array.isArray(data) ? data : (data?.items || data?.products || []);
+      const productsList = Array.isArray(data) ? data : (data?.items || data?.products || []);
+      const total = data?.total ?? productsList.length;
 
-      setProducts(allProducts);
+      setProducts(productsList);
+      setTotalProducts(total);
     } catch (fetchError) {
       clearTimeout(timeoutId);
 
@@ -138,7 +158,7 @@ export default function CollectionDetailClient({ initialCollection, initialProdu
     } finally {
       setLoading(false);
     }
-  }, [category, retryCount]);
+  }, [category, filters.page, retryCount]);
 
   // Handle add to cart
   const handleAddToCart = async (productData) => {
@@ -254,10 +274,12 @@ export default function CollectionDetailClient({ initialCollection, initialProdu
       maxPrice: '',
       sort: 'newest',
       search: '',
+      page: 1,
     });
   };
 
   const hasActiveFilters = filters.priceRange || filters.maxPrice || filters.search;
+  const totalPages = Math.ceil(totalProducts / PAGE_SIZE);
 
   // Check if collection exists
   if (!category) {
@@ -419,7 +441,7 @@ export default function CollectionDetailClient({ initialCollection, initialProdu
 
               {/* Results count */}
               <span className="ml-auto text-sm text-[#EAE0D5]/40">
-                {filteredProducts.length} {filteredProducts.length === 1 ? 'product' : 'products'}
+                {loading ? 'Loading...' : `Showing ${filteredProducts.length} of ${totalProducts} products`}
               </span>
             </div>
 
@@ -460,13 +482,14 @@ export default function CollectionDetailClient({ initialCollection, initialProdu
                   </button>
                 )}
               </div>
-            ) : (
-              <div className={`grid gap-4 md:gap-5 ${
-                viewMode === 'grid'
-                  ? 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'
-                  : 'grid-cols-1'
-              }`}>
-                {filteredProducts.map(product => (
+             ) : (
+               <>
+                 <div className={`grid gap-4 md:gap-5 ${
+                   viewMode === 'grid'
+                     ? 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5'
+                     : 'grid-cols-1'
+                 }`}>
+                   {filteredProducts.map(product => (
                   <Link
                     key={product.id}
                     href={`/products/${product.slug || product.id}`}
@@ -525,7 +548,39 @@ export default function CollectionDetailClient({ initialCollection, initialProdu
                   </Link>
                 ))}
               </div>
-            )}
+
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-center gap-2 mt-8">
+                  <button
+                    onClick={() => {
+                      const newPage = prev.page - 1;
+                      setFilters(prev => ({ ...prev, page: newPage }));
+                      router.push(`/collections/${slug}?page=${newPage}`);
+                    }}
+                    disabled={filters.page <= 1}
+                    className="p-3 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg border border-[#B76E79]/20 text-[#EAE0D5]/70 hover:border-[#B76E79]/40 hover:text-[#EAE0D5] disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <span className="text-sm text-[#EAE0D5]/70 px-4">
+                    Page {filters.page} of {totalPages}
+                  </span>
+                  <button
+                    onClick={() => {
+                      const newPage = prev.page + 1;
+                      setFilters(prev => ({ ...prev, page: newPage }));
+                      router.push(`/collections/${slug}?page=${newPage}`);
+                    }}
+                    disabled={filters.page >= totalPages}
+                    className="p-3 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg border border-[#B76E79]/20 text-[#EAE0D5]/70 hover:border-[#B76E79]/40 hover:text-[#EAE0D5] disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                  >
+                    <ChevronRightIcon className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+               </>
+             )}
           </div>
 
           <Footer />

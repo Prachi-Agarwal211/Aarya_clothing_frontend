@@ -161,4 +161,3 @@ export function useIntroVideo() {
 
 // Export default
 export default SiteConfigContext;
-ontext;

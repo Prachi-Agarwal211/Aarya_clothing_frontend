@@ -764,14 +764,3 @@ export default function RegisterPage() {
     </Suspense>
   );
 }
-t function RegisterPage() {
-  return (
-    <Suspense fallback={
-      <div className="w-full min-h-[60vh] flex items-center justify-center">
-        <div className="w-12 h-12 border-2 border-[#B76E79]/30 border-t-[#F2C29A] rounded-full animate-spin" />
-      </div>
-    }>
-      <RegisterPageContent />
-    </Suspense>
-  );
-}

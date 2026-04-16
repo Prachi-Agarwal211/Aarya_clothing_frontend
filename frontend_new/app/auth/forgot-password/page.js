@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Mail, Phone, Smartphone, CheckCircle, RefreshCw } from 'lucide-react';
+import { Mail, Phone, Smartphone, CheckCircle, RefreshCw, MessageCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -20,7 +20,7 @@ const TOTAL_STEPS = 3;
 
 export default function ForgotPasswordPage() {
   const logoUrl = useLogo();
-  const { smsOtpEnabled } = useSiteConfig();
+  const { smsOtpEnabled, whatsappEnabled } = useSiteConfig();
   const router = useRouter();
 
   // Step management: 1 = form, 2 = OTP input, 3 = success (verified, redirecting)

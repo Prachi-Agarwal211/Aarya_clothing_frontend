@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import EnhancedHeader from '@/components/landing/EnhancedHeader';
 import Footer from '@/components/landing/Footer';
+import ProductCard from '@/components/common/ProductCard';
 import { wishlistApi, productsApi, collectionsApi } from '@/lib/customerApi';
 import { useCart } from '@/lib/cartContext';
 import { useAuth } from '@/lib/authContext';
@@ -66,6 +67,8 @@ export default function CollectionDetailClient({ initialCollection, initialProdu
   const [products, setProducts] = useState(initialProducts || []);
   const [category, setCategory] = useState(initialCollection);
   const [totalProducts, setTotalProducts] = useState(0);
+  const [featuredProducts, setFeaturedProducts] = useState([]);
+  const [loadingFeatured, setLoadingFeatured] = useState(false);
   const [viewMode, setViewMode] = useState('grid');
   const [filters, setFilters] = useState({
     priceRange: '',
@@ -111,6 +114,25 @@ export default function CollectionDetailClient({ initialCollection, initialProdu
       fetchProducts();
     }
   }, [category, filters.page, fetchProducts]);
+
+  // Fetch featured products when collection has no products
+  useEffect(() => {
+    if (category && products.length === 0) {
+      const fetchFeatured = async () => {
+        setLoadingFeatured(true);
+        try {
+          const response = await productsApi.getFeatured(12);
+          const items = Array.isArray(response) ? response : (response?.items || response?.products || []);
+          setFeaturedProducts(items);
+        } catch (error) {
+          logger.warn('Failed to fetch featured products:', error.message);
+        } finally {
+          setLoadingFeatured(false);
+        }
+      };
+      fetchFeatured();
+    }
+  }, [category, products.length]);
 
   // Fetch products for collection with timeout and retry
   const fetchProducts = useCallback(async (isRetry = false, currentRetryCount = retryCount) => {
@@ -472,14 +494,36 @@ export default function CollectionDetailClient({ initialCollection, initialProdu
               </div>
             ) : filteredProducts.length === 0 ? (
               <div className="text-center py-16">
-                <p className="text-[#EAE0D5]/50 mb-4">No products found in this collection</p>
-                {hasActiveFilters && (
-                  <button
-                    onClick={clearFilters}
-                    className="px-6 py-2 text-sm text-[#B76E79] hover:text-[#F2C29A] border border-[#B76E79]/20 rounded-xl hover:border-[#B76E79]/40 transition-colors"
-                  >
-                    Clear filters
-                  </button>
+                {hasActiveFilters ? (
+                  <>
+                    <p className="text-[#EAE0D5]/50 mb-4">No products found in this collection</p>
+                    <button
+                      onClick={clearFilters}
+                      className="px-6 py-2 text-sm text-[#B76E79] hover:text-[#F2C29A] border border-[#B76E79]/20 rounded-xl hover:border-[#B76E79]/40 transition-colors"
+                    >
+                      Clear filters
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-[#EAE0D5]/50 mb-6">No products in this collection yet</p>
+                    <p className="text-[#EAE0D5]/40 text-sm mb-8">Explore our featured products</p>
+                    {loadingFeatured ? (
+                      <div className="flex justify-center gap-4">
+                        {[1, 2, 3, 4].map(i => (
+                          <div key={i} className="w-48 h-64 bg-[#7A2F57]/10 rounded-2xl animate-pulse" />
+                        ))}
+                      </div>
+                    ) : featuredProducts.length > 0 ? (
+                      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+                        {featuredProducts.slice(0, 8).map(product => (
+                          <ProductCard key={product.id} product={product} onAddToWishlist={handleWishlistToggle} wishlistStatus={wishlistStatus[product.id] || false} />
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-[#EAE0D5]/40 text-sm">No featured products available</p>
+                    )}
+                  </>
                 )}
               </div>
              ) : (

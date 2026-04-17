@@ -166,7 +166,7 @@ export default function SearchAutocomplete({
             if (item.type === 'product') {
                 router.push(`/products/${item.id}`);
             } else if (item.type === 'category') {
-                router.push(`/collections/${item.slug || item.id}`);
+                router.push(`/products?collection_id=${item.id}`);
             } else if (item.type === 'search') {
                 router.push(`/search?q=${encodeURIComponent(item.query)}`);
             }

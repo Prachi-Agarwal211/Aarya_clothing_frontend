@@ -618,8 +618,8 @@ export default function ProductDetailPage() {
             {(product.collection_slug || product.collection_name || product.category) && (
               <>
                 <ChevronRight className="w-4 h-4 text-[#EAE0D5]/30" />
-                {product.collection_slug ? (
-                  <Link href={`/collections/${product.collection_slug}`} className="text-[#EAE0D5]/50 hover:text-[#EAE0D5]">
+                {product.collection_slug && product.collection_id ? (
+                  <Link href={`/products?collection_id=${product.collection_id}`} className="text-[#EAE0D5]/50 hover:text-[#EAE0D5]">
                     {product.collection_name || product.category}
                   </Link>
                 ) : (

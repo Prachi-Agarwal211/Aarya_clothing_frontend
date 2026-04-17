@@ -261,8 +261,8 @@ function CollectionChips({ collections }) {
         {collections.slice(0, 8).map(c => (
           <Link
             key={c.id}
-            href={c.slug ? `/collections/${c.slug}` : '/products'}
-            className="flex items-center gap-1.5 px-3 py-2 bg-[#7A2F57]/15 border border-[#B76E79]/25 rounded-xl text-xs text-[#F2C29A] hover:bg-[#7A2F57]/30 transition-colors"
+            href={c.id ? `/products?collection_id=${c.id}` : '/products'}
+            className="flex items-center gap-1.5 px-3 py-2 bg-[#7A2F57]/15 border border#[B76E79]/25 rounded-xl text-xs text-[#F2C29A] hover:bg-[#7A2F57]/30 transition-colors"
           >
             <Package className="w-3 h-3" /> {c.name}
           </Link>

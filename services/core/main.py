@@ -237,9 +237,10 @@ def clear_auth_cookies(response: Response):
 # ==================== Email Helper ====================
 
 def send_verification_email(email: str, token: str):
-    """Send verification email helper."""
-    # Construct verification URL - use frontend URL from settings or default
-    frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:6004')
+    """Send verification email helper (backward compatibility only)."""
+    # Construct verification URL - use frontend URL from settings or default to production
+    # NOTE: New registrations use OTP, not email links. This is kept for existing unverified users.
+    frontend_url = getattr(settings, 'FRONTEND_URL', 'https://aaryaclothing.in')
     verification_url = f"{frontend_url}/auth/verify-email?token={token}"
     email_service.send_email_verification_link(email, verification_url)
 

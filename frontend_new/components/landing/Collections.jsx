@@ -208,7 +208,7 @@ const CollectionCard = ({ category, size = 'medium', index }) => {
 
   return (
     <Link
-      href={category.link || `/collections/${category.slug}`}
+      href={category.link || `/products?collection_id=${category.id}`}
       className="
         group relative block w-full overflow-hidden rounded-2xl
         transition-all duration-500

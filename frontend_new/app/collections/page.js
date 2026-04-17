@@ -138,9 +138,9 @@ export default async function CollectionsPage() {
                 {categories.map((category) => (
                   <Link
                     key={category.id}
-                    href={`/collections/${category.slug}`}
+                    href={`/products?collection_id=${category.id}`}
                     className="group relative aspect-[4/5] rounded-3xl overflow-hidden block"
-                    aria-label={`View ${category.name} collection`}
+                    aria-label={`Browse ${category.name} products`}
                   >
                     <div className="absolute inset-0 bg-[#0B0608]/20 group-hover:bg-[#0B0608]/40 transition-colors z-10 duration-500" aria-hidden="true" />
 

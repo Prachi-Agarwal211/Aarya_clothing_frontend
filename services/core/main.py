@@ -332,15 +332,9 @@ async def register(
         if not user_response_data:
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="User creation failed to return user data.")
 
-        # Route based on verification method
-        if user_data.verification_method == "link":
-            # Traditional email link verification
-            token = auth_service.create_email_verification_token(user_response_data['id'])
-            auth_service.save_verification_token(user_response_data['id'], token, "email_verification")
-            background_tasks.add_task(send_verification_email, user_response_data['email'], token)
-            message = "Account created successfully. Please check your email to verify your account."
-        
-        elif user_data.verification_method == "otp_email":
+        # Route based on verification method (OTP only: email, SMS, or WhatsApp)
+        # Note: "link" verification method is deprecated. New registrations use OTP only.
+        if user_data.verification_method == "otp_email":
             # Email OTP verification
             from service.otp_service import OTPService
             from schemas.otp import OTPSendRequest, OTPType
@@ -388,6 +382,24 @@ async def register(
             except ValueError as e:
                 logger.warning(f"WhatsApp OTP send failed during registration: {e}")
             message = "Account created successfully. Please check your WhatsApp for the verification code."
+
+        else:
+            # Fallback for deprecated or unknown verification methods (e.g., "link")
+            # Default to email OTP for backward compatibility
+            logger.warning(f"Deprecated verification_method '{user_data.verification_method}' used. Falling back to email OTP.")
+            from service.otp_service import OTPService
+            from schemas.otp import OTPSendRequest, OTPType
+            otp_service = OTPService(db)
+            otp_request = OTPSendRequest(
+                email=user_response_data['email'],
+                otp_type=OTPType.EMAIL,
+                purpose="registration"
+            )
+            try:
+                otp_service.send_otp(otp_request)
+            except ValueError as e:
+                logger.warning(f"OTP send failed during registration fallback: {e}")
+            message = "Account created successfully. Please check your email for the verification code."
 
         return {
             "message": message,
@@ -646,7 +658,7 @@ async def resend_verification(
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db)
 ):
-    """Resend verification email to user."""
+    """Resend OTP for verification (email OTP by default)."""
     # Rate limiting
     try:
         limit_key = f"rate_limit:resend_verify:{email}"
@@ -662,26 +674,69 @@ async def resend_verification(
     except Exception as e:
         logger.warning(f"Rate limit error (skipping): {e}")
 
-    auth_service = AuthService(db)
-    
     # Find user by email
-    user = db.query(User).filter(User.email == email).first()
+    user = db.query(User).options(joinedload(User.profile)).filter(User.email == email).first()
     
     if not user:
         # Don't reveal if email exists or not
-        return {"message": "If the email exists, a verification link has been sent"}
+        return {"message": "If the email exists, a verification OTP has been sent"}
     
     if user.email_verified:
         return {"message": "Email is already verified"}
     
-    # Create new verification token
-    token = auth_service.create_email_verification_token(user.id)
-    auth_service.save_verification_token(user.id, token, "email_verification")
+    # Get user's signup verification method, default to email OTP
+    signup_method = getattr(user, "signup_verification_method", None) or "otp_email"
     
-    # Send verification email in background
-    background_tasks.add_task(send_verification_email, user.email, token)
+    # Send OTP based on user's original signup method
+    from service.otp_service import OTPService
+    from schemas.otp import OTPSendRequest, OTPType
     
-    return {"message": "Verification email sent"}
+    otp_service = OTPService(db)
+    
+    # Map signup method to OTP type
+    if signup_method == "otp_sms":
+        if not user.profile or not user.profile.phone:
+            # Fallback to email if phone not available
+            otp_request = OTPSendRequest(
+                email=user.email,
+                otp_type=OTPType.EMAIL,
+                purpose="registration"
+            )
+        else:
+            otp_request = OTPSendRequest(
+                phone=user.profile.phone,
+                otp_type=OTPType.SMS,
+                purpose="registration"
+            )
+    elif signup_method == "otp_whatsapp":
+        if not user.profile or not user.profile.phone:
+            # Fallback to email if phone not available
+            otp_request = OTPSendRequest(
+                email=user.email,
+                otp_type=OTPType.EMAIL,
+                purpose="registration"
+            )
+        else:
+            otp_request = OTPSendRequest(
+                phone=user.profile.phone,
+                otp_type=OTPType.WHATSAPP,
+                purpose="registration"
+            )
+    else:
+        # Default to email OTP (includes 'link' for legacy users, 'otp_email', or any other value)
+        otp_request = OTPSendRequest(
+            email=user.email,
+            otp_type=OTPType.EMAIL,
+            purpose="registration"
+        )
+    
+    # Send OTP in background
+    try:
+        background_tasks.add_task(otp_service.send_otp, otp_request)
+        return {"message": "Verification OTP sent"}
+    except ValueError as e:
+        logger.warning(f"OTP send failed for resend verification: {e}")
+        return {"message": "Verification OTP send requested (may be rate limited)"}
 
 
 @app.post("/api/v1/auth/login", response_model=LoginResponse,

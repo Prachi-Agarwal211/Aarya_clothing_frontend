@@ -55,7 +55,7 @@ class UserCreate(UserBase):
     full_name: str = Field(..., min_length=1, max_length=100)
     phone: str = Field(..., min_length=10, max_length=20, description="Phone number is required")
     role: UserRole = UserRole.customer
-    verification_method: VerificationMethod = VerificationMethod.link
+    verification_method: VerificationMethod = VerificationMethod.otp_email
 
     @validator('phone')
     def validate_phone(cls, v):

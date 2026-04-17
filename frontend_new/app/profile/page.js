@@ -80,21 +80,6 @@ export default function ProfilePage() {
     }
   };
 
-  const handleResendEmailLink = async () => {
-    if (!user?.email) return;
-    setVerifyErr('');
-    setVerifyMsg('');
-    setVerifyBusy('email_link');
-    try {
-      await authApi.resendVerification(user.email);
-      setVerifyMsg('If your email is unverified, we sent a verification link. Check your inbox.');
-    } catch (e) {
-      setVerifyErr(e.message || 'Could not send verification email.');
-    } finally {
-      setVerifyBusy(null);
-    }
-  };
-
   const handleSendEmailOtp = async () => {
     if (!user?.email) return;
     setVerifyErr('');
@@ -313,32 +298,18 @@ export default function ProfilePage() {
               {emailVerified ? (
                 <span className="text-sm text-emerald-400/90">Verified</span>
               ) : (
-                <>
-                  <button
-                    type="button"
-                    onClick={handleResendEmailLink}
-                    disabled={!!verifyBusy}
-                    className="text-sm px-3 py-1.5 rounded-lg border border-[#B76E79]/30 text-[#EAE0D5] hover:border-[#B76E79]/50 disabled:opacity-50"
-                  >
-                    {verifyBusy === 'email_link' ? (
-                      <Loader2 className="w-4 h-4 animate-spin inline" />
-                    ) : (
-                      'Send link'
-                    )}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleSendEmailOtp}
-                    disabled={!!verifyBusy}
-                    className="text-sm px-3 py-1.5 rounded-lg bg-[#B76E79]/20 text-[#F2C29A] hover:bg-[#B76E79]/30 disabled:opacity-50"
-                  >
-                    {verifyBusy === 'email_otp_send' ? (
-                      <Loader2 className="w-4 h-4 animate-spin inline" />
-                    ) : (
-                      'Email code'
-                    )}
-                  </button>
-                </>
+                <button
+                  type="button"
+                  onClick={handleSendEmailOtp}
+                  disabled={!!verifyBusy}
+                  className="text-sm px-3 py-1.5 rounded-lg bg-[#B76E79]/20 text-[#F2C29A] hover:bg-[#B76E79]/30 disabled:opacity-50"
+                >
+                  {verifyBusy === 'email_otp_send' ? (
+                    <Loader2 className="w-4 h-4 animate-spin inline" />
+                  ) : (
+                    'Send OTP'
+                  )}
+                </button>
               )}
             </div>
           </div>

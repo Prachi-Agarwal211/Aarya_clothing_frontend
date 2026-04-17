@@ -109,6 +109,7 @@ class InventoryService:
         """
         Reserve stock atomically using SELECT FOR UPDATE + savepoint.
         Prevents overselling under concurrent load.
+        Does NOT commit — caller must commit the transaction.
         """
         if quantity <= 0:
             raise HTTPException(
@@ -153,7 +154,6 @@ class InventoryService:
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Failed to reserve stock. Please retry."
             )
-        self.db.commit()
         return res_id
     
     def release_stock(self, sku: str, quantity: int, user_id: int = None) -> bool:
@@ -196,7 +196,11 @@ class InventoryService:
         return True
     
     def confirm_reservation(self, sku: str, quantity: int, user_id: int = None, order_id: int = None) -> bool:
-        """Confirm reservation and reduce actual stock."""
+        """
+        Confirm reservation and reduce actual stock.
+        Uses pessimistic locking to prevent race conditions.
+        Does NOT commit — caller must commit the transaction.
+        """
         try:
             inventory = self.get_inventory_by_sku_for_update(sku)
         except OperationalError:
@@ -205,7 +209,17 @@ class InventoryService:
                 detail="Inventory is being updated. Please retry."
             )
         if not inventory:
-            return False
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Inventory with SKU '{sku}' not found"
+            )
+        
+        # Validate we have enough reserved stock to confirm
+        if inventory.reserved_quantity < quantity:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Cannot confirm reservation for {sku}. Reserved: {inventory.reserved_quantity}, Required: {quantity}"
+            )
         
         # Find and update the reservations
         query = self.db.query(StockReservation).filter(
@@ -245,6 +259,12 @@ class InventoryService:
                 )
                 self.db.add(confirmed_row)
         
+        if confirmed_qty < quantity:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Insufficient reserved stock for {sku}. Confirmed: {confirmed_qty}, Required: {quantity}"
+            )
+        
         inventory.quantity -= confirmed_qty
         inventory.reserved_quantity -= confirmed_qty
         
@@ -252,13 +272,13 @@ class InventoryService:
         inventory.quantity = max(0, inventory.quantity)
         inventory.reserved_quantity = max(0, inventory.reserved_quantity)
         
-        self.db.commit()
         return True
     
     def deduct_stock_for_order(self, sku: str, quantity: int) -> bool:
         """
         Atomically deduct stock when an order is placed.
         Uses SELECT FOR UPDATE to prevent overselling under concurrent load.
+        Uses available_quantity (quantity - reserved_quantity) to prevent overselling.
         Does NOT commit — caller must commit the transaction.
         """
         try:
@@ -273,10 +293,12 @@ class InventoryService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Inventory with SKU '{sku}' not found"
             )
-        if inventory.quantity < quantity:
+        # CRITICAL FIX: Check available_quantity (quantity - reserved) instead of total quantity
+        # This prevents overselling when stock is already reserved in other carts
+        if inventory.available_quantity < quantity:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Insufficient stock for {sku}. Available: {inventory.quantity}, Required: {quantity}"
+                detail=f"Insufficient stock for {sku}. Available: {inventory.available_quantity}, Required: {quantity}"
             )
         inventory.quantity -= quantity
         inventory.reserved_quantity = max(0, inventory.reserved_quantity - quantity)

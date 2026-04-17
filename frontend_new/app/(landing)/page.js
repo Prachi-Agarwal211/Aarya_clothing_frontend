@@ -220,14 +220,12 @@ export default function Home() {
     setTimeout(tryScroll, 100);
   }, [showLanding, landingData]);
 
-  // Server-side: render a consistent loading state to avoid hydration mismatch
+  // Server-side: render empty main to match client-side IntroVideo background
+  // This avoids hydration mismatch and flash of loading spinner
   if (!isClient) {
     return (
-      <main id="main-content" className="min-h-screen bg-[#050203] flex items-center justify-center" role="main">
-        <div className="flex flex-col items-center gap-4" role="status">
-          <div className="w-16 h-16 border-2 border-[#B76E79]/20 border-t-[#F2C29A] rounded-full animate-spin" />
-          <p className="text-[#F2C29A]/60 text-sm uppercase tracking-[0.3em] font-light" style={{ fontFamily: 'Cinzel, serif' }}>Aarya Clothing</p>
-        </div>
+      <main id="main-content" className="min-h-screen bg-[#050203]" role="main">
+        {/* Empty - IntroVideo will render on client with same background */}
       </main>
     );
   }

@@ -47,8 +47,10 @@ function markIntroSeen() {
 }
 
 /**
- * Intro: click-to-play only (no autoplay). Browsers require a user gesture for
- * audible playback — a single Play button starts the video unmuted.
+ * Intro: Auto-play on load (muted for browser compatibility).
+ * - Browsers allow muted autoplay without user gesture
+ * - Video starts loading immediately with preload="auto"
+ * - Plays muted, can be unmuted by user via controls or we add our own unmute button
  */
 export default function IntroVideo({ onVideoEnd }) {
   const videoRef = useRef(null);
@@ -56,11 +58,8 @@ export default function IntroVideo({ onVideoEnd }) {
   const retryCountRef = useRef(0);
   const [isVideoEnded, setIsVideoEnded] = useState(false);
   const [isFadingOut, setIsFadingOut] = useState(false);
-  /** Enough data to start playback when user taps Play */
-  const [isReadyToPlay, setIsReadyToPlay] = useState(false);
-  const [hasStartedPlayback, setHasStartedPlayback] = useState(false);
   const [videoError, setVideoError] = useState(false);
-  const [playBlocked, setPlayBlocked] = useState(false);
+  const [hasStartedPlayback, setHasStartedPlayback] = useState(false);
 
   const { isMobile } = useViewport();
   const introVideo = useIntroVideo();
@@ -132,27 +131,12 @@ export default function IntroVideo({ onVideoEnd }) {
   }, [onVideoEnd]);
 
   const handleSkip = useCallback(() => {
-    if (videoRef.current) videoRef.current.pause();
+    if (videoRef.current) {
+      videoRef.current.pause();
+      videoRef.current.muted = true;
+    }
     handleVideoEnd();
   }, [handleVideoEnd]);
-
-  const handlePlayClick = useCallback(() => {
-    const video = videoRef.current;
-    if (!video) return;
-    setPlayBlocked(false);
-    video.muted = false;
-    video.volume = 1;
-    video
-      .play()
-      .then(() => {
-        setHasStartedPlayback(true);
-        logger.log('Intro video playing with audio');
-      })
-      .catch((err) => {
-        logger.warn('Intro play failed:', err?.message);
-        setPlayBlocked(true);
-      });
-  }, []);
 
   const handleVideoError = useCallback(() => {
     const video = videoRef.current;
@@ -171,6 +155,7 @@ export default function IntroVideo({ onVideoEnd }) {
       duration: video?.duration,
     });
 
+    // Auto-retry for network errors
     if (errorCode === 2 && retryCountRef.current < 2) {
       retryCountRef.current += 1;
       logger.warn(`Retrying video load (attempt ${retryCountRef.current}/2)`);
@@ -187,17 +172,13 @@ export default function IntroVideo({ onVideoEnd }) {
       return;
     }
 
+    // Critical errors - end the intro
     if (errorCode === 3 || errorCode === 4) {
       logger.error('Critical video error, ending intro');
       setVideoError(true);
       setTimeout(handleVideoEnd, 800);
     }
   }, [handleVideoEnd]);
-
-  const handleCanPlay = useCallback(() => {
-    setIsReadyToPlay(true);
-    logger.log('Intro video ready (waiting for user to press Play)');
-  }, []);
 
   useEffect(() => {
     if (isVideoEnded) return;
@@ -209,8 +190,6 @@ export default function IntroVideo({ onVideoEnd }) {
   }, [isVideoEnded, handleSkip]);
 
   if (isVideoEnded) return null;
-
-  const showPlayOverlay = isReadyToPlay && !hasStartedPlayback && !videoError;
 
   return (
     <div
@@ -228,11 +207,15 @@ export default function IntroVideo({ onVideoEnd }) {
             key={videoUrl}
             playsInline
             preload="auto"
+            autoPlay
+            muted
             onEnded={handleVideoEnd}
             onError={handleVideoError}
-            onCanPlay={handleCanPlay}
-            onPlaying={() => logger.log('Intro video playing')}
-            className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${hasStartedPlayback ? 'opacity-100' : 'opacity-90'}`}
+            onPlaying={() => {
+              logger.log('Intro video playing');
+              setHasStartedPlayback(true);
+            }}
+            className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${hasStartedPlayback ? 'opacity-100' : 'opacity-100'}`}
             src={videoUrl}
             poster="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect fill='%23050203' width='100' height='100'/%3E%3C/svg%3E"
           >
@@ -255,14 +238,7 @@ export default function IntroVideo({ onVideoEnd }) {
         )}
       </div>
 
-      {/* Minimal buffer hint — top center (keeps bottom-left clear for Skip) */}
-      {!isReadyToPlay && !videoError && videoUrl && (
-        <p className="pointer-events-none absolute left-1/2 top-20 z-[21] -translate-x-1/2 text-center text-[11px] tracking-[0.2em] text-[#EAE0D5]/30">
-          Loading…
-        </p>
-      )}
-
-      {/* Skip — bottom left (not right) */}
+      {/* Skip — bottom left (not right) — Always visible */}
       <div className="absolute inset-0 z-20 pointer-events-none">
         <button
           type="button"
@@ -274,24 +250,29 @@ export default function IntroVideo({ onVideoEnd }) {
         </button>
       </div>
 
-      {/* Play — centered; appears when enough data is buffered (no heavy loader) */}
-      {showPlayOverlay && (
+      {/* Unmute button — appears after video starts playing (centered) */}
+      {hasStartedPlayback && (
         <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-4 pointer-events-none px-6">
           <button
             type="button"
-            onClick={handlePlayClick}
+            onClick={() => {
+              const video = videoRef.current;
+              if (video) {
+                video.muted = false;
+                setHasStartedPlayback(false);
+              }
+            }}
             className="pointer-events-auto flex h-20 w-20 sm:h-24 sm:w-24 items-center justify-center rounded-full border border-white/25 bg-black/45 text-white shadow-2xl backdrop-blur-md transition-transform hover:scale-105 active:scale-95"
-            aria-label="Play intro video with sound"
+            aria-label="Unmute video"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="ml-1 h-10 w-10 sm:h-12 sm:w-12" fill="currentColor" viewBox="0 0 24 24" aria-hidden>
-              <path d="M8 5v14l11-7z" />
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 sm:h-12 sm:w-12" fill="currentColor" viewBox="0 0 24 24" aria-hidden>
+              <path d="M16 7h-2v10h2z"/>
+              <path d="M8 7h-2v10h2z"/>
             </svg>
           </button>
-          {playBlocked && (
-            <p className="pointer-events-none text-center text-sm text-[#EAE0D5]/70">
-              Tap Play again to start playback.
-            </p>
-          )}
+          <p className="pointer-events-none text-center text-sm text-[#EAE0D5]/70">
+            Tap to unmute
+          </p>
         </div>
       )}
     </div>

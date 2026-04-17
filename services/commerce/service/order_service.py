@@ -424,12 +424,24 @@ class OrderService:
 
             self.db.add(order_item)
 
-            # Atomically deduct stock (SELECT FOR UPDATE — prevents overselling)
+            # CRITICAL FIX: Confirm reservations instead of directly deducting stock
+            # This transitions reserved stock to permanently deducted stock
             if cart_item.get("sku"):
-                self.inventory_service.deduct_stock_for_order(
-                    cart_item["sku"],
-                    cart_item["quantity"]
-                )
+                try:
+                    self.inventory_service.confirm_reservation(
+                        sku=cart_item["sku"],
+                        quantity=cart_item["quantity"],
+                        user_id=user_id,
+                        order_id=order.id
+                    )
+                except Exception as e:
+                    # If confirmation fails, rollback the entire order
+                    self.db.rollback()
+                    logger.error(f"Failed to confirm reservation for {cart_item['sku']}: {e}")
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Failed to confirm stock for {cart_item.get('name', cart_item['sku'])}. Please try again."
+                    )
         
         # Record promotion usage (promotion row already validated above)
         if promo_code:
@@ -723,13 +735,23 @@ class OrderService:
             )
             self.db.add(order_item)
 
-            # Deduct stock if SKU is available
+            # CRITICAL FIX: Confirm reservation instead of directly deducting
+            # This transitions reserved stock to permanently deducted stock
             if sku:
                 try:
-                    self.inventory_service.deduct_stock_for_order(sku, item.get("quantity", 1))
-                except Exception as stock_err:
-                    logger.warning(f"Stock deduction failed for SKU {sku}: {stock_err}")
-                    # Don't fail the order — stock can be reconciled manually
+                    self.inventory_service.confirm_reservation(
+                        sku=sku,
+                        quantity=item.get("quantity", 1),
+                        user_id=user_id,
+                        order_id=order.id
+                    )
+                except Exception as e:
+                    self.db.rollback()
+                    logger.error(f"Failed to confirm reservation for {sku} in webhook recovery: {e}")
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Failed to confirm stock. Order cannot be created without inventory."
+                    )
 
         self.db.commit()
         self.db.refresh(order)

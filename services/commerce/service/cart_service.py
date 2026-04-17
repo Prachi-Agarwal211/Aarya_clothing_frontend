@@ -232,7 +232,7 @@ class CartService:
         if price <= 0:
             price = float(product.base_price)
 
-        # Check stock availability (no reservation — stock deducted atomically at order time)
+        # Check stock availability
         if inventory:
             available = inventory.available_quantity
             if available < quantity:
@@ -243,8 +243,45 @@ class CartService:
 
         # LOCK: Acquire distributed lock before read-modify-write
         lock_token = self._acquire_cart_lock(user_id)
+        reservation_id = None
         try:
-            return self._add_to_cart_unlocked(user_id, product, inventory, sku, price, quantity, variant_id)
+            # CRITICAL FIX: Create stock reservation FIRST (inside lock to prevent race)
+            if inventory and self.inventory_service:
+                try:
+                    reservation_id = self.inventory_service.reserve_stock(
+                        sku=sku,
+                        quantity=quantity,
+                        user_id=user_id,
+                        expires_minutes=15
+                    )
+                    logger.info(f"Stock reserved: user={user_id}, sku={sku}, qty={quantity}, reservation={reservation_id}")
+                except HTTPException:
+                    raise
+                except Exception as e:
+                    logger.error(f"Failed to reserve stock for {sku}: {e}")
+                    raise HTTPException(
+                        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        detail=f"Failed to reserve stock: {str(e)}"
+                    )
+            
+            result = self._add_to_cart_unlocked(user_id, product, inventory, sku, price, quantity, variant_id)
+            # Commit the database transaction (reservation was created)
+            if self.db:
+                self.db.commit()
+            return result
+        except Exception as e:
+            # If anything failed, release the reservation to prevent orphaned reservations
+            if reservation_id and sku and self.inventory_service:
+                try:
+                    self.inventory_service.release_stock(sku, quantity, user_id)
+                    if self.db:
+                        self.db.commit()
+                    logger.info(f"Released orphaned reservation: user={user_id}, sku={sku}, qty={quantity}")
+                except Exception as release_err:
+                    logger.error(f"Failed to release orphaned reservation for {sku}: {release_err}")
+                    if self.db:
+                        self.db.rollback()
+            raise
         finally:
             self._release_cart_lock(user_id, lock_token)
 
@@ -361,15 +398,46 @@ class CartService:
 
         old_quantity = item["quantity"]
         quantity_diff = new_quantity - old_quantity
+        sku = item.get("sku")
 
-        # Stock check for increases (no reservation — deducted at order time)
-        if quantity_diff > 0 and item.get("sku"):
-            inventory = self.db.query(Inventory).filter(Inventory.sku == item["sku"]).first() if self.db else None
-            if inventory and inventory.available_quantity < quantity_diff:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Only {inventory.available_quantity + old_quantity} items available"
-                )
+        # CRITICAL FIX: Adjust stock reservations when quantity changes
+        if sku and self.inventory_service:
+            if quantity_diff > 0:
+                # Increasing quantity - reserve more stock
+                inventory = self.db.query(Inventory).filter(Inventory.sku == sku).first()
+                if inventory and inventory.available_quantity < quantity_diff:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Only {inventory.available_quantity + old_quantity} items available"
+                    )
+                try:
+                    self.inventory_service.reserve_stock(
+                        sku=sku,
+                        quantity=quantity_diff,
+                        user_id=user_id,
+                        expires_minutes=15
+                    )
+                    logger.info(f"Additional stock reserved: user={user_id}, sku={sku}, qty={quantity_diff}")
+                except HTTPException:
+                    raise
+                except Exception as e:
+                    logger.error(f"Failed to reserve additional stock for {sku}: {e}")
+                    raise HTTPException(
+                        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        detail=f"Failed to reserve additional stock: {str(e)}"
+                    )
+            elif quantity_diff < 0:
+                # Decreasing quantity - release excess reservation
+                try:
+                    self.inventory_service.release_stock(
+                        sku=sku,
+                        quantity=abs(quantity_diff),
+                        user_id=user_id
+                    )
+                    logger.info(f"Released stock on qty decrease: user={user_id}, sku={sku}, qty={abs(quantity_diff)}")
+                except Exception as e:
+                    logger.error(f"Failed to release stock for {sku}: {e}")
+                    # Don't fail the update - reservation will expire automatically
 
         item["quantity"] = new_quantity
 
@@ -397,6 +465,19 @@ class CartService:
                 detail="Item not in cart"
             )
         
+        # CRITICAL FIX: Release stock reservation before removing from cart
+        if item.get("sku") and self.inventory_service:
+            try:
+                self.inventory_service.release_stock(
+                    sku=item["sku"],
+                    quantity=item["quantity"],
+                    user_id=user_id
+                )
+                logger.info(f"Stock reservation released: user={user_id}, sku={item['sku']}, qty={item['quantity']}")
+            except Exception as e:
+                logger.error(f"Failed to release reservation for {item['sku']}: {e}")
+                # Continue with removal anyway - reservation will expire automatically
+        
         # Remove from cart
         cart["items"] = [
             i for i in cart["items"]
@@ -420,6 +501,23 @@ class CartService:
             self._release_cart_lock(user_id, lock_token)
 
     def _clear_cart_unlocked(self, user_id: int, release_reservations: bool = True) -> Dict:
+        # Get cart before clearing to release reservations
+        cart = self.get_cart(user_id)
+        
+        # CRITICAL FIX: Release all stock reservations when clearing cart
+        if release_reservations and self.inventory_service:
+            for item in cart.get("items", []):
+                if item.get("sku"):
+                    try:
+                        self.inventory_service.release_stock(
+                            sku=item["sku"],
+                            quantity=item["quantity"],
+                            user_id=user_id
+                        )
+                        logger.info(f"Released reservation on cart clear: user={user_id}, sku={item['sku']}, qty={item['quantity']}")
+                    except Exception as e:
+                        logger.error(f"Failed to release reservation for {item['sku']} on cart clear: {e}")
+        
         # Delete cart
         cart_key = f"{self.CART_KEY_PREFIX}{user_id}"
         redis_client.delete_cache(cart_key)
@@ -505,8 +603,8 @@ class CartService:
     
     def confirm_cart_for_checkout(self, user_id: int) -> bool:
         """
-        Validate cart stock availability at checkout.
-        Simple availability check — actual deduction happens atomically when order is placed.
+        Validate cart stock availability and confirm reservations at checkout.
+        CRITICAL FIX: Now confirms database reservations to prevent overselling.
         """
         cart = self.get_cart(user_id)
 
@@ -519,12 +617,18 @@ class CartService:
         if not self.db:
             return True
 
+        # Re-validate stock availability (checks both quantity and reservations)
         for item in cart["items"]:
             if not item.get("sku"):
                 continue
             inventory = self.db.query(Inventory).filter(Inventory.sku == item["sku"]).first()
-            if not inventory or inventory.available_quantity < item["quantity"]:
-                avail = inventory.available_quantity if inventory else 0
+            if not inventory:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"'{item.get('name', item['sku'])}' is no longer available. Please update your cart."
+                )
+            if inventory.available_quantity < item["quantity"]:
+                avail = inventory.available_quantity
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"'{item.get('name', item['sku'])}' has only {avail} items available. Please update your cart."

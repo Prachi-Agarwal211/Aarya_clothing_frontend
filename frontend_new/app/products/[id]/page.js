@@ -212,14 +212,23 @@ export default function ProductDetailPage() {
     }) || null;
   };
 
+  // CRITICAL FIX: Don't expose actual stock numbers to customers
+  // Only return boolean status, not quantities
   const getVariantAvailableQty = (variant) => {
     if (!variant) return null;
-    if (typeof variant.available_quantity === 'number') return variant.available_quantity;
-    if (typeof variant.quantity === 'number' && typeof variant.reserved_quantity === 'number') {
-      return Math.max(0, variant.quantity - variant.reserved_quantity);
-    }
-    if (typeof variant.quantity === 'number') return variant.quantity;
+    // Return null to hide exact numbers - frontend will show status only
     return null;
+  };
+
+  // NEW: Get stock status for display (no numbers)
+  const getVariantStockStatus = (variant) => {
+    if (!variant) return 'out_of_stock';
+    if (variant.in_stock === false) return 'out_of_stock';
+    if (typeof variant.available_quantity === 'number') {
+      if (variant.available_quantity <= 0) return 'out_of_stock';
+      if (variant.available_quantity <= 3) return 'low_stock';
+    }
+    return 'in_stock';
   };
 
   const isSizeAvailable = (size) => {
@@ -439,9 +448,9 @@ export default function ProductDetailPage() {
       return;
     }
 
-    const availableQty = getVariantAvailableQty(resolvedVariant);
-    if (availableQty !== null && availableQty < quantity) {
-      showAlert(`Only ${availableQty} left for this variant`, 'error');
+    // CRITICAL FIX: Don't show exact stock numbers in error messages
+    if (!resolvedVariant?.in_stock) {
+      showAlert('Selected variant is out of stock', 'error');
       return;
     }
 
@@ -789,8 +798,8 @@ export default function ProductDetailPage() {
                     const variant = getMatchingVariant(size);
                     const hasVariant = variant !== null;
                     const inStock = !!variant?.in_stock;
-                    const availableQty = getVariantAvailableQty(variant);
-                    const lowStock = inStock && availableQty !== null && availableQty > 0 && availableQty <= 3;
+                    const stockStatus = getVariantStockStatus(variant);
+                    const lowStock = stockStatus === 'low_stock';
                     const sizeNotAvailableForColor = !hasVariant && selectedColorKey;
                     return (
                       <button
@@ -812,16 +821,16 @@ export default function ProductDetailPage() {
                           <div>{size}</div>
                           {sizeNotAvailableForColor && <div className="text-[10px] text-[#EAE0D5]/40 mt-0.5">N/A</div>}
                           {!sizeNotAvailableForColor && !inStock && <div className="text-[10px] text-red-300/80 mt-0.5">Out</div>}
-                          {lowStock && <div className="text-[10px] text-amber-300 mt-0.5">Only {availableQty} left</div>}
+                          {lowStock && <div className="text-[10px] text-amber-300 mt-0.5">Low Stock</div>}
                         </div>
                       </button>
                     );
                   })}
                 </div>
                 {selectedVariant?.in_stock && (() => {
-                  const qty = getVariantAvailableQty(selectedVariant);
-                  return qty !== null && qty > 0 && qty <= 3 ? (
-                    <p className="text-xs text-amber-300 mt-2">Only {qty} left in selected variant</p>
+                  const status = getVariantStockStatus(selectedVariant);
+                  return status === 'low_stock' ? (
+                    <p className="text-xs text-amber-300 mt-2">Low Stock - Order soon!</p>
                   ) : null;
                 })()}
                 {!selectedVariant?.in_stock && selectedSize && (

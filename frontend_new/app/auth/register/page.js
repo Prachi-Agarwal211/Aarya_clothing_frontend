@@ -67,24 +67,34 @@ function RegisterPageContent() {
     recoveryVerifySentRef.current = true;
     const decodedEmail = decodeURIComponent(emailParam);
     setEmail(decodedEmail);
-    const useSms = methodParam === 'otp_sms' && smsOtpEnabled;
-    setVerificationMethod(useSms ? 'otp_sms' : 'otp_email');
     
-    logger.info(`Auto-sending OTP for verification redirect: email=${decodedEmail}, method=${methodParam}`);
+    // Map methodParam to verificationMethod, supporting all OTP types
+    let mappedMethod = 'otp_email';
+    if (methodParam === 'otp_sms' && smsOtpEnabled) {
+      mappedMethod = 'otp_sms';
+    } else if (methodParam === 'otp_whatsapp' && whatsappEnabled) {
+      mappedMethod = 'otp_whatsapp';
+    } else if (methodParam === 'otp_email') {
+      mappedMethod = 'otp_email';
+    }
+    setVerificationMethod(mappedMethod);
+    
+    logger.info(`Auto-sending OTP for verification redirect: email=${decodedEmail}, method=${methodParam}, mapped=${mappedMethod}`);
     
     const sendOtp = async () => {
       try {
-        if (useSms) {
-          await authApi.resendVerificationOtp({
-            email: decodedEmail,
-            otp_type: 'SMS',
-          });
-        } else {
-          await authApi.resendVerificationOtp({
-            email: decodedEmail,
-            otp_type: 'EMAIL',
-          });
+        // Map verificationMethod to otp_type for the API call
+        let otpApiType = 'EMAIL';
+        if (mappedMethod === 'otp_sms') {
+          otpApiType = 'SMS';
+        } else if (mappedMethod === 'otp_whatsapp') {
+          otpApiType = 'WHATSAPP';
         }
+        
+        await authApi.resendVerificationOtp({
+          email: decodedEmail,
+          otp_type: otpApiType,
+        });
         logger.info('OTP sent successfully for verification redirect');
         startOtpTimers();
         setStep(2);
@@ -183,13 +193,6 @@ function RegisterPageContent() {
     }
 
     try {
-      let otp_type = 'EMAIL';
-      if (verificationMethod === 'otp_whatsapp') {
-        otp_type = 'WHATSAPP';
-      } else if (verificationMethod === 'otp_sms') {
-        otp_type = 'SMS';
-      }
-
       await authApi.register({
           full_name: fullName.trim(),
           username: username.trim(),
@@ -197,7 +200,7 @@ function RegisterPageContent() {
           phone: phone.trim(),
           password,
           role: 'customer',
-          otp_type,
+          verification_method: verificationMethod,
       });
 
       setOtpDigits(['', '', '', '', '', '']);
@@ -231,7 +234,13 @@ function RegisterPageContent() {
     }
 
     try {
-      const otpType = verificationMethod === 'otp_email' ? 'EMAIL' : 'SMS';
+      // Map verificationMethod to otp_type for API
+      let otpType = 'EMAIL';
+      if (verificationMethod === 'otp_sms') {
+        otpType = 'SMS';
+      } else if (verificationMethod === 'otp_whatsapp') {
+        otpType = 'WHATSAPP';
+      }
 
       const response = await authApi.verifyOtpRegistration({
         otp_code: otpValue,

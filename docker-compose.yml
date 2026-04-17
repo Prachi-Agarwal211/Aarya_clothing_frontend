@@ -250,7 +250,7 @@ services:
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
       interval: 15s
-      timeout: 5s
+      timeout: 10s  # Increased from 5s to handle connection pool initialization
       retries: 3
       start_period: 30s
     deploy:
@@ -337,7 +337,7 @@ services:
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5002/health"]
       interval: 15s
-      timeout: 5s
+      timeout: 10s  # Increased from 5s to handle connection pool initialization
       retries: 3
       start_period: 30s
     deploy:
@@ -408,7 +408,7 @@ services:
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5003/health"]
       interval: 15s
-      timeout: 5s
+      timeout: 10s  # Increased from 5s to handle connection pool initialization
       retries: 3
       start_period: 30s
     deploy:
@@ -487,7 +487,7 @@ services:
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5004/health"]
       interval: 15s
-      timeout: 5s
+      timeout: 10s  # Increased from 5s to handle connection pool initialization
       retries: 3
       start_period: 30s
     deploy:
@@ -501,7 +501,7 @@ services:
     volumes:
       - ./shared:/app/shared
 
-  # ============================================================
+  # ========================================================================================================================
   # FRONTEND (Next.js - Port 6004)
   # ============================================================
 

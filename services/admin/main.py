@@ -45,7 +45,7 @@ from core.exception_handler import (
     ValidationException,
     DatabaseException,
 )
-from database.database import get_db, init_db, Base, engine
+from database.database import get_db, init_db, Base, engine, get_db_context
 from shared.auth_middleware import (
     get_current_user,
     require_admin,
@@ -1389,7 +1389,7 @@ async def list_chat_rooms(
                        (SELECT COUNT(*) FROM chat_messages cm 
                         WHERE cm.room_id = cr.id 
                         AND cm.is_read = false 
-                        AND cm.sender_type IN ('customer', 'user')),
+                        AND cm.sender_type IN ('customer', 'staff')),
                        0
                    ) as unread
             FROM chat_rooms cr 
@@ -1549,15 +1549,19 @@ class ChatConnectionManager:
             logger.warning(f"Redis publish error for room {room_id}: {e}")
 
     async def _redis_subscriber(self, room_id: int):
-        """Background task: subscribe to Redis and relay messages from other workers."""
+        """Background task: subscribe to Redis and relay messages from other workers.
+        
+        Uses short timeout to avoid blocking the event loop for long periods.
+        """
         pubsub = redis_client.client.pubsub()
         channel = f"chat:room:{room_id}"
         pubsub.subscribe(channel)
 
         try:
             while True:
+                # Use short timeout and yield control to prevent event loop blocking
                 message = pubsub.get_message(
-                    ignore_subscribe_messages=True, timeout=1.0
+                    ignore_subscribe_messages=True, timeout=0.1
                 )
                 if message and message["type"] == "message":
                     data = message["data"]
@@ -1611,13 +1615,15 @@ async def _save_chat_message_async(
 
 
 async def _websocket_staff_chat(
-    ws: WebSocket, room_id: int, token: str | None, db: Session
+    ws: WebSocket, room_id: int, token: str | None
 ):
     """
     Staff dashboard WebSocket (nginx: /api/v1/admin/chat/ws/* → admin service).
 
     Also exposed at /api/v1/chat/ws/{room_id} for direct service access / tests.
     Customer storefront uses Commerce's /api/v1/chat/ws/* (different upstream).
+    
+    NOTE: Does NOT use Depends(get_db) to avoid holding DB connections for entire WebSocket lifetime.
     """
     import jwt as pyjwt
 
@@ -1639,16 +1645,23 @@ async def _websocket_staff_chat(
 
     sender_type = "staff" if role in ("admin", "staff", "superadmin") else "customer"
 
-    room = db.execute(
-        text("SELECT id, customer_id, status FROM chat_rooms WHERE id = :rid"),
-        {"rid": room_id},
-    ).fetchone()
-    if not room:
-        await ws.close(code=4004, reason="Room not found")
-        return
+    # Verify room access - use short-lived DB connection
+    try:
+        with get_db_context() as db:
+            room = db.execute(
+                text("SELECT id, customer_id, status FROM chat_rooms WHERE id = :rid"),
+                {"rid": room_id},
+            ).fetchone()
+            if not room:
+                await ws.close(code=4004, reason="Room not found")
+                return
 
-    if sender_type == "customer" and room[1] != user_id:
-        await ws.close(code=4003, reason="Forbidden")
+            if sender_type == "customer" and room[1] != user_id:
+                await ws.close(code=4003, reason="Forbidden")
+                return
+    except Exception as e:
+        logger.error(f"WebSocket room verification failed: {e}")
+        await ws.close(code=4011, reason="Internal error")
         return
 
     await chat_manager.connect(room_id, ws)
@@ -1684,17 +1697,17 @@ async def _websocket_staff_chat(
 
 
 @app.websocket("/api/v1/chat/ws/{room_id}")
-async def websocket_chat(ws: WebSocket, room_id: int, token: str = Query(None), db: Session = Depends(get_db)):
+async def websocket_chat(ws: WebSocket, room_id: int, token: str = Query(None)):
     """See _websocket_staff_chat."""
-    await _websocket_staff_chat(ws, room_id, token, db)
+    await _websocket_staff_chat(ws, room_id, token)
 
 
 @app.websocket("/api/v1/admin/chat/ws/{room_id}")
 async def websocket_chat_admin_dashboard(
-    ws: WebSocket, room_id: int, token: str = Query(None), db: Session = Depends(get_db)
+    ws: WebSocket, room_id: int, token: str = Query(None)
 ):
     """Path expected by frontend (admin/chat) and nginx location ^/api/v1/admin/chat/ws/."""
-    await _websocket_staff_chat(ws, room_id, token, db)
+    await _websocket_staff_chat(ws, room_id, token)
 
 
 # ==================== Site Config ====================

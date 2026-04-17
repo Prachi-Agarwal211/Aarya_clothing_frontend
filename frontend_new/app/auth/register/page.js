@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Mail, Lock, Eye, EyeOff, Phone, User, Smartphone, CheckCircle, RefreshCw } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, Phone, User, Smartphone, CheckCircle, RefreshCw, MessageCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { authApi } from '../../../lib/customerApi';

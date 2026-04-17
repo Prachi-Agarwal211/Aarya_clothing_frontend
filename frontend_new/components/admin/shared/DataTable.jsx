@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight, MoreHorizontal } from 'lucide-react';
+import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight, MoreHorizontal, MessageCircle } from 'lucide-react';
 
 /**
  * DataTable - Reusable data table with sorting, pagination, and actions
@@ -467,20 +467,4 @@ function cn(...classes) {
   return classes.filter(Boolean).join(' ');
 }
 
-// Placeholder icon for empty state
-function MessageCircle({ className, ...props }) {
-  return (
-    <svg
-      className={className}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      {...props}
-    >
-      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-    </svg>
-  );
-}
+

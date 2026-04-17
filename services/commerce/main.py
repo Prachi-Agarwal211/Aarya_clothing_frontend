@@ -20,6 +20,7 @@ import asyncio
 import os
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
+from starlette.concurrency import run_in_threadpool
 from fastapi import FastAPI, Depends, HTTPException, status, Request, UploadFile, File, Query, Header, WebSocket, WebSocketDisconnect
 from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -35,7 +36,7 @@ logger = logging.getLogger(__name__)
 from core.config import settings
 from core.redis_client import redis_client
 from core.advanced_cache import cache, cached
-from database.database import get_db, init_db, SessionLocal
+from database.database import get_db, init_db, SessionLocal, get_db_context
 from search.meilisearch_client import (
     init_products_index, sync_all_products,
     search_products as meili_search_products,
@@ -3750,7 +3751,10 @@ class ChatConnectionManager:
             logger.warning(f"[Chat] Redis publish failed for room {room_id}: {e}")
 
     async def _redis_subscribe_loop(self):
-        """Subscribe to all chat room channels and relay to local connections."""
+        """Subscribe to all chat room channels and relay to local connections.
+        
+        Uses short timeout and yields control to avoid blocking the event loop.
+        """
         try:
             from core.redis_client import redis_client
             pubsub = redis_client.client.pubsub()
@@ -3760,28 +3764,33 @@ class ChatConnectionManager:
 
             while True:
                 try:
-                    message = pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
+                    # Use short timeout and yield control to prevent event loop blocking
+                    message = pubsub.get_message(ignore_subscribe_messages=True, timeout=0.1)
                     if message and message["type"] == "message":
                         data = json.loads(message["data"])
                         room_id = data.get("room_id")
                         if room_id and room_id in self.active_connections:
                             await self.broadcast_local(data, room_id)
+                    # Yield control to the event loop
+                    await asyncio.sleep(0)
                 except asyncio.CancelledError:
                     break
                 except Exception as e:
                     logger.warning(f"[Chat] Redis subscribe error: {e}")
-                    await asyncio.sleep(1)
+                    await asyncio.sleep(0.5)
         except Exception as e:
             logger.error(f"[Chat] Failed to start Redis subscriber: {e}")
 
 chat_manager = ChatConnectionManager()
 
 @app.websocket("/api/v1/chat/ws/{room_id}")
-async def websocket_chat(websocket: WebSocket, room_id: int, token: Optional[str] = Query(None), db: Session = Depends(get_db)):
+async def websocket_chat(websocket: WebSocket, room_id: int, token: Optional[str] = Query(None)):
     """
     WebSocket endpoint for real-time customer support chat.
     Auth: reads access_token from HttpOnly cookie first, falls back to query param.
     Token in URL is deprecated (leaks into access logs).
+    
+    NOTE: Does NOT use Depends(get_db) to avoid holding DB connections for entire WebSocket lifetime.
     """
     # Prefer cookie-based auth over URL token param (security: URL tokens appear in logs)
     cookie_token = websocket.cookies.get("access_token")
@@ -3801,23 +3810,28 @@ async def websocket_chat(websocket: WebSocket, room_id: int, token: Optional[str
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return
 
-        
     user_id = user.get("user_id")
     is_staff = user.get("is_staff", False) or user.get("is_admin", False)
 
-    # Verify room access
-    room = db.execute(text("SELECT id, status FROM chat_rooms WHERE id = :rid"), {"rid": room_id}).fetchone()
-    if not room:
-        await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+    # Verify room access - use short-lived DB connection
+    try:
+        with get_db_context() as db:
+            room = db.execute(text("SELECT id, status FROM chat_rooms WHERE id = :rid"), {"rid": room_id}).fetchone()
+            if not room:
+                await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+                return
+                
+            # Check authorization
+            if not is_staff:
+                # User must own the room
+                owner = db.execute(text("SELECT customer_id FROM chat_rooms WHERE id = :rid"), {"rid": room_id}).scalar()
+                if owner != user_id:
+                    await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
+                    return
+    except Exception as e:
+        logger.error(f"WebSocket room verification failed: {e}")
+        await websocket.close(code=status.WS_1011_INTERNAL_ERROR)
         return
-        
-    # Check authorization
-    if not is_staff:
-        # User must own the room
-        owner = db.execute(text("SELECT customer_id FROM chat_rooms WHERE id = :rid"), {"rid": room_id}).scalar()
-        if owner != user_id:
-            await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
-            return
 
     await chat_manager.connect(websocket, room_id)
     try:
@@ -3827,13 +3841,23 @@ async def websocket_chat(websocket: WebSocket, room_id: int, token: Optional[str
             if not msg_text:
                 continue
 
-            # Save to DB
+            # Save to DB (blocking operations offloaded to threadpool)
             sender_type = "admin" if is_staff else "customer"
-            db.execute(text(
-                "INSERT INTO chat_messages (room_id, sender_id, sender_type, message) VALUES (:rid, :sid, :stype, :msg)"
-            ), {"rid": room_id, "sid": user_id, "stype": sender_type, "msg": msg_text})
-            db.execute(text("UPDATE chat_rooms SET updated_at = NOW() WHERE id = :rid"), {"rid": room_id})
-            db.commit()
+            
+            async def save_message():
+                """Save message to DB using short-lived connection."""
+                try:
+                    with get_db_context() as db:
+                        db.execute(text(
+                            "INSERT INTO chat_messages (room_id, sender_id, sender_type, message) VALUES (:rid, :sid, :stype, :msg)"
+                        ), {"rid": room_id, "sid": user_id, "stype": sender_type, "msg": msg_text})
+                        db.execute(text("UPDATE chat_rooms SET updated_at = NOW() WHERE id = :rid"), {"rid": room_id})
+                        db.commit()
+                except Exception as e:
+                    logger.error(f"Failed to save chat message: {e}")
+                    raise
+            
+            await run_in_threadpool(save_message)
             
             payload = {
                 "room_id": room_id,
@@ -3846,6 +3870,9 @@ async def websocket_chat(websocket: WebSocket, room_id: int, token: Optional[str
             await chat_manager.broadcast(payload, room_id)
             
     except WebSocketDisconnect:
+        chat_manager.disconnect(websocket, room_id)
+    except Exception as e:
+        logger.error(f"WebSocket error: {e}")
         chat_manager.disconnect(websocket, room_id)
 
 

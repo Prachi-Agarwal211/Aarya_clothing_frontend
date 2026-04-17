@@ -394,20 +394,16 @@ async def list_products(
         if sizes:
             size_list = [s.strip() for s in sizes.split(',') if s.strip()]
             if size_list:
-                query = query.filter(
-                    Product.id.in_(
-                        db.query(Inventory.product_id).filter(Inventory.size.in_(size_list))
-                    )
-                )
+                # Use subquery to avoid passing Query directly to in_()
+                size_subq = db.query(Inventory.product_id).filter(Inventory.size.in_(size_list)).subquery()
+                query = query.filter(Product.id.in_(size_subq))
 
         if colors:
             color_list = [c.strip() for c in colors.split(',') if c.strip()]
             if color_list:
-                query = query.filter(
-                    Product.id.in_(
-                        db.query(Inventory.product_id).filter(Inventory.color.in_(color_list))
-                    )
-                )
+                # Use subquery to avoid passing Query directly to in_()
+                color_subq = db.query(Inventory.product_id).filter(Inventory.color.in_(color_list)).subquery()
+                query = query.filter(Product.id.in_(color_subq))
 
         if db_search:
             query = query.filter(
@@ -574,6 +570,7 @@ async def browse_products(
     - Existing clients can keep sending skip+limit
     """
     from models.inventory import Inventory as _Inv
+    from sqlalchemy import select
     
     user_role = current_user.get("role") if current_user else None
 
@@ -595,8 +592,9 @@ async def browse_products(
 
     # In-stock filter
     if in_stock_only:
-        in_stock_ids = db.query(_Inv.product_id).filter(_Inv.quantity > 0).subquery()
-        query = query.filter(Product.id.in_(in_stock_ids))
+        # Use select() construct explicitly to avoid Subquery coercion warning
+        in_stock_subq = select(_Inv.product_id).where(_Inv.quantity > 0).subquery()
+        query = query.filter(Product.id.in_(in_stock_subq))
 
     # Normalize pagination params (support both page and skip styles)
     effective_skip = skip if skip is not None else ((page - 1) * limit if page else 0)

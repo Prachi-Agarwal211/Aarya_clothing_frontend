@@ -8,13 +8,14 @@ from core.config import settings
 logger = logging.getLogger(__name__)
 
 # Create database engine (aligned with shared pool defaults)
+# pool_recycle must be < PgBouncer server_idle_timeout (600s) to avoid stale connections
 engine = create_engine(
     settings.DATABASE_URL,
     poolclass=QueuePool,
     pool_size=settings.DATABASE_POOL_SIZE,
     max_overflow=settings.DATABASE_MAX_OVERFLOW,
     pool_pre_ping=True,
-    pool_recycle=1800,
+    pool_recycle=300,  # Recycle every 5 min (PgBouncer timeout is 10 min)
     pool_timeout=30,
 )
 

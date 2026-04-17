@@ -6,13 +6,14 @@ from contextlib import contextmanager
 from core.config import settings
 
 # Optimized engine with connection pooling
+# pool_recycle must be < PgBouncer server_idle_timeout (600s) to avoid stale connections
 engine = create_engine(
     settings.DATABASE_URL,
     poolclass=QueuePool,
     pool_size=settings.DATABASE_POOL_SIZE,      # Base connections
     max_overflow=settings.DATABASE_MAX_OVERFLOW, # Additional connections under load
     pool_pre_ping=True,                          # Validate connections before use
-    pool_recycle=1800,
+    pool_recycle=300,                            # Recycle connections every 5 min (PgBouncer timeout is 10 min)
     pool_timeout=30,
     echo=False
 )

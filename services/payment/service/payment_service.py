@@ -556,8 +556,14 @@ class PaymentService:
             # Process based on event type
             if event_info["event_type"] == "payment.captured":
                 self._handle_payment_captured(event_info)
+            elif event_info["event_type"] == "payment.authorized":
+                self._handle_payment_authorized(event_info)
             elif event_info["event_type"] == "payment.failed":
                 self._handle_payment_failed(event_info)
+            elif event_info["event_type"] == "order.paid":
+                self._handle_order_paid(event_info)
+            elif event_info["event_type"] in ["qr_code.created", "qr_code.credited"]:
+                self._handle_qr_code_event(event_info)
             elif event_info["event_type"] == "refund.processed":
                 self._handle_refund_processed(event_info)
 
@@ -677,24 +683,47 @@ class PaymentService:
                 if razorpay_order_id and not transaction.razorpay_order_id:
                     transaction.razorpay_order_id = razorpay_order_id
                 
+                # FIX: Always update gateway_response with full event info
                 transaction.gateway_response = event_info
                 
-                # Only update status and timestamp if it's still pending
-                if transaction.status == "pending":
+                # FIX: Always update status to completed for captured/authorized payments
+                # (not just pending ones - webhooks can arrive out of order)
+                if status in ["captured", "authorized", "completed"] and transaction.status != "completed":
                     transaction.status = "completed"
-                    transaction.completed_at = datetime.now(timezone.utc)
+                    if not transaction.completed_at:
+                        transaction.completed_at = datetime.now(timezone.utc)
+                elif status in ["failed", "rejected"] and transaction.status != "failed":
+                    transaction.status = "failed"
                 
                 self.db.commit()
 
                 # FIX: Always check if order exists and create if not
                 from sqlalchemy import text as _text
+                
+                # Check 1: Order linked by transaction_id (from commerce service recovery path)
                 existing_order = self.db.execute(_text("""
                     SELECT id FROM orders 
-                    WHERE transaction_id = :txn_id AND user_id = :user_id
+                    WHERE transaction_id = :payment_id AND user_id = :user_id
                 """), {
-                    "txn_id": transaction.transaction_id,
+                    "payment_id": transaction.razorpay_payment_id or event_info.get("payment_id"),
                     "user_id": transaction.user_id
                 }).fetchone()
+                
+                # Check 2: Order linked by order_id (normal path)
+                if not existing_order and transaction.order_id:
+                    existing_order = self.db.execute(_text("""
+                        SELECT id FROM orders WHERE id = :order_id
+                    """), {"order_id": transaction.order_id}).fetchone()
+                
+                # Check 3: Order linked by internal transaction_id
+                if not existing_order:
+                    existing_order = self.db.execute(_text("""
+                        SELECT id FROM orders 
+                        WHERE transaction_id = :txn_id AND user_id = :user_id
+                    """), {
+                        "txn_id": transaction.transaction_id,
+                        "user_id": transaction.user_id
+                    }).fetchone()
                 
                 if not existing_order:
                     # Order doesn't exist - create it!
@@ -703,11 +732,53 @@ class PaymentService:
                         f"user={transaction.user_id} status={transaction.status} - creating order"
                     )
                     self._create_order_from_webhook(transaction, event_info)
+                    
+                    # After creating order, update it with our transaction_id and razorpay details
+                    # The commerce service created order with transaction_id = payment_id
+                    # We need to also set it to link with our internal transaction_id
+                    if transaction.order_id and transaction.razorpay_payment_id:
+                        self.db.execute(_text("""
+                            UPDATE orders 
+                            SET transaction_id = :internal_txn_id,
+                                razorpay_payment_id = :razorpay_payment_id,
+                                razorpay_order_id = :razorpay_order_id,
+                                payment_method = COALESCE(payment_method, :payment_method)
+                            WHERE id = :order_id
+                        """), {
+                            "internal_txn_id": transaction.transaction_id,
+                            "razorpay_payment_id": transaction.razorpay_payment_id,
+                            "razorpay_order_id": transaction.razorpay_order_id or event_info.get("order_id"),
+                            "payment_method": transaction.payment_method,
+                            "order_id": transaction.order_id
+                        })
+                        self.db.commit()
+                        logger.info(
+                            f"WEBHOOK_ORDER_UPDATED: order_id={transaction.order_id} "
+                            f"txn_id={transaction.transaction_id} payment={transaction.razorpay_payment_id}"
+                        )
                 else:
                     logger.info(
                         f"WEBHOOK_ORDER_CHECK: Order already exists for txn={transaction.transaction_id} "
                         f"user={transaction.user_id}"
                     )
+                    
+                # CRITICAL FIX: Also update existing order with razorpay payment details
+                if transaction.order_id:
+                    self.db.execute(_text("""
+                        UPDATE orders 
+                        SET razorpay_payment_id = COALESCE(razorpay_payment_id, :razorpay_payment_id),
+                            razorpay_order_id = COALESCE(razorpay_order_id, :razorpay_order_id),
+                            transaction_id = COALESCE(transaction_id, :transaction_id),
+                            payment_method = COALESCE(payment_method, :payment_method)
+                        WHERE id = :order_id
+                    """), {
+                        "order_id": transaction.order_id,
+                        "razorpay_payment_id": transaction.razorpay_payment_id or event_info.get("payment_id"),
+                        "razorpay_order_id": transaction.razorpay_order_id or event_info.get("order_id"),
+                        "transaction_id": transaction.transaction_id,
+                        "payment_method": transaction.payment_method
+                    })
+                    self.db.commit()
             else:
                 # FIX: If no transaction found at all, try to create one on-the-fly for Razorpay orders
                 # This handles cases where frontend failed to create transaction
@@ -776,6 +847,191 @@ class PaymentService:
             self.db.rollback()
             logger.error(f"Failed to handle payment capture: {str(e)}")
             raise HTTPException(status_code=500, detail="Payment capture handling failed")
+
+    def _handle_payment_authorized(self, event_info: Dict[str, Any]):
+        """Handle payment authorized webhook — update transaction but don't create order yet."""
+        try:
+            payment_id = event_info.get("payment_id")
+            razorpay_order_id = event_info.get("order_id")
+            amount_paise = event_info.get("amount")
+            qr_code_id = event_info.get("qr_code_id")
+            method = event_info.get("method", "")
+            status = event_info.get("status", "authorized")
+
+            # For authorized payments, find and update the transaction
+            transaction = None
+            if razorpay_order_id:
+                transaction = (
+                    self.db.query(PaymentTransaction)
+                    .filter(PaymentTransaction.razorpay_order_id == razorpay_order_id)
+                    .with_for_update(nowait=True)
+                    .first()
+                )
+            if not transaction and payment_id:
+                transaction = (
+                    self.db.query(PaymentTransaction)
+                    .filter(PaymentTransaction.razorpay_payment_id == payment_id)
+                    .with_for_update(nowait=True)
+                    .first()
+                )
+            if not transaction:
+                if amount_paise:
+                    amount_rupees = Decimal(str(amount_paise)) / Decimal('100')
+                    query = self.db.query(PaymentTransaction).filter(
+                        PaymentTransaction.status == "pending",
+                        PaymentTransaction.payment_method == "upi_qr",
+                        PaymentTransaction.amount == amount_rupees,
+                    )
+                    if qr_code_id:
+                        query = query.filter(PaymentTransaction.razorpay_qr_code_id == qr_code_id)
+                    transaction = query.with_for_update(nowait=True).order_by(
+                        PaymentTransaction.created_at.desc()
+                    ).first()
+
+            if transaction:
+                if payment_id and not transaction.razorpay_payment_id:
+                    transaction.razorpay_payment_id = payment_id
+                if razorpay_order_id and not transaction.razorpay_order_id:
+                    transaction.razorpay_order_id = razorpay_order_id
+                transaction.gateway_response = event_info
+                # Don't mark as completed yet — wait for captured
+                if transaction.status == "pending":
+                    transaction.status = "authorized"
+                self.db.commit()
+                logger.info(f"WEBHOOK: Payment authorized: {payment_id} txn={transaction.transaction_id}")
+        except Exception as e:
+            self.db.rollback()
+            logger.error(f"WEBHOOK_AUTHORIZED_FAILED: {str(e)}")
+
+    def _handle_order_paid(self, event_info: Dict[str, Any]):
+        """Handle order.paid webhook — link order to payment."""
+        try:
+            payment_id = event_info.get("payment_id")
+            razorpay_order_id = event_info.get("order_id")
+            status = event_info.get("status", "paid")
+
+            # Find existing transaction and update with order info
+            transaction = None
+            if payment_id:
+                transaction = (
+                    self.db.query(PaymentTransaction)
+                    .filter(PaymentTransaction.razorpay_payment_id == payment_id)
+                    .with_for_update(nowait=True)
+                    .first()
+                )
+            if not transaction and razorpay_order_id:
+                transaction = (
+                    self.db.query(PaymentTransaction)
+                    .filter(PaymentTransaction.razorpay_order_id == razorpay_order_id)
+                    .with_for_update(nowait=True)
+                    .first()
+                )
+
+            if transaction:
+                if razorpay_order_id and not transaction.razorpay_order_id:
+                    transaction.razorpay_order_id = razorpay_order_id
+                transaction.gateway_response = event_info
+                if transaction.status == "pending":
+                    transaction.status = "completed"
+                    transaction.completed_at = datetime.now(timezone.utc)
+                elif transaction.status != "completed":
+                    transaction.status = "completed"
+                    transaction.completed_at = datetime.now(timezone.utc)
+                self.db.commit()
+                
+                # Ensure order is linked
+                if transaction.order_id and not transaction.transaction_id:
+                    # transaction has order_id but order doesn't have transaction_id
+                    pass
+                    
+            logger.info(f"WEBHOOK: Order paid: {razorpay_order_id} payment={payment_id}")
+        except Exception as e:
+            self.db.rollback()
+            logger.error(f"WEBHOOK_ORDER_PAID_FAILED: {str(e)}")
+
+    def _handle_qr_code_event(self, event_info: Dict[str, Any]):
+        """Handle QR code created/credited webhook events."""
+        try:
+            qr_code_id = event_info.get("qr_code_id")
+            payment_id = event_info.get("payment_id")
+            amount_paise = event_info.get("amount")
+            status = event_info.get("status")
+
+            if event_info["event_type"] == "qr_code.created":
+                # QR code created — transaction should already exist from /create-qr-code endpoint
+                # Just ensure we have the qr_code_id stored
+                if qr_code_id:
+                    transaction = (
+                        self.db.query(PaymentTransaction)
+                        .filter(PaymentTransaction.razorpay_qr_code_id == qr_code_id)
+                        .with_for_update(nowait=True)
+                        .first()
+                    )
+                    if transaction:
+                        if not transaction.razorpay_qr_code_id:
+                            transaction.razorpay_qr_code_id = qr_code_id
+                        transaction.gateway_response = event_info
+                        self.db.commit()
+                        logger.info(f"WEBHOOK: QR created: {qr_code_id}")
+
+            elif event_info["event_type"] == "qr_code.credited":
+                # QR code credited — payment has been received
+                # This is equivalent to payment.captured for QR code payments
+                transaction = None
+                if qr_code_id:
+                    transaction = (
+                        self.db.query(PaymentTransaction)
+                        .filter(PaymentTransaction.razorpay_qr_code_id == qr_code_id)
+                        .with_for_update(nowait=True)
+                        .first()
+                    )
+                if not transaction and payment_id:
+                    transaction = (
+                        self.db.query(PaymentTransaction)
+                        .filter(PaymentTransaction.razorpay_payment_id == payment_id)
+                        .with_for_update(nowait=True)
+                        .first()
+                    )
+                if not transaction and payment_id and amount_paise:
+                    amount_rupees = Decimal(str(amount_paise)) / Decimal('100')
+                    transaction = (
+                        self.db.query(PaymentTransaction)
+                        .filter(
+                            PaymentTransaction.status == "pending",
+                            PaymentTransaction.payment_method == "upi_qr",
+                            PaymentTransaction.amount == amount_rupees,
+                        )
+                        .with_for_update(nowait=True)
+                        .order_by(PaymentTransaction.created_at.desc())
+                        .first()
+                    )
+
+                if transaction:
+                    if payment_id and not transaction.razorpay_payment_id:
+                        transaction.razorpay_payment_id = payment_id
+                    transaction.gateway_response = event_info
+                    if transaction.status != "completed":
+                        transaction.status = "completed"
+                        transaction.completed_at = datetime.now(timezone.utc)
+                    self.db.commit()
+                    
+                    # Check if order exists and create if not
+                    from sqlalchemy import text as _text
+                    existing_order = self.db.execute(_text("""
+                        SELECT id FROM orders 
+                        WHERE transaction_id = :txn_id AND user_id = :user_id
+                    """), {
+                        "txn_id": transaction.transaction_id,
+                        "user_id": transaction.user_id
+                    }).fetchone()
+
+                    if not existing_order:
+                        self._create_order_from_webhook(transaction, event_info)
+                        
+                    logger.info(f"WEBHOOK: QR credited: {qr_code_id} payment={payment_id}")
+        except Exception as e:
+            self.db.rollback()
+            logger.error(f"WEBHOOK_QR_FAILED: {str(e)}")
 
     def _create_order_from_webhook(self, transaction: PaymentTransaction, event_info: Dict[str, Any]):
         """Create order in commerce service when webhook confirms payment.

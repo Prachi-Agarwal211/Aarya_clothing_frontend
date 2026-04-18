@@ -352,8 +352,9 @@ class RazorpayClient:
             }
             
             # Parse specific event types
+            # FIX: Razorpay webhook payload nests entity data under 'entity' key
             if event_type == "payment.captured":
-                payment_entity = payload.get("payment", {})
+                payment_entity = payload.get("payment", {}).get("entity", {})
                 event_info.update({
                     "payment_id": payment_entity.get("id"),
                     "order_id": payment_entity.get("order_id"),
@@ -362,11 +363,12 @@ class RazorpayClient:
                     "status": payment_entity.get("status"),
                     "method": payment_entity.get("method"),
                     "email": payment_entity.get("email"),
-                    "contact": payment_entity.get("contact")
+                    "contact": payment_entity.get("contact"),
+                    "qr_code_id": payload.get("qr_code", {}).get("entity", {}).get("id"),
                 })
             
             elif event_type == "payment.failed":
-                payment_entity = payload.get("payment", {})
+                payment_entity = payload.get("payment", {}).get("entity", {})
                 event_info.update({
                     "payment_id": payment_entity.get("id"),
                     "order_id": payment_entity.get("order_id"),
@@ -378,13 +380,53 @@ class RazorpayClient:
                 })
             
             elif event_type == "refund.processed":
-                refund_entity = payload.get("refund", {})
+                refund_entity = payload.get("refund", {}).get("entity", {})
                 event_info.update({
                     "refund_id": refund_entity.get("id"),
                     "payment_id": refund_entity.get("payment_id"),
                     "amount": refund_entity.get("amount"),
                     "currency": refund_entity.get("currency"),
                     "status": refund_entity.get("status")
+                })
+            
+            elif event_type == "payment.authorized":
+                payment_entity = payload.get("payment", {}).get("entity", {})
+                event_info.update({
+                    "payment_id": payment_entity.get("id"),
+                    "order_id": payment_entity.get("order_id"),
+                    "amount": payment_entity.get("amount"),
+                    "currency": payment_entity.get("currency"),
+                    "status": payment_entity.get("status"),
+                    "method": payment_entity.get("method"),
+                    "email": payment_entity.get("email"),
+                    "contact": payment_entity.get("contact"),
+                    "qr_code_id": payload.get("qr_code", {}).get("entity", {}).get("id"),
+                })
+            
+            elif event_type == "order.paid":
+                order_entity = payload.get("order", {}).get("entity", {})
+                payment_entity = payload.get("payment", {}).get("entity", {})
+                event_info.update({
+                    "payment_id": payment_entity.get("id"),
+                    "order_id": order_entity.get("id"),
+                    "amount": order_entity.get("amount"),
+                    "currency": order_entity.get("currency"),
+                    "status": order_entity.get("status"),
+                    "method": payment_entity.get("method"),
+                    "email": payment_entity.get("email"),
+                    "contact": payment_entity.get("contact"),
+                })
+            
+            elif event_type in ["qr_code.created", "qr_code.credited"]:
+                qr_entity = payload.get("qr_code", {}).get("entity", {})
+                payment_entity = payload.get("payment", {}).get("entity", {})
+                event_info.update({
+                    "qr_code_id": qr_entity.get("id"),
+                    "payment_id": payment_entity.get("id"),
+                    "amount": qr_entity.get("payment_amount") or payment_entity.get("amount"),
+                    "currency": "INR",
+                    "status": qr_entity.get("status"),
+                    "method": "upi_qr",
                 })
             
             return event_info

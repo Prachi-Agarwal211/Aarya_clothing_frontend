@@ -67,6 +67,37 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"⚠ Payment service: Razorpay client not initialized - {str(e)}")
 
+    # FIX: Start background recovery job scheduler
+    # Runs every 5 minutes to catch missed webhooks
+    try:
+        from jobs.recovery_job import run_payment_recovery
+        import threading
+        import time
+        
+        def recovery_scheduler():
+            """Run recovery job every 5 minutes in background thread."""
+            while True:
+                try:
+                    logger.info("==> RECOVERY_JOB: Running scheduled payment recovery...")
+                    run_payment_recovery()
+                except Exception as e:
+                    logger.error(f"RECOVERY_JOB: Scheduled run failed: {e}", exc_info=True)
+                
+                # Sleep for 5 minutes
+                for _ in range(300):  # 5 minutes * 12 = 600 seconds, but we check every second
+                    time.sleep(1)
+        
+        # Start scheduler thread
+        scheduler_thread = threading.Thread(
+            target=recovery_scheduler,
+            daemon=True,  # Daemon thread will exit when main process exits
+            name="payment-recovery-scheduler"
+        )
+        scheduler_thread.start()
+        logger.info("✓ Payment service: Recovery job scheduler started (5 min intervals)")
+    except Exception as e:
+        logger.warning(f"⚠ Payment service: Could not start recovery scheduler - {str(e)}")
+
     logger.info("✓ Payment service started")
     yield
     

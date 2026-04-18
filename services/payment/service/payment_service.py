@@ -599,12 +599,18 @@ class PaymentService:
 
         CRITICAL: This method now creates the order in commerce service if it doesn't exist.
         This is the primary reliability mechanism that prevents silent payment failures.
+        
+        FIX: Removed early return for non-pending transactions. Now always attempts to
+        create order if it doesn't exist, regardless of transaction status.
+        FIX: QR code matching now checks all statuses, not just pending.
+        FIX: Added fallback matching for transactions with empty razorpay_payment_id.
         """
         try:
             payment_id = event_info.get("payment_id")
             razorpay_order_id = event_info.get("order_id")
             amount_paise = event_info.get("amount")
             qr_code_id = event_info.get("qr_code_id")
+            method = event_info.get("method", "")
 
             # Serialize with client verify: lock the transaction row while applying capture.
             # FIX: Use nowait=True to fail fast if another webhook holds the lock (prevents timeout cascade).
@@ -625,49 +631,146 @@ class PaymentService:
                     .first()
                 )
 
+            # FIX: For QR code payments, also try matching by transaction_id
+            # (some systems use transaction_id as the payment reference)
+            if not transaction and payment_id and method in ["upi", "upi_qr"]:
+                transaction = (
+                    self.db.query(PaymentTransaction)
+                    .filter(
+                        PaymentTransaction.transaction_id == payment_id,
+                        PaymentTransaction.razorpay_payment_id.is_(None) | ""  # Empty in DB
+                    )
+                    .with_for_update(nowait=True)
+                    .first()
+                )
+
             # For QR code payments, payment_id may not be available initially
+            # FIX: Removed status == "pending" filter - check ALL QR transactions
             if not transaction:
                 if amount_paise:
                     amount_rupees = Decimal(str(amount_paise)) / Decimal('100')
                     query = self.db.query(PaymentTransaction).filter(
-                        PaymentTransaction.status == "pending",
+                        # PaymentTransaction.status == "pending",  # FIX: Removed to catch completed transactions
                         PaymentTransaction.payment_method == "upi_qr",
                         PaymentTransaction.amount == amount_rupees,
                     )
                     if qr_code_id:
                         query = query.filter(PaymentTransaction.razorpay_qr_code_id == qr_code_id)
+                    # FIX: Also filter by user_id from notes if available
+                    user_id_from_notes = event_info.get("user_id") or (event_info.get("payload", {}).get("payment", {}).get("entity", {}).get("notes", {}).get("user_id"))
+                    if user_id_from_notes:
+                        query = query.filter(PaymentTransaction.user_id == int(user_id_from_notes))
                     transaction = (
                         query.with_for_update(nowait=True)
                         .order_by(PaymentTransaction.created_at.desc())
                         .first()
                     )
 
-            if transaction and transaction.status != "pending":
-                logger.info(
-                    "[Webhook] payment.captured skipped — already %s for %s",
-                    transaction.status,
-                    transaction.transaction_id,
-                )
-                # Commit the webhook_event (added by caller) before returning.
-                # The with_for_update() SELECT is rolled back by a new session,
-                # but we must NOT roll back the webhook_event here.
-                try:
-                    self.db.commit()
-                except Exception:
-                    self.db.rollback()
-                return
-
-            if transaction and transaction.status == "pending":
-                transaction.status = "completed"
-                transaction.completed_at = datetime.now(timezone.utc)
-                transaction.gateway_response = event_info
-                if payment_id:
+            # CRITICAL FIX: Don't return early for non-pending transactions!
+            # Check if order already exists first. If not, we still need to create it.
+            if transaction:
+                # Update transaction with payment_id from webhook (if we have it)
+                if payment_id and not transaction.razorpay_payment_id:
                     transaction.razorpay_payment_id = payment_id
+                
+                # Update other fields from webhook
+                if razorpay_order_id and not transaction.razorpay_order_id:
+                    transaction.razorpay_order_id = razorpay_order_id
+                
+                transaction.gateway_response = event_info
+                
+                # Only update status and timestamp if it's still pending
+                if transaction.status == "pending":
+                    transaction.status = "completed"
+                    transaction.completed_at = datetime.now(timezone.utc)
+                
                 self.db.commit()
 
-                # CRITICAL: Create order in commerce service via internal endpoint
-                # This guarantees order creation even if the frontend checkout flow failed
-                self._create_order_from_webhook(transaction, event_info)
+                # FIX: Always check if order exists and create if not
+                from sqlalchemy import text as _text
+                existing_order = self.db.execute(_text("""
+                    SELECT id FROM orders 
+                    WHERE transaction_id = :txn_id AND user_id = :user_id
+                """), {
+                    "txn_id": transaction.transaction_id,
+                    "user_id": transaction.user_id
+                }).fetchone()
+                
+                if not existing_order:
+                    # Order doesn't exist - create it!
+                    logger.info(
+                        f"WEBHOOK_ORDER_CHECK: No order found for txn={transaction.transaction_id} "
+                        f"user={transaction.user_id} status={transaction.status} - creating order"
+                    )
+                    self._create_order_from_webhook(transaction, event_info)
+                else:
+                    logger.info(
+                        f"WEBHOOK_ORDER_CHECK: Order already exists for txn={transaction.transaction_id} "
+                        f"user={transaction.user_id}"
+                    )
+            else:
+                # FIX: If no transaction found at all, try to create one on-the-fly for Razorpay orders
+                # This handles cases where frontend failed to create transaction
+                if payment_id and method in ["upi", "card", "netbanking"]:
+                    logger.warning(
+                        f"WEBHOOK_NO_TRANSACTION: payment_id={payment_id} order_id={razorpay_order_id} "
+                        f"method={method} - attempting to find user from webhook data"
+                    )
+                    # Try to extract user info from webhook
+                    user_id = None
+                    email = None
+                    notes = event_info.get("notes", {}) if isinstance(event_info.get("notes"), dict) else {}
+                    if isinstance(notes, str):
+                        import json
+                        try:
+                            notes = json.loads(notes)
+                        except:
+                            notes = {}
+                    
+                    user_id = notes.get("user_id") or event_info.get("user_id")
+                    if user_id:
+                        user_id = int(user_id)
+                        email = notes.get("email") or event_info.get("email")
+                        
+                        # Find or create user
+                        from sqlalchemy import text as _text
+                        user = self.db.execute(_text("""
+                            SELECT id, email FROM users WHERE id = :user_id
+                        """), {"user_id": user_id}).fetchone()
+                        
+                        if user:
+                            # Create transaction on-the-fly
+                            from models.payment import PaymentTransaction as PT
+                            transaction = PT(
+                                user_id=user_id,
+                                amount=amount_rupees,
+                                currency="INR",
+                                payment_method=method,
+                                transaction_id=payment_id,
+                                razorpay_payment_id=payment_id,
+                                razorpay_order_id=razorpay_order_id,
+                                status="completed",
+                                completed_at=datetime.now(timezone.utc),
+                                gateway_response=event_info,
+                            )
+                            self.db.add(transaction)
+                            self.db.flush()
+                            logger.info(
+                                f"WEBHOOK_CREATED_TRANSACTION: txn_id={payment_id} user_id={user_id} "
+                                f"amount={amount_rupees}"
+                            )
+                            self._create_order_from_webhook(transaction, event_info)
+                            self.db.commit()
+                        else:
+                            logger.error(
+                                f"WEBHOOK_NO_USER: payment_id={payment_id} user_id={user_id} - "
+                                f"user not found in database"
+                            )
+                    else:
+                        logger.error(
+                            f"WEBHOOK_NO_USER_ID: payment_id={payment_id} - cannot identify user "
+                            f"from webhook data"
+                        )
 
         except Exception as e:
             self.db.rollback()

@@ -152,9 +152,9 @@ def _enrich_images(images) -> list:
             "id": img.id,
             "product_id": img.product_id,
             "image_url": _r2_url(img.image_url),
-            "alt_text": img.alt_text,
-            "display_order": img.display_order,
-            "is_primary": img.is_primary,
+            "alt_text": getattr(img, "alt_text", None),
+            "display_order": getattr(img, "display_order", 0) or 0,
+            "is_primary": getattr(img, "is_primary", False),
             "created_at": img.created_at,
         }
         for img in (images or [])
@@ -172,7 +172,6 @@ def _enrich_inventory(inventory, user_role: str = None) -> list:
     is_admin_user = is_staff(user_role) if user_role else False
 
     if is_admin_user:
-        # Full inventory data for admin/staff
         return [
             {
                 "id": inv.id,
@@ -180,37 +179,40 @@ def _enrich_inventory(inventory, user_role: str = None) -> list:
                 "sku": inv.sku,
                 "size": inv.size,
                 "color": inv.color,
-                "color_hex": getattr(inv, 'color_hex', None),
-                "color_name": _resolve_display_color_name(inv.color, getattr(inv, 'color_hex', None)),
+                "color_hex": getattr(inv, "color_hex", None),
+                "color_name": _resolve_display_color_name(
+                    inv.color, getattr(inv, "color_hex", None)
+                ),
+                "image_url": _r2_url(getattr(inv, "image_url", "") or ""),
                 "quantity": inv.quantity,
                 "reserved_quantity": inv.reserved_quantity,
                 "available_quantity": inv.available_quantity,
                 "low_stock_threshold": inv.low_stock_threshold,
                 "is_low_stock": inv.is_low_stock,
                 "is_out_of_stock": inv.is_out_of_stock,
-                "variant_price": float(inv.variant_price) if getattr(inv, "variant_price", None) is not None else None,
+                "is_active": getattr(inv, "is_active", True),
                 "created_at": inv.created_at,
                 "updated_at": inv.updated_at,
             }
             for inv in (inventory or [])
         ]
-    else:
-        # Limited inventory data for customers - include quantities for stock display
-        return [
-            {
-                "id": inv.id,
-                "sku": inv.sku,
-                "size": inv.size,
-                "color": inv.color,
-                "color_hex": getattr(inv, 'color_hex', None),
-                "color_name": _resolve_display_color_name(inv.color, getattr(inv, 'color_hex', None)),
-                "quantity": inv.quantity,
-                "available_quantity": inv.available_quantity,
-                "in_stock": not inv.is_out_of_stock,
-                "variant_price": float(inv.variant_price) if getattr(inv, "variant_price", None) is not None else None,
-            }
-            for inv in (inventory or [])
-        ]
+    return [
+        {
+            "id": inv.id,
+            "sku": inv.sku,
+            "size": inv.size,
+            "color": inv.color,
+            "color_hex": getattr(inv, "color_hex", None),
+            "color_name": _resolve_display_color_name(
+                inv.color, getattr(inv, "color_hex", None)
+            ),
+            "image_url": _r2_url(getattr(inv, "image_url", "") or ""),
+            "available_quantity": inv.available_quantity,
+            "in_stock": not inv.is_out_of_stock,
+        }
+        for inv in (inventory or [])
+        if getattr(inv, "is_active", True)
+    ]
 
 
 def _enrich_product(product, db: Session = None, user_role: str = None) -> dict:
@@ -233,17 +235,21 @@ def _enrich_product(product, db: Session = None, user_role: str = None) -> dict:
     colors = sorted({inv.color for inv in inventory_list if inv.color})
     is_admin_user = is_staff(user_role) if user_role else False
 
-    # Build color hex map and color name map from inventory data
     color_hex_map = {}
     color_name_map = {}
+    color_image_map = {}
     for inv in inventory_list:
         if inv.color:
-            if getattr(inv, 'color_hex', None):
+            if getattr(inv, "color_hex", None):
                 color_hex_map[inv.color] = inv.color_hex
-            # Store human-readable color name
-            color_name = _resolve_display_color_name(inv.color, getattr(inv, 'color_hex', None))
+            color_name = _resolve_display_color_name(
+                inv.color, getattr(inv, "color_hex", None)
+            )
             if color_name:
                 color_name_map[inv.color] = color_name
+            img = getattr(inv, "image_url", None)
+            if img and inv.color not in color_image_map:
+                color_image_map[inv.color] = _r2_url(img)
 
     # Compute actual in_stock from inventory items (not from total_stock which may be null)
     actual_in_stock = any(not inv.is_out_of_stock for inv in inventory_list)
@@ -268,8 +274,18 @@ def _enrich_product(product, db: Session = None, user_role: str = None) -> dict:
         "primary_image": _r2_url(primary_image) if primary_image else None,
         "images": _enrich_images(product.images),
         "inventory": _enrich_inventory(inventory_list, user_role),
+        "variants": _enrich_inventory(inventory_list, user_role),
         "sizes": sizes,
-        "colors": [{"name": c, "hex": color_hex_map.get(c, "#888888"), "display_name": color_name_map.get(c, c)} for c in colors],
+        "colors": [
+            {
+                "name": c,
+                "hex": color_hex_map.get(c, "#888888"),
+                "display_name": color_name_map.get(c, c),
+                "image_url": color_image_map.get(c),
+            }
+            for c in colors
+        ],
+        "color_images": color_image_map,
         "is_active": product.is_active,
         "is_featured": product.is_featured,
         "is_new_arrival": product.is_new_arrival,

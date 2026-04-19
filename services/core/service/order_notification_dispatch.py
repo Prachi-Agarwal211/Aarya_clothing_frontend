@@ -65,7 +65,6 @@ def _try_mobile_first_then_email(
 def dispatch_order_confirmation(db: Session, body) -> dict:
     user = (
         db.query(User)
-        .options(joinedload(User.profile))
         .filter(User.email == body.to_email)
         .first()
     )
@@ -124,7 +123,6 @@ def dispatch_order_confirmation(db: Session, body) -> dict:
 def dispatch_order_shipped(db: Session, body) -> dict:
     user = (
         db.query(User)
-        .options(joinedload(User.profile))
         .filter(User.email == body.to_email)
         .first()
     )
@@ -164,7 +162,6 @@ def dispatch_order_shipped(db: Session, body) -> dict:
 def dispatch_order_delivered(db: Session, body) -> dict:
     user = (
         db.query(User)
-        .options(joinedload(User.profile))
         .filter(User.email == body.to_email)
         .first()
     )
@@ -203,7 +200,6 @@ def dispatch_order_delivered(db: Session, body) -> dict:
 def dispatch_order_cancelled(db: Session, body) -> dict:
     user = (
         db.query(User)
-        .options(joinedload(User.profile))
         .filter(User.email == body.to_email)
         .first()
     )

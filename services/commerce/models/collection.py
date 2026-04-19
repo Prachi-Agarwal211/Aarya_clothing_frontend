@@ -1,37 +1,24 @@
-"""Collection model for commerce service (unified categories = collections)."""
-from datetime import datetime, timezone
+"""Collection model - canonical grouping of products."""
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text
 from sqlalchemy.orm import relationship
+
 from database.database import Base
+from shared.time_utils import ist_naive
 
 
 class Collection(Base):
-    """Collection model — the canonical grouping of products.
-
-    Backed by the 'collections' table.
-    """
+    """Top-level grouping (e.g. Kurtis, Sarees, Suits & Sets)."""
     __tablename__ = "collections"
 
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String(100), nullable=False)
-    slug = Column(String(100), unique=True, index=True, nullable=False)
-    description = Column(Text, nullable=True)
-
-    # Display settings
-    image_url = Column(String(500), nullable=True)  # R2 relative path
+    id            = Column(Integer, primary_key=True, index=True)
+    name          = Column(String(100), nullable=False)
+    slug          = Column(String(100), unique=True, index=True, nullable=False)
+    description   = Column(Text)
+    image_url     = Column(String(500))
     display_order = Column(Integer, default=0)
+    is_active     = Column(Boolean, default=True)
+    is_featured   = Column(Boolean, default=False)
+    created_at    = Column(DateTime, default=ist_naive)
+    updated_at    = Column(DateTime, default=ist_naive, onupdate=ist_naive)
 
-    # Status flags
-    is_active = Column(Boolean, default=True)
-    is_featured = Column(Boolean, default=False)
-
-    # Timestamps
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
-
-    # Relationships
     products = relationship("Product", back_populates="collection")
-
-
-# Backward-compat alias — remove after 90-day deprecation window
-Category = Collection

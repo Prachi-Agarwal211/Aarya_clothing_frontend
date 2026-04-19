@@ -68,8 +68,7 @@ from schemas.category import (
 from schemas.product_image import ProductImageCreate, ProductImageResponse
 from schemas.inventory import InventoryCreate, InventoryUpdate, InventoryResponse, StockAdjustment, LowStockItem
 from schemas.order import (
-    OrderCreate, OrderResponse, CartItem, CartResponse,
-    BulkOrderStatusUpdate, SetDeliveryState,
+    OrderCreate, OrderResponse,
     GuestOrderTrackResponse, GuestOrderTrackItem,
 )
 from schemas.address import AddressCreate, AddressUpdate, AddressResponse
@@ -85,7 +84,6 @@ from service.inventory_service import InventoryService
 from service.r2_service import r2_service
 from service.color_utils import _hex_to_color_name
 from service.product_service import ProductService
-from service.cart_service import CartService
 from service.order_service import OrderService
 from service.address_service import AddressService
 from service.review_service import ReviewService
@@ -98,6 +96,7 @@ from service.guest_tracking_token import parse_guest_tracking_token
 try:
     from routes import (
         addresses_router,
+        cart_router,
         chat_router,
         internal_router,
         landing_router,
@@ -111,8 +110,7 @@ except ImportError:
     # Fallback to monolithic routes in main.py
     pass
 
-# Concurrency control
-from core.cart_lock import CartConcurrencyManager, cart_operation_lock
+# Cart locking primitives now live in core.cart_lock and are imported by routes/cart.py.
 
 
 # R2 URL + product/collection enrichment now live in helpers.py.
@@ -226,75 +224,7 @@ async def _reservation_reconciler(stop_event: asyncio.Event, interval_seconds: i
 
 # ==================== Rate Limiting Helpers ====================
 
-import ipaddress
-
-LOCAL_TEST_IPS = {"127.0.0.1", "::1", "localhost", "testclient"}
-
-
-def _get_client_ip(request: Request) -> str:
-    """Resolve the best-effort client IP, honoring proxy headers when present."""
-    forwarded_for = request.headers.get("x-forwarded-for", "")
-    if forwarded_for:
-        first_hop = forwarded_for.split(",")[0].strip()
-        if first_hop:
-            return first_hop
-    return request.client.host if request.client else "unknown"
-
-
-def _should_bypass_local_rate_limit(request: Request) -> bool:
-    """
-    Keep rate limiting for deployed traffic while allowing local dev/test
-    automation from loopback addresses to exercise flows repeatedly.
-    """
-    if not settings.is_development:
-        return False
-
-    client_ip = _get_client_ip(request)
-    if client_ip in LOCAL_TEST_IPS:
-        return True
-
-    try:
-        parsed_ip = ipaddress.ip_address(client_ip)
-    except ValueError:
-        return False
-
-    return parsed_ip.is_loopback or parsed_ip.is_private
-
-
-def _check_rate_limit(request: Request, endpoint: str, limit: int, window: int = 60, user_identifier: str = None) -> bool:
-    """
-    Check rate limit for a specific endpoint.
-    Uses user_identifier when provided (per-customer), falls back to IP only
-    for unauthenticated endpoints (search, public pages).
-    
-    Args:
-        request: FastAPI request object
-        endpoint: Endpoint identifier (e.g., 'cart_add', 'order_create')
-        limit: Maximum requests allowed in window
-        window: Time window in seconds (default: 60)
-        user_identifier: Customer identifier (email/user_id). If None, uses IP.
-    
-    Returns:
-        True if within limit, False if exceeded
-    """
-    if _should_bypass_local_rate_limit(request):
-        return True
-    
-    try:
-        # Use user identifier when available — blocks abuse per customer,
-        # not per IP. Shared IPs (office/mobile/NAT) would block innocent users.
-        rate_id = user_identifier if user_identifier else _get_client_ip(request)
-        limit_key = f'rate_limit:{endpoint}:{rate_id}'
-        count = redis_client.get_cache(limit_key) or 0
-        
-        if int(count) >= limit:
-            return False
-        
-        redis_client.set_cache(limit_key, int(count) + 1, ttl=window)
-        return True
-    except Exception as e:
-        logger.warning(f'Rate limit check error (skipping): {e}')
-        return True  # Allow on error (fail open)
+from rate_limit import check_rate_limit as _check_rate_limit  # noqa: E402, F401
 
 
 # ==================== Lifespan ====================
@@ -393,12 +323,12 @@ except Exception:
 app.add_middleware(RequestIDMiddleware)
 
 # Register route modules.
-# Cart + orders endpoints remain inline in main.py because they need direct access
-# to the CartConcurrencyManager / order service plumbing wired up below.
+# Order endpoints remain inline in main.py because they call the order service
+# from a few of the inline admin reconciliation paths; consolidating them is on
+# the Phase 2C todo list.
 if ROUTES_AVAILABLE:
     app.include_router(products_router)
-    # Collections routes are defined inline (with R2 URL enrichment).
-    # orders_router intentionally NOT registered — see inline order routes below.
+    app.include_router(cart_router)
     app.include_router(addresses_router)
     app.include_router(size_guide_router)
     app.include_router(chat_router)
@@ -716,372 +646,7 @@ async def get_search_suggestions(
 
 
 
-# ==================== Cart Routes (Token Based) ====================
-
-@app.get("/api/v1/cart", response_model=CartResponse, tags=["Cart"])
-async def get_my_cart(
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    """Get current user's cart (user_id from token)."""
-    user_id = current_user["user_id"]  # Fixed: use user_id from auth middleware
-    cart_service = CartService(db)
-    cart_data = cart_service.get_cart(user_id)
-    return CartResponse(**cart_data)
-
-
-@app.post("/api/v1/cart/items", response_model=CartResponse, tags=["Cart"])
-async def add_to_my_cart(
-    item: CartItem,
-    request: Request,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    """Add item to current user's cart (user_id from token)."""
-    # Rate limiting: 100 requests per minute per IP (generous for shared IPs)
-    if not _check_rate_limit(request, "cart_add", limit=100, window=60):
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Too many cart operations. Please try again later."
-        )
-    
-    user_id = current_user["user_id"]  # Fixed: use user_id from auth middleware
-    
-    # Validate product exists
-    product = db.query(Product).filter(Product.id == item.product_id).first()
-    if not product:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Product not found"
-        )
-    
-    # Check variant-specific stock when variant_id is given; otherwise check total product stock
-    if item.variant_id:
-        variant = db.query(Inventory).filter(
-            Inventory.id == item.variant_id,
-            Inventory.product_id == item.product_id
-        ).first()
-        if not variant:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Variant not found"
-            )
-        if variant.available_quantity < item.quantity:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Only {variant.available_quantity} items available"
-            )
-    else:
-        if product.total_stock < item.quantity:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Insufficient inventory"
-            )
-    
-    item_data = {
-        "product_id": item.product_id,
-        "variant_id": item.variant_id,
-        "quantity": item.quantity
-    }
-    
-    cart_data = CartConcurrencyManager.add_to_cart_locked(user_id, item_data, db)
-    return CartResponse(**cart_data)
-
-
-class CartItemUpdate(BaseModel):
-    """Body for PUT /cart/items/{product_id}."""
-    quantity: int
-    variant_id: Optional[int] = None
-
-
-@app.put("/api/v1/cart/items/{product_id}", response_model=CartResponse, tags=["Cart"])
-async def update_my_cart_item(
-    product_id: int,
-    body: CartItemUpdate,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    """Update item quantity in cart. Accepts JSON body: {quantity, variant_id?}."""
-    if body.quantity < 1:
-        raise HTTPException(status_code=400, detail="quantity must be >= 1")
-    user_id = current_user["user_id"]
-    cart_data = CartConcurrencyManager.update_cart_item_locked(user_id, product_id, body.quantity, db, body.variant_id)
-    return CartResponse(**cart_data)
-
-
-@app.delete("/api/v1/cart/items/{product_id}", response_model=CartResponse, tags=["Cart"])
-async def remove_from_my_cart(
-    product_id: int,
-    variant_id: Optional[int] = Query(None),
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    """Remove item from cart."""
-    user_id = current_user["user_id"]  # Fixed: use user_id from auth middleware
-    cart_data = CartConcurrencyManager.remove_from_cart_locked(user_id, product_id, db, variant_id)
-    return CartResponse(**cart_data)
-
-
-@app.delete("/api/v1/cart", response_model=CartResponse, tags=["Cart"])
-async def clear_my_cart(
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    """Clear current user's cart."""
-    user_id = current_user["user_id"]  # Fixed: use user_id from auth middleware
-    cart_data = CartConcurrencyManager.clear_cart_locked(user_id, db)
-    return CartResponse(**cart_data)
-
-
-@app.post("/api/v1/cart/delivery-state", response_model=CartResponse, tags=["Cart"])
-async def set_cart_delivery_state(
-    payload: SetDeliveryState,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    """Set delivery state on cart to trigger correct GST (CGST+SGST vs IGST) calculation."""
-    user_id = current_user["user_id"]
-    cart_service = CartService(db)
-    cart = cart_service.get_cart(user_id)
-    cart["delivery_state"] = payload.delivery_state
-    if payload.customer_gstin:
-        cart["customer_gstin"] = payload.customer_gstin
-    cart_service._recalculate_cart(cart)
-    cart_service.save_cart(user_id, cart)
-    return CartResponse(**cart)
-
-
-@app.post("/api/v1/cart/clear-expired", tags=["Cart"])
-async def clear_expired_cart_items(
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    """Clear expired cart reservations and clean up stale cart data."""
-    user_id = current_user["user_id"]
-    cart_service = CartService(db)
-    cart = cart_service.get_cart(user_id)
-    # Refresh reservation expiry
-    cart["reservation_expires_at"] = cart_service._get_earliest_reservation_expiry(user_id)
-    cart_service.save_cart(user_id, cart)
-    return {"status": "ok", "cart": cart}
-
-
-# ==================== Cart Stock Validation SSE ====================
-
-@app.get("/api/v1/cart/stock-stream", tags=["Cart"])
-async def cart_stock_stream(
-    request: Request,
-    current_user: dict = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """
-    Server-Sent Events endpoint for real-time cart stock updates.
-    Streams stock availability changes for items in user's cart.
-    Automatically disconnects when client closes connection or after max runtime.
-    """
-    user_id = current_user["user_id"]
-    cart_service = CartService(db)
-    MAX_RUNTIME_SECONDS = 3600  # 1 hour max connection lifetime
-    start_time = asyncio.get_event_loop().time()
-    
-    async def event_generator():
-        """Generate SSE events for stock updates."""
-        while True:
-            # Check if client disconnected or max runtime exceeded
-            if await request.is_disconnected():
-                logger.debug(f"Client disconnected from stock stream for user {user_id}")
-                break
-            
-            elapsed = asyncio.get_event_loop().time() - start_time
-            if elapsed > MAX_RUNTIME_SECONDS:
-                logger.debug(f"Max runtime exceeded for stock stream user {user_id}")
-                yield f"data: {json.dumps({'type': 'timeout', 'message': 'Connection timeout'})}\n\n"
-                break
-            
-            try:
-                # Get current cart
-                cart = cart_service.get_cart(user_id)
-                
-                if cart["items"]:
-                    # Check stock for each item
-                    stock_updates = []
-                    for item in cart["items"]:
-                        # Query current stock from database
-                        result = db.execute(
-                            text("SELECT quantity, reserved_quantity FROM inventory WHERE sku = :sku"),
-                            {"sku": item.get("sku")}
-                        ).fetchone()
-                        
-                        if result:
-                            available = max(0, result[0] - result[1])
-                            stock_updates.append({
-                                "product_id": item["product_id"],
-                                "variant_id": item.get("variant_id"),
-                                "sku": item.get("sku"),
-                                "available_quantity": available,
-                                "requested_quantity": item["quantity"],
-                                "in_stock": available >= item["quantity"]
-                            })
-                    
-                    # Send stock status event
-                    event_data = {
-                        "type": "stock_update",
-                        "timestamp": datetime.now(timezone.utc).isoformat(),
-                        "items": stock_updates
-                    }
-                    yield f"data: {json.dumps(event_data)}\n\n"
-                
-                # Send keepalive every 30 seconds
-                await asyncio.sleep(30)
-                yield ":keepalive\n\n"
-                
-            except ConnectionResetError:
-                logger.debug(f"Connection reset for stock stream user {user_id}")
-                break
-            except TimeoutError:
-                logger.warning(f"Database timeout in stock stream for user {user_id}")
-                error_data = {"type": "error", "message": "Database timeout"}
-                yield f"data: {json.dumps(error_data)}\n\n"
-                await asyncio.sleep(60)
-            except Exception as e:
-                logger.error(f"Unexpected error in stock stream for user {user_id}: {e}", exc_info=True)
-                error_data = {"type": "error", "message": "Internal server error"}
-                yield f"data: {json.dumps(error_data)}\n\n"
-                await asyncio.sleep(60)  # Wait longer on error
-    
-    return StreamingResponse(
-        event_generator(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no"  # Disable nginx buffering
-        }
-    )
-
-
-# ==================== Cart Routes (Legacy/Admin) ====================
-
-@app.get("/api/v1/cart/{user_id}", response_model=CartResponse,
-         tags=["Cart"])
-async def get_cart(
-    user_id: int,
-    current_user: dict = Depends(get_current_user)
-):
-    """Get user's shopping cart."""
-    # Authorization check
-    if current_user["user_id"] != user_id and current_user["role"] not in ["admin", "staff"]:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to view this cart"
-        )
-    
-    cart_key = f"cart:{user_id}"
-    cart_data = redis_client.get_cache(cart_key)
-    
-    if not cart_data:
-        return CartResponse(user_id=user_id, items=[], total=0)
-    
-    return CartResponse(**cart_data)
-
-
-# ==================== Checkout Routes ====================
-
-@app.post("/api/v1/checkout/validate", tags=["Checkout"])
-async def validate_checkout(
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    """
-    Validate cart stock before payment. Returns structured payload for the storefront:
-    { valid, out_of_stock: [{ sku, name, requested, available }], message }
-    """
-    cart_service = CartService(db)
-    preview = cart_service.checkout_stock_preview(current_user["user_id"])
-    if preview.get("valid"):
-        return preview
-    # Still 200 so the client can read out_of_stock without treating it as transport error
-    return preview
-
-
-
-@app.post("/api/v1/cart/{user_id}/add",
-          response_model=CartResponse,
-          tags=["Cart"])
-async def add_to_cart(
-    user_id: int,
-    item: CartItem,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    # Authorization check
-    if current_user["user_id"] != user_id and current_user["role"] not in ["admin", "staff"]:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to modify this cart"
-        )
-    
-    # Validate product exists and has sufficient stock
-    product = db.query(Product).filter(Product.id == item.product_id).first()
-    if not product:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Product not found"
-        )
-    
-    # Check inventory (simplified - check total stock)
-    if product.total_stock < item.quantity:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Insufficient inventory"
-        )
-    
-    # Use distributed locking for cart operations
-    item_data = {
-        "product_id": item.product_id,
-        "variant_id": item.variant_id,
-        "quantity": item.quantity
-    }
-    
-    cart_data = CartConcurrencyManager.add_to_cart_locked(user_id, item_data, db)
-    
-    return CartResponse(**cart_data)
-
-
-@app.delete("/api/v1/cart/{user_id}/remove/{product_id}",
-            response_model=CartResponse,
-            tags=["Cart"])
-async def remove_from_cart(
-    user_id: int,
-    product_id: int,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    """Remove item from cart (legacy endpoint — delegates to CartService for proper reservation release)."""
-    if current_user["user_id"] != user_id and current_user["role"] not in ["admin", "staff"]:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to modify this cart"
-        )
-    cart_data = CartConcurrencyManager.remove_from_cart_locked(user_id, product_id, db)
-    return CartResponse(**cart_data)
-
-
-@app.delete("/api/v1/cart/{user_id}/clear", response_model=CartResponse,
-           tags=["Cart"])
-async def clear_cart(
-    user_id: int,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    """Clear user's shopping cart (legacy endpoint — delegates to CartService for proper reservation release)."""
-    if current_user["user_id"] != user_id and current_user["role"] not in ["admin", "staff"]:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to modify this cart"
-        )
-    cart_data = CartConcurrencyManager.clear_cart_locked(user_id, db)
-    return CartResponse(**cart_data)
+# Cart, checkout, and legacy /cart/{user_id}/* endpoints have been moved to routes/cart.py.
 
 
 # ==================== Order Routes ====================
@@ -2687,43 +2252,7 @@ async def get_related_products_main(
     return {"products": [_enrich_product(p, user_role) for p in related]}
 
 
-# ==================== Cart Enhancements ====================
-
-@app.put("/api/v1/cart/{user_id}/update-quantity", response_model=CartResponse,
-         tags=["Cart"])
-async def update_cart_quantity(
-    user_id: int,
-    product_id: int,
-    quantity: int = Query(ge=1),
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    """Update quantity for an item already in the cart (legacy endpoint — delegates to CartService)."""
-    if current_user["user_id"] != user_id and current_user["role"] not in ["admin", "staff"]:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
-    cart_data = CartConcurrencyManager.update_cart_item_locked(user_id, product_id, quantity, db)
-    return CartResponse(**cart_data)
-
-
-@app.get("/api/v1/cart/{user_id}/summary", tags=["Cart"])
-async def cart_summary(user_id: int):
-    """Get cart summary with calculated totals, shipping, and any applied promo."""
-    cart_key = f"cart:{user_id}"
-    cart_data = redis_client.get_cache(cart_key)
-
-    if not cart_data or not cart_data.get("items"):
-        return {"subtotal": 0, "total_items": 0, "discount": 0, "shipping": 0, "total": 0, "items": []}
-
-    subtotal = sum(i["price"] * i["quantity"] for i in cart_data["items"])
-    total_items = sum(i["quantity"] for i in cart_data["items"])
-
-    return {
-        "subtotal": subtotal,
-        "total_items": total_items,
-        "shipping": 0,
-        "total": subtotal,
-        "items": cart_data["items"],
-    }
+# Legacy /cart/{user_id}/update-quantity and /summary endpoints have been moved to routes/cart.py.
 
 
 # ==================== Customer Profile ====================

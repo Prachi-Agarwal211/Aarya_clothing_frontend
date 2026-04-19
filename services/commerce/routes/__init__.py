@@ -1,19 +1,13 @@
 """
-Commerce Service - Routes Package
+Commerce service — route registry.
 
-Route modules:
-- products: Product catalog (ACTIVE - registered in main.py)
-- orders: DISABLED - order endpoints defined inline in main.py
-- addresses: User addresses (ACTIVE - registered in main.py)
-- size_guide: Size charts (ACTIVE - registered in main.py)
-- chat: Customer support chat (ACTIVE - registered in main.py)
-
-The cart router was removed when wishlist + promotions were dropped; the
-canonical cart endpoints live inline in main.py with proper
-CartConcurrencyManager integration.
+Each module owns a cohesive slice of the public API and is wired into the
+FastAPI app from ``main.py``. Adding a new router here is a two-step change:
+import it in this file and include it in ``main.py``.
 """
 
 from .addresses import router as addresses_router
+from .cart import router as cart_router
 from .chat import router as chat_router
 from .internal import router as internal_router
 from .landing import router as landing_router
@@ -22,11 +16,12 @@ from .products import router as products_router
 from .size_guide import router as size_guide_router
 
 __all__ = [
-    "products_router",
-    "orders_router",
     "addresses_router",
-    "size_guide_router",
+    "cart_router",
     "chat_router",
-    "landing_router",
     "internal_router",
+    "landing_router",
+    "orders_router",
+    "products_router",
+    "size_guide_router",
 ]

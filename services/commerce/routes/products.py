@@ -713,6 +713,33 @@ async def get_product(
     return _enrich_product(product, db, user_role)
 
 
+@router.get("/{product_id}/related")
+async def get_related_products(
+    product_id: int,
+    limit: int = Query(8, ge=1, le=20),
+    db: Session = Depends(get_db),
+    current_user: Optional[dict] = Depends(get_current_user_optional),
+):
+    """Return up to ``limit`` other active products from the same collection."""
+    user_role = current_user.get("role") if current_user else None
+
+    product = db.query(Product).filter(
+        Product.id == product_id,
+        Product.is_active == True,
+    ).first()
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    related = db.query(Product).filter(
+        Product.category_id == product.category_id,
+        Product.id != product_id,
+        Product.is_active == True,
+    ).order_by(func.random()).limit(limit).all()
+
+    return {
+        "products": [_enrich_product(p, db, user_role) for p in related],
+    }
+
 
 # ==================== Admin Product Management ====================
 

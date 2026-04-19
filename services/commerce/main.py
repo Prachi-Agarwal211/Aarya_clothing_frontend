@@ -23,7 +23,7 @@ from fastapi import FastAPI, Depends, HTTPException, status, Request, UploadFile
 from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import text, func
+from sqlalchemy import text
 from typing import Optional, List
 from decimal import Decimal
 from pydantic import BaseModel
@@ -1232,31 +1232,8 @@ async def fix_orphaned_payments(
 
 
 
-# NOTE: /api/v1/products/browse is handled by routes/products.py (registered via router at line 560).
-# The route module version is the SINGLE source of truth for product browsing.
-# The duplicate endpoint below was removed to prevent confusion and stale cache issues.
-# (Previously caused products to show as out-of-stock due to missing db parameter in _enrich_product)
-
-
-@app.get("/api/v1/products/{product_id}/related", tags=["Products"])
-async def get_related_products_main(
-    product_id: int,
-    limit: int = Query(8, ge=1, le=20),
-    db: Session = Depends(get_db),
-    current_user: Optional[dict] = Depends(get_current_user_optional)
-):
-    """Get related products based on same category."""
-    user_role = current_user.get("role") if current_user else None
-    
-    product = db.query(Product).filter(Product.id == product_id, Product.is_active == True).first()
-    if not product:
-        raise HTTPException(status_code=404, detail="Product not found")
-    related = db.query(Product).filter(
-        Product.category_id == product.category_id,
-        Product.id != product_id,
-        Product.is_active == True
-    ).order_by(func.random()).limit(limit).all()
-    return {"products": [_enrich_product(p, user_role) for p in related]}
+# /api/v1/products/* endpoints (including /related, /browse, /search, etc.)
+# live in routes/products.py.
 
 
 # Legacy /cart/{user_id}/update-quantity and /summary endpoints have been moved to routes/cart.py.

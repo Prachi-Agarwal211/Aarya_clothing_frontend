@@ -13,6 +13,8 @@ from .internal import router as internal_router
 from .landing import router as landing_router
 from .orders import router as orders_router
 from .products import router as products_router
+from .returns import router as returns_router
+from .reviews import router as reviews_router
 from .size_guide import router as size_guide_router
 
 __all__ = [
@@ -23,5 +25,7 @@ __all__ = [
     "landing_router",
     "orders_router",
     "products_router",
+    "returns_router",
+    "reviews_router",
     "size_guide_router",
 ]

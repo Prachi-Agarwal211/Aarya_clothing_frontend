@@ -49,9 +49,7 @@ from models.product_image import ProductImage
 from models.inventory import Inventory
 from models.order import Order, OrderItem, OrderStatus
 from models.address import Address, AddressType
-from models.review import Review
 from models.order_tracking import OrderTracking
-from models.return_request import ReturnRequest, ReturnStatus, ReturnReason
 
 # Schemas
 from schemas.product import (
@@ -72,9 +70,7 @@ from schemas.order import (
     GuestOrderTrackResponse, GuestOrderTrackItem,
 )
 from schemas.address import AddressCreate, AddressUpdate, AddressResponse
-from schemas.review import ReviewCreate, ReviewResponse
 from schemas.order_tracking import OrderTrackingCreate, OrderTrackingResponse
-from schemas.return_request import ReturnRequestCreate, ReturnRequestUpdate, ReturnRequestResponse
 from schemas.error import ErrorResponse, PaginatedResponse
 
 # Services
@@ -86,9 +82,7 @@ from service.color_utils import _hex_to_color_name
 from service.product_service import ProductService
 from service.order_service import OrderService
 from service.address_service import AddressService
-from service.review_service import ReviewService
 from service.order_tracking_service import OrderTrackingService
-from service.return_service import ReturnService
 from service.guest_tracking_token import parse_guest_tracking_token
 
 # Route modules (for better code organization)
@@ -102,6 +96,8 @@ try:
         landing_router,
         orders_router,
         products_router,
+        returns_router,
+        reviews_router,
         size_guide_router,
     )
     ROUTES_AVAILABLE = True
@@ -334,6 +330,8 @@ if ROUTES_AVAILABLE:
     app.include_router(chat_router)
     app.include_router(landing_router)
     app.include_router(internal_router)
+    app.include_router(reviews_router)
+    app.include_router(returns_router)
     logger.info("Route modules registered successfully")
 else:
     logger.warning("Route modules not available - using monolithic routes in main.py")
@@ -1862,367 +1860,8 @@ async def delete_address(
     return
 
 
-# ==================== Review Routes ====================
+# Reviews + returns endpoints have moved to routes/reviews.py and routes/returns.py.
 
-@app.post("/api/v1/reviews", response_model=ReviewResponse,
-          status_code=status.HTTP_201_CREATED,
-          tags=["Reviews"])
-async def create_review(
-    review_data: ReviewCreate,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    """Create a product review."""
-    review_service = ReviewService(db)
-    return review_service.create_review(
-        current_user["user_id"],
-        product_id=review_data.product_id,
-        rating=review_data.rating,
-        title=review_data.title,
-        comment=review_data.comment,
-        order_id=review_data.order_id,
-        image_urls=review_data.image_urls or []
-    )
-
-
-@app.post("/api/v1/reviews/upload-image",
-          tags=["Reviews"])
-async def upload_review_image(
-    request: Request,
-    file: UploadFile = File(..., description="Review image file"),
-    current_user: dict = Depends(get_current_user)
-):
-    """
-    Upload a single image for a review.
-    Returns the public URL of the uploaded image.
-    Supports JPG, PNG, WebP (max 5MB).
-    Rate limited to 10 uploads per minute per user.
-    """
-    # Rate limiting: 10 uploads per minute per user
-    if not _check_rate_limit(
-        request,
-        "review_upload",
-        limit=10,
-        window=60,
-        user_identifier=str(current_user["user_id"])
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Too many image uploads. Please wait before uploading more images."
-        )
-
-    from service.r2_service import r2_service
-    import uuid
-
-    # Validate file type
-    allowed_types = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
-    if file.content_type not in allowed_types:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid file type. Allowed types: JPG, PNG, WebP"
-        )
-
-    # Validate file size (5MB max)
-    file.file.seek(0, 2)  # Seek to end
-    file_size = file.file.tell()
-    file.file.seek(0)  # Reset to beginning
-    
-    if file_size > 5 * 1024 * 1024:  # 5MB
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="File size must be less than 5MB"
-        )
-
-    try:
-        # Upload to R2 with unique filename
-        ext = file.filename.split('.')[-1] if '.' in file.filename else 'jpg'
-        unique_name = f"review_{current_user['user_id']}_{uuid.uuid4().hex[:8]}.{ext}"
-        
-        image_url = await r2_service.upload_image(
-            file,
-            folder="reviews",
-            custom_filename=unique_name
-        )
-        
-        return {
-            "url": image_url,
-            "filename": unique_name,
-            "size": file_size
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Review image upload failed: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to upload image: {str(e)}"
-        )
-
-
-@app.get("/api/v1/products/{product_id}/reviews", response_model=List[ReviewResponse],
-         tags=["Reviews"])
-async def get_product_reviews_main(
-    product_id: int,
-    approved_only: bool = True,
-    skip: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=100),
-    db: Session = Depends(get_db)
-):
-    """Get reviews for a product."""
-    review_service = ReviewService(db)
-    return review_service.get_product_reviews(
-        product_id,
-        approved_only=approved_only,
-        skip=skip,
-        limit=limit
-    )
-
-
-@app.post("/api/v1/reviews/{review_id}/helpful",
-          tags=["Reviews"])
-async def mark_review_helpful(
-    review_id: int,
-    db: Session = Depends(get_db)
-):
-    """Mark a review as helpful."""
-    review_service = ReviewService(db)
-    review_service.mark_helpful(review_id)
-    return {"message": "Review marked as helpful"}
-
-
-@app.delete("/api/v1/reviews/{review_id}",
-            status_code=status.HTTP_204_NO_CONTENT,
-            tags=["Reviews"])
-async def delete_review(
-    review_id: int,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    """Delete own review."""
-    review_service = ReviewService(db)
-    review_service.delete_review(review_id, current_user["user_id"])
-    return
-
-
-@app.post("/api/v1/admin/reviews/{review_id}/approve",
-          response_model=ReviewResponse,
-          tags=["Admin - Reviews"])
-async def approve_review(
-    review_id: int,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(require_staff)
-):
-    """Approve a review (admin/staff)."""
-    review_service = ReviewService(db)
-    return review_service.approve_review(review_id)
-
-
-# ==================== Return Routes ====================
-
-@app.post("/api/v1/returns", response_model=ReturnRequestResponse,
-          status_code=status.HTTP_201_CREATED,
-          tags=["Returns"])
-async def create_return_request(
-    return_data: ReturnRequestCreate,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    """Create a return request."""
-    return_service = ReturnService(db)
-    return return_service.create_return(current_user["user_id"], return_data)
-
-
-@app.post("/api/v1/returns/upload-video",
-          status_code=status.HTTP_201_CREATED,
-          tags=["Returns"])
-async def upload_return_video(
-    file: UploadFile = File(..., description="Video file for return evidence"),
-    current_user: dict = Depends(get_current_user)
-):
-    """
-    Upload a video for return request evidence.
-    
-    - Accepts: mp4, mov, webm formats
-    - Max file size: 50MB
-    - Returns the video URL after successful upload
-    """
-    # Import the r2 service
-    from service.r2_service import r2_service
-    
-    try:
-        video_url = await r2_service.upload_video(file, folder="returns")
-        return {
-            "video_url": video_url,
-            "message": "Video uploaded successfully"
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to upload video: {str(e)}"
-        )
-
-
-@app.get("/api/v1/returns", response_model=List[ReturnRequestResponse],
-         tags=["Returns"])
-async def list_returns(
-    skip: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=100),
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    """List current user's return requests."""
-    return_service = ReturnService(db)
-    return return_service.get_user_returns(
-        current_user["user_id"],
-        skip=skip,
-        limit=limit
-    )
-
-
-@app.get("/api/v1/returns/{return_id}", response_model=ReturnRequestResponse,
-         tags=["Returns"])
-async def get_return(
-    return_id: int,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    """Get return request details."""
-    return_service = ReturnService(db)
-    return_request = return_service.get_return_by_id(
-        return_id,
-        user_id=current_user["user_id"]
-    )
-    
-    if not return_request:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Return request not found"
-        )
-    
-    return return_request
-
-
-# ==================== Admin Return Routes ====================
-
-@app.get("/api/v1/admin/returns", response_model=List[ReturnRequestResponse],
-         tags=["Admin - Returns"])
-async def list_all_returns(
-    status_filter: Optional[str] = None,
-    skip: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=100),
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(require_staff)
-):
-    """List all return requests (admin/staff)."""
-    return_service = ReturnService(db)
-    return_status = ReturnStatus(status_filter) if status_filter else None
-    return return_service.get_all_returns(status=return_status, skip=skip, limit=limit)
-
-
-@app.post("/api/v1/admin/returns/{return_id}/approve",
-          response_model=ReturnRequestResponse,
-          tags=["Admin - Returns"])
-async def approve_return(
-    return_id: int,
-    refund_amount: Optional[float] = None,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(require_staff)
-):
-    """Approve a return request (admin/staff)."""
-    return_service = ReturnService(db)
-    return return_service.approve_return(
-        return_id,
-        approved_by=current_user["user_id"],
-        refund_amount=Decimal(refund_amount) if refund_amount else None
-    )
-
-
-@app.post("/api/v1/admin/returns/{return_id}/reject",
-          response_model=ReturnRequestResponse,
-          tags=["Admin - Returns"])
-async def reject_return(
-    return_id: int,
-    reason: str,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(require_staff)
-):
-    """Reject a return request (admin/staff)."""
-    return_service = ReturnService(db)
-    return return_service.reject_return(
-        return_id,
-        approved_by=current_user["user_id"],
-        rejection_reason=reason
-    )
-
-
-@app.post("/api/v1/admin/returns/{return_id}/receive",
-          response_model=ReturnRequestResponse,
-          tags=["Admin - Returns"])
-async def mark_return_received(
-    return_id: int,
-    tracking_number: Optional[str] = None,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(require_staff)
-):
-    """Mark return item as received (admin/staff)."""
-    return_service = ReturnService(db)
-    return return_service.mark_item_received(
-        return_id,
-        tracking_number=tracking_number
-    )
-
-
-@app.post("/api/v1/admin/returns/{return_id}/refund",
-          response_model=ReturnRequestResponse,
-          tags=["Admin - Returns"])
-async def process_return_refund(
-    return_id: int,
-    refund_transaction_id: str,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(require_staff)
-):
-    """Mark return as refunded with transaction ID (admin/staff)."""
-    return_service = ReturnService(db)
-    return return_service.mark_refunded(
-        return_id,
-        refund_transaction_id=refund_transaction_id
-    )
-
-
-@app.post("/api/v1/returns/{return_id}/cancel",
-          response_model=ReturnRequestResponse,
-          tags=["Returns"])
-async def cancel_return_request(
-    return_id: int,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    """Cancel a return request (customer). Only allowed for 'requested' status."""
-    return_service = ReturnService(db)
-    return_request = return_service.get_return_by_id(
-        return_id,
-        user_id=current_user["user_id"]
-    )
-    
-    if not return_request:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Return request not found"
-        )
-    
-    if return_request.status != ReturnStatus.REQUESTED:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Can only cancel return requests with 'requested' status"
-        )
-    
-    # Delete the return request
-    db.delete(return_request)
-    db.commit()
-    
-    return {"message": "Return request cancelled successfully", "id": return_id}
 
 
 # NOTE: /api/v1/products/browse is handled by routes/products.py (registered via router at line 560).
@@ -2335,97 +1974,7 @@ async def get_order_history(
 # Landing-page endpoints have been moved to routes/landing.py.
 
 
-# ==================== Exchange Requests ====================
-
-@app.post("/api/v1/returns/{return_id}/exchange", tags=["Returns"])
-async def request_exchange(
-    return_id: int,
-    exchange_product_id: int,
-    exchange_variant_id: Optional[int] = None,
-    notes: Optional[str] = None,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    """Convert a return request into an exchange request."""
-    user_id = current_user["user_id"]
-
-    ret = db.execute(text(
-        "SELECT id, status, user_id, order_id FROM return_requests WHERE id = :rid"
-    ), {"rid": return_id}).fetchone()
-
-    if not ret:
-        raise HTTPException(status_code=404, detail="Return request not found")
-    if ret[2] != user_id:
-        raise HTTPException(status_code=403, detail="Not your return request")
-    if ret[1] not in ("requested", "approved"):
-        raise HTTPException(status_code=400, detail="Return cannot be converted to exchange")
-
-    # Validate exchange product exists and is active
-    product = db.query(Product).filter(Product.id == exchange_product_id, Product.is_active == True).first()
-    if not product:
-        raise HTTPException(status_code=404, detail="Exchange product not found")
-
-    # Validate variant belongs to product if variant_id provided
-    if exchange_variant_id:
-        from models.inventory import Inventory as InventoryModel
-        variant = db.query(InventoryModel).filter(
-            InventoryModel.id == exchange_variant_id,
-            InventoryModel.product_id == exchange_product_id,
-            InventoryModel.is_active == True
-        ).first()
-        if not variant:
-            raise HTTPException(status_code=404, detail="Exchange variant not found or doesn't belong to product")
-        
-        # Check variant stock availability
-        available = (variant.quantity or 0) - (variant.reserved_quantity or 0)
-        if available <= 0:
-            raise HTTPException(status_code=400, detail="Exchange variant is out of stock")
-    else:
-        # Check product stock via inventory aggregation
-        from models.inventory import Inventory as InventoryModel
-        total = db.execute(
-            text("SELECT COALESCE(SUM(quantity - reserved_quantity), 0) FROM inventory WHERE product_id = :pid AND is_active = true"),
-            {"pid": exchange_product_id}
-        ).scalar()
-        if (total or 0) <= 0:
-            raise HTTPException(status_code=400, detail="Exchange product is out of stock")
-
-    # Validate exchange policy (same price or higher value)
-    # Get original order item to compare prices - using order_id from return_requests
-    order_id = ret[3]  # order_id from return_requests
-    original_items = db.execute(text("""
-        SELECT product_id, inventory_id, unit_price
-        FROM order_items
-        WHERE order_id = :oid
-    """), {"oid": order_id}).fetchall()
-    
-    if original_items:
-        # Get exchange item price
-        if exchange_variant_id:
-            exchange_price = db.execute(text("""
-                SELECT COALESCE(variant_price, 0) FROM inventory
-                WHERE id = :vid AND product_id = :pid
-            """), {"vid": exchange_variant_id, "pid": exchange_product_id}).fetchone()
-            exchange_price = float(exchange_price[0]) if exchange_price and exchange_price[0] else float(product.base_price or 0)
-        else:
-            exchange_price = float(product.base_price or 0)
-        
-        # Use the first item's price for comparison (or sum all items)
-        original_price = sum(float(item[2]) for item in original_items)
-        
-        # Allow exchange only if price difference is reasonable (within 20% or higher value)
-        if exchange_price < original_price * 0.8:
-            raise HTTPException(
-                status_code=400, 
-                detail=f"Exchange item value too low. Original: ${original_price:.2f}, Exchange: ${exchange_price:.2f}"
-            )
-
-    # Update the return request with exchange info
-    db.execute(text(
-        "UPDATE return_requests SET description = CONCAT(COALESCE(description, ''), ' | Exchange to product #', :pid, '. ', :notes) WHERE id = :rid"
-    ), {"pid": exchange_product_id, "notes": notes or '', "rid": return_id})
-    db.commit()
-    return {"message": "Exchange request submitted", "return_id": return_id, "exchange_product_id": exchange_product_id}
+# Exchange endpoint has moved to routes/returns.py.
 
 
 # About / Contact page endpoints have moved to routes/landing.py.

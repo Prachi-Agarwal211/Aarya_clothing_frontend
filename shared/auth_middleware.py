@@ -132,7 +132,15 @@ def get_current_user(
         )
 
     payload = auth_middleware.decode_token(token)
-    return auth_middleware.extract_user_info(payload)
+    user_info = auth_middleware.extract_user_info(payload)
+    # Stash on request.state so per-user rate limiting and downstream
+    # middleware (e.g. observability) can key off the resolved user_id
+    # without re-decoding the token.
+    try:
+        request.state.user_id = user_info.get("user_id") or user_info.get("id")
+    except Exception:
+        pass
+    return user_info
 
 
 def get_current_user_optional(
@@ -154,7 +162,12 @@ def get_current_user_optional(
 
     try:
         payload = auth_middleware.decode_token(token)
-        return auth_middleware.extract_user_info(payload)
+        user_info = auth_middleware.extract_user_info(payload)
+        try:
+            request.state.user_id = user_info.get("user_id") or user_info.get("id")
+        except Exception:
+            pass
+        return user_info
     except Exception:
         return None
 

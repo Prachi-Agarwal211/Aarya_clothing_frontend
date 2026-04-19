@@ -13,14 +13,15 @@ logger = logging.getLogger(__name__)
 # ── Default limits (per window) ──────────────────────────────────────────────
 
 LIMITS = {
-    "auth_login": (10, 300),  # 10 attempts / 5 min
+    "auth_login": (10, 300),  # 10 attempts / 5 min — security sensitive, keep tight
     "auth_register": (5, 3600),  # 5 registrations / 1 hr
     "auth_password_reset": (5, 3600),  # 5 resets / 1 hr
-    "auth_otp": (6, 600),  # 6 OTP attempts / 10 min
-    "search": (60, 60),  # 60 searches / 1 min
-    "cart_write": (30, 60),  # 30 cart mutations / 1 min
-    "review_create": (10, 3600),  # 10 reviews / 1 hr (was 3)
-    "default": (120, 60),  # 120 requests / 1 min
+    "auth_otp": (6, 600),  # 6 OTP send/verify attempts / 10 min
+    "auth_otp_resend": (6, 600),  # 6 OTP resends / 10 min
+    "search": (120, 60),  # 120 searches / 1 min — relaxed for catalog browsing
+    "cart_write": (60, 60),  # 60 cart mutations / 1 min — relaxed
+    "review_create": (10, 3600),  # 10 reviews / 1 hr
+    "default": (300, 60),  # 300 requests / 1 min — Amazon/Flipkart-style headroom
 }
 
 
@@ -143,8 +144,11 @@ def rate_limit_user(
 ) -> Callable:
     """
     Rate limit by authenticated user_id (falls back to IP for guests).
-    Requires that the route passes `current_user: dict` as a dependency BEFORE this.
-    Usage: embed in route as a secondary Depends.
+
+    Auth middleware is expected to stash the resolved user_id on
+    ``request.state.user_id`` for any route that has already authenticated the
+    caller. If it's missing we fall back to the IP-based client id so the
+    limiter still protects unauthenticated traffic.
     """
     default_limit, default_window = LIMITS.get(endpoint_key, LIMITS["default"])
     _limit = limit or default_limit
@@ -152,7 +156,8 @@ def rate_limit_user(
 
     async def _dep(request: Request):
         rl = get_rate_limiter()
-        client_id = rl.get_client_id(request)
+        user_id = getattr(request.state, "user_id", None)
+        client_id = rl.get_client_id(request, user_id=user_id)
         rl.check(f"{endpoint_key}:{client_id}", _limit, _window)
 
     return _dep

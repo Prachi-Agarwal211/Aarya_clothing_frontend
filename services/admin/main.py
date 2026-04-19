@@ -218,15 +218,18 @@ app.add_middleware(RequestIDMiddleware)
 # Standardized error handlers (complements admin's own exception handler)
 register_error_handlers(app)
 
-# Mount routers for AI dashboard and staff management endpoints.
-# Split by domain so each module stays focused: AI dashboard tools, staff
-# identity (roles/accounts), and staff access control (IP/time/2FA/sessions/audit).
-from routes.staff_ai_dashboard import router as staff_ai_dashboard_router
-from routes.staff_management import router as staff_management_router
-from routes.staff_access_control import router as staff_access_control_router
-from routes.reviews import router as reviews_router
-from routes.returns import router as returns_router
-from routes.backup import router as backup_router
+# Mount routers. Each router owns one cohesive slice of the admin API so this
+# file stays focused on lifespan + middleware wiring.
+from routes import (
+    backup_router,
+    dashboard_router,
+    returns_router,
+    reviews_router,
+    staff_access_control_router,
+    staff_ai_dashboard_router,
+    staff_management_router,
+    staff_ops_router,
+)
 
 app.include_router(staff_ai_dashboard_router)
 app.include_router(staff_management_router)
@@ -234,6 +237,8 @@ app.include_router(staff_access_control_router)
 app.include_router(reviews_router)
 app.include_router(returns_router)
 app.include_router(backup_router)
+app.include_router(dashboard_router)
+app.include_router(staff_ops_router)
 
 
 # ==================== Health ====================
@@ -257,246 +262,8 @@ async def health_root(db: Session = Depends(get_db)):
 setup_exception_handlers(app)
 
 
-# ==================== Admin Dashboard ====================
-
-
-@app.get("/api/v1/admin/dashboard/overview", tags=["Admin Dashboard"])
-async def get_dashboard_overview(
-    period: str = Query("daily", regex="^(daily|weekly|monthly)$"),
-    db: Session = Depends(get_db),
-    user: dict = Depends(require_admin),
-):
-    """Aggregate dashboard stats for daily / weekly / monthly periods."""
-    cache_key = f"admin:dashboard:overview:{period}"
-    cached = redis_client.get_cache(cache_key)
-    if cached:
-        return cached
-
-    result = AdminDashboardService(db).get_overview(period)
-    redis_client.set_cache(cache_key, result, ttl=30)
-    return result
-
-
-@app.get("/api/v1/admin/dashboard/chart", tags=["Admin Dashboard"])
-async def get_dashboard_chart(
-    period: str = Query("daily", regex="^(daily|weekly|monthly)$"),
-    db: Session = Depends(get_db),
-    user: dict = Depends(require_admin),
-):
-    """Revenue + orders bucketed by hour (daily) or day (weekly/monthly) in IST."""
-    return {"period": period, "data": AdminDashboardService(db).get_chart(period)}
-
-
-@app.get("/api/v1/admin/dashboard/top-products", tags=["Admin Dashboard"])
-async def get_dashboard_top_products(
-    period: str = Query("monthly", regex="^(daily|weekly|monthly)$"),
-    limit: int = Query(10, ge=1, le=50),
-    db: Session = Depends(get_db),
-    user: dict = Depends(require_admin),
-):
-    return {
-        "period": period,
-        "products": AdminDashboardService(db).get_top_products(period, limit),
-    }
-
-
-@app.get("/api/v1/admin/dashboard/top-customers", tags=["Admin Dashboard"])
-async def get_dashboard_top_customers(
-    period: str = Query("monthly", regex="^(daily|weekly|monthly)$"),
-    limit: int = Query(10, ge=1, le=50),
-    db: Session = Depends(get_db),
-    user: dict = Depends(require_admin),
-):
-    return {
-        "period": period,
-        "customers": AdminDashboardService(db).get_top_customers(period, limit),
-    }
-
-
-# ==================== Analytics ====================
-
-
-@app.get(
-    "/api/v1/admin/analytics/revenue",
-    response_model=RevenueAnalytics,
-    tags=["Analytics"],
-)
-async def get_revenue_analytics(
-    period: str = Query("30d", regex="^(7d|30d|90d|1y)$"),
-    db: Session = Depends(get_db),
-    user: dict = Depends(require_admin),
-):
-    days = {"7d": 7, "30d": 30, "90d": 90, "1y": 365}[period]
-    since = datetime.now(timezone.utc) - timedelta(days=days)
-    rows = db.execute(
-        text(
-            "SELECT DATE(created_at) as day, COALESCE(SUM(total_amount),0), COUNT(*) "
-            "FROM orders WHERE created_at >= :since AND status != 'cancelled' "
-            "GROUP BY DATE(created_at) ORDER BY day"
-        ),
-        {"since": since},
-    ).fetchall()
-    period_data = [
-        RevenueData(period=str(r[0]), revenue=float(r[1]), orders=r[2]) for r in rows
-    ]
-    total = sum(d.revenue for d in period_data)
-    return RevenueAnalytics(total_revenue=total, period_data=period_data)
-
-
-@app.get(
-    "/api/v1/admin/analytics/customers",
-    response_model=CustomerAnalytics,
-    tags=["Analytics"],
-)
-async def get_customer_analytics(
-    db: Session = Depends(get_db), user: dict = Depends(require_admin)
-):
-    now = datetime.now(timezone.utc)
-    total = (
-        db.execute(text("SELECT COUNT(*) FROM users WHERE role = 'customer'")).scalar()
-        or 0
-    )
-    today = (
-        db.execute(
-            text(
-                "SELECT COUNT(*) FROM users WHERE role='customer' AND DATE(created_at)=:d"
-            ),
-            {"d": now.date()},
-        ).scalar()
-        or 0
-    )
-    week = (
-        db.execute(
-            text(
-                "SELECT COUNT(*) FROM users WHERE role='customer' AND created_at >= :d"
-            ),
-            {"d": now - timedelta(days=7)},
-        ).scalar()
-        or 0
-    )
-    month = (
-        db.execute(
-            text(
-                "SELECT COUNT(*) FROM users WHERE role='customer' AND created_at >= :d"
-            ),
-            {"d": now - timedelta(days=30)},
-        ).scalar()
-        or 0
-    )
-    returning = (
-        db.execute(
-            text(
-                "SELECT COUNT(DISTINCT user_id) FROM orders GROUP BY user_id HAVING COUNT(*) > 1"
-            )
-        ).scalar()
-        or 0
-    )
-    return CustomerAnalytics(
-        total_customers=total,
-        new_customers_today=today,
-        new_customers_this_week=week,
-        new_customers_this_month=month,
-        returning_customers=returning,
-    )
-
-
-@app.get(
-    "/api/v1/admin/analytics/products/top-selling",
-    response_model=TopProductsAnalytics,
-    tags=["Analytics"],
-)
-async def get_top_products(
-    period: str = Query("30d"),
-    limit: int = Query(10, le=50),
-    db: Session = Depends(get_db),
-    user: dict = Depends(require_admin),
-):
-    days = {"7d": 7, "30d": 30, "90d": 90, "1y": 365}.get(period, 30)
-    since = now_ist() - timedelta(days=days)
-    rows = db.execute(
-        text(
-            "SELECT oi.product_id, COALESCE(p.name,'Unknown'), "
-            "SUM(oi.quantity), SUM(oi.line_total) "
-            "FROM order_items oi "
-            "LEFT JOIN products p ON p.id = oi.product_id "
-            "JOIN orders o ON o.id = oi.order_id "
-            "WHERE o.created_at >= :since AND o.status != 'cancelled' "
-            "GROUP BY oi.product_id, p.name "
-            "ORDER BY SUM(oi.quantity) DESC LIMIT :lim"
-        ),
-        {"since": since.replace(tzinfo=None), "lim": limit},
-    ).fetchall()
-    products = [
-        TopProduct(
-            product_id=r[0],
-            product_name=r[1],
-            total_sold=r[2],
-            total_revenue=float(r[3]),
-        )
-        for r in rows
-    ]
-    return TopProductsAnalytics(top_products=products, period=period)
-
-
-# ==================== Staff Tasks ====================
-
-
-@app.get("/api/v1/staff/tasks", tags=["Staff Tasks"])
-async def get_tasks(db: Session = Depends(get_db), user: dict = Depends(require_staff)):
-    rows = db.execute(
-        text(
-            "SELECT * FROM staff_tasks WHERE status != 'completed' ORDER BY CASE priority WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END, due_time ASC NULLS LAST"
-        )
-    ).fetchall()
-    return {"pending_tasks": [dict(r._mapping) for r in rows]}
-
-
-@app.post("/api/v1/staff/tasks/{task_id}/complete", tags=["Staff Tasks"])
-async def complete_task(
-    task_id: int,
-    data: TaskComplete,
-    db: Session = Depends(get_db),
-    user: dict = Depends(require_staff),
-):
-    db.execute(
-        text(
-            "UPDATE staff_tasks SET status = 'completed', completed_at = :now, updated_at = :now WHERE id = :id"
-        ),
-        {"now": datetime.now(timezone.utc), "id": task_id},
-    )
-    db.commit()
-    return {"message": "Task completed"}
-
-
-# ==================== Staff Notifications ====================
-
-
-@app.get("/api/v1/staff/notifications", tags=["Staff Notifications"])
-async def get_notifications(
-    db: Session = Depends(get_db), user: dict = Depends(require_staff)
-):
-    uid = user.get("user_id")
-    rows = db.execute(
-        text(
-            "SELECT * FROM staff_notifications WHERE (user_id = :uid OR user_id IS NULL) AND is_read = false ORDER BY created_at DESC LIMIT 50"
-        ),
-        {"uid": uid},
-    ).fetchall()
-    return {"alerts": [dict(r._mapping) for r in rows]}
-
-
-@app.put("/api/v1/staff/notifications/{notif_id}/read", tags=["Staff Notifications"])
-async def mark_notification_read(
-    notif_id: int, db: Session = Depends(get_db), user: dict = Depends(require_staff)
-):
-    db.execute(
-        text("UPDATE staff_notifications SET is_read = true WHERE id = :id"),
-        {"id": notif_id},
-    )
-    db.commit()
-    return {"message": "Notification marked as read"}
-
-
+# Dashboard + analytics endpoints have moved to routes/dashboard.py.
+# Staff tasks + notifications endpoints have moved to routes/staff_ops.py.
 # ==================== Chat ====================
 
 
@@ -3249,34 +3016,7 @@ async def upload_landing_video(
 # ==================== Quick Actions ====================
 
 
-@app.get("/api/v1/staff/quick-actions", tags=["Staff"])
-async def get_quick_actions():
-    return {
-        "actions": [
-            {
-                "name": "Add Stock",
-                "endpoint": "/api/v1/staff/inventory/add-stock",
-                "icon": "plus-box",
-            },
-            {
-                "name": "Process Orders",
-                "endpoint": "/api/v1/staff/orders/pending",
-                "icon": "package",
-            },
-            {
-                "name": "Low Stock Alert",
-                "endpoint": "/api/v1/staff/inventory/low-stock",
-                "icon": "alert",
-            },
-            {
-                "name": "Stock Movement",
-                "endpoint": "/api/v1/staff/inventory/movements",
-                "icon": "chart-line",
-            },
-        ]
-    }
-
-
+# Staff quick-actions launcher has moved to routes/staff_ops.py.
 # ==================== Product Performance Analytics ====================
 
 
@@ -3786,87 +3526,7 @@ async def admin_update_user(
 # ==================== Staff Dashboard / Orders ====================
 
 
-@app.get("/api/v1/staff/dashboard", tags=["Staff"])
-async def staff_dashboard(
-    db: Session = Depends(get_db), user: dict = Depends(require_staff)
-):
-    """Compact staff dashboard for fulfilment view."""
-    today = now_ist().replace(hour=0, minute=0, second=0, microsecond=0).replace(tzinfo=None)
-    pending = db.execute(
-        text("SELECT COUNT(*) FROM orders WHERE status IN ('pending','confirmed','processing')")
-    ).scalar() or 0
-    today_orders = db.execute(
-        text("SELECT COUNT(*) FROM orders WHERE created_at >= :t"),
-        {"t": today},
-    ).scalar() or 0
-    low_stock = db.execute(
-        text(
-            "SELECT COUNT(*) FROM product_variants "
-            "WHERE is_active = TRUE AND quantity > 0 AND quantity <= low_stock_threshold"
-        )
-    ).scalar() or 0
-    out_of_stock = db.execute(
-        text("SELECT COUNT(*) FROM product_variants WHERE is_active = TRUE AND quantity = 0")
-    ).scalar() or 0
-    return {
-        "pending_orders": pending,
-        "today_orders": today_orders,
-        "low_stock_variants": low_stock,
-        "out_of_stock_variants": out_of_stock,
-        "as_of": now_ist().isoformat(),
-    }
-
-
-@app.get("/api/v1/staff/orders/pending", tags=["Staff"])
-async def staff_orders_pending(
-    page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
-    db: Session = Depends(get_db),
-    user: dict = Depends(require_staff),
-):
-    """Pending orders queue for staff fulfilment."""
-    offset = (page - 1) * page_size
-    total = db.execute(
-        text("SELECT COUNT(*) FROM orders WHERE status IN ('pending','confirmed','processing')")
-    ).scalar() or 0
-    rows = db.execute(
-        text(
-            "SELECT o.id, o.invoice_number, o.status, o.total_amount, o.created_at, "
-            "       COALESCE(u.full_name, u.email) AS customer "
-            "FROM orders o LEFT JOIN users u ON u.id = o.user_id "
-            "WHERE o.status IN ('pending','confirmed','processing') "
-            "ORDER BY o.created_at ASC LIMIT :lim OFFSET :off"
-        ),
-        {"lim": page_size, "off": offset},
-    ).fetchall()
-    return {
-        "items": [dict(r._mapping) for r in rows],
-        "total": total,
-        "page": page,
-        "page_size": page_size,
-        "total_pages": (total + page_size - 1) // page_size,
-    }
-
-
-@app.post("/api/v1/staff/orders/{order_id}/mark-processed", tags=["Staff"])
-async def staff_mark_processed(
-    order_id: int,
-    db: Session = Depends(get_db),
-    user: dict = Depends(require_staff),
-):
-    """Mark an order as processed (staff)."""
-    res = db.execute(
-        text(
-            "UPDATE orders SET status = 'processing', updated_at = :now WHERE id = :id"
-        ),
-        {"id": order_id, "now": now_ist().replace(tzinfo=None)},
-    )
-    if res.rowcount == 0:
-        raise HTTPException(status_code=404, detail="Order not found")
-    db.commit()
-    return {"id": order_id, "status": "processing"}
-
-
+# Staff fulfilment dashboard + pending orders have moved to routes/staff_ops.py.
 # ==================== Excel Import / Export ====================
 
 

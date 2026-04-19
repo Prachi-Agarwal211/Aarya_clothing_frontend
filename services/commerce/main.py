@@ -43,12 +43,9 @@ from search.meilisearch_client import (
 )
 # Models
 from models.product import Product
-from models.collection import Collection
-from models.category import Category  # backward-compat alias
 from models.product_image import ProductImage
 from models.inventory import Inventory
 from models.order import Order, OrderItem, OrderStatus
-from models.address import Address, AddressType
 from models.order_tracking import OrderTracking
 
 # Schemas
@@ -56,32 +53,21 @@ from schemas.product import (
     ProductCreate, ProductResponse, ProductUpdate, ProductDetailResponse,
     BulkPriceUpdate, BulkStatusUpdate, BulkCollectionAssign, BulkInventoryUpdate, BulkDeleteProducts
 )
-from schemas.collection import (
-    CollectionCreate, CollectionUpdate, CollectionResponse, CollectionWithProducts,
-    BulkCollectionStatusUpdate, BulkCollectionReorder,
-)
-from schemas.category import (
-    CategoryCreate, CategoryUpdate, CategoryResponse, CategoryWithChildren,  # backward-compat
-)
 from schemas.product_image import ProductImageCreate, ProductImageResponse
 from schemas.inventory import InventoryCreate, InventoryUpdate, InventoryResponse, StockAdjustment, LowStockItem
 from schemas.order import (
     OrderCreate, OrderResponse,
     GuestOrderTrackResponse, GuestOrderTrackItem,
 )
-from schemas.address import AddressCreate, AddressUpdate, AddressResponse
 from schemas.order_tracking import OrderTrackingCreate, OrderTrackingResponse
 from schemas.error import ErrorResponse, PaginatedResponse
 
 # Services
-from service.collection_service import CollectionService
-from service.category_service import CategoryService  # backward-compat alias
 from service.inventory_service import InventoryService
 from service.r2_service import r2_service
 from service.color_utils import _hex_to_color_name
 from service.product_service import ProductService
 from service.order_service import OrderService
-from service.address_service import AddressService
 from service.order_tracking_service import OrderTrackingService
 from service.guest_tracking_token import parse_guest_tracking_token
 
@@ -92,12 +78,14 @@ try:
         addresses_router,
         cart_router,
         chat_router,
+        collections_router,
         internal_router,
         landing_router,
         orders_router,
         products_router,
         returns_router,
         reviews_router,
+        search_router,
         size_guide_router,
     )
     ROUTES_AVAILABLE = True
@@ -332,6 +320,8 @@ if ROUTES_AVAILABLE:
     app.include_router(internal_router)
     app.include_router(reviews_router)
     app.include_router(returns_router)
+    app.include_router(collections_router)
+    app.include_router(search_router)
     logger.info("Route modules registered successfully")
 else:
     logger.warning("Route modules not available - using monolithic routes in main.py")
@@ -382,269 +372,8 @@ async def health_api(db: Session = Depends(get_db)):
     }
 
 
-# ==================== Collections / Categories (same thing) ====================
-
-@app.get("/api/v1/collections", tags=["Collections"])
-@app.get("/api/v1/categories", tags=["Collections"])  # backward compat
-async def list_collections(
-    featured_only: bool = False,
-    active_only: bool = True,
-    db: Session = Depends(get_db)
-):
-    """List all collections with full R2 image URLs."""
-    cache_key = f"collections:list:{featured_only}:{active_only}"
-    
-    async def fetch_collections():
-        query = db.query(Collection)
-        if active_only:
-            query = query.filter(Collection.is_active == True)
-        if featured_only:
-            query = query.filter(Collection.is_featured == True)
-        collections = query.order_by(Collection.display_order, Collection.name).all()
-        return [_enrich_collection(c) for c in collections]
-
-    return await cache.get_or_set(cache_key, fetch_collections, ttl=300)
-
-
-@app.get("/api/v1/collections/{collection_id}", tags=["Collections"])
-@app.get("/api/v1/categories/{category_id}", tags=["Collections"])  # backward compat
-async def get_collection(
-    collection_id: Optional[int] = None,
-    category_id: Optional[int] = None,
-    db: Session = Depends(get_db)
-):
-    """Get collection by ID with full R2 image URL."""
-    cid = collection_id or category_id
-    col = db.query(Collection).filter(Collection.id == cid).first()
-    if not col:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Collection not found")
-    return _enrich_collection(col)
-
-
-@app.get("/api/v1/collections/slug/{slug}", tags=["Collections"])
-@app.get("/api/v1/categories/slug/{slug}", tags=["Collections"])  # backward compat
-async def get_collection_by_slug(slug: str, db: Session = Depends(get_db)):
-    """Get collection by slug with full R2 image URL."""
-    col = db.query(Collection).filter(Collection.slug == slug).first()
-    if not col:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Collection not found")
-    return _enrich_collection(col)
-
-
-# ==================== Admin Collection Routes ====================
-
-@app.post("/api/v1/admin/collections", response_model=CategoryResponse,
-          status_code=status.HTTP_201_CREATED,
-          tags=["Admin - Collections"])
-@app.post("/api/v1/admin/categories", response_model=CategoryResponse,
-          status_code=status.HTTP_201_CREATED,
-          tags=["Admin - Collections"])
-async def create_category(
-    category: CategoryCreate,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(require_admin)
-):
-    """Create a new collection/category."""
-    # Check if slug already exists
-    existing = db.query(Collection).filter(Collection.slug == category.slug).first()
-    if existing:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Slug already exists")
-
-    db_collection = Collection(**{k: v for k, v in category.model_dump().items() if hasattr(Collection, k)})
-    db.add(db_collection)
-    db.commit()
-    db.refresh(db_collection)
-    cache.invalidate_pattern("collections:*")
-    cache.invalidate_pattern("products:*")
-    return _enrich_collection(db_collection)
-
-
-@app.get("/api/v1/admin/collections", response_model=List[CategoryResponse],
-         tags=["Admin - Collections"])
-@app.get("/api/v1/admin/categories", response_model=List[CategoryResponse],
-         tags=["Admin - Collections"])
-async def list_admin_categories(
-    skip: int = 0,
-    limit: int = 100,
-    active_only: bool = False,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(require_admin)
-):
-    """List all categories for admin."""
-    query = db.query(Collection)
-    if active_only:
-        query = query.filter(Collection.is_active == True)
-
-    collections = query.order_by(Collection.display_order.asc(), Collection.name.asc()).offset(skip).limit(limit).all()
-    return [_enrich_collection(col) for col in collections]
-
-
-@app.patch("/api/v1/admin/collections/{collection_id}", response_model=CategoryResponse,
-           tags=["Admin - Collections"])
-@app.patch("/api/v1/admin/categories/{category_id}", response_model=CategoryResponse,
-           tags=["Admin - Collections"])
-async def update_category(
-    category_id: Optional[int] = None,
-    collection_id: Optional[int] = None,
-    category_update: CategoryUpdate = None,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(require_admin)
-):
-    """Update a collection."""
-    cid = collection_id or category_id
-    db_collection = db.query(Collection).filter(Collection.id == cid).first()
-    if not db_collection:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Collection not found")
-
-    update_data = category_update.model_dump(exclude_unset=True)
-    for field, value in update_data.items():
-        if hasattr(db_collection, field):
-            setattr(db_collection, field, value)
-
-    db.commit()
-    db.refresh(db_collection)
-    cache.invalidate_pattern("collections:*")
-    cache.invalidate_pattern("products:*")
-    return _enrich_collection(db_collection)
-
-
-@app.delete("/api/v1/admin/collections/{collection_id}",
-            status_code=status.HTTP_204_NO_CONTENT,
-            tags=["Admin - Collections"])
-@app.delete("/api/v1/admin/categories/{category_id}",
-            status_code=status.HTTP_204_NO_CONTENT,
-            tags=["Admin - Collections"])
-async def delete_category(
-    category_id: Optional[int] = None,
-    collection_id: Optional[int] = None,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(require_admin)
-):
-    """Delete a collection."""
-    cid = collection_id or category_id
-    db_collection = db.query(Collection).filter(Collection.id == cid).first()
-    if not db_collection:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Collection not found")
-
-    db.delete(db_collection)
-    db.commit()
-    # Invalidate caches
-    cache.invalidate_pattern("collections:*")
-    cache.invalidate_pattern("products:*")
-    return
-
-
-@app.post("/api/v1/admin/collections/{collection_id}/image",
-          response_model=CategoryResponse,
-          tags=["Admin - Collections"])
-@app.post("/api/v1/admin/categories/{category_id}/image",
-          response_model=CategoryResponse,
-          tags=["Admin - Collections"])
-async def upload_category_image(
-    category_id: Optional[int] = None,
-    collection_id: Optional[int] = None,
-    file: UploadFile = File(...),
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(require_admin)
-):
-    """Upload an image for a collection."""
-    from service.r2_service import r2_service
-    cid = collection_id or category_id
-    # Check if collection exists
-    db_collection = db.query(Collection).filter(Collection.id == cid).first()
-    if not db_collection:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Collection not found")
-
-    try:
-        image_url = await r2_service.upload_image(file, folder="collections")
-        db_collection.image_url = image_url
-        db.commit()
-        db.refresh(db_collection)
-        cache.invalidate_pattern("collections:*")
-        return _enrich_collection(db_collection)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to upload category image: {str(e)}"
-        )
-
-
-@app.post("/api/v1/admin/collections/bulk/status",
-          tags=["Admin - Collections"])
-@app.post("/api/v1/admin/categories/bulk/status",
-          tags=["Admin - Collections"])
-async def bulk_update_collection_status(
-    payload: BulkCollectionStatusUpdate,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(require_admin)
-):
-    """Bulk activate/deactivate collections."""
-    updated = db.query(Collection).filter(Collection.id.in_(payload.ids)).update(
-        {"is_active": payload.is_active}, synchronize_session=False
-    )
-    db.commit()
-    cache.invalidate_pattern("collections:*")
-    return {"updated": updated}
-
-
-@app.post("/api/v1/admin/collections/bulk/reorder",
-          tags=["Admin - Collections"])
-@app.post("/api/v1/admin/categories/bulk/reorder",
-          tags=["Admin - Collections"])
-async def bulk_reorder_collections(
-    payload: BulkCollectionReorder,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(require_admin)
-):
-    """Bulk update collection display order."""
-    for item in payload.items:
-        db.query(Collection).filter(Collection.id == item["id"]).update(
-            {"display_order": item["display_order"]}, synchronize_session=False
-        )
-    db.commit()
-    cache.invalidate_pattern("collections:*")
-    return {"reordered": len(payload.items)}
-
-
-# ==================== Product Search (supplemental — main product routes in products_router) ==
-
-
-@app.get("/api/v1/search/suggestions", tags=["Search"])
-async def get_search_suggestions(
-    request: Request,
-    q: str = Query(..., min_length=1, description="Search query for suggestions"),
-    limit: int = Query(5, ge=1, le=10, description="Max suggestions per category"),
-    db: Session = Depends(get_db)
-):
-    """
-    Get search suggestions for autocomplete.
-    Returns products, categories, and trending searches.
-    Optimized for fast response times.
-    """
-    # Rate limiting: 30 requests per minute per IP
-    if not _check_rate_limit(request, "search_suggestions", limit=30, window=60):
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Too many suggestion requests. Please try again later."
-        )
-
-    from search.meilisearch_client import get_search_suggestions as meili_suggestions
-    
-    result = meili_suggestions(query=q, limit=limit, db_session=db)
-    return result
-
-
-
-
-
-
-
-
-
-
-# Cart, checkout, and legacy /cart/{user_id}/* endpoints have been moved to routes/cart.py.
+# Public + admin collection endpoints have moved to routes/collections.py.
+# Storefront search-suggestions endpoint has moved to routes/search.py.
 
 
 # ==================== Order Routes ====================
@@ -1783,82 +1512,7 @@ async def fix_orphaned_payments(
 # Internal service-to-service routes have been moved to routes/internal.py.
 
 
-# ==================== Address Routes ====================
-
-@app.post("/api/v1/addresses", response_model=AddressResponse,
-          status_code=status.HTTP_201_CREATED,
-          tags=["Addresses"])
-async def create_address(
-    address_data: AddressCreate,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    """Create a new address."""
-    address_service = AddressService(db)
-    return address_service.create_address(current_user["user_id"], address_data)
-
-
-@app.get("/api/v1/addresses", response_model=List[AddressResponse],
-         tags=["Addresses"])
-async def list_addresses(
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    """List current user's addresses."""
-    address_service = AddressService(db)
-    return address_service.get_user_addresses(current_user["user_id"])
-
-
-@app.get("/api/v1/addresses/{address_id}", response_model=AddressResponse,
-         tags=["Addresses"])
-async def get_address(
-    address_id: int,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    """Get address by ID."""
-    address_service = AddressService(db)
-    address = address_service.get_address_by_id(address_id, current_user["user_id"])
-    
-    if not address:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Address not found"
-        )
-    
-    return address
-
-
-@app.patch("/api/v1/addresses/{address_id}", response_model=AddressResponse,
-           tags=["Addresses"])
-async def update_address(
-    address_id: int,
-    address_data: AddressUpdate,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    """Update an address."""
-    address_service = AddressService(db)
-    return address_service.update_address(
-        address_id,
-        current_user["user_id"],
-        address_data
-    )
-
-
-@app.delete("/api/v1/addresses/{address_id}",
-            status_code=status.HTTP_204_NO_CONTENT,
-            tags=["Addresses"])
-async def delete_address(
-    address_id: int,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    """Delete an address."""
-    address_service = AddressService(db)
-    address_service.delete_address(address_id, current_user["user_id"])
-    return
-
+# Address endpoints have moved to routes/addresses.py.
 
 # Reviews + returns endpoints have moved to routes/reviews.py and routes/returns.py.
 

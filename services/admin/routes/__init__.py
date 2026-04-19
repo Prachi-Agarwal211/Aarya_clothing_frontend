@@ -6,9 +6,13 @@ be imported here and included in ``main.py`` so the registration story stays
 in one obvious place.
 """
 
+from .analytics import router as analytics_router
 from .backup import router as backup_router
 from .chat import router as chat_router
 from .dashboard import router as dashboard_router
+from .excel import router as excel_router
+from .inventory import router as inventory_router
+from .orders import router as orders_router
 from .returns import router as returns_router
 from .reviews import router as reviews_router
 from .site_config import router as site_config_router
@@ -20,9 +24,13 @@ from .uploads import router as uploads_router
 from .users import router as users_router
 
 __all__ = [
+    "analytics_router",
     "backup_router",
     "chat_router",
     "dashboard_router",
+    "excel_router",
+    "inventory_router",
+    "orders_router",
     "returns_router",
     "reviews_router",
     "site_config_router",

@@ -111,11 +111,11 @@ services:
   redis:
     image: redis:7-alpine
     container_name: aarya_redis
+    # NOTE: maxmemory + eviction policy live in docker/redis/redis.conf.
+    # We only inject the password here so it stays in the env (not the conf file).
     command: >
       redis-server /etc/redis/redis.conf
       --requirepass ${REDIS_PASSWORD}
-      --maxmemory 1gb
-      --maxmemory-policy volatile-lru
     expose:
       - "6379"
     volumes:
@@ -238,8 +238,8 @@ services:
       - EMAIL_OTP_USE_QUEUE=${EMAIL_OTP_USE_QUEUE:-true}
       - SMTP_SEND_MAX_ATTEMPTS=${SMTP_SEND_MAX_ATTEMPTS:-3}
       # Database connection pool (PgBouncer-compatible)
-      - DATABASE_POOL_SIZE=15
-      - DATABASE_MAX_OVERFLOW=10
+      - DATABASE_POOL_SIZE=8
+      - DATABASE_MAX_OVERFLOW=4
     expose:
       - "5001"
     depends_on:
@@ -317,8 +317,8 @@ services:
       - AI_GLM_ENABLED=${AI_GLM_ENABLED:-true}
       - AI_NVIDIA_ENABLED=${AI_NVIDIA_ENABLED:-true}
       # Database connection pool (PgBouncer-compatible)
-      - DATABASE_POOL_SIZE=15
-      - DATABASE_MAX_OVERFLOW=10
+      - DATABASE_POOL_SIZE=8
+      - DATABASE_MAX_OVERFLOW=4
       # Redis response caching for commerce (product listings, categories, etc.)
       - CACHE_BACKEND=redis
       - CACHE_URL=redis://:${REDIS_PASSWORD}@redis:6379/4
@@ -394,8 +394,8 @@ services:
       - DEBUG=${AARYA_DEBUG:-false}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       # Database connection pool (PgBouncer-compatible)
-      - DATABASE_POOL_SIZE=15
-      - DATABASE_MAX_OVERFLOW=10
+      - DATABASE_POOL_SIZE=8
+      - DATABASE_MAX_OVERFLOW=4
     expose:
       - "5003"
     depends_on:
@@ -473,8 +473,8 @@ services:
       - AI_CUSTOMER_MAX_TOKENS=${AI_CUSTOMER_MAX_TOKENS:-512}
       - AI_ADMIN_MAX_TOKENS=${AI_ADMIN_MAX_TOKENS:-2048}
       # Database connection pool (PgBouncer-compatible)
-      - DATABASE_POOL_SIZE=15
-      - DATABASE_MAX_OVERFLOW=10
+      - DATABASE_POOL_SIZE=8
+      - DATABASE_MAX_OVERFLOW=4
     expose:
       - "5004"
     depends_on:
@@ -549,7 +549,7 @@ services:
   # ============================================================
 
   nginx:
-    image: nginx:alpine
+    image: nginx:1.27-alpine
     container_name: aarya_nginx
     ports:
       - "80:80"
@@ -559,6 +559,7 @@ services:
       - ./docker/nginx/snippets:/etc/nginx/snippets:ro
       - ./docker/nginx/ssl:/etc/nginx/ssl:ro
       - ./docker/certbot/www:/var/www/certbot:ro
+      - nginx_cache:/var/cache/nginx
     depends_on:
       - frontend
       - core
@@ -610,8 +611,8 @@ services:
       - COMMERCE_SERVICE_URL=http://commerce:5002
       - INTERNAL_SERVICE_SECRET=${INTERNAL_SERVICE_SECRET:?INTERNAL_SERVICE_SECRET environment variable is required}
       # Database connection pool (PgBouncer-compatible)
-      - DATABASE_POOL_SIZE=15
-      - DATABASE_MAX_OVERFLOW=10
+      - DATABASE_POOL_SIZE=8
+      - DATABASE_MAX_OVERFLOW=4
     depends_on:
       postgres:
         condition: service_healthy
@@ -664,6 +665,7 @@ services:
   prometheus:
     image: prom/prometheus:v2.51.0
     container_name: aarya_prometheus
+    profiles: ["monitoring"]
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
@@ -704,6 +706,7 @@ services:
   grafana:
     image: grafana/grafana:10.4.0
     container_name: aarya_grafana
+    profiles: ["monitoring"]
     environment:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD environment variable is required}
@@ -744,6 +747,7 @@ services:
   node-exporter:
     image: prom/node-exporter:v1.7.0
     container_name: aarya_node_exporter
+    profiles: ["monitoring"]
     command:
       - '--path.rootfs=/host'
       - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
@@ -770,6 +774,7 @@ services:
   postgres-exporter:
     image: prometheuscommunity/postgres-exporter:v0.15.0
     container_name: aarya_postgres_exporter
+    profiles: ["monitoring"]
     environment:
       - DATA_SOURCE_NAME=postgresql://postgres:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD environment variable is required}@postgres:5432/aarya_clothing?sslmode=disable
     volumes:
@@ -796,6 +801,7 @@ services:
   redis-exporter:
     image: oliver006/redis_exporter:v1.58.0
     container_name: aarya_redis_exporter
+    profiles: ["monitoring"]
     environment:
       - REDIS_ADDR=redis://redis:6379
       - REDIS_PASSWORD=${REDIS_PASSWORD:-aarya_clothing_redis_password_2024}
@@ -819,6 +825,7 @@ services:
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:v0.49.1
     container_name: aarya_cadvisor
+    profiles: ["monitoring"]
     command:
       - '--housekeeping_interval=30s'
       - '--max_housekeeping_interval=60s'
@@ -848,8 +855,9 @@ services:
   # ============================================================
 
   dozzle:
-    image: amir20/dozzle:latest
+    image: amir20/dozzle:v8.13.13
     container_name: aarya_dozzle
+    profiles: ["monitoring"]
     restart: unless-stopped
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
@@ -868,8 +876,9 @@ services:
   # ============================================================
 
   portainer:
-    image: portainer/portainer-ce:latest
+    image: portainer/portainer-ce:2.21.0
     container_name: aarya_portainer
+    profiles: ["monitoring"]
     restart: unless-stopped
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
@@ -910,4 +919,6 @@ volumes:
   prometheus_data:
     driver: local
   grafana_data:
+    driver: local
+  nginx_cache:
     driver: local

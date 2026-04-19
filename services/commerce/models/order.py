@@ -1,9 +1,9 @@
 """Order models for commerce service."""
-from datetime import datetime, timezone
 from sqlalchemy import Column, Integer, String, Numeric, DateTime, ForeignKey, Text, Enum, Index, UniqueConstraint
 from sqlalchemy.orm import relationship
 import enum
 from database.database import Base
+from shared.time_utils import ist_naive
 
 
 class OrderStatus(str, enum.Enum):
@@ -110,8 +110,8 @@ class Order(Base):
     cancellation_reason = Column(Text, nullable=True)
     
     # Timestamps
-    created_at = Column(DateTime, default=lambda: datetime.now(IST), index=True)
-    updated_at = Column(DateTime, default=lambda: datetime.now(IST), onupdate=lambda: datetime.now(IST))
+    created_at = Column(DateTime, default=ist_naive, index=True)
+    updated_at = Column(DateTime, default=ist_naive, onupdate=ist_naive)
     shipped_at = Column(DateTime, nullable=True)
     delivered_at = Column(DateTime, nullable=True)
     
@@ -140,43 +140,48 @@ class Order(Base):
 
 
 class OrderItem(Base):
-    """Order item model with inventory tracking."""
+    """Order item - snapshot of variant + product at the time of purchase."""
     __tablename__ = "order_items"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    order_id = Column(Integer, ForeignKey("orders.id", ondelete="CASCADE"), nullable=False, index=True)
-    inventory_id = Column(Integer, ForeignKey("inventory.id"), nullable=True, index=True)
-    
-    # Snapshot fields
-    product_id = Column(Integer, nullable=True)
-    product_name = Column(String(255), nullable=True)
-    sku = Column(String(100), nullable=True)
-    size = Column(String(50), nullable=True)
-    color = Column(String(50), nullable=True)
-    hsn_code = Column(String(10), nullable=True)   # GST HSN code snapshot
-    gst_rate = Column(Numeric(5, 2), nullable=True) # GST rate snapshot at time of order
-    
-    # Pricing
-    quantity = Column(Integer, nullable=False, default=1)
-    unit_price = Column(Numeric(10, 2), nullable=False)
-    price = Column(Numeric(10, 2), nullable=False) # total price for this item (unit_price * quantity)
-    
-    # Timestamps
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    
-    # Relationships
-    order = relationship("Order", back_populates="items")
-    inventory = relationship("Inventory", foreign_keys=[inventory_id])
-    product = relationship("Product", foreign_keys=[product_id], primaryjoin="OrderItem.product_id == Product.id", viewonly=True)
+
+    id           = Column(Integer, primary_key=True, index=True)
+    order_id     = Column(Integer, ForeignKey("orders.id", ondelete="CASCADE"), nullable=False, index=True)
+    variant_id   = Column(Integer, ForeignKey("product_variants.id"), nullable=False, index=True)
+    product_id   = Column(Integer, ForeignKey("products.id"), nullable=False)
+
+    # Snapshot at purchase time (so renames/deletes don't break old orders)
+    product_name = Column(String(255), nullable=False)
+    sku          = Column(String(64),  nullable=False)
+    size         = Column(String(16),  nullable=True)
+    color        = Column(String(32),  nullable=True)
+    image_url    = Column(String(500), nullable=True)
+
+    quantity     = Column(Integer,        nullable=False, default=1)
+    unit_price   = Column(Numeric(10, 2), nullable=False)
+    line_total   = Column(Numeric(10, 2), nullable=False)
+
+    created_at   = Column(DateTime, default=ist_naive)
+
+    order   = relationship("Order", back_populates="items")
+    variant = relationship("ProductVariant", foreign_keys=[variant_id])
+    product = relationship("Product", foreign_keys=[product_id], viewonly=True)
+
+    # ---- Back-compat shims (deprecated; removed in Phase 2 with promotions) -----
+    # Older readers in commerce/main.py and admin_analytics_service.py still
+    # reference `.price` / `.inventory_id` / `.hsn_code` / `.gst_rate`. Until
+    # Phase 2 sweeps them, expose the new column behind the old name.
+    @property
+    def price(self):
+        return self.line_total
 
     @property
-    def image_url(self):
-        """Return variant image URL from inventory, falling back to product primary image."""
-        if self.inventory and self.inventory.image_url:
-            return self.inventory.image_url
-        if self.product and hasattr(self.product, 'primary_image'):
-            return self.product.primary_image
-        if self.product and hasattr(self.product, 'image_url'):
-            return self.product.image_url
-        return None
+    def inventory_id(self):
+        return self.variant_id
+
+    @property
+    def hsn_code(self):
+        return getattr(self.product, "hsn_code", None) if self.product else None
+
+    @property
+    def gst_rate(self):
+        return getattr(self.product, "gst_rate", None) if self.product else None
 

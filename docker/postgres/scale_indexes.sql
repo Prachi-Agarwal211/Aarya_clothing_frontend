@@ -7,9 +7,17 @@ CREATE INDEX IF NOT EXISTS idx_orders_user_created ON orders(user_id, created_at
 -- Orders: admin dashboard status counts
 CREATE INDEX IF NOT EXISTS idx_orders_status_created ON orders(status, created_at DESC);
 
--- Inventory: quickly find items with reservations
-CREATE INDEX IF NOT EXISTS idx_inventory_reserved_positive ON inventory(reserved_quantity)
+-- Variants: quickly find items with reservations.
+-- (The legacy `inventory` table was renamed to `product_variants` — this used
+-- to reference `inventory.reserved_quantity` which no longer exists, so the
+-- index would fail to create on a fresh DB.)
+CREATE INDEX IF NOT EXISTS idx_variants_reserved_positive ON product_variants(reserved_quantity)
   WHERE reserved_quantity > 0;
+
+-- Stock reservations: fast expiry sweep for the cron worker (Phase 4)
+CREATE INDEX IF NOT EXISTS idx_stock_reservations_pending_expires
+  ON stock_reservations(expires_at)
+  WHERE status = 'pending';
 
 -- Payment transactions: user payment history
 CREATE INDEX IF NOT EXISTS idx_payment_user_created ON payment_transactions(user_id, created_at DESC);

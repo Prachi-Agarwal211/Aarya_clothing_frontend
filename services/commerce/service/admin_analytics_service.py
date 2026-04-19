@@ -135,7 +135,7 @@ class AdminAnalyticsService:
             OrderItem.product_id,
             OrderItem.product_name,
             func.sum(OrderItem.quantity).label("total_quantity"),
-            func.sum(OrderItem.price).label("total_revenue")
+            func.sum(OrderItem.line_total).label("total_revenue")
         ).join(Order).filter(
             and_(
                 Order.status.in_([OrderStatus.COMPLETED, OrderStatus.DELIVERED]),
@@ -146,7 +146,7 @@ class AdminAnalyticsService:
             OrderItem.product_name
         ).order_by(
             func.sum(OrderItem.quantity).desc() if sort_by == "quantity"
-            else func.sum(OrderItem.price).desc()
+            else func.sum(OrderItem.line_total).desc()
         ).limit(limit).all()
         
         return [

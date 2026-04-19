@@ -11,6 +11,7 @@ import logging
 from models.order import Order, OrderItem, OrderStatus
 from models.product import Product
 from models.inventory import Inventory
+from models.product_variant import ProductVariant
 from models.address import Address
 from models.user import User, UserProfile
 from service.inventory_service import InventoryService
@@ -310,9 +311,18 @@ class OrderService:
             p.id: p for p in self.db.query(Product).filter(Product.id.in_(product_ids)).all()
         }
         inventory_map = {}
+        variant_map: Dict[str, ProductVariant] = {}
         if skus:
             inventory_map = {
                 inv.sku: inv for inv in self.db.query(Inventory).filter(Inventory.sku.in_(skus)).all()
+            }
+            # OrderItem.variant_id is a NOT NULL FK to product_variants — look up by SKU
+            # in the canonical variants table so the order_items insert can satisfy the FK.
+            variant_map = {
+                v.sku: v
+                for v in self.db.query(ProductVariant)
+                .filter(ProductVariant.sku.in_(skus))
+                .all()
             }
 
         subtotal = Decimal(0)
@@ -406,20 +416,35 @@ class OrderService:
         for cart_item in cart["items"]:
             product = products_map.get(cart_item["product_id"])
             inventory = inventory_map.get(cart_item.get("sku"))
+            variant = variant_map.get(cart_item.get("sku"))
+
+            if not variant:
+                # Cannot create an order_item without a product_variants FK.
+                self.db.rollback()
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=(
+                        f"Variant for SKU '{cart_item.get('sku')}' "
+                        f"({cart_item.get('name')}) is no longer available."
+                    ),
+                )
+
+            unit_price = Decimal(str(cart_item["price"]))
+            qty = int(cart_item["quantity"])
+            line_total = unit_price * qty
 
             order_item = OrderItem(
                 order_id=order.id,
                 product_id=cart_item["product_id"],
-                inventory_id=inventory.id if inventory else None,
+                variant_id=variant.id,
                 product_name=cart_item["name"],
-                sku=cart_item.get("sku"),
-                size=inventory.size if inventory else None,
-                color=inventory.color if inventory else None,
-                hsn_code=cart_item.get("hsn_code") or (product.hsn_code if product else None),
-                gst_rate=Decimal(str(cart_item["gst_rate"])) if cart_item.get("gst_rate") else (product.gst_rate if product else None),
-                quantity=cart_item["quantity"],
-                unit_price=Decimal(cart_item["price"]),
-                price=Decimal(cart_item["price"]) * cart_item["quantity"]
+                sku=cart_item.get("sku") or variant.sku,
+                size=variant.size or (inventory.size if inventory else None),
+                color=variant.color or (inventory.color if inventory else None),
+                image_url=cart_item.get("image") or variant.image_url,
+                quantity=qty,
+                unit_price=unit_price,
+                line_total=line_total,
             )
 
             self.db.add(order_item)

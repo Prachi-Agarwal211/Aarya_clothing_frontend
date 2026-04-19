@@ -72,10 +72,6 @@ export const forgotPassword = async (identifier, otpType = 'EMAIL') => {
   return authApi.forgotPassword(identifier, otpType);
 };
 
-export const resetPassword = async (token, password) => {
-  return authApi.resetPassword(token, password);
-};
-
 export const getCurrentUser = async () => {
   return authApi.getCurrentUser();
 };
@@ -102,7 +98,6 @@ export default {
   logout,
   register,
   forgotPassword,
-  resetPassword,
   getCurrentUser,
   changePassword,
   verifyEmail,

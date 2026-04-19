@@ -168,10 +168,13 @@ export default function ForgotPasswordPage() {
     }
 
     try {
-      const otpType = verificationMethod === 'otp_email' ? 'EMAIL' : 'SMS';
+      const otpType =
+        verificationMethod === 'otp_email'
+          ? 'EMAIL'
+          : verificationMethod === 'otp_whatsapp'
+          ? 'WHATSAPP'
+          : 'SMS';
 
-      // Fix #4: Add OTP verification step - call new /api/v1/auth/verify-reset-otp endpoint
-      // Fix #5: Use authApi.verifyResetOtp() instead of raw apiFetch
       const verifyResult = await authApi.verifyResetOtp(identifier, otpValue, otpType);
 
       // Only redirect to reset-password page AFTER successful OTP verification

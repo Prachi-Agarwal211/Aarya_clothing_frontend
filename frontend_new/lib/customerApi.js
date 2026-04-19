@@ -392,9 +392,6 @@ export const authApi = {
   verifyResetOtp: (identifier, otpCode, otpType = 'EMAIL') =>
     coreClient.post('/api/v1/auth/verify-reset-otp', { identifier, otp_code: otpCode, otp_type: otpType }),
 
-  resetPassword: (token, password) =>
-    coreClient.post('/api/v1/auth/reset-password', { token, password }),
-
   resetPasswordWithOtp: (identifier, otpCode, newPassword, otpType = 'EMAIL') =>
     coreClient.post('/api/v1/auth/reset-password-with-otp', {
       identifier,

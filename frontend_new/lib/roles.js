@@ -45,7 +45,7 @@ export const ROLE_HIERARCHY = {
   },
   [USER_ROLES.CUSTOMER]: {
     level: 1,
-    redirect: '/', // Customers go to home/products page
+    redirect: '/products', // Customers land on the catalog after login/register
     label: 'Customer',
     canAccess: [USER_ROLES.CUSTOMER],
   },
@@ -72,7 +72,7 @@ export const ROLE_ACCESS = {
  *
  * @example
  * getRedirectForRole('super_admin') // '/admin/super'
- * getRedirectForRole('customer') // '/'
+ * getRedirectForRole('customer') // '/products'
  */
 export function getRedirectForRole(role) {
   return ROLE_HIERARCHY[role]?.redirect || ROLE_HIERARCHY[USER_ROLES.CUSTOMER].redirect;

@@ -20,7 +20,6 @@ function ResetPasswordForm() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [tokenInput, setTokenInput] = useState('');
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -46,12 +45,8 @@ function ResetPasswordForm() {
     }
   }, []);
 
-  const { storedVerification, otpCodeTemp, loaded: otpClientLoaded } = otpClient;
+  const { storedVerification, otpCodeTemp } = otpClient;
 
-  // Support URL params (legacy) and sessionStorage (preferred — no OTP in query)
-  const isOtpFlow =
-    searchParams.get('verified') !== null ||
-    (otpClientLoaded && !!storedVerification?.verified);
   const verifiedIdentifier =
     searchParams.get('verified') || storedVerification?.identifier;
   const otpType =
@@ -61,7 +56,6 @@ function ResetPasswordForm() {
     storedVerification?.otpCode ||
     otpCodeTemp ||
     searchParams.get('otp_code');
-  const emailToken = searchParams.get('token');
 
   // Password validation
   const passwordRequirements = [
@@ -90,42 +84,21 @@ function ResetPasswordForm() {
     setIsSubmitting(true);
 
     try {
-      if (isOtpFlow) {
-        // OTP-based reset flow
-        if (!verifiedIdentifier || !otpCode) {
-          setError('Verification expired. Please request a new code.');
-          setIsSubmitting(false);
-          return;
-        }
-
-        // Fix #5: Use authApi.resetPasswordWithOtp() instead of raw apiFetch
-        await authApi.resetPasswordWithOtp(verifiedIdentifier, otpCode, password, otpType);
-
-        // SECURITY FIX: Clear sessionStorage after successful password reset
-        if (typeof window !== 'undefined') {
-          sessionStorage.removeItem('otp_verification');
-          sessionStorage.removeItem('otp_code_temp');
-        }
-
-        // Fix #7: Show success confirmation instead of auto-redirect
-        setIsSuccess(true);
-        setStatus('Password reset successfully!');
-      } else {
-        // Token-based reset flow (from email link)
-        const token = emailToken || tokenInput.trim();
-        if (!token) {
-          setError('Reset token is required.');
-          setIsSubmitting(false);
-          return;
-        }
-
-        // Fix #5: Use authApi.resetPassword() instead of raw apiFetch
-        await authApi.resetPassword(token, password);
-
-        // Fix #7: Show success confirmation instead of auto-redirect
-        setIsSuccess(true);
-        setStatus('Password reset successfully!');
+      if (!verifiedIdentifier || !otpCode) {
+        setError('Verification expired. Please request a new code.');
+        setIsSubmitting(false);
+        return;
       }
+
+      await authApi.resetPasswordWithOtp(verifiedIdentifier, otpCode, password, otpType);
+
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem('otp_verification');
+        sessionStorage.removeItem('otp_code_temp');
+      }
+
+      setIsSuccess(true);
+      setStatus('Password reset successfully!');
     } catch (err) {
       console.error('Reset password failed:', err);
       // Fix #9: Handle rate limit errors (429)
@@ -258,25 +231,7 @@ function ResetPasswordForm() {
       </div>
 
       <form className="w-full space-y-3 sm:space-y-3.5 animate-fade-in-up-delay" onSubmit={handleSubmit} noValidate>
-        {/* Token input for email link flow without token in URL */}
-        {!emailToken && !isOtpFlow && (
-          <div className="luxury-input-wrapper h-11 sm:h-12 rounded-xl relative group flex items-center px-4">
-            <Lock className="w-4 h-4 sm:w-5 sm:h-5 text-[#B76E79] group-focus-within:text-[#F2C29A] transition-colors duration-300 shrink-0" aria-hidden="true" />
-            <Input
-              type="text"
-              placeholder="Reset Token"
-              value={tokenInput}
-              onChange={(e) => setTokenInput(e.target.value)}
-              variant="minimal"
-              className="h-full pl-3 sm:pl-4 text-[#EAE0D5] placeholder:text-[#8A6A5C] text-sm sm:text-base"
-              autoComplete="one-time-code"
-              aria-label="Reset token"
-            />
-          </div>
-        )}
-
-        {/* Verified identifier display for OTP flow */}
-        {isOtpFlow && verifiedIdentifier && (
+        {verifiedIdentifier && (
           <div className="flex items-center gap-2 p-2.5 rounded-lg bg-[#7A2F57]/15 border border-[#B76E79]/20 text-left">
             <CheckCircle className="w-4 h-4 text-[#F2C29A] flex-shrink-0" />
             <div className="min-w-0">

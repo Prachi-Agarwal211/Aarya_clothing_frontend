@@ -34,7 +34,7 @@ from schemas.auth import (
     UserCreate, UserResponse, UserProfileUpdate,
     Token, LoginRequest, LoginResponse,
     TokenRefresh, ChangePasswordRequest,
-    ForgotPasswordRequest, PasswordResetConfirm, ResetPasswordWithOtpRequest,
+    ForgotPasswordRequest, ResetPasswordWithOtpRequest,
     VerifyResetOtpRequest, VerifyResetOtpResponse
 )
 from schemas.otp import OTPSendRequest, OTPVerifyRequest, OTPType, VerifyRegistrationOTPBody
@@ -979,93 +979,57 @@ async def change_password(
 
 # ==================== Password Reset Routes ====================
 
-@app.post("/api/v1/auth/forgot-password", status_code=status.HTTP_200_OK,
-          tags=["Authentication"])
-async def forgot_password(
-    request_data: ForgotPasswordRequest,
-    request: Request,
-    db: Session = Depends(get_db)
-):
-    """
-    Request password reset email.
-    Sends a password reset link to the user's email if it exists.
-    """
-    # Simple rate limiting check via Redis
-    try:
-        limit_key = f"rate_limit:pw_reset:{request_data.identifier}"
-        count = redis_client.get_cache(limit_key) or 0
-        if int(count) >= settings.PASSWORD_RESET_RATE_LIMIT:
-            raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail=f"Too many reset requests. Please try again later."
-            )
-        redis_client.set_cache(limit_key, int(count) + 1, ttl=settings.PASSWORD_RESET_RATE_WINDOW)
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.warning(f"Rate limiting error (skipping): {e}")
+# NOTE: The link-based password-reset flow (forgot-password / reset-password /
+# verify-reset-token) was removed in Phase 1 in favour of the OTP-only flow.
+# These endpoints remain for legacy clients but always return HTTP 410 Gone.
 
-    auth_service = AuthService(db)
-
-    # Get frontend URL from referer or use default
-    frontend_url = request.headers.get("origin", "http://localhost:3000")
-
-    try:
-        result = auth_service.request_password_reset(
-            email=request_data.identifier,
-            frontend_url=frontend_url
-        )
-        return result
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=str(e)
-        )
+_LINK_RESET_GONE_DETAIL = {
+    "error": "endpoint_deprecated",
+    "message": (
+        "Password reset by email link has been removed. "
+        "Use POST /api/v1/auth/forgot-password-otp + "
+        "/api/v1/auth/verify-reset-otp + /api/v1/auth/reset-password-with-otp."
+    ),
+}
 
 
-@app.post("/api/v1/auth/reset-password", status_code=status.HTTP_200_OK,
-          tags=["Authentication"])
-async def reset_password(
-    request_data: PasswordResetConfirm,
-    db: Session = Depends(get_db)
-):
-    """
-    Reset password using token from email.
-    """
-    auth_service = AuthService(db)
-    
-    try:
-        result = auth_service.reset_password(
-            token=request_data.token,
-            new_password=request_data.new_password
-        )
-        return result
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
+@app.post(
+    "/api/v1/auth/forgot-password",
+    status_code=status.HTTP_410_GONE,
+    tags=["Authentication", "Deprecated"],
+    deprecated=True,
+)
+async def forgot_password_deprecated():
+    raise HTTPException(
+        status_code=status.HTTP_410_GONE,
+        detail=_LINK_RESET_GONE_DETAIL,
+    )
 
 
-@app.get("/api/v1/auth/verify-reset-token/{token}", status_code=status.HTTP_200_OK,
-         tags=["Authentication"])
-async def verify_reset_token(
-    token: str,
-    db: Session = Depends(get_db)
-):
-    """
-    Verify if a password reset token is valid.
-    """
-    auth_service = AuthService(db)
-    user = auth_service.verify_reset_token(token)
+@app.post(
+    "/api/v1/auth/reset-password",
+    status_code=status.HTTP_410_GONE,
+    tags=["Authentication", "Deprecated"],
+    deprecated=True,
+)
+async def reset_password_deprecated():
+    raise HTTPException(
+        status_code=status.HTTP_410_GONE,
+        detail=_LINK_RESET_GONE_DETAIL,
+    )
 
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid or expired password reset token"
-        )
 
-    return {"valid": True, "email": user.email}
+@app.get(
+    "/api/v1/auth/verify-reset-token/{token}",
+    status_code=status.HTTP_410_GONE,
+    tags=["Authentication", "Deprecated"],
+    deprecated=True,
+)
+async def verify_reset_token_deprecated(token: str):
+    raise HTTPException(
+        status_code=status.HTTP_410_GONE,
+        detail=_LINK_RESET_GONE_DETAIL,
+    )
 
 
 @app.post("/api/v1/auth/forgot-password-otp", status_code=status.HTTP_200_OK, tags=["Authentication"])

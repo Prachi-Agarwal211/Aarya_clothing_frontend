@@ -168,16 +168,20 @@ def set_auth_cookies(response: Response, auth_data: dict, remember_me: bool = Fa
     tokens = auth_data["tokens"]
     session_id = auth_data.get("session_id")
 
-    # Access token cookie (30 minutes)
     access_max_age = settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
 
-    # Refresh token cookie (ALWAYS 24 hours - "Remember Me" extends to 7 days in future)
-    # FIX: Previously used ACCESS_TOKEN_EXPIRE (30 min) when remember_me=False
-    # This caused users to be logged out after 30 minutes even with valid sessions
-    refresh_max_age = settings.REFRESH_TOKEN_EXPIRE_MINUTES * 60  # 24 hours
+    # Persistent refresh: 90 days by default, 365 days when remember_me=True
+    # — Amazon/Flipkart-style "stay signed in" behaviour. The actual cap is
+    # configured in shared.base_config so we don't hardcode it here.
+    refresh_days = (
+        settings.REFRESH_TOKEN_DAYS_REMEMBER
+        if remember_me
+        else settings.REFRESH_TOKEN_DAYS_DEFAULT
+    )
+    refresh_max_age = refresh_days * 24 * 60 * 60
 
-    # Session cookie (24 hours)
-    session_max_age = settings.SESSION_EXPIRE_MINUTES * 60
+    # Session cookie tracks the refresh window so it doesn't drop early.
+    session_max_age = refresh_max_age
 
     # FIX: Set cookie domain for production to support both www and non-www
     # In development, domain=None (host-only cookies)
@@ -753,11 +757,11 @@ async def login(
     Sets HTTP-Only cookies for 24-hour session.
     """
     # Per-account rate limiting to prevent brute-force without blocking shared IPs.
-    # Using the submitted username as the rate limit key — blocks attacks on specific
-    # accounts while allowing other users behind the same NAT to log in freely.
+    # Keyed on the submitted identifier so attacks on a specific account do not
+    # punish other users behind the same NAT.
     if not _should_bypass_local_rate_limit(http_request):
         try:
-            account_id = request.username.lower().strip() if request.username else 'unknown'
+            account_id = (request.identifier or 'unknown').lower().strip()
             limit_key = f'rate_limit:login:{account_id}'
             count = redis_client.get_cache(limit_key) or 0
             if int(count) >= settings.LOGIN_RATE_LIMIT:
@@ -773,20 +777,27 @@ async def login(
 
     try:
         auth_service = AuthService(db)
-        
+
+        client_ip = http_request.client.host if http_request.client else None
+        client_ua = http_request.headers.get("user-agent")
+
         result = auth_service.login(
             identifier=request.identifier,
             password=request.password,
-            remember_me=request.remember_me
+            remember_me=request.remember_me,
+            device_fingerprint=request.device_fingerprint,
+            device_name=request.device_name,
+            last_ip=client_ip,
+            user_agent=client_ua,
         )
-        
-        # Set authentication cookies
+
         set_auth_cookies(response, result, request.remember_me)
-        
+
         return LoginResponse(
             user=UserResponse.model_validate(result["user"]),
             tokens=Token(**result["tokens"]),
-            session_id=result["session_id"]
+            session_id=result["session_id"],
+            device_trusted=bool(result.get("device_trusted", False)),
         )
     except ValueError as e:
         msg = str(e)
@@ -814,6 +825,91 @@ async def login(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error"
         )
+
+
+# ----------------------------------------------------------------------
+# OTP login (passwordless / step-up)
+# ----------------------------------------------------------------------
+# `login-otp-request` sends a one-time code to the user via the chosen
+# channel; `login-otp-verify` exchanges the code (plus optional device
+# fingerprint) for a session, and remembers the device so the next login
+# from the same browser can skip the second factor.
+
+@app.post("/api/v1/auth/login-otp-request",
+          status_code=status.HTTP_200_OK,
+          tags=["Authentication"])
+async def login_otp_request(
+    payload: dict,
+    http_request: Request,
+    db: Session = Depends(get_db),
+):
+    identifier = (payload.get("identifier") or "").strip()
+    if not identifier:
+        raise HTTPException(status_code=400, detail="identifier is required")
+    otp_type = (payload.get("otp_type") or payload.get("channel") or "EMAIL").upper()
+
+    # Lightweight account-scoped throttle to prevent OTP-spam.
+    if not _should_bypass_local_rate_limit(http_request):
+        try:
+            limit_key = f"rate_limit:login_otp_send:{identifier.lower()}"
+            count = redis_client.get_cache(limit_key) or 0
+            if int(count) >= 6:
+                raise HTTPException(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail="Too many OTP requests. Please wait a few minutes and try again.",
+                )
+            redis_client.set_cache(limit_key, int(count) + 1, ttl=600)
+        except HTTPException:
+            raise
+        except Exception as exc:
+            logger.warning(f"login_otp_request rate limit error (skipping): {exc}")
+
+    try:
+        result = AuthService(db).send_login_otp(identifier=identifier, otp_type=otp_type)
+        return {
+            "message": result.get("message", "OTP sent"),
+            "otp_type": result.get("otp_type", otp_type),
+            "expires_in": result.get("expires_in", 600),
+        }
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@app.post("/api/v1/auth/login-otp-verify",
+          response_model=LoginResponse,
+          tags=["Authentication"])
+async def login_otp_verify(
+    request: LoginRequest,
+    response: Response,
+    http_request: Request,
+    db: Session = Depends(get_db),
+):
+    if not request.otp_code:
+        raise HTTPException(status_code=400, detail="otp_code is required")
+    try:
+        client_ip = http_request.client.host if http_request.client else None
+        client_ua = http_request.headers.get("user-agent")
+        result = AuthService(db).verify_login_otp(
+            identifier=request.identifier,
+            otp_code=request.otp_code,
+            remember_me=request.remember_me,
+            device_fingerprint=request.device_fingerprint,
+            device_name=request.device_name,
+            last_ip=client_ip,
+            user_agent=client_ua,
+        )
+        set_auth_cookies(response, result, request.remember_me)
+        return LoginResponse(
+            user=UserResponse.model_validate(result["user"]),
+            tokens=Token(**result["tokens"]),
+            session_id=result["session_id"],
+            device_trusted=bool(result.get("device_trusted", True)),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:  # pragma: no cover — defensive
+        logger.error(f"OTP login error: {exc}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @app.post("/api/v1/auth/refresh", response_model=Token,

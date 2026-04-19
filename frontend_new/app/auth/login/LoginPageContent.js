@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../../src/store/authStore';
 import logger from '../../../lib/logger';
+import { getDeviceFingerprint, getDeviceName } from '../../../lib/deviceFingerprint';
 
 function LoginPageContent({ searchParams }) {
   const [loginMode, setLoginMode] = useState('password');
@@ -113,12 +114,19 @@ function LoginPageContent({ searchParams }) {
         otpType = 'SMS';
       }
 
+      const [device_fingerprint, device_name] = await Promise.all([
+        getDeviceFingerprint(),
+        Promise.resolve(getDeviceName()),
+      ]);
+
       const response = await login({
         identifier: identifier.trim(),
         otp_code: otpValue,
         login_method: 'otp',
         otp_type: otpType,
         remember_me: rememberMe,
+        device_fingerprint,
+        device_name,
       });
 
       logger.info('OTP Login successful:', response);
@@ -145,10 +153,17 @@ function LoginPageContent({ searchParams }) {
     }
 
     try {
+      const [device_fingerprint, device_name] = await Promise.all([
+        getDeviceFingerprint(),
+        Promise.resolve(getDeviceName()),
+      ]);
+
       const response = await login({
         identifier: identifier.trim(),
         password,
         remember_me: rememberMe,
+        device_fingerprint,
+        device_name,
       });
 
       logger.info('Login successful:', response);

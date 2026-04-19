@@ -415,12 +415,18 @@ class AuthService:
         identifier: Optional[str] = None,
         password: Optional[str] = None,
         remember_me: bool = False,
+        device_fingerprint: Optional[str] = None,
+        device_name: Optional[str] = None,
+        last_ip: Optional[str] = None,
+        user_agent: Optional[str] = None,
         # Backwards-compat kwargs:
         username: Optional[str] = None,
         email: Optional[str] = None,
         phone: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Authenticate using a single identifier (email / username / phone)."""
+        from service.device_trust_service import is_device_trusted, remember_device
+
         ident = identifier or username or email or phone
         if not ident or not password:
             raise ValueError("Invalid credentials")
@@ -441,10 +447,24 @@ class AuthService:
             logger.warning(f"Failed login for user: {user.id}")
             raise ValueError("Invalid credentials")
 
+        device_was_trusted = is_device_trusted(self.db, user.id, device_fingerprint)
+
         user.last_login_at = now_ist()
         user.failed_login_attempts = 0
         self.db.commit()
         self.db.refresh(user)
+
+        # Password is the strong factor here, so we always remember the
+        # fingerprint after a successful password login. Future logins
+        # from the same browser will skip the OTP challenge.
+        remember_device(
+            self.db,
+            user.id,
+            device_fingerprint,
+            device_name=device_name,
+            last_ip=last_ip,
+            user_agent=user_agent,
+        )
 
         access_token = self.create_access_token(
             user.id, user.role, user.email, user.username,
@@ -459,6 +479,7 @@ class AuthService:
             "message": "Login successful",
             "user": self._user_payload(user),
             "session_id": secrets.token_urlsafe(32),
+            "device_trusted": device_was_trusted,
             "tokens": {
                 "access_token": access_token,
                 "refresh_token": refresh_token,
@@ -536,7 +557,12 @@ class AuthService:
         identifier: str,
         otp_code: str,
         remember_me: bool = False,
+        device_fingerprint: Optional[str] = None,
+        device_name: Optional[str] = None,
+        last_ip: Optional[str] = None,
+        user_agent: Optional[str] = None,
     ) -> Dict[str, Any]:
+        from service.device_trust_service import remember_device
         from service.otp_service import OTPService
 
         user = _resolve_user_query(self.db, identifier)
@@ -553,6 +579,17 @@ class AuthService:
         self.db.commit()
         self.db.refresh(user)
 
+        # OTP is itself a second factor — once it succeeds, this device
+        # is trusted for subsequent logins.
+        remember_device(
+            self.db,
+            user.id,
+            device_fingerprint,
+            device_name=device_name,
+            last_ip=last_ip,
+            user_agent=user_agent,
+        )
+
         access_token = self.create_access_token(
             user.id, user.role, user.email, user.username,
             user.is_active, remember_me=remember_me,
@@ -565,6 +602,7 @@ class AuthService:
             "message": "Login successful",
             "user": self._user_payload(user),
             "session_id": secrets.token_urlsafe(32),
+            "device_trusted": True,
             "tokens": {
                 "access_token": access_token,
                 "refresh_token": refresh_token,

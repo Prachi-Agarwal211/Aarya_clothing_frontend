@@ -183,3 +183,28 @@ class VerificationToken(Base):
     # Removed unused column: ip_address
     
     user: Mapped["User"] = relationship("User")
+
+
+class TrustedDevice(Base):
+    """
+    Devices the user has explicitly verified via OTP.
+
+    Lookup key is `(user_id, fingerprint)`. When a login request arrives
+    with a fingerprint that already exists for that user we treat the
+    device as trusted and may skip the second-factor OTP challenge.
+    The fingerprint is the sha256 of UA + screen + language + timezone
+    computed client-side; we never store raw browser data here.
+    """
+    __tablename__ = "trusted_devices"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    fingerprint = Column(String(128), nullable=False, index=True)
+    device_name = Column(String(120), nullable=True)
+    last_ip = Column(String(64), nullable=True)
+    user_agent = Column(String(512), nullable=True)
+    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    last_seen_at = Column(DateTime, server_default=func.now(), nullable=False)
+    revoked_at = Column(DateTime, nullable=True)
+
+    user: Mapped["User"] = relationship("User")

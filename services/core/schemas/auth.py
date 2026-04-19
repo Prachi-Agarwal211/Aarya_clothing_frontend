@@ -170,6 +170,19 @@ class LoginRequest(BaseModel):
     login_method: Optional[str] = None
     otp_code: Optional[str] = None
     otp_type: Optional[str] = None
+    # Stable client-derived fingerprint (UA + screen + language + timezone hash).
+    # When this matches a row in `trusted_devices` for the user, the backend
+    # may skip the second-factor OTP challenge.
+    device_fingerprint: Optional[str] = Field(
+        default=None,
+        max_length=128,
+        description="Client-side device fingerprint (sha256 hex, ~64 chars)",
+    )
+    device_name: Optional[str] = Field(
+        default=None,
+        max_length=120,
+        description="Human-readable device label (e.g. 'Chrome on Windows')",
+    )
 
 
 class LoginResponse(BaseModel):
@@ -178,6 +191,10 @@ class LoginResponse(BaseModel):
     user: UserResponse
     tokens: Token
     session_id: str
+    # True when the request's device_fingerprint was already in the user's
+    # `trusted_devices`. Frontend can use this to suppress the "we sent you
+    # an OTP because this is a new device" prompt.
+    device_trusted: bool = False
 
 
 # ==================== Password Schemas ====================

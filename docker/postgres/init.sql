@@ -6,6 +6,9 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS vector;
 
 SET timezone = 'Asia/Kolkata';
+-- Persist Asia/Kolkata for every future connection so func.now() / NOW()
+-- defaults emit IST. Without this the SET only affects the init script.
+ALTER DATABASE aarya_clothing SET timezone TO 'Asia/Kolkata';
 
 -- ============================================
 -- ENUMS
@@ -58,6 +61,24 @@ CREATE TABLE verification_tokens (
     ip_address  VARCHAR(45),
     created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Devices the user has explicitly verified via OTP. When a login arrives
+-- with a fingerprint already trusted by that user, the backend skips the
+-- second-factor OTP challenge ("re-prompt OTP only on new devices").
+CREATE TABLE trusted_devices (
+    id            SERIAL PRIMARY KEY,
+    user_id       INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    fingerprint   VARCHAR(128) NOT NULL,
+    device_name   VARCHAR(120),
+    last_ip       VARCHAR(64),
+    user_agent    VARCHAR(512),
+    created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_seen_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    revoked_at    TIMESTAMP,
+    UNIQUE (user_id, fingerprint)
+);
+CREATE INDEX idx_trusted_devices_user ON trusted_devices(user_id);
+CREATE INDEX idx_trusted_devices_fp   ON trusted_devices(fingerprint);
 
 -- ============================================
 -- COMMERCE - clean nested product model

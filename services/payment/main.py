@@ -965,22 +965,12 @@ async def create_cashfree_order(
                 detail=f"Order amount too low: {request.amount} paise. Minimum is {MIN_AMOUNT_PAISE} paise."
             )
 
-        # Get user details for prefill
+        # Use whatever the JWT carried — payment service intentionally does not
+        # cross-import from `core` for a profile lookup. The token claims are
+        # populated on login from the same User row, so they are authoritative.
         user_email = current_user.get("email", "")
-        user_phone = ""
+        user_phone = current_user.get("phone", "")
         user_name = current_user.get("username", "")
-
-        # Try to get from user profile
-        try:
-            from service.auth_service import AuthService
-            auth_service = AuthService(db)
-            user = auth_service.get_user_by_id(current_user.get("user_id"))
-            if user and user.profile:
-                user_email = user.email or user_email
-                user_phone = user.profile.phone or user_phone
-                user_name = user.profile.full_name or user_name
-        except Exception:
-            pass  # Use defaults
 
         # Create Cashfree order
         order = await cashfree.create_order(

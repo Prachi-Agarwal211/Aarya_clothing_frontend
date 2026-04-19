@@ -1,5 +1,6 @@
-"""Core Platform Service - Aarya Clothing"""
-from service.auth_service_otp import AuthServiceOTP as AuthService
-from service.otp_service import OTPService
-
-__all__ = ["AuthService", "OTPService"]
+"""Core platform service package — exposes the canonical auth + OTP services."""
+
+from service.auth_service import AuthService, AuthServiceOTP
+from service.otp_service import OTPService
+
+__all__ = ["AuthService", "AuthServiceOTP", "OTPService"]

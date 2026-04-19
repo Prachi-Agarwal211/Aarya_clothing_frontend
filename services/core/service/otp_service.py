@@ -1,233 +1,308 @@
-"""OTP Service for Aarya Clothing Core Platform."""
+"""OTP Service for Aarya Clothing Core Platform.
 
-import secrets
+Handles 6-digit OTP generation, persistence (``verification_tokens`` table)
+and verification across the EMAIL / SMS / WHATSAPP delivery channels.
+
+``verify_otp`` is intentionally polymorphic — both legacy callers in
+``services/core/main.py`` (which pass an ``OTPVerifyRequest`` Pydantic model)
+and modern callers in ``service/auth_service.py`` (which pass
+``user_id`` / ``otp_code`` / ``token_type`` keyword arguments) work against
+the same return contract.
+"""
+
+from __future__ import annotations
+
 import logging
+import secrets
 from datetime import datetime, timedelta, timezone
-from typing import Optional, Dict, Any
-from sqlalchemy.orm import Session
-from sqlalchemy.exc import IntegrityError
+from typing import Any, Dict, Optional, Union
 
-from models import VerificationToken
+from sqlalchemy import or_
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
+
 from core.redis_client import redis_client
+from models import User, VerificationToken
 
 logger = logging.getLogger(__name__)
 
 
+# Maps an OTP-flow ``purpose`` (used by the public schema) to the
+# ``token_type`` value persisted in the verification_tokens table.
+_PURPOSE_TO_TOKEN_TYPE: Dict[str, str] = {
+    "registration": "email_verification",
+    "verification": "email_verification",
+    "email_verification": "email_verification",
+    "login": "login",
+    "password_reset": "password_reset",
+}
+
+
+def _coerce_token_type(purpose_or_type: Optional[str]) -> str:
+    if not purpose_or_type:
+        return "email_verification"
+    key = str(purpose_or_type).lower()
+    return _PURPOSE_TO_TOKEN_TYPE.get(key, key)
+
+
+def _redis_safe(call):
+    """Run a ``redis_client`` call, swallowing connection errors so DB-only
+    OTP verification still works during outages."""
+    try:
+        return call()
+    except Exception as exc:  # pragma: no cover - infrastructure path
+        logger.warning(f"OTP redis call failed (best-effort): {exc}")
+        return None
+
+
 class OTPService:
-    """Service for OTP generation, verification, and management."""
+    """Generation, persistence and verification of 6-digit OTPs."""
 
     def __init__(self, db: Optional[Session]):
-        """Initialize OTP service with database session."""
         self.db = db
         self.logger = logging.getLogger(f"{__name__}.OTPService")
 
-    # ==================== OTP Generation ====================
+    # ============================================================
+    # OTP generation
+    # ============================================================
 
     def generate_otp(self, length: int = 6) -> str:
-        """Generate a random OTP code."""
-        # Generate numeric OTP for better UX
-        otp = ''.join(secrets.choice('0123456789') for _ in range(length))
-        return otp
+        return "".join(secrets.choice("0123456789") for _ in range(length))
 
     def create_verification_token(
         self,
         user_id: int,
-        token_type: str = 'email_verification',
-        expires_in: int = 3600,
-        delivery_method: str = 'EMAIL'
+        token_type: str = "email_verification",
+        expires_in: int = 600,
+        delivery_method: str = "EMAIL",
     ) -> Dict[str, Any]:
-        """Create a verification token for OTP."""
+        """Create a fresh OTP for ``user_id`` and ``token_type``.
+
+        Any pre-existing un-verified OTP for this combination is invalidated
+        first so a user can never end up with multiple live codes for the
+        same flow.
+        """
         try:
-            # Generate OTP code
+            self._invalidate_active(user_id, token_type)
+
             otp_code = self.generate_otp()
-            
-            # Calculate expiry time
             expires_at = datetime.now(timezone.utc) + timedelta(seconds=expires_in)
-            
-            # Create verification token record
-            verification_token = VerificationToken(
+            token = VerificationToken(
                 user_id=user_id,
                 token=otp_code,
                 token_type=token_type,
                 expires_at=expires_at,
                 delivery_method=delivery_method,
-                verified_at=None
+                verified_at=None,
             )
-            
-            self.db.add(verification_token)
+            self.db.add(token)
             self.db.commit()
-            self.db.refresh(verification_token)
-            
-            # Also store in Redis for rate limiting and quick lookup
-            if redis_client:
-                redis_key = f"otp:{user_id}:{token_type}"
-                redis_client.setex(
-                    redis_key,
-                    expires_in,
-                    str(verification_token.id)
+            self.db.refresh(token)
+
+            _redis_safe(
+                lambda: redis_client.set_cache(
+                    f"otp:{user_id}:{token_type}", str(token.id), ttl=expires_in
                 )
-            
+            )
             return {
-                'success': True,
-                'otp_code': otp_code,
-                'token_id': verification_token.id,
-                'expires_at': expires_at.isoformat(),
-                'delivery_method': delivery_method
+                "success": True,
+                "otp_code": otp_code,
+                "token_id": token.id,
+                "expires_at": expires_at.isoformat(),
+                "expires_in": expires_in,
+                "delivery_method": delivery_method,
             }
 
-        except IntegrityError as e:
+        except IntegrityError as exc:
             self.db.rollback()
-            logger.error(f"Integrity error creating verification token: {e}")
-            return {'success': False, 'error': 'Database integrity error'}
-        except Exception as e:
+            logger.error(f"Integrity error creating verification token: {exc}")
+            return {"success": False, "error": "Database integrity error"}
+        except Exception as exc:  # pragma: no cover - defensive
             self.db.rollback()
-            logger.error(f"Error creating verification token: {e}")
-            return {'success': False, 'error': 'Failed to create verification token'}
+            logger.error(f"Error creating verification token: {exc}")
+            return {"success": False, "error": "Failed to create verification token"}
 
-    # ==================== OTP Verification ====================
+    # ============================================================
+    # OTP verification
+    # ============================================================
 
     def verify_otp(
         self,
-        user_id: int,
-        otp_code: str,
-        token_type: str = 'email_verification'
+        user_id_or_request: Union[int, Any],
+        otp_code: Optional[str] = None,
+        token_type: str = "email_verification",
     ) -> Dict[str, Any]:
-        """Verify an OTP code."""
+        """Verify a 6-digit OTP.
+
+        Two calling conventions are supported:
+
+        * ``verify_otp(user_id, otp_code, token_type)`` (keyword form, used
+          internally by ``AuthService``).
+        * ``verify_otp(OTPVerifyRequest(...))`` (used by the FastAPI routes
+          in ``services/core/main.py``); we resolve the user by ``email``
+          or ``phone`` and translate ``purpose`` to ``token_type``.
+
+        The response always contains ``success`` (boolean), ``verified``
+        (boolean) and ``message`` (string) so both styles of caller can
+        consume it without conditional juggling.
+        """
+        # --- Normalise inputs ---------------------------------------------
+        if hasattr(user_id_or_request, "otp_code"):
+            req = user_id_or_request
+            otp_code = req.otp_code
+            token_type = _coerce_token_type(getattr(req, "purpose", None))
+            user_id = self._lookup_user_id(
+                email=getattr(req, "email", None),
+                phone=getattr(req, "phone", None),
+            )
+            if not user_id:
+                return {
+                    "success": False,
+                    "verified": False,
+                    "message": "User not found",
+                    "error": "User not found",
+                }
+        else:
+            user_id = user_id_or_request
+            token_type = _coerce_token_type(token_type)
+
+        if not otp_code or not str(otp_code).isdigit() or len(str(otp_code)) != 6:
+            return {
+                "success": False,
+                "verified": False,
+                "message": "OTP code must be 6 digits",
+                "error": "Invalid OTP format",
+            }
+
+        # --- Database lookup ----------------------------------------------
         try:
-            # First check Redis for rate limiting
-            if redis_client:
-                redis_key = f"otp:{user_id}:{token_type}"
-                token_id = redis_client.get(redis_key)
-                
-                if not token_id:
-                    return {'success': False, 'error': 'OTP expired or not found'}
-            
-            # Query the verification token
-            verification_token = (
+            token = (
                 self.db.query(VerificationToken)
                 .filter(
                     VerificationToken.user_id == user_id,
-                    VerificationToken.token == otp_code,
+                    VerificationToken.token == str(otp_code),
                     VerificationToken.token_type == token_type,
-                    VerificationToken.verified_at == None  # Not already verified
+                    VerificationToken.verified_at.is_(None),
                 )
+                .order_by(VerificationToken.id.desc())
                 .first()
             )
-            
-            if not verification_token:
-                return {'success': False, 'error': 'Invalid OTP code'}
-            
-            # Check if OTP is expired
-            if verification_token.expires_at < datetime.now(timezone.utc):
-                return {'success': False, 'error': 'OTP has expired'}
-            
-            # Mark token as verified
-            verification_token.verified_at = datetime.now(timezone.utc)
+            if not token:
+                return {
+                    "success": False,
+                    "verified": False,
+                    "message": "Invalid OTP code",
+                    "error": "Invalid OTP code",
+                }
+            if token.expires_at < datetime.now(timezone.utc):
+                return {
+                    "success": False,
+                    "verified": False,
+                    "message": "OTP has expired",
+                    "error": "OTP has expired",
+                }
+
+            token.verified_at = datetime.now(timezone.utc)
             self.db.commit()
-            
-            # Invalidate Redis entry
-            if redis_client and verification_token.id:
-                redis_key = f"otp:{user_id}:{token_type}"
-                redis_client.delete(redis_key)
-            
+            _redis_safe(lambda: redis_client.delete_cache(f"otp:{user_id}:{token_type}"))
+
             return {
-                'success': True,
-                'user_id': user_id,
-                'verified_at': verification_token.verified_at.isoformat()
+                "success": True,
+                "verified": True,
+                "message": "OTP verified",
+                "user_id": user_id,
+                "verified_at": token.verified_at.isoformat(),
             }
 
-        except Exception as e:
-            logger.error(f"Error verifying OTP: {e}")
-            return {'success': False, 'error': 'Failed to verify OTP'}
+        except Exception as exc:
+            logger.error(f"Error verifying OTP: {exc}")
+            return {
+                "success": False,
+                "verified": False,
+                "message": "Failed to verify OTP",
+                "error": str(exc),
+            }
 
-    # ==================== OTP Management ====================
+    # ============================================================
+    # OTP management
+    # ============================================================
 
     def resend_otp(
         self,
         user_id: int,
-        token_type: str = 'email_verification',
-        delivery_method: str = 'EMAIL'
+        token_type: str = "email_verification",
+        delivery_method: str = "EMAIL",
     ) -> Dict[str, Any]:
-        """Resend OTP with rate limiting."""
-        try:
-            # Check Redis for rate limiting (max 3 attempts per hour)
-            if redis_client:
-                rate_limit_key = f"otp_resend:{user_id}:{token_type}"
-                attempt_count = redis_client.get(rate_limit_key)
-                
-                if attempt_count and int(attempt_count) >= 3:
-                    return {'success': False, 'error': 'Too many attempts. Try again later.'}
-                
-                # Increment attempt count (expires in 1 hour)
-                redis_client.incr(rate_limit_key)
-                redis_client.expire(rate_limit_key, 3600)
-            
-            # Invalidate old token
-            old_token = (
-                self.db.query(VerificationToken)
-                .filter(
-                    VerificationToken.user_id == user_id,
-                    VerificationToken.token_type == token_type
-                )
-                .first()
+        """Issue a fresh OTP, rate-limited to 3 sends per hour per token_type."""
+        rate_key = f"otp_resend:{user_id}:{token_type}"
+        attempts = _redis_safe(lambda: redis_client.get_cache(rate_key))
+        if attempts and int(attempts) >= 3:
+            return {
+                "success": False,
+                "error": "Too many attempts. Try again later.",
+            }
+        _redis_safe(
+            lambda: redis_client.set_cache(
+                rate_key, int(attempts or 0) + 1, ttl=3600
             )
-            
-            if old_token:
-                old_token.verified_at = datetime.now(timezone.utc)
-                self.db.commit()
-            
-            # Create new OTP
-            result = self.create_verification_token(
-                user_id=user_id,
-                token_type=token_type,
-                delivery_method=delivery_method
-            )
-            
-            return result
-
-        except Exception as e:
-            logger.error(f"Error resending OTP: {e}")
-            return {'success': False, 'error': 'Failed to resend OTP'}
+        )
+        return self.create_verification_token(
+            user_id=user_id,
+            token_type=token_type,
+            delivery_method=delivery_method,
+        )
 
     def invalidate_otp(
         self,
         user_id: int,
-        token_type: str = 'email_verification'
+        token_type: str = "email_verification",
     ) -> bool:
-        """Invalidate all OTPs for a user."""
+        return self._invalidate_active(user_id, token_type)
+
+    def _invalidate_active(self, user_id: int, token_type: str) -> bool:
         try:
-            # Mark all tokens as verified (invalidating them)
-            self.db.query(VerificationToken)
+            updated = (
+                self.db.query(VerificationToken)
                 .filter(
                     VerificationToken.user_id == user_id,
                     VerificationToken.token_type == token_type,
-                    VerificationToken.verified_at == None
+                    VerificationToken.verified_at.is_(None),
                 )
                 .update(
                     {VerificationToken.verified_at: datetime.now(timezone.utc)},
-                    synchronize_session=False
+                    synchronize_session=False,
                 )
-            
+            )
             self.db.commit()
-            
-            # Invalidate Redis entries
-            if redis_client:
-                redis_key = f"otp:{user_id}:{token_type}"
-                redis_client.delete(redis_key)
-            
-            return True
-        except Exception as e:
-            logger.error(f"Error invalidating OTP: {e}")
+            _redis_safe(
+                lambda: redis_client.delete_cache(f"otp:{user_id}:{token_type}")
+            )
+            return updated >= 0
+        except Exception as exc:
+            logger.error(f"Error invalidating OTP: {exc}")
             self.db.rollback()
             return False
 
-    # ==================== Utility Methods ====================
+    # ============================================================
+    # Helpers
+    # ============================================================
 
-    def get_verification_token(
+    def _lookup_user_id(
         self,
-        token_id: int
-    ) -> Optional[VerificationToken]:
-        """Get verification token by ID."""
+        email: Optional[str] = None,
+        phone: Optional[str] = None,
+    ) -> Optional[int]:
+        if not email and not phone:
+            return None
+        clauses = []
+        if email:
+            clauses.append(User.email == email.lower())
+        if phone:
+            clauses.append(User.phone == phone)
+        user = self.db.query(User.id).filter(or_(*clauses)).first()
+        return user[0] if user else None
+
+    def get_verification_token(self, token_id: int) -> Optional[VerificationToken]:
         return (
             self.db.query(VerificationToken)
             .filter(VerificationToken.id == token_id)
@@ -237,53 +312,43 @@ class OTPService:
     def get_active_verification_tokens(
         self,
         user_id: int,
-        token_type: str
+        token_type: str,
     ) -> list:
-        """Get all active verification tokens for a user."""
         return (
             self.db.query(VerificationToken)
             .filter(
                 VerificationToken.user_id == user_id,
                 VerificationToken.token_type == token_type,
-                VerificationToken.verified_at == None,
-                VerificationToken.expires_at > datetime.now(timezone.utc)
+                VerificationToken.verified_at.is_(None),
+                VerificationToken.expires_at > datetime.now(timezone.utc),
             )
             .all()
         )
 
     def cleanup_expired_tokens(self) -> int:
-        """Cleanup expired verification tokens."""
         try:
-            result = (
+            deleted = (
                 self.db.query(VerificationToken)
                 .filter(
                     VerificationToken.expires_at < datetime.now(timezone.utc),
-                    VerificationToken.verified_at == None
+                    VerificationToken.verified_at.is_(None),
                 )
                 .delete(synchronize_session=False)
             )
-            
             self.db.commit()
-            return result
-        except Exception as e:
-            logger.error(f"Error cleaning up expired tokens: {e}")
+            return deleted
+        except Exception as exc:
+            logger.error(f"Error cleaning up expired tokens: {exc}")
             self.db.rollback()
             return 0
 
-    # ==================== Health Check ====================
-
     def health_check(self) -> Dict[str, Any]:
-        """Check OTP service health."""
-        redis_status = 'connected' if redis_client else 'not_configured'
-        
         return {
-            'status': 'healthy',
-            'service': 'otp',
-            'timestamp': datetime.now(timezone.utc).isoformat(),
-            'database_connected': self.db is not None,
-            'redis_status': redis_status
+            "status": "healthy",
+            "service": "otp",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "database_connected": self.db is not None,
         }
 
 
-# Singleton instance for easy access
 otp_service = OTPService(db=None)

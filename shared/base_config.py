@@ -61,7 +61,13 @@ class BaseSettings(PydanticBaseSettings):
     )
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
-    REFRESH_TOKEN_EXPIRE_MINUTES: int = 1440  # 24 hours
+    # Refresh-token TTL (days). Customers stay logged in like Amazon/Flipkart:
+    # 90 days normally, 365 days when "Remember me" is checked. Sliding renewal
+    # extends the cookie on every authenticated request.
+    REFRESH_TOKEN_DAYS_DEFAULT: int = 90
+    REFRESH_TOKEN_DAYS_REMEMBER: int = 365
+    # Deprecated - kept for back-compat with code paths still reading it.
+    REFRESH_TOKEN_EXPIRE_MINUTES: int = 90 * 24 * 60
     
     # ==================== CORS ====================
     # Include frontend container (6004 -> 3000), production domain, and MCP/browser proxies

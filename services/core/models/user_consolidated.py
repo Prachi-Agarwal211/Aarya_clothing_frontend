@@ -34,7 +34,9 @@ class User(Base):
     hashed_password = Column(String(255), nullable=False)
     
     # Consolidated fields (previously in user_profiles) - cleaned up
-    full_name = Column(String(100), nullable=True)
+    first_name = Column(String(50), nullable=True)
+    last_name = Column(String(50), nullable=True)
+    full_name = Column(String(101), nullable=True)
     phone = Column(String(20), unique=True, nullable=True)
     # Removed unused columns: avatar_url, date_of_birth
     
@@ -89,6 +91,25 @@ class User(Base):
     def is_locked(self) -> bool:
         """Check if account is locked"""
         return self.account_locked_until is not None and self.account_locked_until > datetime.now()
+
+    @property
+    def profile(self):
+        """Back-compat shim — `user_profiles` is gone, phone/full_name live on User now.
+
+        Old code paths still call ``user.profile.phone`` / ``user.profile.full_name``;
+        return a tiny namespace so they keep working without an ORM round-trip.
+        """
+        from types import SimpleNamespace
+        return SimpleNamespace(
+            phone=self.phone,
+            full_name=self.full_name,
+            first_name=self.first_name,
+            last_name=self.last_name,
+            avatar_url=None,
+            bio=None,
+            date_of_birth=None,
+            gender=None,
+        )
 
 class Address(Base):
     """User shipping addresses - moved from commerce to core"""

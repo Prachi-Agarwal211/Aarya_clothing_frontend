@@ -8,6 +8,7 @@ class OTPType(str, Enum):
     """OTP delivery method."""
     EMAIL = "EMAIL"
     SMS = "SMS"
+    WHATSAPP = "WHATSAPP"
 
 
 class OTPSendRequest(BaseModel):
@@ -28,9 +29,10 @@ class OTPSendRequest(BaseModel):
     @field_validator('phone')
     @classmethod
     def validate_phone_required(cls, v, info):
-        """SMS: require phone, or email for server-side lookup (registration recovery)."""
-        if info.data.get('otp_type') == OTPType.SMS and not v and not info.data.get('email'):
-            raise ValueError("Phone number or email is required for SMS OTP")
+        """SMS/WhatsApp: require phone, or email for server-side lookup."""
+        otp_type = info.data.get('otp_type')
+        if otp_type in (OTPType.SMS, OTPType.WHATSAPP) and not v and not info.data.get('email'):
+            raise ValueError("Phone number or email is required for SMS/WhatsApp OTP")
         return v
 
 
@@ -69,9 +71,10 @@ class OTPResendRequest(BaseModel):
     @field_validator('phone')
     @classmethod
     def validate_phone_required(cls, v, info):
-        """SMS: require phone, or email for server-side lookup."""
-        if info.data.get('otp_type') == OTPType.SMS and not v and not info.data.get('email'):
-            raise ValueError("Phone number or email is required for SMS OTP")
+        """SMS/WhatsApp: require phone, or email for server-side lookup."""
+        otp_type = info.data.get('otp_type')
+        if otp_type in (OTPType.SMS, OTPType.WHATSAPP) and not v and not info.data.get('email'):
+            raise ValueError("Phone number or email is required for SMS/WhatsApp OTP")
         return v
 
 

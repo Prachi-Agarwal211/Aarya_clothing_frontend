@@ -490,8 +490,8 @@ async def verify_otp_registration(
     email = body.email
     phone = body.phone
 
-    # SMS + email only (e.g. login recovery): resolve profile phone for OTP key matching
-    if body.otp_type == OTPType.SMS and email and not phone:
+    # SMS / WhatsApp + email only (e.g. login recovery): resolve profile phone for OTP key matching
+    if body.otp_type in (OTPType.SMS, OTPType.WHATSAPP) and email and not phone:
         u_lookup = (
             db.query(User)
             .options(joinedload(User.profile))
@@ -512,7 +512,7 @@ async def verify_otp_registration(
     otp_service = OTPService(db)
     otp_request = OTPVerifyRequest(
         email=body.email if body.otp_type == OTPType.EMAIL else None,
-        phone=phone if body.otp_type == OTPType.SMS else None,
+        phone=phone if body.otp_type in (OTPType.SMS, OTPType.WHATSAPP) else None,
         otp_code=body.otp_code,
         otp_type=body.otp_type,
         purpose="registration"
@@ -775,7 +775,7 @@ async def login(
         auth_service = AuthService(db)
         
         result = auth_service.login(
-            username=request.username,
+            identifier=request.identifier,
             password=request.password,
             remember_me=request.remember_me
         )
@@ -1154,11 +1154,17 @@ async def verify_reset_otp(
     otp_service = OTPService(db)
 
     # Create OTP verify request
+    _ot = (request_data.otp_type or "EMAIL").upper()
+    _otp_type_enum = {
+        "EMAIL": OTPType.EMAIL,
+        "SMS": OTPType.SMS,
+        "WHATSAPP": OTPType.WHATSAPP,
+    }.get(_ot, OTPType.EMAIL)
     otp_request = OTPVerifyRequest(
-        email=request_data.identifier if request_data.otp_type == "EMAIL" else None,
-        phone=request_data.identifier if request_data.otp_type == "SMS" else None,
+        email=request_data.identifier if _ot == "EMAIL" else None,
+        phone=request_data.identifier if _ot in ("SMS", "WHATSAPP") else None,
         otp_code=request_data.otp_code,
-        otp_type=OTPType.EMAIL if request_data.otp_type == "EMAIL" else OTPType.SMS,
+        otp_type=_otp_type_enum,
         purpose="password_reset"
     )
 

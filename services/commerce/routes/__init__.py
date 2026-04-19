@@ -14,6 +14,7 @@ from .internal import router as internal_router
 from .landing import router as landing_router
 from .orders import router as orders_router
 from .products import router as products_router
+from .profile import router as profile_router
 from .returns import router as returns_router
 from .reviews import router as reviews_router
 from .search import router as search_router
@@ -28,6 +29,7 @@ __all__ = [
     "landing_router",
     "orders_router",
     "products_router",
+    "profile_router",
     "returns_router",
     "reviews_router",
     "search_router",

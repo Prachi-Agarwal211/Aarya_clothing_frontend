@@ -55,11 +55,7 @@ from schemas.product import (
 )
 from schemas.product_image import ProductImageCreate, ProductImageResponse
 from schemas.inventory import InventoryCreate, InventoryUpdate, InventoryResponse, StockAdjustment, LowStockItem
-from schemas.order import (
-    OrderCreate, OrderResponse,
-    GuestOrderTrackResponse, GuestOrderTrackItem,
-)
-from schemas.order_tracking import OrderTrackingCreate, OrderTrackingResponse
+from schemas.order import OrderCreate, OrderResponse
 from schemas.error import ErrorResponse, PaginatedResponse
 
 # Services
@@ -69,8 +65,6 @@ from service.color_utils import _hex_to_color_name
 from service.product_service import ProductService
 from service.order_service import OrderService
 from service.order_tracking_service import OrderTrackingService
-from service.guest_tracking_token import parse_guest_tracking_token
-
 # Route modules (for better code organization)
 # These modularize the 2800+ line main.py into manageable route files
 try:
@@ -79,6 +73,7 @@ try:
         cart_router,
         chat_router,
         collections_router,
+        customer_orders_router,
         internal_router,
         landing_router,
         orders_router,
@@ -324,6 +319,7 @@ if ROUTES_AVAILABLE:
     app.include_router(collections_router)
     app.include_router(search_router)
     app.include_router(profile_router)
+    app.include_router(customer_orders_router)
     logger.info("Route modules registered successfully")
 else:
     logger.warning("Route modules not available - using monolithic routes in main.py")
@@ -380,197 +376,7 @@ async def health_api(db: Session = Depends(get_db)):
 
 # ==================== Order Routes ====================
 
-@app.post("/api/v1/orders", response_model=OrderResponse,
-          status_code=status.HTTP_201_CREATED,
-          tags=["Orders"])
-async def create_order(
-    order_data: OrderCreate,
-    request: Request,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    """Create a new order from cart."""
-    # Rate limiting: 10 orders per minute per IP
-    if not _check_rate_limit(request, "order_create", limit=10, window=60, user_identifier=str(current_user["user_id"])):
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Too many order creation attempts. Please try again later."
-        )
-    
-    order_service = OrderService(db)
-    # Create order via service
-    try:
-        from shared.event_bus import Event, EventType
-
-        order = order_service.create_order(
-            user_id=current_user["user_id"],
-            shipping_address=order_data.shipping_address,
-            address_id=order_data.address_id,
-            order_notes=order_data.notes or order_data.order_notes,
-            transaction_id=order_data.transaction_id or order_data.payment_id,
-            payment_method=order_data.payment_method,
-            razorpay_order_id=order_data.razorpay_order_id,
-            payment_signature=order_data.razorpay_signature,
-            qr_code_id=order_data.qr_code_id,
-        )
-        
-        # Publish event
-        if event_bus and order:
-            try:
-                event_data = {
-                    "order_id": order.id,
-                    "order_number": order.invoice_number,
-                    "user_id": current_user["user_id"], # Changed from current_user["id"] to current_user["user_id"]
-                    "total_amount": float(order.total_amount),
-                    "shipping_address": order_data.shipping_address, # Changed from shipping_address to order_data.shipping_address
-                    "status": order.status.value
-                }
-                order_event = Event(
-                    event_type=EventType.ORDER_CREATED,
-                    aggregate_id=str(order.id),
-                    aggregate_type="order",
-                    data=event_data,
-                    metadata={"source": "commerce_service"}
-                )
-                await event_bus.publish(order_event)
-            except Exception as exc:
-                logger.warning(
-                    "Failed to publish order created event for order %s: %s",
-                    order.id,
-                    exc
-                )
-        
-        return order # Added return statement for the created order
-            
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
-
-
-@app.get("/api/v1/orders", response_model=List[OrderResponse],
-         tags=["Orders"])
-async def list_orders(
-    skip: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=100),
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    """List current user's orders."""
-    order_service = OrderService(db)
-    return order_service.get_user_orders(
-        user_id=current_user["user_id"],
-        skip=skip,
-        limit=limit
-    )
-
-
-@app.get(
-    "/api/v1/orders/track/{token}",
-    response_model=GuestOrderTrackResponse,
-    tags=["Orders"],
-)
-async def get_guest_order_by_tracking_token(token: str, db: Session = Depends(get_db)):
-    """
-    Public order status for guests — token is HMAC-signed (no login).
-    Must stay registered before /orders/{order_id} so "track" is not parsed as an integer id.
-    """
-    order_id = parse_guest_tracking_token(token)
-    if order_id is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Invalid or expired tracking link",
-        )
-    order = (
-        db.query(Order)
-        .options(joinedload(Order.items))
-        .filter(Order.id == order_id)
-        .first()
-    )
-    if not order:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Order not found",
-        )
-    items_out = [
-        GuestOrderTrackItem(
-            product_name=it.product_name,
-            size=it.size,
-            color=it.color,
-            quantity=int(it.quantity),
-            price=float(it.price) if it.price is not None else float(it.unit_price or 0),
-        )
-        for it in (order.items or [])
-    ]
-    return GuestOrderTrackResponse(
-        order_id=order.id,
-        status=order.status.value if hasattr(order.status, "value") else str(order.status),
-        tracking_number=order.tracking_number,
-        total_amount=float(order.total_amount),
-        created_at=order.created_at,
-        items=items_out,
-    )
-
-
-@app.get("/api/v1/orders/{order_id}", response_model=OrderResponse,
-         tags=["Orders"])
-async def get_order(
-    order_id: int,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    """Get order details."""
-    order_service = OrderService(db)
-    order = order_service.get_order_by_id(order_id, user_id=current_user["user_id"])
-    
-    if not order:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Order not found"
-        )
-    
-    return order
-
-
-@app.post("/api/v1/orders/{order_id}/cancel", response_model=OrderResponse,
-          tags=["Orders"])
-async def cancel_order(
-    order_id: int,
-    reason: Optional[str] = None,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    """Cancel an order."""
-    order_service = OrderService(db)
-    return order_service.cancel_order(
-        order_id=order_id,
-        user_id=current_user["user_id"],
-        reason=reason
-    )
-
-
-@app.get("/api/v1/orders/{order_id}/tracking", response_model=List[OrderTrackingResponse],
-         tags=["Orders"])
-async def get_order_tracking(
-    order_id: int,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    """Get order tracking history."""
-    # Verify order belongs to user
-    order_service = OrderService(db)
-    order = order_service.get_order_by_id(order_id, user_id=current_user["user_id"])
-    
-    if not order:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Order not found"
-        )
-    
-    tracking_service = OrderTrackingService(db)
-    return tracking_service.get_order_tracking(order_id)
-
+# Customer order endpoints have moved to routes/customer_orders.py.
 
 # ==================== Admin Payment Recovery ====================
 
@@ -960,101 +766,7 @@ async def get_order_tracking(
 
 # ==================== SSE Order Events ====================
 
-@app.get("/api/v1/orders/{order_id}/events", tags=["Orders"])
-async def order_status_events(
-    order_id: int,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    """
-    Server-Sent Events endpoint for real-time order status updates.
-    
-    Subscribes to Redis Pub/Sub channel `order_updates:{order_id}`.
-    When staff updates the order status, the event is pushed instantly.
-    
-    Usage: const es = new EventSource('/api/v1/orders/{order_id}/events')
-    
-    Security: Verifies that the user owns the order or is a staff member.
-    """
-    from starlette.responses import StreamingResponse
-    from core.redis_client import redis_client
-    from models.order import Order
-    
-    # Verify order exists and user has access
-    order = db.query(Order).filter(Order.id == order_id).first()
-    if not order:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Order not found"
-        )
-    
-    # Check if user owns this order OR is a staff/admin
-    is_staff = current_user.get("is_staff", False) or current_user.get("is_admin", False)
-    if order.user_id != current_user.get("user_id") and not is_staff:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to view this order's events"
-        )
-    
-    # Check Redis connectivity before creating SSE stream
-    if not redis_client.is_connected():
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Real-time updates unavailable. Please try again later."
-        )
-
-    async def event_generator():
-        """Subscribe to Redis Pub/Sub and yield SSE events."""
-        # Create a dedicated pubsub subscriber for this connection
-        pubsub = redis_client.client.pubsub()
-        channel = f"order_updates:{order_id}"
-        pubsub.subscribe(channel)
-
-        try:
-            # Send initial connection event
-            yield f"event: connected\ndata: {{\"order_id\": {order_id}}}\n\n"
-
-            heartbeat_counter = 0
-            while True:
-                # Non-blocking check for new messages
-                message = pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
-
-                if message and message["type"] == "message":
-                    data = message["data"]
-                    if isinstance(data, bytes):
-                        data = data.decode("utf-8")
-                    yield f"event: status_update\ndata: {data}\n\n"
-                
-                heartbeat_counter += 1
-                # Send heartbeat every ~30 seconds (30 iterations × 1s timeout)
-                if heartbeat_counter >= 30:
-                    yield ": heartbeat\n\n"
-                    heartbeat_counter = 0
-
-                await asyncio.sleep(0)  # Yield control to event loop
-
-        except asyncio.CancelledError:
-            pass
-        except Exception as e:
-            logger.error(f"SSE error for order {order_id}: {e}")
-        finally:
-            # Ensure proper cleanup of pubsub connection
-            if pubsub:
-                try:
-                    pubsub.unsubscribe(channel)
-                    pubsub.close()
-                except Exception as cleanup_err:
-                    logger.warning(f"SSE pubsub cleanup error for order {order_id}: {cleanup_err}")
-
-    return StreamingResponse(
-        event_generator(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",
-        }
-    )
+# Order status SSE has moved to routes/customer_orders.py.
 
 
 # ==================== Admin Bulk Order Status ====================

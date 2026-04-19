@@ -10,6 +10,7 @@ from .addresses import router as addresses_router
 from .cart import router as cart_router
 from .chat import router as chat_router
 from .collections import router as collections_router
+from .customer_orders import router as customer_orders_router
 from .internal import router as internal_router
 from .landing import router as landing_router
 from .orders import router as orders_router
@@ -25,6 +26,7 @@ __all__ = [
     "cart_router",
     "chat_router",
     "collections_router",
+    "customer_orders_router",
     "internal_router",
     "landing_router",
     "orders_router",

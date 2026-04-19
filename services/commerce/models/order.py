@@ -53,8 +53,6 @@ class Order(Base):
     
     # Pricing
     subtotal = Column(Numeric(10, 2), nullable=False)
-    discount_applied = Column(Numeric(10, 2), default=0)
-    promo_code = Column(String(50), nullable=True)
     shipping_cost = Column(Numeric(10, 2), default=0)
     
     # GST breakdown
@@ -165,10 +163,10 @@ class OrderItem(Base):
     variant = relationship("ProductVariant", foreign_keys=[variant_id])
     product = relationship("Product", foreign_keys=[product_id], viewonly=True)
 
-    # ---- Back-compat shims (deprecated; removed in Phase 2 with promotions) -----
-    # Older readers in commerce/main.py and admin_analytics_service.py still
-    # reference `.price` / `.inventory_id` / `.hsn_code` / `.gst_rate`. Until
-    # Phase 2 sweeps them, expose the new column behind the old name.
+    # ---- Back-compat shims for legacy readers ------------------------------
+    # admin_analytics_service.py and a few historical readers still reference
+    # `.price` / `.inventory_id` / `.hsn_code` / `.gst_rate`. Expose the new
+    # columns behind the old names until those callers are migrated.
     @property
     def price(self):
         return self.line_total

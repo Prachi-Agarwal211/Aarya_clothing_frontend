@@ -7,7 +7,6 @@
  * - Change password
  * - Manage addresses
  * - Notification preferences
- * - Wishlist management
  */
 
 import { test, expect } from '@playwright/test';
@@ -281,50 +280,6 @@ test.describe('Profile Management', () => {
       if (await smsToggle.isVisible()) {
         await smsToggle.click();
         await page.waitForTimeout(500);
-      }
-    });
-  });
-
-  test.describe('Wishlist Management', () => {
-    test('should view wishlist', async ({ page }) => {
-      await page.goto('/profile/wishlist');
-      
-      // Should show wishlist items or empty state
-      const itemsVisible = await page.locator('[class*="wishlist-item"], .wishlist-product').isVisible().catch(() => false);
-      const emptyVisible = await page.locator('text=Your wishlist is empty, .empty-wishlist').isVisible().catch(() => false);
-      
-      expect(itemsVisible || emptyVisible).toBeTruthy();
-    });
-
-    test('should add product to wishlist from wishlist page', async ({ page }) => {
-      await page.goto('/products/1');
-      
-      const addToWishlistButton = page.locator('button:has-text("Wishlist"), button:has-text("Heart"), [data-testid="add-to-wishlist"]');
-      if (await addToWishlistButton.isVisible()) {
-        await addToWishlistButton.click();
-        await page.waitForTimeout(500);
-      }
-    });
-
-    test('should remove product from wishlist', async ({ page }) => {
-      await page.goto('/profile/wishlist');
-      
-      const removeButton = page.locator('button[aria-label*="remove"], .remove-wishlist, button:has-text("Remove")').first();
-      if (await removeButton.isVisible()) {
-        await removeButton.click();
-        await page.waitForTimeout(1000);
-      }
-    });
-
-    test('should move wishlist item to cart', async ({ page }) => {
-      await page.goto('/profile/wishlist');
-      
-      const moveToCartButton = page.locator('button:has-text("Move to Cart"), .move-to-cart').first();
-      if (await moveToCartButton.isVisible()) {
-        await moveToCartButton.click();
-        await page.waitForTimeout(1000);
-        
-        // Should redirect to cart or show success
       }
     });
   });

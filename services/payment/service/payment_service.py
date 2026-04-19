@@ -1090,8 +1090,6 @@ class PaymentService:
                 "cgst_amount": 0,
                 "sgst_amount": 0,
                 "igst_amount": 0,
-                "discount_applied": 0,
-                "promo_code": None,
                 "order_notes": "Order created from payment webhook",
                 "payment_method": transaction.payment_method,
             }

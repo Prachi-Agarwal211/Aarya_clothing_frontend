@@ -146,7 +146,7 @@ export default function OfflinePage() {
                   Cached Content Available
                 </h3>
                 <p className="text-sm text-amber-700 dark:text-amber-400 mb-3">
-                  You can still browse previously visited pages while offline. Your cart and wishlist are saved locally.
+                  You can still browse previously visited pages while offline. Your cart is saved locally.
                 </p>
                 {cachedPages && cachedPages.length > 0 && (
                   <div className="flex flex-wrap gap-2">

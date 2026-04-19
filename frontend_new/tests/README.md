@@ -45,13 +45,11 @@ This test suite provides comprehensive E2E testing for all critical user flows o
    - Product details
    - Image gallery
    - Size selection
-   - Wishlist
 
 3. **Shopping Cart** (`03-shopping-cart.spec.js`)
    - Add/remove items
    - Update quantity
    - Cart persistence
-   - Coupon application
 
 4. **Checkout** (`04-checkout.spec.js`)
    - Guest checkout
@@ -71,7 +69,6 @@ This test suite provides comprehensive E2E testing for all critical user flows o
    - Change password
    - Address management
    - Notification preferences
-   - Wishlist
 
 7. **AI Chatbot** (`07-ai-chatbot.spec.js`)
    - Product search via chat
@@ -99,9 +96,8 @@ This test suite provides comprehensive E2E testing for all critical user flows o
    - Process returns
    - Invoice management
 
-4. **Customers & Coupons** (`04-admin-customers-coupons.spec.js`)
+4. **Customers** (`04-admin-customers.spec.js`)
    - Customer management
-   - Coupon CRUD operations
 
 5. **Inventory & Staff** (`05-admin-inventory-staff.spec.js`)
    - Stock management
@@ -248,7 +244,7 @@ tests/
 │   │   ├── 01-admin-dashboard.spec.js
 │   │   ├── 02-admin-products.spec.js
 │   │   ├── 03-admin-orders.spec.js
-│   │   ├── 04-admin-customers-coupons.spec.js
+│   │   ├── 04-admin-customers.spec.js
 │   │   └── 05-admin-inventory-staff.spec.js
 │   └── api/                # API tests (future)
 ├── fixtures/               # Test fixtures

@@ -21,7 +21,6 @@ export default function SettingsPage() {
   const [notifications, setNotifications] = useState({
     order_updates: true,
     newsletter: false,
-    stock_alerts: true,
   });
 
   const handlePasswordChange = async () => {
@@ -178,19 +177,6 @@ export default function SettingsPage() {
               type="checkbox"
               checked={notifications.newsletter}
               onChange={() => handleNotificationChange('newsletter')}
-              className="w-5 h-5 rounded border-[#B76E79]/30 bg-[#0B0608]/60 text-[#B76E79] focus:ring-[#B76E79]/30"
-            />
-          </label>
-
-          <label className="flex items-center justify-between p-3 bg-[#0B0608]/40 rounded-lg cursor-pointer hover:bg-[#0B0608]/60 transition-colors">
-            <div>
-              <p className="text-[#EAE0D5]">Stock Alerts</p>
-              <p className="text-sm text-[#EAE0D5]/50">Get notified when wishlist items are back in stock</p>
-            </div>
-            <input
-              type="checkbox"
-              checked={notifications.stock_alerts}
-              onChange={() => handleNotificationChange('stock_alerts')}
               className="w-5 h-5 rounded border-[#B76E79]/30 bg-[#0B0608]/60 text-[#B76E79] focus:ring-[#B76E79]/30"
             />
           </label>

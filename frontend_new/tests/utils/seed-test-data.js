@@ -92,41 +92,6 @@ const testData = {
       images: [],
     },
   ],
-  coupons: [
-    {
-      code: 'TEST10',
-      description: 'Test 10% discount coupon',
-      discount: 10,
-      type: 'percentage',
-      minOrder: 500,
-      maxDiscount: 500,
-      usageLimit: 100,
-      startDate: new Date().toISOString(),
-      endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-      status: 'active',
-    },
-    {
-      code: 'TEST100',
-      description: 'Test ₹100 fixed discount coupon',
-      discount: 100,
-      type: 'fixed',
-      minOrder: 1000,
-      usageLimit: 50,
-      startDate: new Date().toISOString(),
-      endDate: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString(),
-      status: 'active',
-    },
-    {
-      code: 'EXPIRED',
-      description: 'Expired test coupon',
-      discount: 20,
-      type: 'percentage',
-      minOrder: 500,
-      startDate: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString(),
-      endDate: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
-      status: 'expired',
-    },
-  ],
   orders: [
     {
       orderNumber: 'TEST-ORD-001',
@@ -231,7 +196,6 @@ function seedTestData() {
   console.log('\n📊 Test Data Summary:');
   console.log(`   - Users: ${Object.keys(testData.users).length}`);
   console.log(`   - Products: ${testData.products.length}`);
-  console.log(`   - Coupons: ${testData.coupons.length}`);
   console.log(`   - Orders: ${testData.orders.length}`);
   console.log(`   - Categories: ${testData.categories.length}`);
   

@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { User, Package, MapPin, Heart, Settings, LogOut, RotateCcw } from 'lucide-react';
+import { User, Package, MapPin, Settings, LogOut, RotateCcw } from 'lucide-react';
 import EnhancedHeader from '@/components/landing/EnhancedHeader';
 import Footer from '@/components/landing/Footer';
 import { useAuth } from '@/lib/authContext';
@@ -14,7 +14,6 @@ const SIDEBAR_ITEMS = [
   { id: 'orders', name: 'My Orders', icon: Package, path: '/profile/orders' },
   { id: 'returns', name: 'My Returns', icon: RotateCcw, path: '/profile/returns' },
   { id: 'addresses', name: 'Addresses', icon: MapPin, path: '/profile/addresses' },
-  { id: 'wishlist', name: 'Wishlist', icon: Heart, path: '/profile/wishlist' },
   { id: 'settings', name: 'Settings', icon: Settings, path: '/profile/settings' },
 ];
 

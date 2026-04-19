@@ -97,7 +97,6 @@ def create_order_from_payment(payment, commerce_url=COMMERCE_url, secret=INTERNA
             "total_amount": float(payment.amount),
             "shipping_cost": 0,
             "gst_amount": 0,
-            "discount_applied": 0,
             "payment_method": payment.payment_method or "razorpay",
             "order_notes": f"[RECOVERY] Order created by sync script for payment {payment.transaction_id}",
         }

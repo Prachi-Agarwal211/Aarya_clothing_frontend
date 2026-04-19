@@ -9,8 +9,6 @@ This service handles:
 - Order processing
 - Inventory management
 - Image uploads to Cloudflare R2
-- Wishlist management
-- Promotions/Coupons
 - Reviews and ratings
 - Address management
 - Returns and refunds
@@ -54,7 +52,6 @@ from models.address import Address, AddressType
 from models.review import Review
 from models.order_tracking import OrderTracking
 from models.return_request import ReturnRequest, ReturnStatus, ReturnReason
-from models.wishlist import Wishlist
 
 # Schemas
 from schemas.product import (
@@ -75,8 +72,6 @@ from schemas.order import (
     BulkOrderStatusUpdate, SetDeliveryState,
     GuestOrderTrackResponse, GuestOrderTrackItem,
 )
-from schemas.wishlist import WishlistItemCreate, WishlistItemResponse, WishlistResponse
-from schemas.promotion import PromotionCreate, PromotionUpdate, PromotionResponse, PromotionValidateRequest, PromotionValidateResponse
 from schemas.address import AddressCreate, AddressUpdate, AddressResponse
 from schemas.review import ReviewCreate, ReviewResponse
 from schemas.order_tracking import OrderTrackingCreate, OrderTrackingResponse
@@ -88,8 +83,6 @@ from service.collection_service import CollectionService
 from service.category_service import CategoryService  # backward-compat alias
 from service.inventory_service import InventoryService
 from service.r2_service import r2_service
-from service.wishlist_service import WishlistService
-from service.promotion_service import PromotionService
 from service.color_utils import _hex_to_color_name
 from service.product_service import ProductService
 from service.cart_service import CartService
@@ -103,7 +96,7 @@ from service.guest_tracking_token import parse_guest_tracking_token
 # Route modules (for better code organization)
 # These modularize the 2800+ line main.py into manageable route files
 try:
-    from routes import products_router, orders_router, cart_router, addresses_router, size_guide_router
+    from routes import products_router, orders_router, addresses_router, size_guide_router
     ROUTES_AVAILABLE = True
 except ImportError:
     ROUTES_AVAILABLE = False
@@ -553,17 +546,13 @@ except Exception:
 # Request ID
 app.add_middleware(RequestIDMiddleware)
 
-# Register route modules (if available)
-# This modularizes the 2800+ line main.py into manageable route files
-# NOTE: cart_router and orders_router are DISABLED - all endpoints are defined inline below
-# to avoid route conflicts and ensure proper integration with services.
+# Register route modules.
+# Cart + orders endpoints remain inline in main.py because they need direct access
+# to the CartConcurrencyManager / order service plumbing wired up below.
 if ROUTES_AVAILABLE:
     app.include_router(products_router)
-    # NOTE: categories/collections routes are defined inline above (with R2 URL enrichment)
-    # orders_router DISABLED - use inline order routes (lines 1555-1821)
-    # app.include_router(orders_router)
-    # cart_router DISABLED - use inline cart routes (lines 783-1180)
-    # app.include_router(cart_router)
+    # Collections routes are defined inline (with R2 URL enrichment).
+    # orders_router intentionally NOT registered — see inline order routes below.
     app.include_router(addresses_router)
     app.include_router(size_guide_router)
     logger.info("Route modules registered successfully")
@@ -995,39 +984,6 @@ async def clear_my_cart(
     return CartResponse(**cart_data)
 
 
-@app.post("/api/v1/cart/coupon", response_model=CartResponse, tags=["Cart"])
-async def apply_coupon_to_my_cart(
-    code: str = Query(...),
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    """Apply coupon to cart."""
-    user_id = current_user["user_id"]  # Fixed: use user_id from auth middleware
-    cart_service = CartService(db)
-    
-    # Get cart to check total
-    cart = cart_service.get_cart(user_id)
-    if not cart or not cart["items"]:
-         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Cart is empty"
-        )
-        
-    # Validate coupon
-    promotion_service = PromotionService(db)
-    validation = promotion_service.validate_promotion(code, user_id, Decimal(str(cart["subtotal"])))
-    
-    if not validation["valid"]:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=validation["message"]
-        )
-    
-    # Apply discount
-    cart = cart_service.apply_promotion(user_id, code, validation["discount_amount"])
-    return CartResponse(**cart)
-
-
 @app.post("/api/v1/cart/delivery-state", response_model=CartResponse, tags=["Cart"])
 async def set_cart_delivery_state(
     payload: SetDeliveryState,
@@ -1281,436 +1237,6 @@ async def clear_cart(
 
 # ==================== Order Routes ====================
 
-# ==================== Wishlist Routes (Token Based) ====================
-
-@app.get("/api/v1/wishlist", response_model=WishlistResponse, tags=["Wishlist"])
-async def get_my_wishlist(
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    """Get current user's wishlist with enriched product data."""
-    from sqlalchemy.orm import joinedload
-    user_id = current_user["user_id"]
-    wishlist_service = WishlistService(db)
-    
-    # Eagerly load product relationship to avoid lazy-load issues
-    items = db.query(Wishlist).options(
-        joinedload(Wishlist.product).joinedload(Product.images)
-    ).filter(Wishlist.user_id == user_id).all()
-    
-    # Serialize with enriched product data
-    serialized_items = []
-    for item in items:
-        product_data = None
-        if item.product:
-            p = item.product
-            primary = p.primary_image
-            product_data = {
-                "id": p.id,
-                "name": p.name,
-                "slug": p.slug,
-                "short_description": p.short_description,
-                "price": float(p.price),
-                "mrp": float(p.mrp) if p.mrp else None,
-                "category_id": p.category_id,
-                "collection_id": p.category_id,
-                "brand": getattr(p, 'brand', None),
-                "image_url": _r2_url(primary) if primary else None,
-                "is_active": p.is_active,
-                "is_featured": p.is_featured,
-                "is_new_arrival": p.is_new_arrival,
-                "total_stock": p.total_stock or 0,
-                "inventory_count": p.total_stock or 0,
-                "is_on_sale": p.is_on_sale,
-                "discount_percentage": p.discount_percentage,
-                "in_stock": (p.total_stock or 0) > 0,
-                "hsn_code": getattr(p, 'hsn_code', None),
-                "gst_rate": float(p.gst_rate) if p.gst_rate else None,
-                "is_taxable": getattr(p, 'is_taxable', None),
-                "created_at": p.created_at,
-                "updated_at": p.updated_at,
-            }
-        
-        serialized_items.append({
-            "id": item.id,
-            "user_id": item.user_id,
-            "product_id": item.product_id,
-            "added_at": item.added_at,
-            "product": product_data,
-        })
-    
-    return WishlistResponse(
-        user_id=user_id,
-        items=serialized_items,
-        total_items=len(serialized_items)
-    )
-
-
-@app.post("/api/v1/wishlist/items", response_model=WishlistItemResponse, 
-          status_code=status.HTTP_201_CREATED, tags=["Wishlist"])
-async def add_to_my_wishlist(
-    item: WishlistItemCreate,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    """Add item to wishlist."""
-    user_id = current_user["user_id"]  # Fixed: use user_id from auth middleware
-    wishlist_service = WishlistService(db)
-    return wishlist_service.add_to_wishlist(user_id, item.product_id)
-
-
-@app.delete("/api/v1/wishlist/items/{product_id}", 
-            status_code=status.HTTP_204_NO_CONTENT, tags=["Wishlist"])
-async def remove_from_my_wishlist(
-    product_id: int,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    """Remove item from wishlist."""
-    user_id = current_user["user_id"]  # Fixed: use user_id from auth middleware
-    wishlist_service = WishlistService(db)
-    wishlist_service.remove_from_wishlist(user_id, product_id)
-    return
-
-
-@app.get("/api/v1/wishlist/check/{product_id}", tags=["Wishlist"])
-async def check_in_my_wishlist(
-    product_id: int,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    """Check if product is in wishlist."""
-    user_id = current_user["user_id"]  # Fixed: use user_id from auth middleware
-    wishlist_service = WishlistService(db)
-    in_wishlist = wishlist_service.is_in_wishlist(user_id, product_id)
-    return {"in_wishlist": in_wishlist}
-
-
-@app.post("/api/v1/wishlist/check-multiple", tags=["Wishlist"])
-async def check_multiple_in_wishlist(
-    request: Request,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    """
-    Check if multiple products are in the user's wishlist.
-    
-    This endpoint is optimized for batch checking wishlist status,
-    avoiding the need to fetch the entire wishlist.
-    
-    Request body:
-    {
-        "product_ids": [1, 2, 3, ...]
-    }
-    
-    Response:
-    {
-        "wishlist_status": {
-            "1": true,
-            "2": false,
-            "3": true
-        }
-    }
-    """
-    from sqlalchemy import text
-    
-    user_id = current_user["user_id"]
-    
-    # Parse request body
-    try:
-        body = await request.json()
-        product_ids = body.get("product_ids", [])
-    except Exception as e:
-        logger.error(f"[Wishlist] Invalid request body: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid request body. Expected: {'product_ids': [...]}"
-        )
-    
-    # Validate input
-    if not product_ids or not isinstance(product_ids, list):
-        return {"wishlist_status": {}}
-    
-    # Filter to valid integers only
-    valid_ids = [pid for pid in product_ids if isinstance(pid, int) and pid > 0]
-    
-    if not valid_ids:
-        return {"wishlist_status": {}}
-    
-    # Query wishlist in a single database call
-    placeholders = ", ".join([f":id_{i}" for i in range(len(valid_ids))])
-    params = {f"id_{i}": pid for i, pid in enumerate(valid_ids)}
-    params["uid"] = user_id
-    
-    query = text(f"""
-        SELECT product_id 
-        FROM wishlist 
-        WHERE user_id = :uid 
-        AND product_id IN ({placeholders})
-    """)
-    
-    result = db.execute(query, params).fetchall()
-    wishlist_product_ids = set(row[0] for row in result)
-    
-    # Build response map
-    wishlist_status = {}
-    for pid in product_ids:
-        wishlist_status[str(pid)] = pid in wishlist_product_ids
-    
-    return {"wishlist_status": wishlist_status}
-
-
-# ==================== Wishlist Routes (Legacy/Admin) ====================
-
-@app.get("/api/v1/wishlist/{user_id}", response_model=WishlistResponse,
-         tags=["Wishlist"])
-async def get_wishlist(
-    user_id: int,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    """Get user's wishlist (legacy/admin endpoint)."""
-    from sqlalchemy.orm import joinedload
-    # Authorization check
-    if current_user["user_id"] != user_id and current_user["role"] not in ["admin", "staff"]:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to view this wishlist"
-        )
-    
-    # Eagerly load product relationship
-    items = db.query(Wishlist).options(
-        joinedload(Wishlist.product).joinedload(Product.images)
-    ).filter(Wishlist.user_id == user_id).all()
-    
-    # Serialize with enriched product data
-    serialized_items = []
-    for item in items:
-        product_data = None
-        if item.product:
-            p = item.product
-            primary = p.primary_image
-            product_data = {
-                "id": p.id,
-                "name": p.name,
-                "slug": p.slug,
-                "short_description": p.short_description,
-                "price": float(p.price),
-                "mrp": float(p.mrp) if p.mrp else None,
-                "category_id": p.category_id,
-                "collection_id": p.category_id,
-                "brand": getattr(p, 'brand', None),
-                "image_url": _r2_url(primary) if primary else None,
-                "is_active": p.is_active,
-                "is_featured": p.is_featured,
-                "is_new_arrival": p.is_new_arrival,
-                "total_stock": p.total_stock or 0,
-                "inventory_count": p.total_stock or 0,
-                "is_on_sale": p.is_on_sale,
-                "discount_percentage": p.discount_percentage,
-                "in_stock": (p.total_stock or 0) > 0,
-                "hsn_code": getattr(p, 'hsn_code', None),
-                "gst_rate": float(p.gst_rate) if p.gst_rate else None,
-                "is_taxable": getattr(p, 'is_taxable', None),
-                "created_at": p.created_at,
-                "updated_at": p.updated_at,
-            }
-        
-        serialized_items.append({
-            "id": item.id,
-            "user_id": item.user_id,
-            "product_id": item.product_id,
-            "added_at": item.added_at,
-            "product": product_data,
-        })
-    
-    return WishlistResponse(
-        user_id=user_id,
-        items=serialized_items,
-        total_items=len(serialized_items)
-    )
-
-
-@app.post("/api/v1/wishlist/{user_id}/add", response_model=WishlistItemResponse,
-          status_code=status.HTTP_201_CREATED,
-          tags=["Wishlist"])
-async def add_to_wishlist(
-    user_id: int,
-    item: WishlistItemCreate,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    """Add product to wishlist."""
-    # Authorization check
-    if current_user["user_id"] != user_id and current_user["role"] not in ["admin", "staff"]:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to modify this wishlist"
-        )
-    
-    wishlist_service = WishlistService(db)
-    return wishlist_service.add_to_wishlist(user_id, item.product_id)
-
-
-@app.delete("/api/v1/wishlist/{user_id}/remove/{product_id}",
-            status_code=status.HTTP_204_NO_CONTENT,
-            tags=["Wishlist"])
-async def remove_from_wishlist(
-    user_id: int,
-    product_id: int,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    """Remove product from wishlist."""
-    # Authorization check
-    if current_user["user_id"] != user_id and current_user["role"] not in ["admin", "staff"]:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to modify this wishlist"
-        )
-    
-    wishlist_service = WishlistService(db)
-    wishlist_service.remove_from_wishlist(user_id, product_id)
-    return
-
-
-@app.delete("/api/v1/wishlist/{user_id}/clear",
-            status_code=status.HTTP_204_NO_CONTENT,
-            tags=["Wishlist"])
-async def clear_wishlist(
-    user_id: int,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    """Clear user's wishlist."""
-    # Authorization check
-    if current_user["user_id"] != user_id and current_user["role"] not in ["admin", "staff"]:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to modify this wishlist"
-        )
-    
-    wishlist_service = WishlistService(db)
-    wishlist_service.clear_wishlist(user_id)
-    return
-
-
-@app.get("/api/v1/wishlist/{user_id}/check/{product_id}",
-         tags=["Wishlist"])
-async def check_in_wishlist(
-    user_id: int,
-    product_id: int,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    """Check if product is in wishlist."""
-    # Authorization check
-    if current_user["user_id"] != user_id and current_user["role"] not in ["admin", "staff"]:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to view this wishlist"
-        )
-    
-    wishlist_service = WishlistService(db)
-    in_wishlist = wishlist_service.is_in_wishlist(user_id, product_id)
-    return {"in_wishlist": in_wishlist}
-
-
-# ==================== Promotion Routes ====================
-
-@app.post("/api/v1/promotions/validate", response_model=PromotionValidateResponse,
-          tags=["Promotions"])
-async def validate_promotion(
-    validation_request: PromotionValidateRequest,
-    db: Session = Depends(get_db)
-):
-    """Validate a promotion code."""
-    promotion_service = PromotionService(db)
-    result = promotion_service.validate_promotion(
-        validation_request.code,
-        validation_request.user_id,
-        validation_request.order_total
-    )
-    
-    return PromotionValidateResponse(**result)
-
-
-# ==================== Admin Promotion Routes ====================
-
-@app.get("/api/v1/admin/promotions", response_model=List[PromotionResponse],
-         tags=["Admin - Promotions"])
-async def list_promotions(
-    active_only: bool = False,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(require_admin)
-):
-    """List all promotions (admin only)."""
-    promotion_service = PromotionService(db)
-    return promotion_service.get_all_promotions(active_only)
-
-
-@app.get("/api/v1/admin/promotions/{code}", response_model=PromotionResponse,
-         tags=["Admin - Promotions"])
-async def get_promotion(
-    code: str,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(require_admin)
-):
-    """Get promotion by code (admin only)."""
-    promotion_service = PromotionService(db)
-    promotion = promotion_service.get_promotion_by_code(code)
-    
-    if not promotion:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Promotion not found"
-        )
-    
-    return promotion
-
-
-@app.post("/api/v1/admin/promotions", response_model=PromotionResponse,
-          status_code=status.HTTP_201_CREATED,
-          tags=["Admin - Promotions"])
-async def create_promotion(
-    promotion_data: PromotionCreate,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(require_admin)
-):
-    """Create a new promotion (admin only)."""
-    promotion_service = PromotionService(db)
-    return promotion_service.create_promotion(promotion_data)
-
-
-@app.patch("/api/v1/admin/promotions/{promotion_id}", response_model=PromotionResponse,
-           tags=["Admin - Promotions"])
-async def update_promotion(
-    promotion_id: int,
-    promotion_data: PromotionUpdate,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(require_admin)
-):
-    """Update a promotion (admin only)."""
-    promotion_service = PromotionService(db)
-    return promotion_service.update_promotion(promotion_id, promotion_data)
-
-
-@app.delete("/api/v1/admin/promotions/{promotion_id}",
-            status_code=status.HTTP_204_NO_CONTENT,
-            tags=["Admin - Promotions"])
-async def delete_promotion(
-    promotion_id: int,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(require_admin)
-):
-    """Delete a promotion (admin only)."""
-    promotion_service = PromotionService(db)
-    promotion_service.delete_promotion(promotion_id)
-    return
-
-
-# ==================== Order Routes ====================
-
 @app.post("/api/v1/orders", response_model=OrderResponse,
           status_code=status.HTTP_201_CREATED,
           tags=["Orders"])
@@ -1737,7 +1263,6 @@ async def create_order(
             user_id=current_user["user_id"],
             shipping_address=order_data.shipping_address,
             address_id=order_data.address_id,
-            promo_code=order_data.promo_code,
             order_notes=order_data.notes or order_data.order_notes,
             transaction_id=order_data.transaction_id or order_data.payment_id,
             payment_method=order_data.payment_method,
@@ -2071,12 +1596,12 @@ async def force_create_order_from_payment(
         text("""
             INSERT INTO orders (
                 user_id, transaction_id, razorpay_order_id, razorpay_payment_id,
-                status, total_amount, subtotal, discount_applied, payment_method,
+                status, total_amount, subtotal, payment_method,
                 invoice_number, shipping_address_id, shipping_address, order_notes,
                 created_at, updated_at
             ) VALUES (
                 :user_id, :transaction_id, :razorpay_order_id, :payment_id,
-                'confirmed', :amount, :amount, 0, 'razorpay',
+                'confirmed', :amount, :amount, 'razorpay',
                 :invoice_number, :addr_id, :shipping_address, :notes,
                 NOW(), NOW()
             ) RETURNING id, invoice_number
@@ -3568,34 +3093,6 @@ async def update_cart_quantity(
     return CartResponse(**cart_data)
 
 
-@app.post("/api/v1/cart/{user_id}/apply-promo", tags=["Cart"])
-async def apply_promo_to_cart(
-    user_id: int,
-    promo_code: str,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
-):
-    """Apply a promotion code to the cart (legacy endpoint — delegates to CartService)."""
-    if current_user["user_id"] != user_id and current_user["role"] not in ["admin", "staff"]:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized")
-
-    cart_service = CartService(db)
-    cart = cart_service.get_cart(user_id)
-
-    if not cart or not cart.get("items"):
-        raise HTTPException(status_code=400, detail="Cart is empty")
-
-    subtotal = Decimal(str(cart["subtotal"]))
-    promotion_service = PromotionService(db)
-    validation = promotion_service.validate_promotion(promo_code, user_id, subtotal)
-
-    if not validation["valid"]:
-        raise HTTPException(status_code=400, detail=validation["message"])
-
-    cart = cart_service.apply_promotion(user_id, promo_code, validation["discount_amount"])
-    return CartResponse(**cart)
-
-
 @app.get("/api/v1/cart/{user_id}/summary", tags=["Cart"])
 async def cart_summary(user_id: int):
     """Get cart summary with calculated totals, shipping, and any applied promo."""
@@ -3607,16 +3104,12 @@ async def cart_summary(user_id: int):
 
     subtotal = sum(i["price"] * i["quantity"] for i in cart_data["items"])
     total_items = sum(i["quantity"] for i in cart_data["items"])
-    discount = cart_data.get("discount", 0)
-    total = max(0, subtotal - discount)
 
     return {
         "subtotal": subtotal,
         "total_items": total_items,
-        "discount": discount,
-        "promo_code": cart_data.get("promo_code"),
         "shipping": 0,
-        "total": total,
+        "total": subtotal,
         "items": cart_data["items"],
     }
 
@@ -3651,7 +3144,6 @@ async def get_customer_profile(
         "SELECT COUNT(*), COALESCE(SUM(total_amount), 0) FROM orders WHERE user_id = :uid AND status != 'cancelled'"
     ), {"uid": user_id}).fetchone()
 
-    wishlist_count = db.execute(text("SELECT COUNT(*) FROM wishlist WHERE user_id = :uid"), {"uid": user_id}).scalar() or 0
     address_count = db.execute(text("SELECT COUNT(*) FROM addresses WHERE user_id = :uid"), {"uid": user_id}).scalar() or 0
     review_count = db.execute(text("SELECT COUNT(*) FROM reviews WHERE user_id = :uid"), {"uid": user_id}).scalar() or 0
 
@@ -3660,7 +3152,6 @@ async def get_customer_profile(
         "stats": {
             "total_orders": order_stats[0] if order_stats else 0,
             "total_spent": float(order_stats[1]) if order_stats else 0,
-            "wishlist_items": wishlist_count,
             "saved_addresses": address_count,
             "reviews_written": review_count,
         }

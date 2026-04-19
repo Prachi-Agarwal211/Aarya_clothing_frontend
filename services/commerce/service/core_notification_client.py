@@ -91,15 +91,6 @@ def notify_order_confirmation_email(order: "Order", user) -> bool:
             </tr>
             """
 
-    discount_row = ""
-    if order.discount_applied and order.discount_applied > 0:
-        discount_row = f"""
-            <tr>
-                <td style="padding: 8px 0; color: #B76E79;">Discount ({order.promo_code})</td>
-                <td style="padding: 8px 0; color: #B76E79; text-align: right;">-₹{float(order.discount_applied):.2f}</td>
-            </tr>
-            """
-
     estimated_delivery = (order.created_at + timedelta(days=7)).strftime("%B %d, %Y")
     track_order_url = public_track_order_url(order)
 
@@ -112,7 +103,6 @@ def notify_order_confirmation_email(order: "Order", user) -> bool:
         "shipping": f"{float(order.shipping_cost):.2f}",
         "gst": f"{float(order.gst_amount):.2f}",
         "total": f"{float(order.total_amount):.2f}",
-        "discount_row": discount_row,
         "shipping_address": order.shipping_address or "",
         "payment_method": order.payment_method.upper() if order.payment_method else "ONLINE",
         "estimated_delivery": estimated_delivery,

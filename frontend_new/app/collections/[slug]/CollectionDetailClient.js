@@ -18,7 +18,7 @@ import {
 import EnhancedHeader from '@/components/landing/EnhancedHeader';
 import Footer from '@/components/landing/Footer';
 import ProductCard from '@/components/common/ProductCard';
-import { wishlistApi, productsApi, collectionsApi } from '@/lib/customerApi';
+import { productsApi, collectionsApi } from '@/lib/customerApi';
 import { useCart } from '@/lib/cartContext';
 import { useAuth } from '@/lib/authContext';
 import { useToast } from '@/components/ui/Toast';
@@ -80,33 +80,6 @@ export default function CollectionDetailClient({ initialCollection, initialProdu
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [retryCount, setRetryCount] = useState(0);
-  const [wishlistStatus, setWishlistStatus] = useState({});
-
-  // Batch check wishlist status for all products when they load
-  useEffect(() => {
-    if (!isAuthenticated || !products?.length) return;
-
-    // Filter valid product IDs
-    const productIds = products
-      .map(p => p.id)
-      .filter(id => isValidId(id));
-
-    if (!productIds.length) return;
-
-    // Use batch API to check all products at once
-    wishlistApi
-      .checkMultiple(productIds)
-      .then((statusMap) => {
-        setWishlistStatus(statusMap);
-      })
-      .catch((err) => {
-        logger.warn('[CollectionDetailClient] Batch wishlist check failed:', err.message);
-        // Set all to false on error
-        const emptyMap = {};
-        productIds.forEach(id => { emptyMap[id] = false; });
-        setWishlistStatus(emptyMap);
-      });
-  }, [products, isAuthenticated]);
 
   // Fetch products when category or page changes
   useEffect(() => {
@@ -192,57 +165,6 @@ export default function CollectionDetailClient({ initialCollection, initialProdu
       openCart();
     } catch (error) {
       toast.error('Error', error.message || 'Failed to add item to cart');
-    }
-  };
-
-  // Handle wishlist - requires authentication (uses batch status)
-  const handleWishlist = async (product) => {
-    if (!isAuthenticated) {
-      toast.error('Login Required', 'Please login to add items to your wishlist');
-      return;
-    }
-
-    // Validate product ID before making API call
-    if (!isValidId(product?.id)) {
-      logger.warn('[CollectionDetailClient] Invalid product ID in wishlist:', product?.id);
-      toast.error('Error', 'Invalid product');
-      return;
-    }
-
-    const productId = product.id;
-    
-    // Use atomic state transition to prevent race conditions from rapid clicks
-    setWishlistStatus(prev => {
-      const currentState = prev[productId] || false;
-      return { 
-        ...prev, 
-        [productId]: !currentState,
-        _pending: { ...prev._pending, [productId]: true } // Mark as pending
-      };
-    });
-
-    try {
-      const isInWishlist = wishlistStatus[productId];
-      
-      if (isInWishlist) {
-        await wishlistApi.remove(productId);
-        toast.success('Removed from Wishlist', `${product.name} removed from your wishlist`);
-      } else {
-        await wishlistApi.add(productId);
-        toast.success('Added to Wishlist', `${product.name} added to your wishlist`);
-      }
-    } catch (error) {
-      // ROLLBACK on error - toggle back to previous state
-      setWishlistStatus(prev => {
-        const currentState = prev[productId] || false;
-        const newState = { ...prev };
-        if (newState._pending) delete newState._pending[productId];
-        newState[productId] = !currentState; // Toggle back
-        return newState;
-      });
-
-      logger.error('[CollectionDetailClient] Wishlist update failed:', error);
-      toast.error('Error', error.message || 'Failed to update wishlist. Please try again.');
     }
   };
 
@@ -517,7 +439,7 @@ export default function CollectionDetailClient({ initialCollection, initialProdu
                     ) : featuredProducts.length > 0 ? (
                       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
                         {featuredProducts.slice(0, 8).map(product => (
-                          <ProductCard key={product.id} product={product} onAddToWishlist={handleWishlistToggle} wishlistStatus={wishlistStatus[product.id] || false} />
+                          <ProductCard key={product.id} product={product} />
                         ))}
                       </div>
                     ) : (

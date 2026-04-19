@@ -81,33 +81,6 @@ class TestCart:
         assert response.status_code in [401, 403]
 
 
-class TestWishlist:
-    """Test wishlist operations."""
-    
-    @pytest.mark.integration
-    def test_get_wishlist(self, authenticated_user, commerce_client):
-        """Test getting user wishlist."""
-        if not authenticated_user.get("access_token"):
-            pytest.skip("Authentication failed")
-        
-        response = commerce_client.session.get(
-            f"{commerce_client.base_url}/api/v1/wishlist",
-            headers={"Authorization": f"Bearer {authenticated_user['access_token']}"}
-        )
-        
-        assert response.status_code == 200
-    
-    @pytest.mark.integration
-    def test_wishlist_requires_auth(self, commerce_client):
-        """Test that wishlist requires authentication."""
-        response = commerce_client.session.get(
-            f"{commerce_client.base_url}/api/v1/wishlist"
-        )
-        
-        # Should require authentication
-        assert response.status_code in [401, 403]
-
-
 class TestSearch:
     """Test search functionality."""
     

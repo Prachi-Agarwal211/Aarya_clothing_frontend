@@ -23,7 +23,6 @@ class AdminDashboard {
     this.productsLink = page.locator('a[href*="products"], a:has-text("Products")');
     this.customersLink = page.locator('a[href*="customers"], a:has-text("Customers")');
     this.inventoryLink = page.locator('a[href*="inventory"], a:has-text("Inventory")');
-    this.couponsLink = page.locator('a[href*="coupons"], a:has-text("Coupons")');
     this.staffLink = page.locator('a[href*="staff"], a:has-text("Staff")');
     this.settingsLink = page.locator('a[href*="settings"], a:has-text("Settings")');
     this.aiAssistantLink = page.locator('a[href*="ai"], a:has-text("AI")');
@@ -47,7 +46,6 @@ class AdminDashboard {
     // Quick actions
     this.quickActions = page.locator('.quick-actions, [class*="quick"]');
     this.addProductButton = page.locator('button:has-text("Add Product"), .add-product');
-    this.addCouponButton = page.locator('button:has-text("Add Coupon"), .add-coupon');
     
     // Notifications
     this.notificationsButton = page.locator('button[aria-label*="notification"], .notifications, [data-testid="notifications"]');
@@ -101,14 +99,6 @@ class AdminDashboard {
   async goToInventory() {
     await this.inventoryLink.click();
     await this.page.waitForURL(/\/admin\/inventory/, { timeout: 10000 });
-  }
-
-  /**
-   * Navigate to coupons section
-   */
-  async goToCoupons() {
-    await this.couponsLink.click();
-    await this.page.waitForURL(/\/admin\/coupons/, { timeout: 10000 });
   }
 
   /**

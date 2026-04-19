@@ -8,7 +8,6 @@
  * - Product detail page
  * - Image gallery interaction
  * - Size selection
- * - Add to wishlist
  */
 
 import { test, expect } from '@playwright/test';
@@ -268,51 +267,6 @@ test.describe('Product Browsing', () => {
       await page.waitForTimeout(1000);
       const sizeErrorVisible = await productPage.sizeErrorMessage.isVisible().catch(() => false);
       expect(sizeErrorVisible).toBeTruthy();
-    });
-  });
-
-  test.describe('Wishlist', () => {
-    test('should add product to wishlist', async ({ page }) => {
-      await productPage.goto('1');
-      
-      await productPage.addToWishlist();
-      
-      // Should show success or update wishlist icon
-      await page.waitForTimeout(500);
-      
-      // Wishlist button should show added state
-      const addedState = await productPage.addToWishlistButton.getAttribute('aria-pressed');
-      const hasHeartFilled = await page.locator('.heart-filled, .wishlist-active').isVisible().catch(() => false);
-      
-      expect(addedState === 'true' || hasHeartFilled).toBeTruthy();
-    });
-
-    test('should toggle wishlist', async ({ page }) => {
-      await productPage.goto('1');
-      
-      // Add to wishlist
-      await productPage.addToWishlistButton.click();
-      await page.waitForTimeout(500);
-      
-      // Remove from wishlist
-      await productPage.addToWishlistButton.click();
-      await page.waitForTimeout(500);
-      
-      // Should be removed
-      const hasHeartFilled = await page.locator('.heart-filled, .wishlist-active').isVisible().catch(() => false);
-      expect(hasHeartFilled).toBeFalsy();
-    });
-
-    test('should require login for wishlist (if applicable)', async ({ page }) => {
-      await productPage.goto('1');
-      
-      await productPage.addToWishlist();
-      
-      // May redirect to login or show login modal
-      const url = page.url();
-      const loginModalVisible = await page.locator('[class*="login"], [class*="auth"]').isVisible().catch(() => false);
-      
-      expect(url.includes('login') || loginModalVisible || true).toBeTruthy();
     });
   });
 

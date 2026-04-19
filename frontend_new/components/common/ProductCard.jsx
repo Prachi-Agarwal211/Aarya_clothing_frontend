@@ -1,16 +1,15 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { Heart, ShoppingBag } from 'lucide-react';
+import { ShoppingBag } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useCart } from '@/lib/cartContext';
 import { useAuth } from '@/lib/authContext';
 import { useToast } from '@/components/ui/Toast';
 import { AddToCartButton } from '@/components/cart/CartAnimation';
-import { wishlistApi } from '@/lib/customerApi';
 import { getCoreBaseUrl } from '@/lib/baseApi';
 
 /**
@@ -23,12 +22,7 @@ const ensureFullUrl = (url) => {
   return `${baseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
 };
 
-const ProductCard = ({ 
-  product, 
-  className, 
-  priority = false, 
-  isWishlisted: initialWishlistStatus 
-}) => {
+const ProductCard = ({ product, className, priority = false }) => {
   // Support both old shape {id,name,price,image,category,isNew,originalPrice}
   // and new DB-driven shape {id,name,price,mrp,image_url,collection_name,is_new_arrival,discount_percentage}
   const id = product.id;
@@ -38,15 +32,6 @@ const ProductCard = ({
   const category = product.collection_name || product.category || '';
   const isNew = product.is_new_arrival ?? product.isNew ?? false;
   const originalPrice = product.mrp || product.originalPrice;
-  
-  // Support both controlled (parent-managed) and uncontrolled (self-managed) modes
-  const [internalWishlistStatus, setInternalWishlistStatus] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  
-  // Use prop if provided, otherwise manage internally
-  const isWishlisted = initialWishlistStatus !== undefined 
-    ? initialWishlistStatus 
-    : internalWishlistStatus;
 
   const { addItem, openCart } = useCart();
   const { isAuthenticated } = useAuth();
@@ -65,30 +50,6 @@ const ProductCard = ({
     window.location.hash?.startsWith('#collections')
   );
   const addToCartButtonText = isLandingPage ? 'View Details' : 'Add to Cart';
-
-  // Internal wishlist check (fallback when prop not provided)
-  useEffect(() => {
-    // If parent provides wishlist status, don't check internally
-    if (initialWishlistStatus !== undefined) {
-      return;
-    }
-
-    // Only check wishlist if user is authenticated
-    if (!isAuthenticated) {
-      setInternalWishlistStatus(false);
-      return;
-    }
-
-    const checkWishlist = async () => {
-      try {
-        const result = await wishlistApi.check(id);
-        setInternalWishlistStatus(result.is_wishlisted || result.in_wishlist || false);
-      } catch (e) {
-        console.warn('[ProductCard] Wishlist check failed:', e.message);
-      }
-    };
-    checkWishlist();
-  }, [id, isAuthenticated, initialWishlistStatus]);
 
   const handleAddToCart = async (productData) => {
     // On landing page / new arrivals, navigate to product page for size selection
@@ -121,37 +82,6 @@ const ProductCard = ({
     }
   };
 
-  const handleWishlist = async () => {
-    if (!isAuthenticated) {
-      if (typeof window !== 'undefined') {
-        const currentPath = window.location.pathname + window.location.search;
-        window.location.href = `/auth/login?redirect_url=${encodeURIComponent(currentPath)}`;
-      }
-      return;
-    }
-
-    if (isLoading) return;
-    setIsLoading(true);
-
-    try {
-      if (isWishlisted) {
-        await wishlistApi.remove(id);
-        setInternalWishlistStatus(false);
-        toast.success('Removed from Wishlist', `${name} removed from your wishlist`);
-      } else {
-        await wishlistApi.add(id);
-        setInternalWishlistStatus(true);
-        toast.success('Added to Wishlist', `${name} added to your wishlist`);
-      }
-    } catch (error) {
-      // Fall back to local state toggle if API fails
-      setInternalWishlistStatus(!internalWishlistStatus);
-      toast.error('Error', error.message || 'Failed to update wishlist. Please login to use wishlist.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   return (
     <>
       <div className={cn("group relative w-full product-card-enhanced", className)}>
@@ -177,19 +107,6 @@ const ProductCard = ({
               </span>
             </div>
           )}
-
-          {/* Premium Wishlist Button with Glow */}
-          <button
-            onClick={handleWishlist}
-            className={cn(
-              "absolute top-4 right-4 z-20 min-h-[44px] min-w-[44px] flex items-center justify-center transition-all duration-500 opacity-100 lg:opacity-0 transform lg:translate-x-4 lg:group-hover:opacity-100 lg:group-hover:translate-x-0 rounded-full bg-[#0B0608]/60 backdrop-blur-sm border hover:shadow-[0_0_20px_rgba(242,194,154,0.3)]",
-              isWishlisted
-                ? "opacity-100 translate-x-0 text-[#F2C29A] border-[#F2C29A]/50"
-                : "text-[#EAE0D5] border-[#B76E79]/20 hover:text-[#F2C29A] hover:border-[#F2C29A]/50"
-            )}
-          >
-            <Heart className={cn("w-5 h-5", isWishlisted && "fill-current")} />
-          </button>
 
           {/* Product Image - Optimized with proper loading strategy */}
           <Image

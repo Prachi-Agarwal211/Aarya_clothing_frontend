@@ -5,7 +5,6 @@
  * - View cart items
  * - Update quantities
  * - Remove items
- * - Apply coupons
  * - Proceed to checkout
  */
 class CartPage {
@@ -32,13 +31,6 @@ class CartPage {
     this.discount = page.locator('.discount, [class*="discount"], [data-testid="discount"]');
     this.tax = page.locator('.tax, [class*="tax"], [data-testid="tax"]');
     this.total = page.locator('.total, [class*="total"], [data-testid="total"]');
-    
-    // Coupon section
-    this.couponInput = page.locator('input[name="coupon"], input[placeholder*="coupon" i], .coupon-input');
-    this.applyCouponButton = page.locator('button:has-text("Apply"), button:has-text("Apply Coupon"), .apply-coupon');
-    this.couponErrorMessage = page.locator('.coupon-error, [class*="invalid"], [class*="error"]');
-    this.couponSuccessMessage = page.locator('.coupon-success, [class*="applied"]');
-    this.removeCouponButton = page.locator('button:has-text("Remove Coupon"), .remove-coupon');
     
     // Cart actions
     this.checkoutButton = page.locator('button:has-text("Checkout"), button:has-text("Proceed"), [data-testid="checkout"]');
@@ -125,39 +117,6 @@ class CartPage {
     const removeBtn = this.removeButton.nth(index);
     await removeBtn.click();
     await this.page.waitForTimeout(1000);
-  }
-
-  /**
-   * Apply coupon code
-   */
-  async applyCoupon(code) {
-    await this.couponInput.fill(code);
-    await this.applyCouponButton.click();
-    await this.page.waitForTimeout(1000);
-  }
-
-  /**
-   * Remove applied coupon
-   */
-  async removeCoupon() {
-    await this.removeCouponButton.click();
-    await this.page.waitForTimeout(500);
-  }
-
-  /**
-   * Get coupon error message
-   */
-  async getCouponErrorMessage() {
-    await this.couponErrorMessage.waitFor({ state: 'visible', timeout: 5000 });
-    return await this.couponErrorMessage.textContent();
-  }
-
-  /**
-   * Verify coupon applied
-   */
-  async verifyCouponApplied() {
-    await this.couponSuccessMessage.waitFor({ state: 'visible', timeout: 5000 });
-    return await this.couponSuccessMessage.isVisible();
   }
 
   /**

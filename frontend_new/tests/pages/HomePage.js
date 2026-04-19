@@ -13,7 +13,6 @@ class HomePage {
     this.searchInput = page.locator('input[type="search"], input[placeholder*="search" i], .search-input');
     this.searchButton = page.locator('button[type="submit"], .search-button, button:has(.search-icon)');
     this.cartIcon = page.locator('a[href="/cart"], .cart-icon, [data-testid="cart"]');
-    this.wishlistIcon = page.locator('a[href*="wishlist"], .wishlist-icon, [data-testid="wishlist"]');
     this.profileIcon = page.locator('a[href*="profile"], .profile-icon, [data-testid="profile"]');
     this.loginLink = page.locator('a[href*="login"], a:has-text("Login"), a:has-text("Sign In")');
     
@@ -63,14 +62,6 @@ class HomePage {
   async goToCart() {
     await this.cartIcon.click();
     await this.page.waitForURL(/\/cart/, { timeout: 10000 });
-  }
-
-  /**
-   * Navigate to wishlist
-   */
-  async goToWishlist() {
-    await this.wishlistIcon.click();
-    await this.page.waitForURL(/\/wishlist/, { timeout: 10000 });
   }
 
   /**

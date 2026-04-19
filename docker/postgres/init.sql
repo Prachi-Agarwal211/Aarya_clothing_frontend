@@ -16,7 +16,6 @@ ALTER DATABASE aarya_clothing SET timezone TO 'Asia/Kolkata';
 CREATE TYPE user_role AS ENUM ('admin', 'staff', 'customer', 'super_admin');
 CREATE TYPE order_status AS ENUM ('confirmed', 'shipped', 'delivered', 'cancelled');
 CREATE TYPE address_type AS ENUM ('shipping', 'billing', 'both');
-CREATE TYPE discount_type AS ENUM ('percentage', 'fixed');
 CREATE TYPE return_reason AS ENUM ('defective', 'wrong_item', 'not_as_described', 'size_issue', 'color_issue', 'changed_mind', 'other');
 CREATE TYPE return_status AS ENUM ('requested', 'approved', 'rejected', 'received', 'refunded', 'completed');
 CREATE TYPE return_type AS ENUM ('return', 'exchange');
@@ -201,8 +200,6 @@ CREATE TABLE orders (
     user_id             INTEGER NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
     invoice_number      VARCHAR(50) UNIQUE,
     subtotal            DECIMAL(10, 2) NOT NULL DEFAULT 0,
-    discount_applied    DECIMAL(10, 2) DEFAULT 0,
-    promo_code          VARCHAR(50),
     shipping_cost       DECIMAL(10, 2) DEFAULT 0,
     total_amount        DECIMAL(10, 2) NOT NULL,
     payment_method      VARCHAR(50),
@@ -236,14 +233,6 @@ CREATE TABLE order_items (
     unit_price    DECIMAL(10, 2) NOT NULL,
     line_total    DECIMAL(10, 2) NOT NULL,
     created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE wishlist (
-    id         SERIAL PRIMARY KEY,
-    user_id    INTEGER NOT NULL REFERENCES users(id)    ON DELETE CASCADE,
-    product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT uq_wishlist_user_product UNIQUE (user_id, product_id)
 );
 
 -- Stock reservations: temporarily holds variant stock during checkout/payment so
@@ -292,7 +281,7 @@ CREATE TABLE payment_transactions (
 );
 
 -- ============================================
--- REVIEWS, PROMOTIONS, RETURNS, CHAT
+-- REVIEWS, RETURNS, CHAT
 -- ============================================
 CREATE TABLE reviews (
     id                   SERIAL PRIMARY KEY,
@@ -308,33 +297,6 @@ CREATE TABLE reviews (
     helpful_count        INTEGER DEFAULT 0,
     created_at           TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at           TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE promotions (
-    id                  SERIAL PRIMARY KEY,
-    code                VARCHAR(50) NOT NULL UNIQUE,
-    description         TEXT,
-    discount_type       discount_type NOT NULL,
-    discount_value      DECIMAL(10, 2) NOT NULL,
-    min_order_value     DECIMAL(10, 2) DEFAULT 0,
-    max_discount_amount DECIMAL(10, 2),
-    max_uses            INTEGER,
-    used_count          INTEGER DEFAULT 0,
-    max_uses_per_user   INTEGER DEFAULT 1,
-    is_active           BOOLEAN DEFAULT TRUE,
-    valid_from          TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    valid_until         TIMESTAMP,
-    created_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at          TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE promotion_usage (
-    id              SERIAL PRIMARY KEY,
-    promotion_id    INTEGER NOT NULL REFERENCES promotions(id) ON DELETE CASCADE,
-    user_id         INTEGER NOT NULL,
-    order_id        INTEGER REFERENCES orders(id),
-    discount_amount DECIMAL(10, 2) NOT NULL,
-    used_at         TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE return_requests (
@@ -418,14 +380,11 @@ CREATE INDEX idx_orders_invoice        ON orders(invoice_number);
 CREATE INDEX idx_order_items_order     ON order_items(order_id);
 CREATE INDEX idx_order_items_variant   ON order_items(variant_id);
 
-CREATE INDEX idx_wishlist_user         ON wishlist(user_id);
-
 CREATE INDEX idx_stock_reservations_user    ON stock_reservations(user_id);
 CREATE INDEX idx_stock_reservations_sku     ON stock_reservations(sku);
 CREATE INDEX idx_stock_reservations_expires ON stock_reservations(expires_at);
 CREATE INDEX idx_stock_reservations_status  ON stock_reservations(status);
 CREATE INDEX idx_reviews_product       ON reviews(product_id);
-CREATE INDEX idx_promotions_code       ON promotions(code);
 CREATE INDEX idx_payment_order         ON payment_transactions(order_id);
 CREATE INDEX idx_chat_rooms_customer   ON chat_rooms(customer_id);
 
@@ -448,7 +407,6 @@ CREATE TRIGGER trg_addresses_touch          BEFORE UPDATE ON addresses          
 CREATE TRIGGER trg_orders_touch             BEFORE UPDATE ON orders             FOR EACH ROW EXECUTE FUNCTION touch_updated_at();
 CREATE TRIGGER trg_payments_touch           BEFORE UPDATE ON payment_transactions FOR EACH ROW EXECUTE FUNCTION touch_updated_at();
 CREATE TRIGGER trg_reviews_touch            BEFORE UPDATE ON reviews            FOR EACH ROW EXECUTE FUNCTION touch_updated_at();
-CREATE TRIGGER trg_promotions_touch         BEFORE UPDATE ON promotions         FOR EACH ROW EXECUTE FUNCTION touch_updated_at();
 CREATE TRIGGER trg_returns_touch            BEFORE UPDATE ON return_requests    FOR EACH ROW EXECUTE FUNCTION touch_updated_at();
 CREATE TRIGGER trg_chat_rooms_touch         BEFORE UPDATE ON chat_rooms         FOR EACH ROW EXECUTE FUNCTION touch_updated_at();
 

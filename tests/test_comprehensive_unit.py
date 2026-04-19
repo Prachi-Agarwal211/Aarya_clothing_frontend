@@ -547,12 +547,7 @@ class TestOrderService:
         # Mock inventory service
         order_service.inventory_service = Mock()
         order_service.inventory_service.confirm_reservation = Mock()
-        
-        # Mock promotion service
-        order_service.promotion_service = Mock()
-        order_service.promotion_service.validate_promotion = Mock(return_value={"valid": False})
-        order_service.promotion_service.record_usage = Mock()
-        
+
         # Mock database operations
         mock_db_session.execute = Mock(return_value=Mock(scalar=Mock(return_value=123)))
         
@@ -665,8 +660,7 @@ class TestIntegration:
         order_service = OrderService(mock_db_session)
         order_service.cart_service = cart_service
         order_service.inventory_service = Mock()
-        order_service.promotion_service = Mock()
-        
+
         # Step 1: Add items to cart
         cart_service.get_cart = Mock(return_value={
             "user_id": 1,
@@ -688,8 +682,7 @@ class TestIntegration:
         order_service.cart_service.confirm_cart_for_checkout = Mock(return_value=True)
         order_service.cart_service.clear_cart = Mock()
         order_service.inventory_service.confirm_reservation = Mock()
-        order_service.promotion_service.validate_promotion = Mock(return_value={"valid": False})
-        
+
         mock_db_session.execute = Mock(return_value=Mock(scalar=Mock(return_value=123)))
         mock_db_session.add = Mock()
         mock_db_session.flush = Mock()

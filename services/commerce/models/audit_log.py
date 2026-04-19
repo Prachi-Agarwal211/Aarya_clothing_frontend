@@ -13,7 +13,7 @@ class AuditLog(Base):
     
     # Action details
     action = Column(String(100), nullable=False, index=True)  # e.g., "product.update", "order.cancel"
-    resource_type = Column(String(50), nullable=False)  # e.g., "product", "order", "promotion"
+    resource_type = Column(String(50), nullable=False)  # e.g., "product", "order", "review"
     resource_id = Column(Integer, nullable=True, index=True)  # ID of affected resource
     
     # Change tracking

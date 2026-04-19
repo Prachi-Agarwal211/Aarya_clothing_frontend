@@ -101,7 +101,6 @@ class OrderResponse(BaseModel):
     id: int
     user_id: int
     subtotal: float = 0
-    discount_applied: float = 0
     shipping_cost: float = 0
     total_amount: float
     status: str

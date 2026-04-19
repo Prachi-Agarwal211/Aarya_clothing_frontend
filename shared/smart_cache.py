@@ -71,7 +71,6 @@ class SmartCache:
         "user": 300,             # 5 minutes
         "cart": 1800,            # 30 minutes
         "order": 60,             # 1 minute
-        "promotion": 300,        # 5 minutes
         "review": 300,           # 5 minutes
         "inventory": 30,         # 30 seconds
         "default": 300,          # 5 minutes

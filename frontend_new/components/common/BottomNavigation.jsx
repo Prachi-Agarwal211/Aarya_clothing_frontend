@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, ShoppingBag, Heart, User, Search } from 'lucide-react';
+import { Home, ShoppingBag, User, Search } from 'lucide-react';
 import { useCart } from '@/lib/cartContext';
 import { useAuth } from '@/lib/authContext';
 import { cn } from '@/lib/utils';
@@ -42,12 +42,6 @@ const BottomNavigation = () => {
             onClick: handleCartClick,
             isActive: false,
             badge: itemCount > 0 ? itemCount : null
-        },
-        {
-            label: 'Saved',
-            icon: Heart,
-            href: isAuthenticated ? '/profile/wishlist' : '/auth/login?redirect_url=/profile/wishlist',
-            isActive: pathname === '/profile/wishlist'
         },
         {
             label: 'Profile',

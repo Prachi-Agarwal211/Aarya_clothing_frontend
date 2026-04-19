@@ -122,8 +122,6 @@ def init_db():
     from models.inventory import Inventory
     from models.address import Address
     from models.review import Review
-    from models.wishlist import Wishlist
-    from models.promotion import Promotion
     from models.return_request import ReturnRequest
     from models.order_tracking import OrderTracking
     from models.product_image import ProductImage

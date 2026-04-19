@@ -126,7 +126,6 @@ def run_payment_recovery():
                     "total_amount": float(payment.amount),
                     "shipping_cost": 0,
                     "gst_amount": 0,
-                    "discount_applied": 0,
                     "payment_method": payment.payment_method or "razorpay",
                     "order_notes": f"[RECOVERY JOB] Order created by automated recovery for payment {payment_id}",
                 }

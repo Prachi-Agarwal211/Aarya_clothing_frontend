@@ -4,8 +4,6 @@ from schemas.order import OrderCreate, OrderResponse, CartItem, CartResponse
 from schemas.category import CategoryCreate, CategoryUpdate, CategoryResponse, CategoryWithChildren, CategoryTree
 from schemas.product_image import ProductImageCreate, ProductImageResponse
 from schemas.inventory import InventoryCreate, InventoryUpdate, InventoryResponse, StockAdjustment, LowStockItem
-from schemas.wishlist import WishlistItemCreate, WishlistItemResponse, WishlistResponse
-from schemas.promotion import PromotionCreate, PromotionUpdate, PromotionResponse, PromotionValidateRequest, PromotionValidateResponse
 from schemas.address import AddressCreate, AddressUpdate, AddressResponse
 from schemas.review import ReviewCreate, ReviewResponse
 from schemas.order_tracking import OrderTrackingCreate, OrderTrackingResponse
@@ -18,8 +16,6 @@ __all__ = [
     "CategoryCreate", "CategoryUpdate", "CategoryResponse", "CategoryWithChildren", "CategoryTree",
     "ProductImageCreate", "ProductImageResponse",
     "InventoryCreate", "InventoryUpdate", "InventoryResponse", "StockAdjustment", "LowStockItem",
-    "WishlistItemCreate", "WishlistItemResponse", "WishlistResponse",
-    "PromotionCreate", "PromotionUpdate", "PromotionResponse", "PromotionValidateRequest", "PromotionValidateResponse",
     "AddressCreate", "AddressUpdate", "AddressResponse",
     "ReviewCreate", "ReviewResponse",
     "OrderTrackingCreate", "OrderTrackingResponse",

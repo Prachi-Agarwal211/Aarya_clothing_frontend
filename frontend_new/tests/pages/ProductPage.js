@@ -5,7 +5,7 @@
  * - Product information display
  * - Image gallery
  * - Size selection
- * - Add to cart/wishlist
+ * - Add to cart
  * - Product reviews
  */
 class ProductPage {
@@ -40,7 +40,6 @@ class ProductPage {
     
     // Action buttons
     this.addToCartButton = page.locator('button:has-text("Add to Cart"), button:has-text("Add to Bag"), [data-testid="add-to-cart"]');
-    this.addToWishlistButton = page.locator('button:has-text("Wishlist"), button:has-text("Heart"), [data-testid="add-to-wishlist"]');
     this.buyNowButton = page.locator('button:has-text("Buy Now"), [data-testid="buy-now"]');
     
     // Product variants
@@ -138,14 +137,6 @@ class ProductPage {
     
     // Wait for cart confirmation
     await this.page.waitForTimeout(1000);
-  }
-
-  /**
-   * Add product to wishlist
-   */
-  async addToWishlist() {
-    await this.addToWishlistButton.click();
-    await this.page.waitForTimeout(500);
   }
 
   /**

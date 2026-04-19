@@ -72,15 +72,6 @@ def get_review_eager_options():
     ]
 
 
-def get_wishlist_eager_options():
-    """Get eager loading options for Wishlist queries."""
-    return [
-        joinedload("items"),
-        joinedload("items.product"),
-        joinedload("items.variant"),
-    ]
-
-
 # ==================== Query Helpers ====================
 
 def apply_eager_loading(query, options: List[Any]):

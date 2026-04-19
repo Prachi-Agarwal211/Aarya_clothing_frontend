@@ -43,7 +43,6 @@ class CartResponse(BaseModel):
     total: float = 0.0
     total_amount: Optional[float] = None  # Alias for total (for backward compat)
     item_count: int = 0
-    promo_code: Optional[str] = None
     reservation_expires_at: Optional[datetime] = None  # UTC timestamp when earliest reservation expires
 
     class Config:
@@ -61,7 +60,6 @@ class OrderCreate(BaseModel):
     user_id: int = 0  # Optional in request (inferred from token), required for service
     shipping_address: Optional[str] = None
     address_id: Optional[int] = None
-    promo_code: Optional[str] = None
     notes: Optional[str] = None
     order_notes: Optional[str] = None  # alias used by route layer
     payment_method: str = "razorpay"
@@ -121,8 +119,6 @@ class OrderResponse(BaseModel):
     customer_email: Optional[str] = None
     invoice_number: Optional[str] = None
     subtotal: Optional[Decimal] = None
-    discount_applied: Optional[Decimal] = None
-    promo_code: Optional[str] = None
     shipping_cost: Optional[Decimal] = None
     gst_amount: Optional[Decimal] = None
     cgst_amount: Optional[Decimal] = None

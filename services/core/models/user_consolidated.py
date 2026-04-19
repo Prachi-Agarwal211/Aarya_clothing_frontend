@@ -69,11 +69,6 @@ class User(Base):
         cascade="all, delete-orphan"
     )
     
-    wishlist_items: Mapped[List["Wishlist"]] = relationship(
-        "Wishlist", back_populates="user",
-        cascade="all, delete-orphan"
-    )
-    
     reviews: Mapped[List["Review"]] = relationship(
         "Review", back_populates="user",
         cascade="all, delete-orphan"
@@ -129,17 +124,6 @@ class Address(Base):
     is_default = Column(Boolean, default=False, nullable=False)
     
     user: Mapped["User"] = relationship("User", back_populates="addresses")
-
-class Wishlist(Base):
-    """User wishlist items - moved from commerce to core"""
-    __tablename__ = "wishlist"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    product_id = Column(Integer, nullable=False)
-    created_at = Column(DateTime, server_default=func.now(), nullable=False)
-    
-    user: Mapped["User"] = relationship("User", back_populates="wishlist_items")
 
 class Review(Base):
     """Product reviews - moved from commerce to core"""

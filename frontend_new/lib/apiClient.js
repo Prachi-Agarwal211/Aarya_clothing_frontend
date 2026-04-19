@@ -22,7 +22,6 @@ export {
   addressesApi,
   chatApi,
   paymentApi,
-  wishlistApi,
   reviewsApi,
   userApi,
   landingApi as siteConfigApi,

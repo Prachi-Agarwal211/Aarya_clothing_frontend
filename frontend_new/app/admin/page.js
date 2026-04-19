@@ -31,6 +31,7 @@ function DashboardContent() {
   const [dashboardData, setDashboardData] = useState(null);
   const [lowStockItems, setLowStockItems] = useState([]);
   const [error, setError] = useState(null);
+  const [period, setPeriod] = useState('daily');
 
   useEffect(() => {
     if (user && !isAdmin(user.role)) {
@@ -38,12 +39,12 @@ function DashboardContent() {
     }
   }, [user, router]);
 
-  const fetchDashboardData = useCallback(async () => {
+  const fetchDashboardData = useCallback(async (selectedPeriod = period) => {
     try {
       setLoading(true);
       setError(null);
       const [dashboard, lowStock] = await Promise.all([
-        dashboardApi.getOverview(),
+        dashboardApi.getOverview(selectedPeriod),
         inventoryApi.getLowStock(),
       ]);
       setDashboardData(dashboard);
@@ -62,13 +63,12 @@ function DashboardContent() {
     } finally {
       setLoading(false);
     }
-  }, [router]);
+  }, [router, period]);
 
+  // Fetch when period changes
   useEffect(() => {
-    if (user === undefined) return;
-    if (user && !isAdmin(user.role)) return;
-    fetchDashboardData();
-  }, [user, fetchDashboardData]);
+    fetchDashboardData(period);
+  }, [period]);
 
   if (loading && !dashboardData) {
     return (
@@ -158,15 +158,33 @@ function DashboardContent() {
             Welcome back! Here&apos;s your store at a glance.
           </p>
         </div>
-        <button
-          onClick={fetchDashboardData}
-          disabled={loading}
-          className="self-start sm:self-auto flex items-center gap-2 px-4 py-2 rounded-xl border border-[#B76E79]/20 text-[#EAE0D5]/60 hover:bg-[#B76E79]/10 text-sm transition-colors disabled:opacity-50 min-h-[44px] touch-target"
-          aria-label="Refresh dashboard data"
-        >
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} aria-hidden="true" />
-          Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Period Filter Buttons */}
+          <div className="flex rounded-xl border border-[#B76E79]/20 overflow-hidden">
+            {['daily', 'weekly', 'monthly'].map((p) => (
+              <button
+                key={p}
+                onClick={() => setPeriod(p)}
+                disabled={loading}
+                className={`px-3 py-2 text-sm capitalize transition-colors disabled:opacity-50 ${
+                  period === p
+                    ? 'bg-[#B76E79] text-white'
+                    : 'text-[#EAE0D5]/60 hover:bg-[#B76E79]/10'
+                }`}
+              >
+                {p}
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={() => fetchDashboardData(period)}
+            disabled={loading}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl border border-[#B76E79]/20 text-[#EAE0D5]/60 hover:bg-[#B76E79]/10 text-sm transition-colors disabled:opacity-50 min-h-[44px] touch-target"
+            aria-label="Refresh dashboard data"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} aria-hidden="true" />
+          </button>
+        </div>
       </div>
 
       {/* Main Stats Grid */}
@@ -199,21 +217,27 @@ function DashboardContent() {
         />
       </div>
 
-      {/* Today Stats */}
-      <div className="grid grid-cols-2 gap-3 sm:gap-4">
+      {/* Period Stats (revenue/orders/new customers in selected window) */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
         <StatCard
-          title="Today&apos;s Revenue"
-          value={d.today_revenue || 0}
+          title={`${period.charAt(0).toUpperCase() + period.slice(1)} Revenue`}
+          value={d.period_revenue || 0}
           format="currency"
           prefix="₹"
           icon={TrendingUp}
           accentColor="#F2C29A"
         />
         <StatCard
-          title="Today&apos;s Orders"
-          value={d.today_orders || 0}
+          title={`${period.charAt(0).toUpperCase() + period.slice(1)} Orders`}
+          value={d.period_orders || 0}
           icon={ShoppingBag}
           accentColor="#B76E79"
+        />
+        <StatCard
+          title="New Customers"
+          value={d.period_new_customers || 0}
+          icon={Users}
+          accentColor="#9966CC"
         />
       </div>
 

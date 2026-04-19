@@ -100,7 +100,6 @@ class CartService:
                 "total": 0,
                 "total_amount": 0,  # Alias for total
                 "item_count": 0,
-                "promo_code": None,
                 "reservation_expires_at": None
             }
 
@@ -118,7 +117,6 @@ class CartService:
             "total": 0,
             "total_amount": 0,  # Alias for total
             "item_count": 0,
-            "promo_code": None
         }
         for key, val in defaults.items():
             if key not in cart_data:
@@ -537,31 +535,8 @@ class CartService:
             "total": 0,
             "total_amount": 0,
             "item_count": 0,
-            "promo_code": None,
             "reservation_expires_at": None
         }
-
-    def apply_promotion(self, user_id: int, promo_code: str, discount_amount: Decimal) -> Dict:
-        """Apply promotion code to cart. LOCK FIX: Uses distributed lock."""
-        lock_token = self._acquire_cart_lock(user_id)
-        try:
-            return self._apply_promotion_unlocked(user_id, promo_code, discount_amount)
-        finally:
-            self._release_cart_lock(user_id, lock_token)
-
-    def _apply_promotion_unlocked(self, user_id: int, promo_code: str, discount_amount: Decimal) -> Dict:
-        cart = self.get_cart(user_id)
-
-        cart["promo_code"] = promo_code
-        cart["discount"] = float(discount_amount)
-
-        # Recalculate all totals consistently (total = subtotal - discount)
-        self._recalculate_cart(cart)
-
-        # Save
-        self.save_cart(user_id, cart)
-
-        return cart
 
     def checkout_stock_preview(self, user_id: int) -> Dict:
         """

@@ -68,11 +68,6 @@ class CheckoutPage {
     this.placeOrderButton = page.locator('button:has-text("Place Order"), button:has-text("Confirm Order"), [data-testid="place-order"]');
     this.termsCheckbox = page.locator('input[type="checkbox"][name="terms"], .terms-checkbox');
     
-    // Coupon in checkout
-    this.couponSection = page.locator('.coupon-section, [class*="coupon"]');
-    this.couponInput = page.locator('input[name="coupon"], .coupon-input');
-    this.applyCouponButton = page.locator('button:has-text("Apply"), .apply-coupon');
-    
     // Contact information
     this.contactEmail = page.locator('input[type="email"][name="email"], #email');
     this.contactPhone = page.locator('input[type="tel"][name="phone"], #phone');
@@ -214,15 +209,6 @@ class CheckoutPage {
   async continueShopping() {
     await this.continueShoppingButton.click();
     await this.page.waitForURL(/\/$/, { timeout: 10000 });
-  }
-
-  /**
-   * Apply coupon in checkout
-   */
-  async applyCoupon(code) {
-    await this.couponInput.fill(code);
-    await this.applyCouponButton.click();
-    await this.page.waitForTimeout(1000);
   }
 
   /**

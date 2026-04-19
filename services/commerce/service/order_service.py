@@ -16,7 +16,6 @@ from models.address import Address
 from models.user import User, UserProfile
 from service.inventory_service import InventoryService
 from service.cart_service import CartService
-from service.promotion_service import PromotionService
 from service.customer_activity_logger import log_customer_activity
 from schemas.order import OrderCreate, OrderUpdate
 
@@ -60,7 +59,6 @@ class OrderService:
         self.db = db
         self.inventory_service = InventoryService(db)
         self.cart_service = CartService(db)
-        self.promotion_service = PromotionService(db)
     
     def get_user_orders(
         self,
@@ -102,7 +100,6 @@ class OrderService:
         user_id: int,
         shipping_address: Optional[str] = None,
         address_id: Optional[int] = None,
-        promo_code: Optional[str] = None,
         order_notes: Optional[str] = None,
         transaction_id: Optional[str] = None,
         payment_method: str = "razorpay",
@@ -338,24 +335,7 @@ class OrderService:
                 db_inventory.effective_price if db_inventory else float(db_product.base_price)
             ))
             subtotal += authoritative_price * cart_item["quantity"]
-        
-        # Apply promotion if provided
-        discount_applied = Decimal(0)
-        if promo_code:
-            validation = self.promotion_service.validate_promotion(
-                code=promo_code,
-                user_id=user_id,
-                order_total=subtotal
-            )
-            
-            if validation["valid"]:
-                discount_applied = validation["discount_amount"]
-            else:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=validation["message"]
-                )
-        
+
         # Retrieve cart GST fields (calculated by CartService._recalculate_cart)
         gst_amount = Decimal(str(cart.get("gst_amount", 0) or 0))
         cgst_amount = Decimal(str(cart.get("cgst_amount", 0) or 0))
@@ -366,7 +346,7 @@ class OrderService:
         
         # Calculate totals including shipping from cart
         shipping_cost = Decimal(str(cart.get("shipping", 0) or 0))
-        total_amount = subtotal - discount_applied + shipping_cost + gst_amount
+        total_amount = subtotal + shipping_cost + gst_amount
         
         # Generate sequential invoice number: INV-YYYY-NNNNNN
         # Uses a DB sequence — no mid-transaction commit to avoid gaps
@@ -391,8 +371,6 @@ class OrderService:
             payment_method=payment_method,
             invoice_number=invoice_number,
             subtotal=subtotal,
-            discount_applied=discount_applied,
-            promo_code=promo_code,
             shipping_cost=shipping_cost,
             gst_amount=gst_amount,
             cgst_amount=cgst_amount,
@@ -468,17 +446,6 @@ class OrderService:
                         detail=f"Failed to confirm stock for {cart_item.get('name', cart_item['sku'])}. Please try again."
                     )
         
-        # Record promotion usage (promotion row already validated above)
-        if promo_code:
-            prom = self.promotion_service.get_promotion_by_code(promo_code)
-            if prom:
-                self.promotion_service.record_usage(
-                    promotion_id=prom.id,
-                    user_id=user_id,
-                    discount_amount=discount_applied,
-                    order_id=order.id,
-                )
-
         # Commit everything atomically: order, order_items, stock deductions.
         # IntegrityError: concurrent duplicate submit with same (user_id, transaction_id) —
         # return the other transaction's order (idempotent success).
@@ -664,14 +631,12 @@ class OrderService:
         shipping_address = pending_order_data.get("shipping_address")
 
         subtotal = Decimal(str(pending_order_data.get("subtotal", 0)))
-        discount_applied = Decimal(str(pending_order_data.get("discount_applied", 0)))
         shipping_cost = Decimal(str(pending_order_data.get("shipping_cost", 0)))
         gst_amount = Decimal(str(pending_order_data.get("gst_amount", 0)))
         cgst_amount = Decimal(str(pending_order_data.get("cgst_amount", 0)))
         sgst_amount = Decimal(str(pending_order_data.get("sgst_amount", 0)))
         igst_amount = Decimal(str(pending_order_data.get("igst_amount", 0)))
         total_amount = Decimal(str(pending_order_data.get("total_amount", 0)))
-        promo_code = pending_order_data.get("promo_code")
         order_notes = pending_order_data.get("order_notes", "")
         delivery_state = pending_order_data.get("delivery_state", "")
         customer_gstin = pending_order_data.get("customer_gstin")
@@ -715,8 +680,6 @@ class OrderService:
             payment_method=pending_order_data.get("payment_method", "razorpay"),
             invoice_number=invoice_number,
             subtotal=subtotal,
-            discount_applied=discount_applied,
-            promo_code=promo_code,
             shipping_cost=shipping_cost,
             gst_amount=gst_amount,
             cgst_amount=cgst_amount,

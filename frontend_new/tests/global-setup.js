@@ -62,20 +62,6 @@ async function seedTestData() {
         colors: ['Black', 'White'],
       },
     ],
-    coupons: [
-      {
-        code: 'TEST10',
-        discount: 10,
-        type: 'percentage',
-        minOrder: 500,
-      },
-      {
-        code: 'INVALID',
-        discount: 0,
-        type: 'percentage',
-        expired: true,
-      },
-    ],
   };
   
   // Save test data to file for use in tests

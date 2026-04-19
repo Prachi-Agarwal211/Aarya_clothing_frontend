@@ -155,43 +155,6 @@ export const addressesApi = {
     commerceClient.patch(`/api/v1/addresses/${id}`, { is_default: true }),
 };
 
-// ==================== Wishlist API ====================
-export const wishlistApi = {
-  get: () =>
-    commerceClient.get('/api/v1/wishlist'),
-
-  list: () =>
-    commerceClient.get('/api/v1/wishlist'),
-
-  add: (productId) =>
-    commerceClient.post('/api/v1/wishlist/items', { product_id: productId }),
-
-  remove: (productId) =>
-    commerceClient.delete(`/api/v1/wishlist/items/${productId}`),
-
-  check: (productId) =>
-    commerceClient.get(`/api/v1/wishlist/check/${productId}`),
-
-  // Batch check multiple products for wishlist status - O(1) API call
-  checkMultiple: (productIds) => {
-    if (!productIds || productIds.length === 0) return Promise.resolve({});
-    
-    // Use dedicated batch endpoint for O(1) performance
-    return commerceClient.post('/api/v1/wishlist/check-multiple', {
-      product_ids: productIds
-    })
-    .then(response => response.wishlist_status || {})
-    .catch((error) => {
-      // Log error for debugging
-      console.warn('[wishlistApi.checkMultiple] Failed to check wishlist status:', error.message);
-      // Return all false on error
-      const emptyMap = {};
-      productIds.forEach(id => { emptyMap[id] = false; });
-      return emptyMap;
-    });
-  },
-};
-
 // ==================== Reviews API ====================
 export const reviewsApi = {
   list: (productId, params = {}) =>
@@ -443,7 +406,6 @@ export const customerApi = {
   cart: cartApi,
   orders: ordersApi,
   addresses: addressesApi,
-  wishlist: wishlistApi,
   reviews: reviewsApi,
   user: userApi,
   payment: paymentApi,

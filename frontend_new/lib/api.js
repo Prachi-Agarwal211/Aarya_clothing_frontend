@@ -19,7 +19,6 @@ export {
   cartApi,
   ordersApi,
   addressesApi,
-  wishlistApi,
   reviewsApi,
   userApi,
   paymentApi,

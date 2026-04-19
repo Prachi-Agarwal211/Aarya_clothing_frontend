@@ -17,8 +17,8 @@ import { adminClient } from './baseApi';
 
 // ==================== Dashboard API ====================
 export const dashboardApi = {
-  getOverview: () => 
-    adminClient.get('/api/v1/admin/dashboard/overview'),
+  getOverview: (period = 'daily') => 
+    adminClient.get('/api/v1/admin/dashboard/overview', { period }),
 
   getRevenueAnalytics: (period = '30d') => 
     adminClient.get('/api/v1/admin/analytics/revenue', { period }),
@@ -77,6 +77,31 @@ export const ordersApi = {
     if (params.to_date) query.set('to_date', params.to_date);
     const qs = query.toString();
     return `/api/v1/admin/orders/export/excel${qs ? `?${qs}` : ''}`;
+  },
+
+  // Server-side .xlsx download — uses the openpyxl excel_service endpoint.
+  // Streams the response into a blob and triggers a browser download so the
+  // page never has to assemble a workbook itself.
+  downloadExcel: async ({ from_date, to_date, status } = {}) => {
+    const query = new URLSearchParams();
+    if (from_date) query.set('from_date', from_date);
+    if (to_date) query.set('to_date', to_date);
+    if (status) query.set('status', status);
+    const qs = query.toString();
+    const url = `/api/v1/admin/excel/orders/export${qs ? `?${qs}` : ''}`;
+    const res = await fetch(url, { credentials: 'include' });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || 'Export failed');
+    }
+    const blob = await res.blob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `orders_${from_date || 'all'}_${to_date || 'all'}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   },
 
   shipOrder: (id, pod_number, notes) =>
@@ -303,8 +328,15 @@ export const categoriesApi = collectionsApi;
 
 // ==================== Inventory API ====================
 export const inventoryApi = {
-  list: (params = {}) =>
-    adminClient.get('/api/v1/admin/inventory', params),
+  list: (params = {}) => {
+    const { page, page_size = 20, ...rest } = params;
+    const normalizedPage = Number(page) > 0 ? Number(page) : 1;
+    return adminClient.get('/api/v1/admin/inventory', {
+      ...rest,
+      page: normalizedPage,
+      page_size,
+    });
+  },
 
   getLowStock: () =>
     adminClient.get('/api/v1/admin/inventory/low-stock'),
@@ -318,9 +350,10 @@ export const inventoryApi = {
   update: (id, data) =>
     adminClient.patch(`/api/v1/admin/inventory/${id}`, data),
 
-  adjustStock: (data) =>
-    adminClient.post('/api/v1/admin/inventory/adjust', data),
-  // data: { sku, adjustment, reason }
+  // Variant-scoped audited adjust. payload = { delta?, set_to?, reason, notes? }
+  // — pass `set_to: 0` to mark out of stock without computing a delta.
+  adjustStock: (variantId, payload) =>
+    adminClient.post(`/api/v1/admin/inventory/${variantId}/adjust`, payload),
 
   bulkUpdate: (updates) =>
     adminClient.post('/api/v1/admin/products/bulk/inventory', { updates }),

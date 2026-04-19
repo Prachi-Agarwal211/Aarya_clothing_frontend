@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter, usePathname } from 'next/navigation';
-import { Search, ShoppingBag, User, Menu, X, Heart, LayoutDashboard } from 'lucide-react';
+import { Search, ShoppingBag, User, Menu, X, LayoutDashboard } from 'lucide-react';
 import { getRedirectForRole } from '@/lib/roles';
 import { cn } from '@/lib/utils';
 import { useCart } from '@/lib/cartContext';
@@ -252,20 +252,6 @@ const EnhancedHeader = () => {
 
             {/* Action Icons */}
             <div className="hidden md:flex items-center gap-6" role="navigation" aria-label="Account and cart actions">
-              <button
-                onClick={() => {
-                  if (isAuthenticated) {
-                    router.push('/profile/wishlist');
-                  } else {
-                    router.push('/auth/login?redirect_url=/profile/wishlist');
-                  }
-                }}
-                className="text-[#EAE0D5] hover:text-[#F2C29A] transition-colors duration-300"
-                aria-label={isAuthenticated ? 'View wishlist' : 'Sign in to view wishlist'}
-                type="button"
-              >
-                <Heart className="w-5 h-5" aria-hidden="true" />
-              </button>
               {isAuthenticated ? (
                 <>
                   {user?.role && user.role !== 'customer' && (
@@ -441,21 +427,6 @@ const EnhancedHeader = () => {
             </div>
           </div>
           <div className="flex gap-8 mt-8" role="navigation" aria-label="Mobile account actions">
-            <button
-              onClick={() => {
-                setIsMobileMenuOpen(false);
-                if (isAuthenticated) {
-                  router.push('/profile/wishlist');
-                } else {
-                  router.push('/auth/login?redirect_url=/profile/wishlist');
-                }
-              }}
-              className="text-[#EAE0D5] hover:text-[#F2C29A] min-h-[44px] min-w-[44px] flex items-center justify-center"
-              aria-label={isAuthenticated ? 'View wishlist' : 'Sign in to view wishlist'}
-              type="button"
-            >
-              <Heart className="w-6 h-6" aria-hidden="true" />
-            </button>
             {isAuthenticated ? (
               <>
                 {user?.role && user.role !== 'customer' && (

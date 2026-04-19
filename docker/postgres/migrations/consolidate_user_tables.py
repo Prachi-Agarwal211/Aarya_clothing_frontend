@@ -118,20 +118,9 @@ def migrate_user_data():
         address_count = cursor.rowcount
         logger.info(f"Migrated {address_count} address records")
         
-        # 5. Migrate wishlist
-        cursor.execute("""
-            INSERT INTO wishlist (
-                id, user_id, product_id, created_at
-            )
-            SELECT 
-                id, user_id, product_id, created_at
-            FROM commerce_wishlist
-            ON CONFLICT (id) DO NOTHING
-        """)
-        
-        wishlist_count = cursor.rowcount
-        logger.info(f"Migrated {wishlist_count} wishlist records")
-        
+        # 5. Wishlist migration removed — feature dropped (see migration 0003).
+        #    The legacy commerce_wishlist table is still cleaned up below.
+
         # 6. Migrate reviews
         cursor.execute("""
             INSERT INTO reviews (

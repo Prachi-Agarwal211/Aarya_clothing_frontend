@@ -298,30 +298,6 @@ test.describe('Checkout Flow', () => {
       expect(total).toBeGreaterThan(0);
     });
 
-    test('should apply coupon in checkout', async ({ page }) => {
-      await addToCart(page);
-      await cartPage.goto();
-      await cartPage.checkout();
-      
-      const initialTotal = await checkoutPage.getOrderTotal();
-      
-      await checkoutPage.applyCoupon('TEST10');
-      
-      // Should show discount or lower total
-      await page.waitForTimeout(1000);
-    });
-
-    test('should update total on coupon application', async ({ page }) => {
-      await addToCart(page);
-      await cartPage.goto();
-      await cartPage.checkout();
-      
-      await checkoutPage.applyCoupon('TEST10');
-      await page.waitForTimeout(1000);
-      
-      const newTotal = await checkoutPage.getOrderTotal();
-      expect(newTotal).toBeLessThanOrEqual(await checkoutPage.getOrderTotal());
-    });
   });
 
   test.describe('Order Confirmation', () => {

@@ -1,9 +1,8 @@
 'use client';
 
-import React, { useRef, useEffect, memo, useState } from 'react';
+import React, { useRef, useEffect, memo } from 'react';
 import { gsap, ScrollTrigger } from '@/lib/gsapConfig';
 import ProductCard from '../common/ProductCard';
-import { wishlistApi } from '@/lib/customerApi';
 import { useViewport } from '@/lib/hooks/useViewport';
 
 /**
@@ -16,7 +15,6 @@ import { useViewport } from '@/lib/hooks/useViewport';
  * - Horizontal scroll product display
  * - GSAP scroll-triggered animations with dynamic will-change
  * - Glass card containers
- * - Batch wishlist API calls for performance
  * - No separate CTA button - products are inline on landing page
  *
  * PERFORMANCE: Wrapped with React.memo to prevent unnecessary re-renders
@@ -30,18 +28,7 @@ const NewArrivals = ({
   const sectionRef = useRef(null);
   const headerRef = useRef(null);
   const productRefs = useRef([]);
-  const [wishlistStatus, setWishlistStatus] = useState({});
   const { isMobile } = useViewport();
-
-  // Batch wishlist check for all products
-  useEffect(() => {
-    if (products.length > 0) {
-      const productIds = products.map(p => p.id);
-      wishlistApi.checkMultiple(productIds)
-        .then(setWishlistStatus)
-        .catch(e => console.warn('Batch wishlist check failed:', e.message));
-    }
-  }, [products]);
 
   useEffect(() => {
     const section = sectionRef.current;
@@ -182,10 +169,9 @@ const NewArrivals = ({
                     hover:shadow-[0_12px_40px_rgba(0,0,0,0.4)]
                   "
                 >
-                  <ProductCard 
-                    product={product} 
+                  <ProductCard
+                    product={product}
                     priority={index < 2}
-                    isWishlisted={wishlistStatus[product.id] ?? false}
                   />
                 </div>
               </div>

@@ -5,7 +5,6 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import {
-  Heart,
   Share2,
   Truck,
   Shield,
@@ -24,7 +23,7 @@ import Footer from '@/components/landing/Footer';
 import SizeGuideModal from '@/components/product/SizeGuideModal';
 import RelatedProducts from '@/components/product/RelatedProducts';
 import ReviewForm from '@/components/review/ReviewForm';
-import { productsApi, reviewsApi, wishlistApi } from '@/lib/customerApi';
+import { productsApi, reviewsApi } from '@/lib/customerApi';
 import { useCart } from '@/lib/cartContext';
 import { useAuth } from '@/lib/authContext';
 import logger from '@/lib/logger';
@@ -152,7 +151,6 @@ export default function ProductDetailPage() {
   const [selectedColor, setSelectedColor] = useState(null);
   const [quantity, setQuantity] = useState(1);
   const [selectedVariant, setSelectedVariant] = useState(null);
-  const [isWishlisted, setIsWishlisted] = useState(false);
   const [addingToCart, setAddingToCart] = useState(false);
   const [activeTab, setActiveTab] = useState('description');
   const [showSizeGuide, setShowSizeGuide] = useState(false);
@@ -168,6 +166,29 @@ export default function ProductDetailPage() {
     } catch (err) {
       logger.error('Failed to reload reviews:', err);
     }
+  };
+
+  const findVariantImageForColor = (color) => {
+    if (!color || !product) return null;
+    const colorMap = product.color_images || {};
+    if (color.image_url) return color.image_url;
+    if (color.name && colorMap[color.name]) return colorMap[color.name];
+    const variant = (product.inventory || product.variants || []).find((v) => {
+      if (!v?.image_url) return false;
+      const vHex = normalizeHex(v.color_hex);
+      const cHex = normalizeHex(color.hex);
+      if (vHex && cHex && vHex === cHex) return true;
+      return color._variantNames?.has(normalizeColorName(v.color));
+    });
+    return variant?.image_url || null;
+  };
+
+  const selectColor = (color) => {
+    setSelectedColor(color);
+    const variantImage = findVariantImageForColor(color);
+    if (!variantImage || !product?.images?.length) return;
+    const matchIdx = product.images.findIndex((img) => img.image_url === variantImage);
+    if (matchIdx >= 0) setSelectedImage(matchIdx);
   };
 
   const handleImageTouchStart = (e) => setTouchStartX(e.touches[0].clientX);
@@ -405,16 +426,6 @@ export default function ProductDetailPage() {
         return inv?.in_stock;
       }) || product.sizes?.[0];
       if (firstSizeWithStock) setSelectedSize(firstSizeWithStock);
-
-      // Check if in wishlist
-      if (isAuthenticated) {
-        try {
-          const wishlistCheck = await wishlistApi.check(product.id);
-          setIsWishlisted(wishlistCheck.in_wishlist);
-        } catch (err) {
-          // Ignore wishlist check errors
-        }
-      }
     } catch (err) {
       logger.error('Error fetching product:', err);
       setError('Failed to load product. Please try again.');
@@ -463,34 +474,6 @@ export default function ProductDetailPage() {
       logger.error('Error adding to cart:', err);
     } finally {
       setAddingToCart(false);
-    }
-  };
-
-  const handleWishlist = async () => {
-    if (!isAuthenticated) {
-      if (typeof window !== 'undefined') {
-        const currentPath = window.location.pathname + window.location.search;
-        window.location.href = `/auth/login?redirect_url=${encodeURIComponent(currentPath)}`;
-      }
-      return;
-    }
-
-    try {
-      if (isWishlisted) {
-        await wishlistApi.remove(product.id);
-      } else {
-        await wishlistApi.add(product.id);
-      }
-      setIsWishlisted(!isWishlisted);
-    } catch (err) {
-      logger.error('Error updating wishlist:', err);
-      // Don't toggle on error - show feedback instead
-      if (err.message?.includes('401')) {
-        if (typeof window !== 'undefined') {
-          const currentPath = window.location.pathname + window.location.search;
-          window.location.href = `/auth/login?redirect_url=${encodeURIComponent(currentPath)}`;
-        }
-      }
     }
   };
 
@@ -640,25 +623,25 @@ export default function ProductDetailPage() {
                 onTouchStart={handleImageTouchStart}
                 onTouchEnd={handleImageTouchEnd}
               >
-                {product.images && product.images.length > 0 && product.images[selectedImage]?.image_url ? (
-                  <Image
-                    src={product.images[selectedImage].image_url}
-                    alt={product.images[selectedImage].alt_text || product.name}
-                    fill
-                    className="object-cover"
-                    sizes="(max-width: 768px) 100vw, 50vw"
-                    priority
-                  />
-                ) : product.image_url ? (
-                  <Image
-                    src={product.image_url}
-                    alt={product.name}
-                    fill
-                    className="object-cover"
-                    sizes="(max-width: 768px) 100vw, 50vw"
-                    priority
-                  />
-                ) : (
+                {(() => {
+                  const variantImage = findVariantImageForColor(selectedColor);
+                  const heroSrc =
+                    (product.images && product.images[selectedImage]?.image_url) ||
+                    variantImage ||
+                    product.image_url ||
+                    product.primary_image;
+                  return heroSrc ? (
+                    <Image
+                      src={heroSrc}
+                      alt={product.images?.[selectedImage]?.alt_text || product.name}
+                      fill
+                      className="object-cover"
+                      sizes="(max-width: 768px) 100vw, 50vw"
+                      priority
+                    />
+                  ) : null;
+                })()}
+                {!product.images?.[selectedImage]?.image_url && !findVariantImageForColor(selectedColor) && !product.image_url && !product.primary_image && (
                   <div className="absolute inset-0 flex items-center justify-center">
                     <span className="text-[#B76E79]/30">No Image Available</span>
                   </div>
@@ -765,7 +748,7 @@ export default function ProductDetailPage() {
                       return (
                       <button
                         key={color.name}
-                        onClick={() => !colorOutOfStock && setSelectedColor(color)}
+                        onClick={() => !colorOutOfStock && selectColor(color)}
                         disabled={colorOutOfStock}
                         className={`w-10 h-10 rounded-full border-2 transition-all ${selectedColorKey === colorKey
                           ? 'border-[#F2C29A] scale-110'
@@ -871,15 +854,6 @@ export default function ProductDetailPage() {
                   className="flex-1 py-3.5 bg-gradient-to-r from-[#7A2F57] to-[#B76E79] text-white font-semibold rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {!product.in_stock ? 'Out of Stock' : (requiresVariantSelection && !selectedVariant?.in_stock) ? 'Variant Out of Stock' : addingToCart ? 'Adding...' : 'Add to Cart'}
-                </button>
-                <button
-                  onClick={handleWishlist}
-                  className={`p-3.5 rounded-xl border transition-all ${isWishlisted
-                    ? 'bg-[#B76E79]/20 border-[#B76E79] text-[#B76E79]'
-                    : 'border-[#B76E79]/20 text-[#EAE0D5]/70 hover:border-[#B76E79]/40 hover:text-[#EAE0D5]'
-                    }`}
-                >
-                  <Heart className={`w-5 h-5 ${isWishlisted ? 'fill-current' : ''}`} />
                 </button>
                 <button onClick={handleShare} className="p-3.5 rounded-xl border border-[#B76E79]/20 text-[#EAE0D5]/70 hover:border-[#B76E79]/40 hover:text-[#EAE0D5] transition-all" aria-label="Share product">
                   <Share2 className="w-5 h-5" />

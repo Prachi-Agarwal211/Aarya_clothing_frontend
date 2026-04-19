@@ -2,6 +2,7 @@
 
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
+import io
 import json
 import os
 import re
@@ -62,6 +63,9 @@ from models.analytics import (
     StaffNotification,
 )
 from service.r2_service import r2_service
+from service.dashboard_service import AdminDashboardService
+from service import excel_service
+from shared.time_utils import now_ist
 from shared.request_id_middleware import RequestIDMiddleware
 from shared.error_responses import register_error_handlers
 from schemas.admin import (
@@ -214,11 +218,22 @@ app.add_middleware(RequestIDMiddleware)
 # Standardized error handlers (complements admin's own exception handler)
 register_error_handlers(app)
 
-# Mount routers for AI dashboard and staff management endpoints
-from routes.ai_dashboard_staff import router as ai_staff_router
-from routes.ai_dashboard_staff_part2 import router as ai_staff_router2
-app.include_router(ai_staff_router)
-app.include_router(ai_staff_router2)
+# Mount routers for AI dashboard and staff management endpoints.
+# Split by domain so each module stays focused: AI dashboard tools, staff
+# identity (roles/accounts), and staff access control (IP/time/2FA/sessions/audit).
+from routes.staff_ai_dashboard import router as staff_ai_dashboard_router
+from routes.staff_management import router as staff_management_router
+from routes.staff_access_control import router as staff_access_control_router
+from routes.reviews import router as reviews_router
+from routes.returns import router as returns_router
+from routes.backup import router as backup_router
+
+app.include_router(staff_ai_dashboard_router)
+app.include_router(staff_management_router)
+app.include_router(staff_access_control_router)
+app.include_router(reviews_router)
+app.include_router(returns_router)
+app.include_router(backup_router)
 
 
 # ==================== Health ====================
@@ -245,68 +260,57 @@ setup_exception_handlers(app)
 # ==================== Admin Dashboard ====================
 
 
-@app.get(
-    "/api/v1/admin/dashboard/overview",
-    response_model=DashboardOverview,
-    tags=["Admin Dashboard"],
-)
+@app.get("/api/v1/admin/dashboard/overview", tags=["Admin Dashboard"])
 async def get_dashboard_overview(
-    db: Session = Depends(get_db), user: dict = Depends(require_admin)
+    period: str = Query("daily", regex="^(daily|weekly|monthly)$"),
+    db: Session = Depends(get_db),
+    user: dict = Depends(require_admin),
 ):
-    """Aggregate dashboard stats: revenue, orders, customers, inventory alerts."""
-    cache_key = "admin:dashboard:overview"
+    """Aggregate dashboard stats for daily / weekly / monthly periods."""
+    cache_key = f"admin:dashboard:overview:{period}"
     cached = redis_client.get_cache(cache_key)
     if cached:
         return cached
 
-    today = datetime.now(timezone.utc).date()
-
-    # Single consolidated query for all scalar stats (was 8 separate queries)
-    stats = db.execute(
-        text("""
-        SELECT
-            (SELECT COALESCE(SUM(total_amount), 0) FROM orders WHERE status != 'cancelled') AS total_revenue,
-            (SELECT COUNT(*) FROM orders) AS total_orders,
-            (SELECT COUNT(*) FROM users WHERE role = 'customer') AS total_customers,
-            (SELECT COUNT(*) FROM products WHERE is_active = true) AS total_products,
-            (SELECT COUNT(*) FROM orders WHERE status = 'confirmed') AS pending_orders,
-            (SELECT COALESCE(SUM(total_amount), 0) FROM orders WHERE DATE(created_at) = :today AND status != 'cancelled') AS today_revenue,
-            (SELECT COUNT(*) FROM orders WHERE DATE(created_at) = :today) AS today_orders,
-            (SELECT COUNT(*) FROM inventory WHERE quantity <= low_stock_threshold AND quantity > 0) AS low_stock,
-            (SELECT COUNT(*) FROM inventory WHERE quantity = 0) AS out_of_stock
-    """),
-        {"today": today},
-    ).fetchone()
-
-    recent = db.execute(
-        text(
-            "SELECT id, user_id, total_amount, status, created_at FROM orders ORDER BY created_at DESC LIMIT 5"
-        )
-    ).fetchall()
-    recent_orders = [
-        {
-            "id": r[0],
-            "user_id": r[1],
-            "total_amount": float(r[2]),
-            "status": r[3],
-            "created_at": str(r[4]),
-        }
-        for r in recent
-    ]
-
-    result = DashboardOverview(
-        total_revenue=float(stats[0]),
-        total_orders=stats[1],
-        total_customers=stats[2],
-        total_products=stats[3],
-        pending_orders=stats[4],
-        today_revenue=float(stats[5]),
-        today_orders=stats[6],
-        inventory_alerts=InventoryAlert(low_stock=stats[7], out_of_stock=stats[8]),
-        recent_orders=recent_orders,
-    )
-    redis_client.set_cache(cache_key, result.model_dump(), ttl=30)
+    result = AdminDashboardService(db).get_overview(period)
+    redis_client.set_cache(cache_key, result, ttl=30)
     return result
+
+
+@app.get("/api/v1/admin/dashboard/chart", tags=["Admin Dashboard"])
+async def get_dashboard_chart(
+    period: str = Query("daily", regex="^(daily|weekly|monthly)$"),
+    db: Session = Depends(get_db),
+    user: dict = Depends(require_admin),
+):
+    """Revenue + orders bucketed by hour (daily) or day (weekly/monthly) in IST."""
+    return {"period": period, "data": AdminDashboardService(db).get_chart(period)}
+
+
+@app.get("/api/v1/admin/dashboard/top-products", tags=["Admin Dashboard"])
+async def get_dashboard_top_products(
+    period: str = Query("monthly", regex="^(daily|weekly|monthly)$"),
+    limit: int = Query(10, ge=1, le=50),
+    db: Session = Depends(get_db),
+    user: dict = Depends(require_admin),
+):
+    return {
+        "period": period,
+        "products": AdminDashboardService(db).get_top_products(period, limit),
+    }
+
+
+@app.get("/api/v1/admin/dashboard/top-customers", tags=["Admin Dashboard"])
+async def get_dashboard_top_customers(
+    period: str = Query("monthly", regex="^(daily|weekly|monthly)$"),
+    limit: int = Query(10, ge=1, le=50),
+    db: Session = Depends(get_db),
+    user: dict = Depends(require_admin),
+):
+    return {
+        "period": period,
+        "customers": AdminDashboardService(db).get_top_customers(period, limit),
+    }
 
 
 # ==================== Analytics ====================
@@ -408,18 +412,19 @@ async def get_top_products(
     user: dict = Depends(require_admin),
 ):
     days = {"7d": 7, "30d": 30, "90d": 90, "1y": 365}.get(period, 30)
-    since = datetime.now(timezone.utc) - timedelta(days=days)
+    since = now_ist() - timedelta(days=days)
     rows = db.execute(
         text(
-            "SELECT i.product_id, COALESCE(p.name,'Unknown'), SUM(oi.quantity), SUM(oi.unit_price * oi.quantity) "
+            "SELECT oi.product_id, COALESCE(p.name,'Unknown'), "
+            "SUM(oi.quantity), SUM(oi.line_total) "
             "FROM order_items oi "
-            "LEFT JOIN inventory i ON i.id = oi.inventory_id "
-            "LEFT JOIN products p ON p.id = i.product_id "
+            "LEFT JOIN products p ON p.id = oi.product_id "
             "JOIN orders o ON o.id = oi.order_id "
             "WHERE o.created_at >= :since AND o.status != 'cancelled' "
-            "GROUP BY i.product_id, p.name ORDER BY SUM(oi.quantity) DESC LIMIT :lim"
+            "GROUP BY oi.product_id, p.name "
+            "ORDER BY SUM(oi.quantity) DESC LIMIT :lim"
         ),
-        {"since": since, "lim": limit},
+        {"since": since.replace(tzinfo=None), "lim": limit},
     ).fetchall()
     products = [
         TopProduct(
@@ -431,881 +436,6 @@ async def get_top_products(
         for r in rows
     ]
     return TopProductsAnalytics(top_products=products, period=period)
-
-
-# ==================== Inventory (Admin) ====================
-
-
-@app.get("/api/v1/admin/inventory", tags=["Admin Inventory"])
-async def admin_list_inventory(
-    limit: int = Query(500, le=1000),
-    skip: int = 0,
-    db: Session = Depends(get_db),
-    user: dict = Depends(require_admin),
-):
-    """List all inventory items with product names.
-    
-    🔥 CRITICAL FIX: Uses LEFT JOIN to include products even without inventory records.
-    This ensures ALL products are visible in inventory management.
-    """
-    rows = db.execute(
-        text(
-            "SELECT i.*, p.name as product_name "
-            "FROM products p "
-            "LEFT JOIN inventory i ON p.id = i.product_id "
-            "ORDER BY p.name, i.size, i.color "
-            "LIMIT :limit OFFSET :skip"
-        ),
-        {"limit": limit, "skip": skip},
-    ).fetchall()
-    total = db.execute(text("SELECT COUNT(*) FROM products")).scalar() or 0
-    return {"items": [dict(r._mapping) for r in rows], "total": total}
-
-
-@app.get("/api/v1/admin/inventory/low-stock", tags=["Admin Inventory"])
-async def admin_low_stock(
-    db: Session = Depends(get_db), user: dict = Depends(require_admin)
-):
-    """Get low stock items. Uses INNER JOIN since we only want items WITH inventory."""
-    rows = db.execute(
-        text(
-            "SELECT i.*, p.name as product_name FROM inventory i JOIN products p ON p.id = i.product_id "
-            "WHERE i.quantity <= i.low_stock_threshold ORDER BY i.quantity ASC"
-        )
-    ).fetchall()
-    return {"items": [dict(r._mapping) for r in rows]}
-
-
-@app.get("/api/v1/admin/inventory/out-of-stock", tags=["Admin Inventory"])
-async def admin_out_of_stock(
-    db: Session = Depends(get_db), user: dict = Depends(require_admin)
-):
-    """Get out of stock items. Uses INNER JOIN since we only want items WITH inventory."""
-    rows = db.execute(
-        text(
-            "SELECT i.*, p.name as product_name FROM inventory i JOIN products p ON p.id = i.product_id "
-            "WHERE i.quantity = 0 ORDER BY p.name"
-        )
-    ).fetchall()
-    return {"items": [dict(r._mapping) for r in rows]}
-
-
-@app.get("/api/v1/admin/inventory/movements", tags=["Admin Inventory"])
-async def admin_inventory_movements(
-    product_id: Optional[int] = None,
-    page: int = Query(1, ge=1),
-    limit: int = Query(20, le=100),
-    db: Session = Depends(get_db),
-    user: dict = Depends(require_admin),
-):
-    offset = (page - 1) * limit
-    if product_id:
-        rows = db.execute(
-            text("""
-            SELECT im.*, p.name as product_name FROM inventory_movements im
-            JOIN products p ON p.id = im.product_id
-            WHERE im.product_id = :pid
-            ORDER BY im.created_at DESC LIMIT :lim OFFSET :off
-        """),
-            {"pid": product_id, "lim": limit, "off": offset},
-        ).fetchall()
-        total = (
-            db.execute(
-                text(
-                    "SELECT COUNT(*) FROM inventory_movements WHERE product_id = :pid"
-                ),
-                {"pid": product_id},
-            ).scalar()
-            or 0
-        )
-    else:
-        rows = db.execute(
-            text("""
-            SELECT im.*, p.name as product_name FROM inventory_movements im
-            JOIN products p ON p.id = im.product_id
-            ORDER BY im.created_at DESC LIMIT :lim OFFSET :off
-        """),
-            {"lim": limit, "off": offset},
-        ).fetchall()
-        total = (
-            db.execute(text("SELECT COUNT(*) FROM inventory_movements")).scalar() or 0
-        )
-    return {"movements": [dict(r._mapping) for r in rows], "total": total, "page": page}
-
-
-@app.post("/api/v1/admin/inventory", tags=["Admin Inventory"])
-async def admin_create_inventory(
-    data: dict,
-    db: Session = Depends(get_db),
-    user: dict = Depends(require_admin),
-):
-    """Create a new inventory record for a product variant."""
-    product_id = data.get("product_id")
-    sku = data.get("sku")
-    if not product_id or not sku:
-        raise HTTPException(status_code=400, detail="product_id and sku are required")
-
-    # Check product exists
-    product = db.execute(
-        text("SELECT id FROM products WHERE id = :pid"), {"pid": product_id}
-    ).fetchone()
-    if not product:
-        raise HTTPException(status_code=404, detail="Product not found")
-
-    # Check for duplicate SKU
-    existing = db.execute(
-        text("SELECT id FROM inventory WHERE sku = :sku"), {"sku": sku}
-    ).fetchone()
-    if existing:
-        raise HTTPException(
-            status_code=409, detail=f"Inventory with SKU '{sku}' already exists"
-        )
-
-    result = db.execute(
-        text("""
-        INSERT INTO inventory (product_id, sku, size, color, quantity, reserved_quantity, low_stock_threshold, updated_at)
-        VALUES (:pid, :sku, :size, :color, :qty, 0, :threshold, :now)
-        RETURNING id
-    """),
-        {
-            "pid": product_id,
-            "sku": sku,
-            "size": data.get("size"),
-            "color": data.get("color"),
-            "qty": data.get("quantity", 0),
-            "threshold": data.get("low_stock_threshold", 5),
-            "now": datetime.now(timezone.utc),
-        },
-    )
-    inv_id = result.scalar()
-    db.commit()
-    redis_client.invalidate_pattern("products:*")
-    return {"message": "Inventory record created", "inventory_id": inv_id}
-
-
-@app.patch("/api/v1/admin/inventory/{inventory_id}", tags=["Admin Inventory"])
-async def admin_update_inventory(
-    inventory_id: int,
-    data: dict,
-    db: Session = Depends(get_db),
-    user: dict = Depends(require_admin),
-):
-    """Update inventory record fields (quantity, threshold, size, color)."""
-    inv = db.execute(
-        text("SELECT id FROM inventory WHERE id = :id"), {"id": inventory_id}
-    ).fetchone()
-    if not inv:
-        raise HTTPException(status_code=404, detail="Inventory record not found")
-
-    ALLOWED = {"quantity", "low_stock_threshold", "size", "color"}
-    sets, params = (
-        ["updated_at = :now"],
-        {"id": inventory_id, "now": datetime.now(timezone.utc)},
-    )
-    for key, val in data.items():
-        if key in ALLOWED:
-            sets.append(f"{key} = :{key}")
-            params[key] = val
-
-    if len(sets) == 1:
-        raise HTTPException(status_code=400, detail="No valid fields to update")
-
-    db.execute(text(f"UPDATE inventory SET {', '.join(sets)} WHERE id = :id"), params)
-    db.commit()
-    redis_client.invalidate_pattern("products:*")
-    return {"message": "Inventory updated", "inventory_id": inventory_id}
-
-
-@app.post("/api/v1/admin/inventory/adjust", tags=["Admin Inventory"])
-async def admin_adjust_inventory(
-    data: InventoryAdjustRequest,
-    db: Session = Depends(get_db),
-    user: dict = Depends(require_admin),
-):
-    """Adjust inventory by SKU. adjustment can be positive (add) or negative (subtract)."""
-    sku = data.sku
-    adjustment = data.adjustment
-    reason = data.reason
-    notes = data.notes or ""
-
-    if not sku:
-        raise HTTPException(status_code=400, detail="sku is required")
-
-    inv = db.execute(
-        text("SELECT id, product_id, quantity FROM inventory WHERE sku = :sku"),
-        {"sku": sku},
-    ).fetchone()
-    if not inv:
-        raise HTTPException(status_code=404, detail=f"Inventory SKU '{sku}' not found")
-
-    new_qty = max(0, inv[2] + int(adjustment))
-    db.execute(
-        text("UPDATE inventory SET quantity = :q, updated_at = :now WHERE id = :id"),
-        {"q": new_qty, "now": datetime.now(timezone.utc), "id": inv[0]},
-    )
-    # Log movement if table exists
-    try:
-        db.execute(
-            text(
-                "INSERT INTO inventory_movements (inventory_id, product_id, adjustment, reason, notes, created_at) "
-                "VALUES (:iid, :pid, :adj, :reason, :notes, :now)"
-            ),
-            {
-                "iid": inv[0],
-                "pid": inv[1],
-                "adj": adjustment,
-                "reason": reason,
-                "notes": notes,
-                "now": datetime.now(timezone.utc),
-            },
-        )
-    except Exception:
-        pass  # movements table may not exist yet
-    db.commit()
-    redis_client.invalidate_pattern("products:*")
-    return {
-        "sku": sku,
-        "previous_quantity": inv[2],
-        "new_quantity": new_qty,
-        "adjustment": adjustment,
-    }
-
-
-# ==================== Staff Dashboard ====================
-
-
-@app.get(
-    "/api/v1/staff/dashboard", response_model=StaffDashboard, tags=["Staff Dashboard"]
-)
-async def get_staff_dashboard(
-    db: Session = Depends(get_db), user: dict = Depends(require_staff)
-):
-    low = (
-        db.execute(
-            text(
-                "SELECT COUNT(*) FROM inventory WHERE quantity <= low_stock_threshold AND quantity > 0"
-            )
-        ).scalar()
-        or 0
-    )
-    oos = (
-        db.execute(text("SELECT COUNT(*) FROM inventory WHERE quantity = 0")).scalar()
-        or 0
-    )
-    pending = (
-        db.execute(
-            text("SELECT COUNT(*) FROM orders WHERE status = 'confirmed'")
-        ).scalar()
-        or 0
-    )
-    stock_tasks = (
-        db.execute(
-            text(
-                "SELECT COUNT(*) FROM staff_tasks WHERE task_type = 'stock_update' AND status = 'pending'"
-            )
-        ).scalar()
-        or 0
-    )
-    order_tasks = (
-        db.execute(
-            text(
-                "SELECT COUNT(*) FROM staff_tasks WHERE task_type = 'order_processing' AND status = 'pending'"
-            )
-        ).scalar()
-        or 0
-    )
-    return StaffDashboard(
-        inventory_alerts=InventoryAlert(low_stock=low, out_of_stock=oos),
-        pending_orders=pending,
-        today_tasks={"stock_updates": stock_tasks, "order_processing": order_tasks},
-        quick_actions=[
-            "add_stock",
-            "process_orders",
-            "update_inventory",
-            "view_low_stock",
-        ],
-    )
-
-
-# ==================== Staff Inventory ====================
-
-
-@app.get("/api/v1/staff/inventory/low-stock", tags=["Staff Inventory"])
-async def staff_low_stock(
-    db: Session = Depends(get_db), user: dict = Depends(require_staff)
-):
-    rows = db.execute(
-        text(
-            "SELECT i.*, p.name as product_name FROM inventory i JOIN products p ON p.id = i.product_id "
-            "WHERE i.quantity <= i.low_stock_threshold AND i.quantity > 0 ORDER BY i.quantity ASC"
-        )
-    ).fetchall()
-    return {"items": [dict(r._mapping) for r in rows]}
-
-
-@app.get("/api/v1/staff/inventory/out-of-stock", tags=["Staff Inventory"])
-async def staff_out_of_stock(
-    db: Session = Depends(get_db), user: dict = Depends(require_staff)
-):
-    rows = db.execute(
-        text(
-            "SELECT i.*, p.name as product_name FROM inventory i JOIN products p ON p.id = i.product_id WHERE i.quantity = 0"
-        )
-    ).fetchall()
-    return {"items": [dict(r._mapping) for r in rows]}
-
-
-@app.post("/api/v1/staff/inventory/add-stock", tags=["Staff Inventory"])
-async def add_stock(
-    data: AddStockRequest,
-    db: Session = Depends(get_db),
-    user: dict = Depends(require_staff),
-):
-    existing = db.execute(
-        text(
-            "SELECT id, quantity FROM inventory WHERE product_id = :pid AND sku = :sku"
-        ),
-        {"pid": data.product_id, "sku": data.sku},
-    ).fetchone()
-    if existing:
-        new_qty = existing[1] + data.quantity
-        db.execute(
-            text(
-                "UPDATE inventory SET quantity = :q, updated_at = :now WHERE id = :id"
-            ),
-            {"q": new_qty, "now": datetime.now(timezone.utc), "id": existing[0]},
-        )
-        inv_id = existing[0]
-    else:
-        result = db.execute(
-            text(
-                "INSERT INTO inventory (product_id, sku, quantity, cost_price, created_at, updated_at) "
-                "VALUES (:pid, :sku, :qty, :cp, :now, :now) RETURNING id"
-            ),
-            {
-                "pid": data.product_id,
-                "sku": data.sku,
-                "qty": data.quantity,
-                "cp": data.cost_price,
-                "now": datetime.now(timezone.utc),
-            },
-        )
-        inv_id = result.scalar()
-    # Record movement
-    db.execute(
-        text(
-            "INSERT INTO inventory_movements (inventory_id, product_id, adjustment, reason, notes, supplier, cost_price, performed_by) "
-            "VALUES (:iid, :pid, :adj, 'restock', :notes, :supplier, :cp, :by)"
-        ),
-        {
-            "iid": inv_id,
-            "pid": data.product_id,
-            "adj": data.quantity,
-            "notes": data.notes,
-            "supplier": data.supplier,
-            "cp": data.cost_price,
-            "by": user.get("user_id"),
-        },
-    )
-    db.commit()
-    redis_client.invalidate_pattern("admin:dashboard:*")
-    redis_client.invalidate_pattern("products:*")
-    return {
-        "message": "Stock added",
-        "inventory_id": inv_id,
-        "quantity_added": data.quantity,
-    }
-
-
-@app.post("/api/v1/staff/inventory/adjust-stock", tags=["Staff Inventory"])
-async def adjust_stock(
-    data: AdjustStockRequest,
-    db: Session = Depends(get_db),
-    user: dict = Depends(require_staff),
-):
-    inv = db.execute(
-        text("SELECT id, product_id, quantity FROM inventory WHERE id = :id"),
-        {"id": data.inventory_id},
-    ).fetchone()
-    if not inv:
-        raise HTTPException(status_code=404, detail="Inventory item not found")
-    new_qty = max(0, inv[2] + data.adjustment)
-    db.execute(
-        text("UPDATE inventory SET quantity = :q, updated_at = :now WHERE id = :id"),
-        {"q": new_qty, "now": datetime.now(timezone.utc), "id": data.inventory_id},
-    )
-    db.execute(
-        text(
-            "INSERT INTO inventory_movements (inventory_id, product_id, adjustment, reason, notes, performed_by) "
-            "VALUES (:iid, :pid, :adj, :reason, :notes, :by)"
-        ),
-        {
-            "iid": data.inventory_id,
-            "pid": inv[1],
-            "adj": data.adjustment,
-            "reason": data.reason,
-            "notes": data.notes,
-            "by": user.get("user_id"),
-        },
-    )
-    db.commit()
-    redis_client.invalidate_pattern("admin:dashboard:*")
-    redis_client.invalidate_pattern("products:*")
-    return {
-        "message": "Stock adjusted",
-        "inventory_id": data.inventory_id,
-        "new_quantity": new_qty,
-    }
-
-
-@app.get("/api/v1/staff/inventory/movements", tags=["Staff Inventory"])
-async def get_movements(
-    product_id: Optional[int] = None,
-    page: int = Query(1, ge=1),
-    limit: int = Query(20, le=100),
-    db: Session = Depends(get_db),
-    user: dict = Depends(require_staff),
-):
-    offset = (page - 1) * limit
-    if product_id:
-        rows = db.execute(
-            text("""
-            SELECT im.*, p.name as product_name FROM inventory_movements im
-            JOIN products p ON p.id = im.product_id
-            WHERE im.product_id = :pid
-            ORDER BY im.created_at DESC LIMIT :lim OFFSET :off
-        """),
-            {"pid": product_id, "lim": limit, "off": offset},
-        ).fetchall()
-    else:
-        rows = db.execute(
-            text("""
-            SELECT im.*, p.name as product_name FROM inventory_movements im
-            JOIN products p ON p.id = im.product_id
-            ORDER BY im.created_at DESC LIMIT :lim OFFSET :off
-        """),
-            {"lim": limit, "off": offset},
-        ).fetchall()
-    return {"movements": [dict(r._mapping) for r in rows]}
-
-
-@app.post("/api/v1/staff/inventory/bulk-update", tags=["Staff Inventory"])
-async def bulk_update_inventory(
-    data: BulkInventoryUpdate,
-    db: Session = Depends(get_db),
-    user: dict = Depends(require_staff),
-):
-    """Bulk update inventory items. Only 'quantity' and 'low_stock_threshold' columns are allowed."""
-    MAX_BATCH = 100
-    if len(data.updates) > MAX_BATCH:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Batch size {len(data.updates)} exceeds maximum of {MAX_BATCH} items per request.",
-        )
-
-    updated = 0
-    ALLOWED_COLUMNS = {"quantity", "low_stock_threshold"}
-
-    for item in data.updates:
-        inv_id = item.get("inventory_id")
-        if not inv_id:
-            continue
-
-        # Validate no extra columns
-        item_keys = set(item.keys()) - {"inventory_id"}
-        invalid_keys = item_keys - ALLOWED_COLUMNS
-        if invalid_keys:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Invalid columns: {invalid_keys}. Only {ALLOWED_COLUMNS} are allowed.",
-            )
-
-        # Validate value ranges
-        if "quantity" in item:
-            qty = item["quantity"]
-            if not isinstance(qty, int) or qty < 0 or qty > 100_000:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"quantity must be an integer 0-100000, got {qty!r}",
-                )
-        if "low_stock_threshold" in item:
-            thresh = item["low_stock_threshold"]
-            if not isinstance(thresh, int) or thresh < 0 or thresh > 10_000:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"low_stock_threshold must be an integer 0-10000, got {thresh!r}",
-                )
-
-        # Build parameterized update (whitelisted column names only)
-        if "quantity" in item and "low_stock_threshold" in item:
-            db.execute(
-                text(
-                    "UPDATE inventory SET quantity = :qty, low_stock_threshold = :thresh, updated_at = :now WHERE id = :id"
-                ),
-                {
-                    "qty": item["quantity"],
-                    "thresh": item["low_stock_threshold"],
-                    "now": datetime.now(timezone.utc),
-                    "id": inv_id,
-                },
-            )
-            updated += 1
-        elif "quantity" in item:
-            db.execute(
-                text(
-                    "UPDATE inventory SET quantity = :qty, updated_at = :now WHERE id = :id"
-                ),
-                {
-                    "qty": item["quantity"],
-                    "now": datetime.now(timezone.utc),
-                    "id": inv_id,
-                },
-            )
-            updated += 1
-        elif "low_stock_threshold" in item:
-            db.execute(
-                text(
-                    "UPDATE inventory SET low_stock_threshold = :thresh, updated_at = :now WHERE id = :id"
-                ),
-                {
-                    "thresh": item["low_stock_threshold"],
-                    "now": datetime.now(timezone.utc),
-                    "id": inv_id,
-                },
-            )
-            updated += 1
-
-    db.commit()
-    redis_client.invalidate_pattern("admin:dashboard:*")
-    redis_client.invalidate_pattern("products:*")
-    return {"message": f"Updated {updated} inventory items"}
-
-
-# ==================== Product Variants (Staff) ====================
-
-
-@app.get("/api/v1/staff/products/{product_id}/variants", tags=["Staff Variants"])
-async def get_variants(
-    product_id: str, db: Session = Depends(get_db), user: dict = Depends(require_staff)
-):
-    # Resolve slug or ID to actual product ID
-    resolved = db.execute(
-        text("SELECT id FROM products WHERE id::text = :pid OR slug = :pid"),
-        {"pid": product_id},
-    ).fetchone()
-    if not resolved:
-        raise HTTPException(status_code=404, detail="Product not found")
-    pid = resolved[0]
-    rows = db.execute(
-        text(
-            "SELECT * FROM inventory WHERE product_id = :pid ORDER BY size, color, sku"
-        ),
-        {"pid": pid},
-    ).fetchall()
-    return {"variants": [dict(r._mapping) for r in rows]}
-
-
-@app.post("/api/v1/staff/products/{product_id}/variants", tags=["Staff Variants"])
-async def create_variant(
-    product_id: str,
-    data: VariantCreate,
-    db: Session = Depends(get_db),
-    user: dict = Depends(require_staff),
-):
-    result = db.execute(
-        text(
-            "INSERT INTO inventory (product_id, sku, size, color, color_hex, quantity, reserved_quantity, created_at, updated_at) "
-            "VALUES (:pid, :sku, :size, :color, :color_hex, :qty, 0, :now, :now) RETURNING id"
-        ),
-        {
-            "pid": product_id,
-            "sku": data.sku,
-            "size": data.size,
-            "color": data.color,
-            "color_hex": data.color_hex,
-            "qty": data.quantity,
-            "now": datetime.now(timezone.utc),
-        },
-    )
-    db.commit()
-    return {"message": "Variant created", "variant_id": result.scalar()}
-
-
-@app.put("/api/v1/staff/variants/{variant_id}", tags=["Staff Variants"])
-async def update_variant(
-    variant_id: int,
-    data: VariantUpdate,
-    db: Session = Depends(get_db),
-    user: dict = Depends(require_staff),
-):
-    sets, params = (
-        ["updated_at = :now"],
-        {"id": variant_id, "now": datetime.now(timezone.utc)},
-    )
-    if data.size is not None:
-        sets.append("size = :size")
-        params["size"] = data.size
-    if data.sku is not None:
-        sets.append("sku = :sku")
-        params["sku"] = data.sku
-    if data.color is not None:
-        sets.append("color = :color")
-        params["color"] = data.color
-    if data.color_hex is not None:
-        sets.append("color_hex = :color_hex")
-        params["color_hex"] = data.color_hex
-    if data.quantity is not None:
-        sets.append("quantity = :qty")
-        params["qty"] = data.quantity
-    db.execute(text(f"UPDATE inventory SET {', '.join(sets)} WHERE id = :id"), params)
-    db.commit()
-    redis_client.invalidate_pattern("products:*")
-    return {"message": "Variant updated"}
-
-
-@app.delete("/api/v1/staff/variants/{variant_id}", tags=["Staff Variants"])
-async def delete_variant(
-    variant_id: int, db: Session = Depends(get_db), user: dict = Depends(require_staff)
-):
-    db.execute(text("DELETE FROM inventory WHERE id = :id"), {"id": variant_id})
-    db.commit()
-    redis_client.invalidate_pattern("products:*")
-    return {"message": "Variant deleted"}
-
-
-# ==================== Staff Order Processing ====================
-
-
-@app.get("/api/v1/staff/orders/confirmed", tags=["Staff Orders"])
-async def staff_confirmed_orders(
-    db: Session = Depends(get_db), user: dict = Depends(require_staff)
-):
-    """Get all confirmed orders awaiting shipment."""
-    rows = db.execute(
-        text(
-            "SELECT o.id, o.user_id, o.total_amount, o.status, o.shipping_address, o.created_at, "
-            "u.email as customer_email, u.username as customer_name "
-            "FROM orders o LEFT JOIN users u ON u.id = o.user_id "
-            "WHERE o.status = 'confirmed' ORDER BY o.created_at ASC"
-        )
-    ).fetchall()
-    return {"orders": [dict(r._mapping) for r in rows]}
-
-
-@app.put("/api/v1/staff/orders/{order_id}/ship", tags=["Staff Orders"])
-async def ship_order(
-    order_id: int,
-    data: OrderShipRequest,
-    db: Session = Depends(get_db),
-    user: dict = Depends(require_staff),
-):
-    """Ship a confirmed order. POD number is required."""
-    if not data.tracking_number or not data.tracking_number.strip():
-        raise HTTPException(
-            status_code=400, detail="POD number is required when shipping an order"
-        )
-    order = db.execute(
-        text("SELECT id, status FROM orders WHERE id = :id"), {"id": order_id}
-    ).fetchone()
-    if not order:
-        raise HTTPException(status_code=404, detail="Order not found")
-    if order[1] != "confirmed":
-        raise HTTPException(
-            status_code=400,
-            detail=f"Only confirmed orders can be shipped (current status: {order[1]})",
-        )
-    now = datetime.now(timezone.utc)
-    db.execute(
-        text(
-            "UPDATE orders SET status = 'shipped', shipped_at = :now, updated_at = :now, tracking_number = :tn WHERE id = :id"
-        ),
-        {"now": now, "id": order_id, "tn": data.tracking_number.strip()},
-    )
-    notes = data.notes or f"Order shipped — POD number: {data.tracking_number.strip()}"
-    db.execute(
-        text(
-            "INSERT INTO order_tracking (order_id, status, notes, updated_by, created_at) VALUES (:oid, 'shipped', :notes, :by, :now)"
-        ),
-        {"oid": order_id, "notes": notes, "by": user.get("user_id"), "now": now},
-    )
-    db.commit()
-    redis_client.delete_cache(f"order:{order_id}")
-    return {
-        "message": "Order shipped successfully",
-        "order_id": order_id,
-        "pod_number": data.tracking_number.strip(),
-    }
-
-
-@app.put("/api/v1/staff/orders/{order_id}/deliver", tags=["Staff Orders"])
-async def deliver_order(
-    order_id: int, db: Session = Depends(get_db), user: dict = Depends(require_staff)
-):
-    """Mark a shipped order as delivered."""
-    order = db.execute(
-        text("SELECT id, status FROM orders WHERE id = :id"), {"id": order_id}
-    ).fetchone()
-    if not order:
-        raise HTTPException(status_code=404, detail="Order not found")
-    if order[1] != "shipped":
-        raise HTTPException(
-            status_code=400,
-            detail=f"Only shipped orders can be marked delivered (current status: {order[1]})",
-        )
-    now = datetime.now(timezone.utc)
-    db.execute(
-        text(
-            "UPDATE orders SET status = 'delivered', delivered_at = :now, updated_at = :now WHERE id = :id"
-        ),
-        {"now": now, "id": order_id},
-    )
-    db.execute(
-        text(
-            "INSERT INTO order_tracking (order_id, status, notes, updated_by, created_at) VALUES (:oid, 'delivered', 'Order delivered to customer', :by, :now)"
-        ),
-        {"oid": order_id, "by": user.get("user_id"), "now": now},
-    )
-    db.commit()
-    redis_client.delete_cache(f"order:{order_id}")
-    return {"message": "Order marked as delivered", "order_id": order_id}
-
-
-# ==================== Staff Reservations ====================
-
-
-@app.get("/api/v1/staff/reservations/pending", tags=["Staff Reservations"])
-async def pending_reservations(
-    db: Session = Depends(get_db), user: dict = Depends(require_staff)
-):
-    rows = db.execute(
-        text(
-            "SELECT i.id, i.product_id, p.name, i.sku, i.reserved_quantity FROM inventory i "
-            "JOIN products p ON p.id = i.product_id WHERE i.reserved_quantity > 0"
-        )
-    ).fetchall()
-    return {"reservations": [dict(r._mapping) for r in rows]}
-
-
-@app.post("/api/v1/staff/reservations/release", tags=["Staff Reservations"])
-async def release_reservation(
-    data: ReservationRelease,
-    db: Session = Depends(get_db),
-    user: dict = Depends(require_staff),
-):
-    for item in data.items:
-        inv_id = item.get("inventory_id")
-        qty = item.get("quantity", 0)
-        db.execute(
-            text(
-                "UPDATE inventory SET reserved_quantity = GREATEST(0, reserved_quantity - :qty), quantity = quantity + :qty WHERE id = :id"
-            ),
-            {"qty": qty, "id": inv_id},
-        )
-    db.commit()
-    return {"message": "Reservations released"}
-
-
-@app.post("/api/v1/staff/reservations/confirm", tags=["Staff Reservations"])
-async def confirm_reservation(
-    data: ReservationRelease,
-    db: Session = Depends(get_db),
-    user: dict = Depends(require_staff),
-):
-    for item in data.items:
-        inv_id = item.get("inventory_id")
-        qty = item.get("quantity", 0)
-        db.execute(
-            text(
-                "UPDATE inventory SET reserved_quantity = GREATEST(0, reserved_quantity - :qty) WHERE id = :id"
-            ),
-            {"qty": qty, "id": inv_id},
-        )
-    db.commit()
-    return {"message": "Reservations confirmed (stock deducted)"}
-
-
-# ==================== Staff Reports ====================
-
-
-@app.get("/api/v1/staff/reports/inventory/summary", tags=["Staff Reports"])
-async def inventory_summary(
-    db: Session = Depends(get_db), user: dict = Depends(require_staff)
-):
-    total_products = (
-        db.execute(
-            text("SELECT COUNT(*) FROM products WHERE is_active = true")
-        ).scalar()
-        or 0
-    )
-    total_variants = (
-        db.execute(text("SELECT COUNT(*) FROM product_variants")).scalar() or 0
-    )
-    total_stock = (
-        db.execute(text("SELECT COALESCE(SUM(quantity), 0) FROM inventory")).scalar()
-        or 0
-    )
-    low = (
-        db.execute(
-            text(
-                "SELECT COUNT(*) FROM inventory WHERE quantity <= low_stock_threshold AND quantity > 0"
-            )
-        ).scalar()
-        or 0
-    )
-    oos = (
-        db.execute(text("SELECT COUNT(*) FROM inventory WHERE quantity = 0")).scalar()
-        or 0
-    )
-    top = db.execute(
-        text(
-            "SELECT p.name, COALESCE(SUM(ABS(im.adjustment)), 0) as movements FROM inventory_movements im "
-            "JOIN products p ON p.id = im.product_id GROUP BY p.name ORDER BY movements DESC LIMIT 5"
-        )
-    ).fetchall()
-    return {
-        "total_products": total_products,
-        "total_variants": total_variants,
-        "total_stock": total_stock,
-        "low_stock_items": low,
-        "out_of_stock_items": oos,
-        "top_moving_products": [{"product_name": r[0], "movements": r[1]} for r in top],
-    }
-
-
-@app.get("/api/v1/staff/reports/orders/processed", tags=["Staff Reports"])
-async def processed_orders_report(
-    db: Session = Depends(get_db), user: dict = Depends(require_staff)
-):
-    today = datetime.now(timezone.utc).date()
-    shipped_today = (
-        db.execute(
-            text(
-                "SELECT COUNT(*) FROM orders WHERE status = 'shipped' AND DATE(shipped_at) = :d"
-            ),
-            {"d": today},
-        ).scalar()
-        or 0
-    )
-    delivered_today = (
-        db.execute(
-            text(
-                "SELECT COUNT(*) FROM orders WHERE status = 'delivered' AND DATE(delivered_at) = :d"
-            ),
-            {"d": today},
-        ).scalar()
-        or 0
-    )
-    confirmed_pending = (
-        db.execute(
-            text("SELECT COUNT(*) FROM orders WHERE status = 'confirmed'")
-        ).scalar()
-        or 0
-    )
-    return {
-        "today_shipped": shipped_today,
-        "today_delivered": delivered_today,
-        "confirmed_awaiting_shipment": confirmed_pending,
-    }
 
 
 # ==================== Staff Tasks ====================
@@ -1780,7 +910,7 @@ async def list_all_orders(
 
     rows = db.execute(
         text(f"""
-        SELECT o.id, o.user_id, o.subtotal, o.discount_applied, o.shipping_cost,
+        SELECT o.id, o.user_id, o.subtotal, o.shipping_cost,
                o.total_amount, o.payment_method, o.status, o.tracking_number,
                o.order_notes, o.created_at, o.updated_at,
                u.email as customer_email, COALESCE(up.full_name, u.username) as customer_name,
@@ -1816,7 +946,7 @@ async def list_all_orders(
         items_rows = db.execute(
             text(f"""
                 SELECT oi.order_id, oi.id as item_id, oi.product_id, oi.product_name,
-                       oi.size, oi.color, oi.quantity, oi.unit_price, oi.price,
+                       oi.size, oi.color, oi.quantity, oi.unit_price, oi.line_total,
                        p.name as product_name_from_catalog,
                        pi.image_url as image_url
                 FROM order_items oi
@@ -1848,20 +978,19 @@ async def list_all_orders(
             "id": r[0],
             "user_id": r[1],
             "subtotal": float(r[2] or 0),
-            "discount_applied": float(r[3] or 0),
-            "shipping_cost": float(r[4] or 0),
-            "total_amount": float(r[5] or 0),
-            "payment_method": r[6],
-            "status": r[7],
-            "tracking_number": r[8],
-            "order_notes": r[9],
-            "created_at": str(r[10]),
-            "updated_at": str(r[11]),
-            "customer_email": r[12],
-            "customer_name": r[13],
-            "customer_phone": r[14],
-            "invoice_number": r[15],
-            "shipping_address": r[16],
+            "shipping_cost": float(r[3] or 0),
+            "total_amount": float(r[4] or 0),
+            "payment_method": r[5],
+            "status": r[6],
+            "tracking_number": r[7],
+            "order_notes": r[8],
+            "created_at": str(r[9]),
+            "updated_at": str(r[10]),
+            "customer_email": r[11],
+            "customer_name": r[12],
+            "customer_phone": r[13],
+            "invoice_number": r[14],
+            "shipping_address": r[15],
             "order_number": f"ORD-{r[0]:06d}",
             "items": items_by_order.get(r[0], []),
         }
@@ -2142,13 +1271,14 @@ async def export_orders_excel(
 
     rows = db.execute(
         text(f"""
-        SELECT o.id, u.email, COALESCE(up.full_name, u.username) as customer_name,
-               up.phone as customer_phone,
-               o.total_amount, o.payment_method, o.status, o.tracking_number, o.courier_name,
+        SELECT o.id, u.email,
+               COALESCE(u.full_name, u.username) AS customer_name,
+               u.phone AS customer_phone,
+               o.total_amount, o.payment_method, o.status,
+               o.tracking_number, o.courier_name,
                o.shipping_address, o.created_at
         FROM orders o
         LEFT JOIN users u ON u.id = o.user_id
-        LEFT JOIN user_profiles up ON up.user_id = o.user_id
         {where_clause}
         ORDER BY o.created_at DESC
         LIMIT 5000
@@ -4557,100 +3687,449 @@ async def bulk_update_user_status(
     }
 
 
-# ==================== Discount / Promotion Management ====================
-
-
-@app.get("/api/v1/admin/discounts", tags=["Admin Discounts"])
-async def list_discounts(
-    is_active: Optional[bool] = None,
+@app.post("/api/v1/admin/users", tags=["Admin Users"], status_code=201)
+async def admin_create_user(
+    payload: dict,
     db: Session = Depends(get_db),
-    user: dict = Depends(require_admin),
+    current_user: dict = Depends(require_admin),
 ):
-    """List all promotions/discounts."""
-    where = ""
-    if is_active is not None:
-        where = f"WHERE is_active = {'true' if is_active else 'false'}"
-    rows = db.execute(
-        text(f"SELECT * FROM promotions {where} ORDER BY created_at DESC")
-    ).fetchall()
-    return {"discounts": [dict(r._mapping) for r in rows]}
+    """Create a user (admin only).
 
-
-@app.post("/api/v1/admin/discounts", tags=["Admin Discounts"])
-async def create_discount(
-    code: str,
-    discount_type: str,
-    discount_value: float,
-    min_order_value: float = 0,
-    max_discount_amount: Optional[float] = None,
-    usage_limit: Optional[int] = None,
-    valid_from: Optional[str] = None,
-    valid_until: Optional[str] = None,
-    db: Session = Depends(get_db),
-    user: dict = Depends(require_admin),
-):
-    """Create a new promotion/discount code."""
+    payload = {
+      email, first_name, last_name, password,
+      phone?, role? ('customer'|'staff'|'admin'), is_active?
+    }
+    """
+    from passlib.hash import bcrypt
+    required = ["email", "first_name", "last_name", "password"]
+    missing = [f for f in required if not payload.get(f)]
+    if missing:
+        raise HTTPException(status_code=400, detail=f"Missing: {', '.join(missing)}")
+    email = payload["email"].lower().strip()
+    existing = db.execute(
+        text("SELECT id FROM users WHERE LOWER(email) = :e"), {"e": email}
+    ).fetchone()
+    if existing:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    first_name = payload["first_name"].strip()
+    last_name = payload["last_name"].strip()
+    full_name = f"{first_name} {last_name}".strip()
+    username = payload.get("username") or email.split("@")[0]
+    role = payload.get("role", "customer")
+    if role not in ("customer", "staff", "admin", "super_admin"):
+        raise HTTPException(status_code=400, detail="Invalid role")
+    now = now_ist().replace(tzinfo=None)
     result = db.execute(
-        text("""
-        INSERT INTO promotions (code, discount_type, discount_value, min_order_value,
-            max_discount_amount, usage_limit, valid_from, valid_until, is_active)
-        VALUES (:code, :dt, :dv, :mov, :mda, :ul, :vf, :vu, true) RETURNING id
-    """),
+        text(
+            "INSERT INTO users (email, username, first_name, last_name, full_name, "
+            "phone, hashed_password, role, is_active, is_verified, created_at, updated_at) "
+            "VALUES (:email, :username, :fn, :ln, :full, :phone, :pw, :role, "
+            "        :active, TRUE, :now, :now) RETURNING id"
+        ),
         {
-            "code": code.upper(),
-            "dt": discount_type,
-            "dv": discount_value,
-            "mov": min_order_value,
-            "mda": max_discount_amount,
-            "ul": usage_limit,
-            "vf": valid_from,
-            "vu": valid_until,
+            "email": email,
+            "username": username,
+            "fn": first_name,
+            "ln": last_name,
+            "full": full_name,
+            "phone": payload.get("phone"),
+            "pw": bcrypt.hash(payload["password"]),
+            "role": role,
+            "active": payload.get("is_active", True),
+            "now": now,
         },
     )
+    user_id = result.scalar()
     db.commit()
+    redis_client.invalidate_pattern("admin:dashboard:*")
+    return {"id": user_id, "email": email, "role": role}
+
+
+@app.patch("/api/v1/admin/users/{user_id}", tags=["Admin Users"])
+async def admin_update_user(
+    user_id: int,
+    payload: dict,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_admin),
+):
+    """Update editable user fields (admin only)."""
+    user_exists = db.execute(
+        text("SELECT id FROM users WHERE id = :id"), {"id": user_id}
+    ).fetchone()
+    if not user_exists:
+        raise HTTPException(status_code=404, detail="User not found")
+    ALLOWED = {"first_name", "last_name", "phone", "role", "is_active", "is_verified"}
+    sets, params = ["updated_at = :now"], {"id": user_id, "now": now_ist().replace(tzinfo=None)}
+    for f in ALLOWED:
+        if f in payload:
+            sets.append(f"{f} = :{f}")
+            params[f] = payload[f]
+    if "first_name" in payload or "last_name" in payload:
+        new_first = payload.get("first_name")
+        new_last = payload.get("last_name")
+        existing = db.execute(
+            text("SELECT first_name, last_name FROM users WHERE id = :id"),
+            {"id": user_id},
+        ).fetchone()
+        first = new_first if new_first is not None else (existing._mapping["first_name"] or "")
+        last = new_last if new_last is not None else (existing._mapping["last_name"] or "")
+        sets.append("full_name = :full_name")
+        params["full_name"] = f"{first} {last}".strip()
+    if len(sets) == 1:
+        return {"message": "Nothing to update"}
+    db.execute(text(f"UPDATE users SET {', '.join(sets)} WHERE id = :id"), params)
+    db.commit()
+    redis_client.invalidate_pattern("admin:dashboard:*")
+    return {"id": user_id, "message": "User updated"}
+
+
+# ==================== Staff Dashboard / Orders ====================
+
+
+@app.get("/api/v1/staff/dashboard", tags=["Staff"])
+async def staff_dashboard(
+    db: Session = Depends(get_db), user: dict = Depends(require_staff)
+):
+    """Compact staff dashboard for fulfilment view."""
+    today = now_ist().replace(hour=0, minute=0, second=0, microsecond=0).replace(tzinfo=None)
+    pending = db.execute(
+        text("SELECT COUNT(*) FROM orders WHERE status IN ('pending','confirmed','processing')")
+    ).scalar() or 0
+    today_orders = db.execute(
+        text("SELECT COUNT(*) FROM orders WHERE created_at >= :t"),
+        {"t": today},
+    ).scalar() or 0
+    low_stock = db.execute(
+        text(
+            "SELECT COUNT(*) FROM product_variants "
+            "WHERE is_active = TRUE AND quantity > 0 AND quantity <= low_stock_threshold"
+        )
+    ).scalar() or 0
+    out_of_stock = db.execute(
+        text("SELECT COUNT(*) FROM product_variants WHERE is_active = TRUE AND quantity = 0")
+    ).scalar() or 0
     return {
-        "message": "Discount created",
-        "discount_id": result.scalar(),
-        "code": code.upper(),
+        "pending_orders": pending,
+        "today_orders": today_orders,
+        "low_stock_variants": low_stock,
+        "out_of_stock_variants": out_of_stock,
+        "as_of": now_ist().isoformat(),
     }
 
 
-@app.put("/api/v1/admin/discounts/{discount_id}", tags=["Admin Discounts"])
-async def update_discount(
-    discount_id: int,
-    is_active: Optional[bool] = None,
-    usage_limit: Optional[int] = None,
-    valid_until: Optional[str] = None,
+@app.get("/api/v1/staff/orders/pending", tags=["Staff"])
+async def staff_orders_pending(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    db: Session = Depends(get_db),
+    user: dict = Depends(require_staff),
+):
+    """Pending orders queue for staff fulfilment."""
+    offset = (page - 1) * page_size
+    total = db.execute(
+        text("SELECT COUNT(*) FROM orders WHERE status IN ('pending','confirmed','processing')")
+    ).scalar() or 0
+    rows = db.execute(
+        text(
+            "SELECT o.id, o.invoice_number, o.status, o.total_amount, o.created_at, "
+            "       COALESCE(u.full_name, u.email) AS customer "
+            "FROM orders o LEFT JOIN users u ON u.id = o.user_id "
+            "WHERE o.status IN ('pending','confirmed','processing') "
+            "ORDER BY o.created_at ASC LIMIT :lim OFFSET :off"
+        ),
+        {"lim": page_size, "off": offset},
+    ).fetchall()
+    return {
+        "items": [dict(r._mapping) for r in rows],
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "total_pages": (total + page_size - 1) // page_size,
+    }
+
+
+@app.post("/api/v1/staff/orders/{order_id}/mark-processed", tags=["Staff"])
+async def staff_mark_processed(
+    order_id: int,
+    db: Session = Depends(get_db),
+    user: dict = Depends(require_staff),
+):
+    """Mark an order as processed (staff)."""
+    res = db.execute(
+        text(
+            "UPDATE orders SET status = 'processing', updated_at = :now WHERE id = :id"
+        ),
+        {"id": order_id, "now": now_ist().replace(tzinfo=None)},
+    )
+    if res.rowcount == 0:
+        raise HTTPException(status_code=404, detail="Order not found")
+    db.commit()
+    return {"id": order_id, "status": "processing"}
+
+
+# ==================== Excel Import / Export ====================
+
+
+def _excel_response(data: bytes, filename: str):
+    from fastapi.responses import StreamingResponse
+    return StreamingResponse(
+        io.BytesIO(data),
+        media_type=(
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        ),
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@app.get("/api/v1/admin/excel/products/template", tags=["Admin Excel"])
+async def excel_products_template(user: dict = Depends(require_staff)):
+    return _excel_response(excel_service.products_template(), "products_template.xlsx")
+
+
+@app.get("/api/v1/admin/excel/inventory/template", tags=["Admin Excel"])
+async def excel_inventory_template(user: dict = Depends(require_staff)):
+    return _excel_response(excel_service.inventory_template(), "inventory_template.xlsx")
+
+
+@app.get("/api/v1/admin/excel/products/export", tags=["Admin Excel"])
+async def excel_products_export(
+    db: Session = Depends(get_db), user: dict = Depends(require_staff)
+):
+    rows = db.execute(
+        text(
+            "SELECT p.id AS product_id, p.name, p.slug, p.description, p.price, "
+            "p.collection_id, p.primary_image, p.is_active, p.is_featured, "
+            "p.is_new_arrival, pv.sku AS variant_sku, pv.size, pv.color, "
+            "pv.color_hex, pv.image_url AS variant_image, pv.quantity, "
+            "pv.low_stock_threshold "
+            "FROM products p LEFT JOIN product_variants pv ON pv.product_id = p.id "
+            "ORDER BY p.id, pv.color, pv.size"
+        )
+    ).fetchall()
+    return _excel_response(
+        excel_service.export_products([dict(r._mapping) for r in rows]),
+        "products_export.xlsx",
+    )
+
+
+@app.post("/api/v1/admin/excel/products/import", tags=["Admin Excel"])
+async def excel_products_import(
+    file: UploadFile = File(...),
     db: Session = Depends(get_db),
     user: dict = Depends(require_admin),
 ):
-    """Update a promotion/discount."""
-    sets, params = (
-        ["updated_at = :now"],
-        {"id": discount_id, "now": datetime.now(timezone.utc)},
-    )
-    if is_active is not None:
-        sets.append("is_active = :active")
-        params["active"] = is_active
-    if usage_limit is not None:
-        sets.append("usage_limit = :ul")
-        params["ul"] = usage_limit
-    if valid_until is not None:
-        sets.append("valid_until = :vu")
-        params["vu"] = valid_until
-    db.execute(text(f"UPDATE promotions SET {', '.join(sets)} WHERE id = :id"), params)
+    """Bulk upsert products + variants from a workbook.
+
+    Rules:
+    - Row with `product_id` → updates that product (name/desc/price/etc).
+    - Row without `product_id` → creates a new product (slug auto-derived).
+    - Each row's variant section (`variant_sku`, size/color/qty) upserts the
+      matching variant by SKU under the resolved product.
+    """
+    contents = await file.read()
+    try:
+        rows = excel_service.parse_products_import(contents)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    created_products = updated_products = upserted_variants = 0
+    now = now_ist().replace(tzinfo=None)
+    for row in rows:
+        pid = row.get("product_id")
+        if pid:
+            db.execute(
+                text(
+                    "UPDATE products SET name = COALESCE(:name, name), "
+                    "description = COALESCE(:desc, description), "
+                    "price = COALESCE(:price, price), "
+                    "collection_id = COALESCE(:cid, collection_id), "
+                    "primary_image = COALESCE(:img, primary_image), "
+                    "is_active = COALESCE(:active, is_active), "
+                    "updated_at = :now WHERE id = :id"
+                ),
+                {
+                    "name": row.get("name"),
+                    "desc": row.get("description"),
+                    "price": row.get("price"),
+                    "cid": row.get("collection_id"),
+                    "img": row.get("primary_image"),
+                    "active": row.get("is_active"),
+                    "now": now,
+                    "id": pid,
+                },
+            )
+            updated_products += 1
+        else:
+            res = db.execute(
+                text(
+                    "INSERT INTO products (name, slug, description, price, "
+                    "collection_id, primary_image, is_active, created_at, updated_at) "
+                    "VALUES (:name, :slug, :desc, :price, :cid, :img, "
+                    "        COALESCE(:active, TRUE), :now, :now) RETURNING id"
+                ),
+                {
+                    "name": row.get("name"),
+                    "slug": (row.get("slug") or (row.get("name") or "").lower().replace(" ", "-")),
+                    "desc": row.get("description"),
+                    "price": row.get("price") or 0,
+                    "cid": row.get("collection_id"),
+                    "img": row.get("primary_image"),
+                    "active": row.get("is_active"),
+                    "now": now,
+                },
+            )
+            pid = res.scalar()
+            created_products += 1
+        if row.get("variant_sku"):
+            db.execute(
+                text(
+                    "INSERT INTO product_variants (product_id, sku, size, color, "
+                    "color_hex, image_url, quantity, low_stock_threshold, "
+                    "created_at, updated_at) "
+                    "VALUES (:pid, :sku, :size, :color, :hex, :img, :qty, "
+                    "        COALESCE(:lst, 5), :now, :now) "
+                    "ON CONFLICT (sku) DO UPDATE SET "
+                    "  size = EXCLUDED.size, color = EXCLUDED.color, "
+                    "  color_hex = EXCLUDED.color_hex, image_url = EXCLUDED.image_url, "
+                    "  quantity = EXCLUDED.quantity, "
+                    "  low_stock_threshold = EXCLUDED.low_stock_threshold, "
+                    "  updated_at = EXCLUDED.updated_at"
+                ),
+                {
+                    "pid": pid,
+                    "sku": row["variant_sku"],
+                    "size": row.get("size") or "",
+                    "color": row.get("color") or "",
+                    "hex": row.get("color_hex"),
+                    "img": row.get("variant_image") or "",
+                    "qty": row.get("quantity") or 0,
+                    "lst": row.get("low_stock_threshold"),
+                    "now": now,
+                },
+            )
+            upserted_variants += 1
     db.commit()
-    return {"message": "Discount updated"}
+    redis_client.invalidate_pattern("products:*")
+    return {
+        "created_products": created_products,
+        "updated_products": updated_products,
+        "upserted_variants": upserted_variants,
+    }
 
 
-@app.delete("/api/v1/admin/discounts/{discount_id}", tags=["Admin Discounts"])
-async def delete_discount(
-    discount_id: int, db: Session = Depends(get_db), user: dict = Depends(require_admin)
+@app.get("/api/v1/admin/excel/inventory/export", tags=["Admin Excel"])
+async def excel_inventory_export(
+    db: Session = Depends(get_db), user: dict = Depends(require_staff)
 ):
-    """Delete a discount code."""
-    db.execute(text("DELETE FROM promotions WHERE id = :id"), {"id": discount_id})
+    rows = db.execute(
+        text(
+            "SELECT pv.id AS variant_id, pv.product_id, p.name AS product_name, "
+            "pv.sku, pv.size, pv.color, pv.color_hex, pv.quantity, "
+            "pv.reserved_quantity, pv.low_stock_threshold, pv.is_active, pv.updated_at "
+            "FROM product_variants pv JOIN products p ON p.id = pv.product_id "
+            "ORDER BY p.name, pv.color, pv.size"
+        )
+    ).fetchall()
+    return _excel_response(
+        excel_service.export_inventory([dict(r._mapping) for r in rows]),
+        "inventory_export.xlsx",
+    )
+
+
+@app.post("/api/v1/admin/excel/inventory/import", tags=["Admin Excel"])
+async def excel_inventory_import(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    user: dict = Depends(require_staff),
+):
+    """Bulk-update stock by SKU from an inventory workbook."""
+    contents = await file.read()
+    try:
+        rows = excel_service.parse_inventory_import(contents)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    now = now_ist().replace(tzinfo=None)
+    updated = 0
+    for row in rows:
+        sku = row.get("sku")
+        if not sku:
+            continue
+        variant = db.execute(
+            text("SELECT id, quantity FROM product_variants WHERE sku = :sku"),
+            {"sku": sku},
+        ).fetchone()
+        if not variant:
+            continue
+        new_qty = int(row.get("quantity") or 0)
+        delta = new_qty - int(variant._mapping["quantity"])
+        db.execute(
+            text(
+                "UPDATE product_variants SET quantity = :q, "
+                "low_stock_threshold = COALESCE(:lst, low_stock_threshold), "
+                "updated_at = :now WHERE id = :id"
+            ),
+            {
+                "q": new_qty,
+                "lst": row.get("low_stock_threshold"),
+                "now": now,
+                "id": variant._mapping["id"],
+            },
+        )
+        if delta:
+            db.execute(
+                text(
+                    "INSERT INTO inventory_movements (variant_id, delta, reason, "
+                    "performed_by, created_at) "
+                    "VALUES (:vid, :delta, 'excel_import', :by, :now)"
+                ),
+                {
+                    "vid": variant._mapping["id"],
+                    "delta": delta,
+                    "by": user.get("user_id") or user.get("id"),
+                    "now": now,
+                },
+            )
+        updated += 1
     db.commit()
-    return {"message": "Discount deleted"}
+    redis_client.invalidate_pattern("products:*")
+    return {"updated": updated}
+
+
+@app.get("/api/v1/admin/excel/orders/export", tags=["Admin Excel"])
+async def excel_orders_export(
+    from_date: Optional[str] = None,
+    to_date: Optional[str] = None,
+    db: Session = Depends(get_db),
+    user: dict = Depends(require_staff),
+):
+    where, params = ["1=1"], {}
+    if from_date:
+        where.append("DATE(o.created_at) >= :from_date")
+        params["from_date"] = from_date
+    if to_date:
+        where.append("DATE(o.created_at) <= :to_date")
+        params["to_date"] = to_date
+    rows = db.execute(
+        text(
+            "SELECT o.invoice_number, o.id AS order_id, o.status, "
+            "       o.payment_status, COALESCE(u.full_name, u.username) AS customer_name, "
+            "       u.email AS customer_email, o.total_amount, o.subtotal, "
+            "       o.tax_amount, o.shipping_amount, o.created_at, "
+            "       oi.product_name, oi.sku, oi.size, oi.color, oi.quantity, "
+            "       oi.unit_price, oi.line_total "
+            "FROM orders o LEFT JOIN users u ON u.id = o.user_id "
+            "LEFT JOIN order_items oi ON oi.order_id = o.id "
+            f"WHERE {' AND '.join(where)} "
+            "ORDER BY o.created_at DESC LIMIT 50000"
+        ),
+        params,
+    ).fetchall()
+    return _excel_response(
+        excel_service.export_orders([dict(r._mapping) for r in rows]),
+        "orders_export.xlsx",
+    )
+
+
+# Returns (bulk + per-id) moved to routes/returns.py. Promotions/discounts removed entirely.
 
 
 # ==================== Product Management (Admin) ====================
@@ -4741,43 +4220,43 @@ async def admin_create_product(
     user: dict = Depends(require_admin),
 ):
     """Create a new product (admin only)."""
-    # Resolve collection_id -> category_id
-    category_id = data.collection_id or data.category_id
-    # Auto-generate slug if not provided
-    slug = data.slug
+    # The cleaned schema uses `collection_id`; older callers may still pass
+    # `category_id`, so accept both.
+    category_id = data.collection_id or getattr(data, "category_id", None)
+    # MRP defaults to selling price when omitted (per spec — single price model).
+    mrp_value = data.mrp if data.mrp is not None else data.base_price
+    # Auto-generate slug if not provided.
+    slug = getattr(data, "slug", None)
     if not slug:
         slug = re.sub(r"[^a-z0-9]+", "-", data.name.lower()).strip("-")
-    # Ensure slug uniqueness
+    # Ensure slug uniqueness across products.
     existing = db.execute(
         text("SELECT id FROM products WHERE slug = :slug"), {"slug": slug}
     ).fetchone()
     if existing:
-        slug = f"{slug}-{int(datetime.now(timezone.utc).timestamp())}"
+        slug = f"{slug}-{int(now_ist().timestamp())}"
     result = db.execute(
         text("""
-        INSERT INTO products (name, slug, description, short_description, base_price, mrp,
+        INSERT INTO products (name, slug, description, base_price, mrp,
             category_id, brand, is_active, is_featured, is_new_arrival,
-            meta_title, meta_description, created_at, updated_at)
-        VALUES (:name, :slug, :desc, :short_desc, :price, :mrp,
+            created_at, updated_at)
+        VALUES (:name, :slug, :desc, :price, :mrp,
             :cat_id, :brand, :active, :featured, :new_arrival,
-            :meta_title, :meta_desc, :now, :now)
+            :now, :now)
         RETURNING id
     """),
         {
             "name": data.name,
             "slug": slug,
             "desc": data.description,
-            "short_desc": data.short_description,
             "price": data.base_price,
-            "mrp": data.mrp,
+            "mrp": mrp_value,
             "cat_id": category_id,
             "brand": getattr(data, "brand", None),
             "active": data.is_active,
             "featured": data.is_featured,
             "new_arrival": data.is_new_arrival,
-            "meta_title": data.meta_title,
-            "meta_desc": data.meta_description,
-            "now": datetime.now(timezone.utc),
+            "now": now_ist().replace(tzinfo=None),
         },
     )
     product_id = result.scalar()
@@ -4813,18 +4292,16 @@ async def admin_update_product(
     pid = resolved[0]
     sets, params = (
         ["updated_at = :now"],
-        {"id": pid, "now": datetime.now(timezone.utc)},
+        {"id": pid, "now": now_ist().replace(tzinfo=None)},
     )
     update_map = {
         "name": "name",
         "slug": "slug",
         "description": "description",
-        "short_description": "short_description",
+        "brand": "brand",
         "is_active": "is_active",
         "is_featured": "is_featured",
         "is_new_arrival": "is_new_arrival",
-        "meta_title": "meta_title",
-        "meta_description": "meta_description",
     }
     for field, col in update_map.items():
         val = getattr(data, field, None)
@@ -5386,8 +4863,10 @@ async def admin_create_product_variant(
         )
     result = db.execute(
         text("""
-        INSERT INTO inventory (product_id, sku, size, color, color_hex, quantity, low_stock_threshold, variant_price, created_at, updated_at)
-        VALUES (:pid, :sku, :size, :color, :color_hex, :qty, :low_stock_threshold, :variant_price, :now, :now) RETURNING id
+        INSERT INTO product_variants (product_id, sku, size, color, color_hex,
+            quantity, low_stock_threshold, image_url, created_at, updated_at)
+        VALUES (:pid, :sku, :size, :color, :color_hex, :qty,
+            :low_stock_threshold, :image_url, :now, :now) RETURNING id
     """),
         {
             "pid": pid,
@@ -5396,9 +4875,11 @@ async def admin_create_product_variant(
             "color": data.color,
             "color_hex": data.color_hex,
             "qty": data.quantity,
-            "low_stock_threshold": data.low_stock_threshold if data.low_stock_threshold is not None else 5,
-            "variant_price": data.price,
-            "now": datetime.now(timezone.utc),
+            "low_stock_threshold": data.low_stock_threshold
+            if data.low_stock_threshold is not None
+            else 5,
+            "image_url": getattr(data, "image_url", None) or "",
+            "now": now_ist().replace(tzinfo=None),
         },
     )
     inv_id = result.scalar()
@@ -5434,7 +4915,7 @@ async def admin_update_product_variant(
         raise HTTPException(status_code=404, detail="Variant not found")
     sets, params = (
         ["updated_at = :now"],
-        {"id": variant_id, "now": datetime.now(timezone.utc)},
+        {"id": variant_id, "now": now_ist().replace(tzinfo=None)},
     )
     if data.size is not None:
         sets.append("size = :size")
@@ -5451,10 +4932,19 @@ async def admin_update_product_variant(
     if data.low_stock_threshold is not None:
         sets.append("low_stock_threshold = :low_stock_threshold")
         params["low_stock_threshold"] = data.low_stock_threshold
-    if data.price is not None:
-        sets.append("variant_price = :variant_price")
-        params["variant_price"] = data.price
-    db.execute(text(f"UPDATE inventory SET {', '.join(sets)} WHERE id = :id"), params)
+    if data.image_url is not None:
+        sets.append("image_url = :image_url")
+        params["image_url"] = data.image_url
+    if data.is_active is not None:
+        sets.append("is_active = :is_active")
+        params["is_active"] = data.is_active
+    if data.sku is not None:
+        sets.append("sku = :sku")
+        params["sku"] = data.sku
+    # `price` is intentionally ignored — variant-level pricing was removed.
+    db.execute(
+        text(f"UPDATE product_variants SET {', '.join(sets)} WHERE id = :id"), params
+    )
     db.commit()
     redis_client.invalidate_pattern("products:*")
     return {"message": "Variant updated"}
@@ -5831,20 +5321,21 @@ async def admin_create_inventory(
             raise HTTPException(status_code=400, detail=f"Missing required field: {f}")
     result = db.execute(
         text("""
-        INSERT INTO inventory (product_id, sku, size, color, quantity, low_stock_threshold,
-            cost_price, created_at, updated_at)
-        VALUES (:pid, :sku, :size, :color, :qty, :threshold, :cost, :now, :now)
+        INSERT INTO product_variants (product_id, sku, size, color, image_url,
+            quantity, low_stock_threshold, created_at, updated_at)
+        VALUES (:pid, :sku, :size, :color, :image_url,
+            :qty, :threshold, :now, :now)
         RETURNING id
     """),
         {
             "pid": data["product_id"],
             "sku": data["sku"],
-            "size": data.get("size"),
-            "color": data.get("color"),
+            "size": data.get("size") or "",
+            "color": data.get("color") or "",
+            "image_url": data.get("image_url") or "",
             "qty": data["quantity"],
             "threshold": data.get("low_stock_threshold", 5),
-            "cost": data.get("cost_price"),
-            "now": datetime.now(timezone.utc),
+            "now": now_ist().replace(tzinfo=None),
         },
     )
     inv_id = result.scalar()
@@ -5862,14 +5353,23 @@ async def admin_update_inventory(
 ):
     """Update an inventory record (admin/staff only)."""
     inv = db.execute(
-        text("SELECT id FROM inventory WHERE id = :id"), {"id": inventory_id}
+        text("SELECT id FROM product_variants WHERE id = :id"),
+        {"id": inventory_id},
     ).fetchone()
     if not inv:
         raise HTTPException(status_code=404, detail="Inventory item not found")
-    ALLOWED = {"quantity", "low_stock_threshold", "cost_price", "size", "color"}
+    ALLOWED = {
+        "quantity",
+        "low_stock_threshold",
+        "size",
+        "color",
+        "color_hex",
+        "image_url",
+        "is_active",
+    }
     sets, params = (
         ["updated_at = :now"],
-        {"id": inventory_id, "now": datetime.now(timezone.utc)},
+        {"id": inventory_id, "now": now_ist().replace(tzinfo=None)},
     )
     for field in ALLOWED:
         if field in data:
@@ -5877,7 +5377,10 @@ async def admin_update_inventory(
             params[field] = data[field]
     if len(sets) == 1:
         return {"message": "Nothing to update"}
-    db.execute(text(f"UPDATE inventory SET {', '.join(sets)} WHERE id = :id"), params)
+    db.execute(
+        text(f"UPDATE product_variants SET {', '.join(sets)} WHERE id = :id"),
+        params,
+    )
     db.commit()
     redis_client.invalidate_pattern("products:*")
     return {"message": "Inventory updated", "id": inventory_id}
@@ -5895,13 +5398,15 @@ async def admin_inventory_movements(
     offset = (page - 1) * limit
     where, params = "", {"lim": limit, "off": offset}
     if product_id:
-        where = "WHERE im.product_id = :pid"
+        where = "WHERE pv.product_id = :pid"
         params["pid"] = product_id
     rows = db.execute(
         text(f"""
-        SELECT im.*, p.name as product_name
+        SELECT im.*, pv.product_id, pv.sku, pv.size, pv.color,
+               p.name AS product_name
         FROM inventory_movements im
-        JOIN products p ON p.id = im.product_id
+        JOIN product_variants pv ON pv.id = im.variant_id
+        JOIN products p ON p.id = pv.product_id
         {where}
         ORDER BY im.created_at DESC LIMIT :lim OFFSET :off
     """),
@@ -5917,498 +5422,142 @@ async def admin_out_of_stock(
     """Get out-of-stock inventory items."""
     rows = db.execute(
         text(
-            "SELECT i.*, p.name as product_name FROM inventory i "
-            "JOIN products p ON p.id = i.product_id WHERE i.quantity = 0 ORDER BY p.name"
+            "SELECT pv.*, p.name AS product_name FROM product_variants pv "
+            "JOIN products p ON p.id = pv.product_id "
+            "WHERE pv.quantity = 0 ORDER BY p.name"
         )
     ).fetchall()
     return {"items": [dict(r._mapping) for r in rows]}
 
 
-# ==================== Returns Management (Admin) ====================
-
-
-@app.get("/api/v1/admin/returns", tags=["Admin Returns"])
-async def admin_list_returns(
-    status_filter: Optional[str] = None,
-    skip: int = 0,
-    limit: int = 50,
+@app.get("/api/v1/admin/inventory", tags=["Admin Inventory"])
+async def admin_list_inventory(
+    product_id: Optional[int] = None,
+    search: Optional[str] = None,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=200),
     db: Session = Depends(get_db),
-    user: dict = Depends(require_admin),
+    user: dict = Depends(require_staff),
 ):
-    """List all return requests (admin only)."""
-    where, params = "", {"limit": limit, "skip": skip}
-    if status_filter:
-        where = "WHERE r.status = :status"
-        params["status"] = status_filter
+    """List inventory (product_variants) with pagination."""
+    offset = (page - 1) * page_size
+    where, params = ["1=1"], {"lim": page_size, "off": offset}
+    if product_id:
+        where.append("pv.product_id = :pid")
+        params["pid"] = product_id
+    if search:
+        where.append("(pv.sku ILIKE :q OR p.name ILIKE :q OR pv.color ILIKE :q OR pv.size ILIKE :q)")
+        params["q"] = f"%{search}%"
+    where_sql = " AND ".join(where)
+    total = db.execute(
+        text(
+            "SELECT COUNT(*) FROM product_variants pv JOIN products p ON p.id = pv.product_id "
+            f"WHERE {where_sql}"
+        ),
+        params,
+    ).scalar() or 0
     rows = db.execute(
-        text(f"""
-        SELECT r.id, r.order_id, r.user_id, r.reason, r.description,
-               r.status, r.refund_amount, r.requested_at, r.updated_at,
-               u.email as customer_email, u.username as customer_username
-        FROM return_requests r
-        LEFT JOIN users u ON r.user_id = u.id
-        {where}
-        ORDER BY r.requested_at DESC
-        LIMIT :limit OFFSET :skip
-    """),
+        text(
+            "SELECT pv.id, pv.product_id, p.name AS product_name, pv.sku, pv.size, "
+            "pv.color, pv.color_hex, pv.image_url, pv.quantity, pv.reserved_quantity, "
+            "pv.low_stock_threshold, pv.is_active, pv.updated_at "
+            "FROM product_variants pv JOIN products p ON p.id = pv.product_id "
+            f"WHERE {where_sql} "
+            "ORDER BY p.name, pv.color, pv.size LIMIT :lim OFFSET :off"
+        ),
         params,
     ).fetchall()
-    returns = [
-        {
-            "id": r[0],
-            "order_id": r[1],
-            "user_id": r[2],
-            "reason": r[3],
-            "description": r[4],
-            "status": r[5],
-            "refund_amount": float(r[6]) if r[6] else None,
-            "requested_at": r[7],
-            "created_at": r[7],
-            "updated_at": r[8],
-            "customer_email": r[9],
-            "customer_username": r[10],
-        }
-        for r in rows
-    ]
-    return {"returns": returns, "total": len(returns)}
-
-
-@app.get("/api/v1/admin/returns/{return_id}", tags=["Admin Returns"])
-async def admin_get_return(
-    return_id: int, db: Session = Depends(get_db), user: dict = Depends(require_admin)
-):
-    """Get return request details (admin only)."""
-    row = db.execute(
-        text("""
-        SELECT r.id, r.order_id, r.user_id, r.reason, r.description,
-               r.status, r.refund_amount, r.requested_at, r.updated_at,
-               r.approved_at, r.received_at, r.refunded_at, r.refund_transaction_id,
-               r.rejection_reason, r.return_tracking_number,
-               o.shipping_address, o.total_amount,
-               u.email as customer_email, u.username as customer_username
-        FROM return_requests r
-        LEFT JOIN orders o ON o.id = r.order_id
-        LEFT JOIN users u ON r.user_id = u.id
-        WHERE r.id = :id
-    """),
-        {"id": return_id},
-    ).fetchone()
-    if not row:
-        raise HTTPException(status_code=404, detail="Return request not found")
-
-    items = db.execute(
-        text("""
-        SELECT oi.product_id, oi.product_name, oi.sku, oi.size, oi.color, oi.quantity, oi.unit_price
-        FROM order_items oi
-        WHERE oi.order_id = :order_id
-        ORDER BY oi.id
-    """),
-        {"order_id": row[1]},
-    ).fetchall()
-
-    timeline = [
-        {
-            "status": "requested",
-            "date": row[7],
-            "note": "Return request created",
-            "actor": "Customer",
-        }
-    ]
-    if row[9]:
-        timeline.append(
-            {
-                "status": "approved",
-                "date": row[9],
-                "note": "Return approved",
-                "actor": "Admin",
-            }
-        )
-    if row[10]:
-        timeline.append(
-            {
-                "status": "received",
-                "date": row[10],
-                "note": "Returned item marked as received",
-                "actor": "Admin",
-            }
-        )
-    if row[11]:
-        timeline.append(
-            {
-                "status": "refunded",
-                "date": row[11],
-                "note": "Refund processed",
-                "actor": "Admin",
-            }
-        )
-    if row[13] and row[5] == "rejected":
-        timeline.append(
-            {
-                "status": "rejected",
-                "date": row[8],
-                "note": row[13],
-                "actor": "Admin",
-            }
-        )
-
     return {
-        "id": row[0],
-        "order_id": row[1],
-        "user_id": row[2],
-        "reason": row[3],
-        "description": row[4],
-        "status": row[5],
-        "refund_amount": float(row[6]) if row[6] else None,
-        "requested_at": row[7],
-        "created_at": row[7],
-        "updated_at": row[8],
-        "approved_at": row[9],
-        "received_at": row[10],
-        "refunded_at": row[11],
-        "refund_transaction_id": row[12],
-        "rejection_reason": row[13],
-        "return_tracking_number": row[14],
-        "return_number": f"RET-{str(row[0]).zfill(6)}",
-        "type": "return",
-        "order_number": f"#{row[1]}",
-        "total_amount": float(row[16]) if row[16] else 0,
-        "customer_email": row[17],
-        "customer_username": row[18],
-        "customer": {
-            "name": row[18] or row[17] or "Customer",
-            "email": row[17],
-            "total_orders": None,
-            "total_spent": float(row[16]) if row[16] else 0,
-        },
-        "shipping_address": {
-            "name": None,
-            "address": row[15],
-            "city": None,
-            "state": None,
-            "pincode": None,
-            "phone": None,
-        },
-        "items": [
-            {
-                "product_id": item[0],
-                "name": item[1],
-                "sku": item[2],
-                "size": item[3],
-                "color": item[4],
-                "quantity": item[5],
-                "price": float(item[6]) if item[6] else 0,
-            }
-            for item in items
-        ],
-        "timeline": timeline,
-        "refund": {
-            "amount": float(row[6]) if row[6] else 0,
-            "method": row[12] or "manual",
-            "status": row[5],
-        }
-        if row[5] == "refunded"
-        else None,
+        "items": [dict(r._mapping) for r in rows],
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "total_pages": (total + page_size - 1) // page_size,
     }
 
 
-@app.post("/api/v1/admin/returns/{return_id}/approve", tags=["Admin Returns"])
-async def admin_approve_return(
-    return_id: int,
-    data: dict = None,
-    db: Session = Depends(get_db),
-    user: dict = Depends(require_admin),
+@app.get("/api/v1/admin/inventory/low-stock", tags=["Admin Inventory"])
+async def admin_low_stock(
+    db: Session = Depends(get_db), user: dict = Depends(require_staff)
 ):
-    """Approve a return request (admin only)."""
-    if data is None:
-        data = {}
-    ret = db.execute(
-        text("SELECT id, status FROM return_requests WHERE id = :id"), {"id": return_id}
-    ).fetchone()
-    if not ret:
-        raise HTTPException(status_code=404, detail="Return request not found")
-    refund_amount = data.get("refund_amount")
-    sets = ["status = 'approved'", "updated_at = :now"]
-    params = {"id": return_id, "now": datetime.now(timezone.utc)}
-    if refund_amount is not None:
-        sets.append("refund_amount = :refund")
-        params["refund"] = refund_amount
-    db.execute(
-        text(f"UPDATE return_requests SET {', '.join(sets)} WHERE id = :id"), params
-    )
-    db.commit()
-    return {"message": "Return approved", "return_id": return_id}
-
-
-@app.post("/api/v1/admin/returns/{return_id}/reject", tags=["Admin Returns"])
-async def admin_reject_return(
-    return_id: int,
-    data: dict,
-    db: Session = Depends(get_db),
-    user: dict = Depends(require_admin),
-):
-    """Reject a return request (admin only)."""
-    ret = db.execute(
-        text("SELECT id FROM return_requests WHERE id = :id"), {"id": return_id}
-    ).fetchone()
-    if not ret:
-        raise HTTPException(status_code=404, detail="Return request not found")
-    reason = data.get("reason", "")
-    db.execute(
-        text("""
-        UPDATE return_requests
-        SET status = 'rejected', rejection_reason = :reason, updated_at = :now
-        WHERE id = :id
-    """),
-        {"reason": reason, "now": datetime.now(timezone.utc), "id": return_id},
-    )
-    db.commit()
-    return {"message": "Return rejected", "return_id": return_id}
-
-
-@app.post("/api/v1/admin/returns/{return_id}/receive", tags=["Admin Returns"])
-async def admin_receive_return(
-    return_id: int,
-    data: dict = None,
-    db: Session = Depends(get_db),
-    user: dict = Depends(require_admin),
-):
-    """Mark a return as received (admin only)."""
-    if data is None:
-        data = {}
-    ret = db.execute(
-        text("SELECT id FROM return_requests WHERE id = :id"), {"id": return_id}
-    ).fetchone()
-    if not ret:
-        raise HTTPException(status_code=404, detail="Return request not found")
-    sets = ["status = 'received'", "updated_at = :now"]
-    params = {"id": return_id, "now": datetime.now(timezone.utc)}
-    tracking = data.get("tracking_number")
-    if tracking:
-        sets.append("return_tracking_number = :tn")
-        params["tn"] = tracking
-    db.execute(
-        text(f"UPDATE return_requests SET {', '.join(sets)} WHERE id = :id"), params
-    )
-    db.commit()
-    return {"message": "Return marked as received", "return_id": return_id}
-
-
-@app.post("/api/v1/admin/returns/{return_id}/refund", tags=["Admin Returns"])
-async def admin_process_return_refund(
-    return_id: int,
-    data: dict,
-    db: Session = Depends(get_db),
-    user: dict = Depends(require_admin),
-):
-    """Process refund for a return (admin only)."""
-    ret = db.execute(
-        text("SELECT id FROM return_requests WHERE id = :id"), {"id": return_id}
-    ).fetchone()
-    if not ret:
-        raise HTTPException(status_code=404, detail="Return request not found")
-    txn_id = data.get("refund_transaction_id", "")
-    db.execute(
-        text("""
-        UPDATE return_requests
-        SET status = 'refunded', refund_transaction_id = :txn, updated_at = :now
-        WHERE id = :id
-    """),
-        {"txn": txn_id, "now": datetime.now(timezone.utc), "id": return_id},
-    )
-    db.commit()
-    return {"message": "Refund processed", "return_id": return_id}
-
-
-# ==================== Reviews Management (Admin) ====================
-
-
-@app.get("/api/v1/admin/reviews", tags=["Admin Reviews"])
-async def admin_list_reviews(
-    product_id: Optional[int] = None,
-    is_approved: Optional[bool] = None,
-    skip: int = 0,
-    limit: int = 50,
-    db: Session = Depends(get_db),
-    user: dict = Depends(require_admin),
-):
-    """List all reviews (admin only)."""
-    where_parts = []
-    params = {"limit": limit, "skip": skip}
-    if product_id:
-        where_parts.append("r.product_id = :product_id")
-        params["product_id"] = product_id
-    if is_approved is not None:
-        where_parts.append("r.is_approved = :approved")
-        params["approved"] = is_approved
-    where_clause = ("WHERE " + " AND ".join(where_parts)) if where_parts else ""
+    """List variants where quantity <= low_stock_threshold (and > 0)."""
     rows = db.execute(
-        text(f"""
-        SELECT r.id, r.product_id, r.user_id, r.rating, r.comment,
-               r.is_approved, r.created_at,
-               p.name as product_name,
-               u.username as customer_username, u.email as customer_email
-        FROM reviews r
-        LEFT JOIN products p ON r.product_id = p.id
-        LEFT JOIN users u ON r.user_id = u.id
-        {where_clause}
-        ORDER BY r.created_at DESC
-        LIMIT :limit OFFSET :skip
-    """),
-        params,
+        text(
+            "SELECT pv.id, pv.product_id, p.name AS product_name, pv.sku, pv.size, "
+            "pv.color, pv.quantity, pv.low_stock_threshold "
+            "FROM product_variants pv JOIN products p ON p.id = pv.product_id "
+            "WHERE pv.is_active = TRUE AND pv.quantity > 0 "
+            "  AND pv.quantity <= pv.low_stock_threshold "
+            "ORDER BY pv.quantity ASC, p.name"
+        )
     ).fetchall()
-    reviews = [
+    return {"items": [dict(r._mapping) for r in rows], "total": len(rows)}
+
+
+@app.post("/api/v1/admin/inventory/{variant_id}/adjust", tags=["Admin Inventory"])
+async def admin_adjust_inventory(
+    variant_id: int,
+    payload: dict,
+    db: Session = Depends(get_db),
+    user: dict = Depends(require_staff),
+):
+    """Apply a stock movement to a variant.
+
+    payload = {
+      "delta": int,            # +N to receive stock, -N to remove stock
+      "set_to": int,           # alternatively, set absolute quantity (e.g. 0 = OOS)
+      "reason": str,           # 'manual', 'restock', 'correction', 'sale', 'return'
+      "notes": str | None,
+    }
+    Audit row written to inventory_movements (variant_id, delta, reason, notes,
+    performed_by, created_at).
+    """
+    variant = db.execute(
+        text("SELECT id, quantity FROM product_variants WHERE id = :id"),
+        {"id": variant_id},
+    ).fetchone()
+    if not variant:
+        raise HTTPException(status_code=404, detail="Variant not found")
+
+    current_qty = int(variant._mapping["quantity"])
+    delta = payload.get("delta")
+    set_to = payload.get("set_to")
+    if delta is None and set_to is None:
+        raise HTTPException(status_code=400, detail="Provide 'delta' or 'set_to'")
+    new_qty = int(set_to) if set_to is not None else current_qty + int(delta)
+    if new_qty < 0:
+        raise HTTPException(status_code=400, detail="Resulting quantity cannot be negative")
+    movement_delta = new_qty - current_qty
+    now = now_ist().replace(tzinfo=None)
+    db.execute(
+        text(
+            "UPDATE product_variants SET quantity = :q, updated_at = :now WHERE id = :id"
+        ),
+        {"q": new_qty, "now": now, "id": variant_id},
+    )
+    db.execute(
+        text(
+            "INSERT INTO inventory_movements (variant_id, delta, reason, notes, "
+            "performed_by, created_at) "
+            "VALUES (:vid, :delta, :reason, :notes, :by, :now)"
+        ),
         {
-            "id": r[0],
-            "product_id": r[1],
-            "user_id": r[2],
-            "rating": r[3],
-            "comment": r[4],
-            "is_approved": r[5],
-            "created_at": r[6],
-            "product_name": r[7],
-            "customer_username": r[8],
-            "customer_email": r[9],
-        }
-        for r in rows
-    ]
-    return {"reviews": reviews, "total": len(reviews)}
-
-
-@app.patch("/api/v1/admin/reviews/{review_id}/approve", tags=["Admin Reviews"])
-async def admin_approve_review(
-    review_id: int, db: Session = Depends(get_db), user: dict = Depends(require_admin)
-):
-    """Approve a review (admin only)."""
-    result = db.execute(
-        text(
-            "UPDATE reviews SET is_approved = true, updated_at = :now WHERE id = :id RETURNING id"
-        ),
-        {"id": review_id, "now": datetime.now(timezone.utc)},
+            "vid": variant_id,
+            "delta": movement_delta,
+            "reason": payload.get("reason") or "manual",
+            "notes": payload.get("notes"),
+            "by": user.get("user_id") or user.get("id"),
+            "now": now,
+        },
     )
-    if not result.fetchone():
-        raise HTTPException(status_code=404, detail="Review not found")
     db.commit()
     redis_client.invalidate_pattern("products:*")
-    return {"message": "Review approved", "review_id": review_id}
+    return {
+        "id": variant_id,
+        "previous_quantity": current_qty,
+        "new_quantity": new_qty,
+        "delta": movement_delta,
+    }
 
 
-@app.patch("/api/v1/admin/reviews/{review_id}/reject", tags=["Admin Reviews"])
-async def admin_reject_review(
-    review_id: int, db: Session = Depends(get_db), user: dict = Depends(require_admin)
-):
-    """Reject (unapprove) a review (admin only)."""
-    result = db.execute(
-        text(
-            "UPDATE reviews SET is_approved = false, updated_at = :now WHERE id = :id RETURNING id"
-        ),
-        {"id": review_id, "now": datetime.now(timezone.utc)},
-    )
-    if not result.fetchone():
-        raise HTTPException(status_code=404, detail="Review not found")
-    db.commit()
-    redis_client.invalidate_pattern("products:*")
-    return {"message": "Review rejected", "review_id": review_id}
-
-
-@app.delete(
-    "/api/v1/admin/reviews/{review_id}", status_code=204, tags=["Admin Reviews"]
-)
-async def admin_delete_review(
-    review_id: int, db: Session = Depends(get_db), user: dict = Depends(require_admin)
-):
-    """Delete a review (admin only)."""
-    result = db.execute(
-        text("DELETE FROM reviews WHERE id = :id RETURNING id"), {"id": review_id}
-    )
-    if not result.fetchone():
-        raise HTTPException(status_code=404, detail="Review not found")
-    db.commit()
-    redis_client.invalidate_pattern("products:*")
-
-
-# ==================== Super Admin Backup System ====================
-
-import subprocess
-import os
-import glob
-
-BACKUP_DIR = os.environ.get("BACKUP_DIR", "/backups")
-
-
-@app.post("/api/v1/admin/backup/create", tags=["Super Admin Backup"])
-async def create_backup(user: dict = Depends(require_super_admin)):
-    """Trigger a manual PostgreSQL database backup (super admin only)."""
-    os.makedirs(BACKUP_DIR, exist_ok=True)
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-    filename = f"aarya_backup_{timestamp}.sql"
-    filepath = os.path.join(BACKUP_DIR, filename)
-
-    db_url = os.environ.get("DATABASE_URL", "")
-    # Parse connection details from DATABASE_URL
-    # Format: postgresql://user:password@host:port/dbname
-    try:
-        from urllib.parse import urlparse
-        parsed = urlparse(db_url)
-        env = {
-            **os.environ,
-            "PGPASSWORD": parsed.password or "",
-        }
-        cmd = [
-            "pg_dump",
-            "-h", parsed.hostname or "postgres",
-            "-p", str(parsed.port or 5432),
-            "-U", parsed.username or "postgres",
-            "-d", parsed.path.lstrip("/") or "aarya_clothing",
-            "-f", filepath,
-            "--no-owner",
-            "--no-acl",
-        ]
-        result = subprocess.run(cmd, env=env, capture_output=True, text=True, timeout=120)
-        if result.returncode != 0:
-            raise Exception(result.stderr)
-
-        file_size = os.path.getsize(filepath)
-        logger.info(f"Backup created: {filename} ({file_size} bytes) by user {user.get('user_id')}")
-        return {
-            "success": True,
-            "filename": filename,
-            "size_bytes": file_size,
-            "created_at": datetime.now(timezone.utc).isoformat(),
-            "message": f"Backup created successfully: {filename}",
-        }
-    except subprocess.TimeoutExpired:
-        raise HTTPException(status_code=504, detail="Backup timed out")
-    except Exception as e:
-        logger.error(f"Backup failed: {e}")
-        raise HTTPException(status_code=500, detail=f"Backup failed: {str(e)}")
-
-
-@app.get("/api/v1/admin/backup/list", tags=["Super Admin Backup"])
-async def list_backups(user: dict = Depends(require_super_admin)):
-    """List all available database backups (super admin only)."""
-    os.makedirs(BACKUP_DIR, exist_ok=True)
-    files = sorted(glob.glob(os.path.join(BACKUP_DIR, "*.sql")), reverse=True)
-    backups = []
-    for f in files[:50]:  # Return max 50 most recent
-        stat = os.stat(f)
-        backups.append({
-            "filename": os.path.basename(f),
-            "size_bytes": stat.st_size,
-            "size_mb": round(stat.st_size / 1024 / 1024, 2),
-            "created_at": datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat(),
-        })
-    return {"backups": backups, "total": len(backups), "backup_dir": BACKUP_DIR}
-
-
-@app.delete("/api/v1/admin/backup/{filename}", tags=["Super Admin Backup"])
-async def delete_backup(filename: str, user: dict = Depends(require_super_admin)):
-    """Delete a specific backup file (super admin only)."""
-    # Security: only allow .sql files and no path traversal
-    if not filename.endswith(".sql") or "/" in filename or ".." in filename:
-        raise HTTPException(status_code=400, detail="Invalid filename")
-    filepath = os.path.join(BACKUP_DIR, filename)
-    if not os.path.exists(filepath):
-        raise HTTPException(status_code=404, detail="Backup not found")
-    os.remove(filepath)
-    logger.info(f"Backup deleted: {filename} by user {user.get('user_id')}")
-    return {"success": True, "message": f"Backup {filename} deleted"}
+# Returns / Reviews / Backup admin endpoints moved to routes/{returns,reviews,backup}.py.

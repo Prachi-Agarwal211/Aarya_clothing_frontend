@@ -75,4 +75,28 @@ docker/certbot/www/
 # Memory files (AI agent workspace)
 memory/
 
+# Scratch / one-off remediation scripts at repo root.
+# Keep real tests under /tests, real utilities under /scripts.
+/fix_*.py
+/apply_*.py
+/check_*.py
+/check_*.txt
+/comprehensive_*.py
+/demo_*.py
+/final_*.py
+/simple_*_test.py
+/simple_auth_test.py
+/test_ist_*.py
+/verify_*.py
+/file_list.txt
+/fix_vibe_config.py
+/COMPLETE_FIXES_SUMMARY.md
+/IST_TIMEZONE_IMPLEMENTATION.md
+
+# Ruff cache
+.ruff_cache/
+
+# Tooling state
+.claude/
+
 # OS / IDE

@@ -124,14 +124,6 @@ export const ordersApi = {
 
   track: (id) =>
     commerceClient.get(`/api/v1/orders/${id}/tracking`),
-
-  // Admin: cross-reference Razorpay captured payments vs DB orders
-  getPaymentRecovery: (fromTimestamp) =>
-    commerceClient.get('/api/v1/orders/admin/payment-recovery', fromTimestamp ? { from_timestamp: fromTimestamp } : {}),
-
-  // Admin: force-create a DB order from a captured Razorpay payment_id
-  forceCreateOrder: (paymentId) =>
-    commerceClient.post('/api/v1/orders/admin/force-create', { payment_id: paymentId }),
 };
 
 // ==================== Addresses API ====================

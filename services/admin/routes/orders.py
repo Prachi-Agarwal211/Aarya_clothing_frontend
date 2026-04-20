@@ -17,7 +17,7 @@ from datetime import datetime, timezone
 from typing import Optional
 
 import openpyxl
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import StreamingResponse
 from openpyxl.styles import Alignment, Font, PatternFill
 from sqlalchemy import text
@@ -27,11 +27,41 @@ from core.exception_handler import log_business_event
 from core.redis_client import redis_client
 from database.database import get_db
 from schemas.admin import BulkOrderUpdate, OrderStatusUpdate
-from shared.auth_middleware import require_staff
+from shared.auth_middleware import require_admin, require_staff
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["Admin"])
+
+
+# ==================== Payment recovery (Razorpay vs DB) ====================
+
+
+@router.get("/api/v1/admin/orders/payment-recovery", tags=["Admin"])
+async def get_payment_recovery_report(
+    from_timestamp: Optional[int] = Query(
+        None, description="Unix timestamp; default last 48h"
+    ),
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_admin),
+):
+    """Cross-reference captured Razorpay payments with ``orders.transaction_id``."""
+    from service.order_payment_recovery import payment_recovery_report
+
+    return payment_recovery_report(db, from_timestamp)
+
+
+@router.post("/api/v1/admin/orders/force-create", tags=["Admin"])
+async def admin_force_create_order_from_payment(
+    payload: dict,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_admin),
+):
+    """Create a confirmed order row from a captured Razorpay ``payment_id`` (ops recovery)."""
+    from service.order_payment_recovery import force_create_order_from_payment
+
+    pid = str(payload.get("payment_id", "")).strip()
+    return force_create_order_from_payment(db, pid, current_user)
 
 
 # ==================== Admin Orders (Direct DB) ====================
@@ -43,7 +73,7 @@ async def list_all_orders(
     search: Optional[str] = None,
     user_id: Optional[int] = None,
     skip: int = 0,
-    limit: int = 100,
+    limit: int = 20,
     db: Session = Depends(get_db),
     current_user: dict = Depends(require_staff),
 ):

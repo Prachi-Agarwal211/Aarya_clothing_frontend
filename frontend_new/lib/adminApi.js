@@ -130,6 +130,14 @@ export const ordersApi = {
     }
     return res.json();
   },
+
+  /** Razorpay captured payments vs DB orders (admin service). */
+  getPaymentRecovery: (fromTimestamp) =>
+    adminClient.get('/api/v1/admin/orders/payment-recovery', fromTimestamp ? { from_timestamp: fromTimestamp } : {}),
+
+  /** Force-create a confirmed order from a captured Razorpay payment_id. */
+  forceCreateOrder: (paymentId) =>
+    adminClient.post('/api/v1/admin/orders/force-create', { payment_id: paymentId }),
 };
 
 // ==================== AI API ====================

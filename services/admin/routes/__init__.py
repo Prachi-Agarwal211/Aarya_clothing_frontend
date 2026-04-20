@@ -18,6 +18,7 @@ from .landing_admin import router as landing_admin_router
 from .landing_public import router as landing_public_router
 from .orders import router as orders_router
 from .products import router as products_router
+from .reconciliation import router as reconciliation_router
 from .returns import router as returns_router
 from .reviews import router as reviews_router
 from .site_config import router as site_config_router
@@ -41,6 +42,7 @@ __all__ = [
     "landing_public_router",
     "orders_router",
     "products_router",
+    "reconciliation_router",
     "returns_router",
     "reviews_router",
     "site_config_router",

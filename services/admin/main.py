@@ -141,6 +141,7 @@ from routes import (
     landing_public_router,
     orders_router,
     products_router,
+    reconciliation_router,
     returns_router,
     reviews_router,
     site_config_router,
@@ -172,6 +173,7 @@ app.include_router(ai_router)
 app.include_router(landing_admin_router)
 app.include_router(landing_public_router)
 app.include_router(products_router)
+app.include_router(reconciliation_router)
 app.include_router(collections_router)
 
 

@@ -2,7 +2,8 @@
 Product reviews router.
 
 Owns the customer-facing review surface (create, list, mark helpful, delete,
-upload image) plus the single staff endpoint for moderation. The image upload
+upload image). Admin moderation lives in ``services/admin/routes/reviews.py``
+(nginx ``/api/v1/admin/*`` → admin). The image upload
 is rate-limited and validated up front so we never hand a junk file to R2.
 """
 from __future__ import annotations
@@ -28,7 +29,7 @@ from rate_limit import check_rate_limit
 from schemas.review import ReviewCreate, ReviewResponse
 from service.r2_service import r2_service
 from service.review_service import ReviewService
-from shared.auth_middleware import get_current_user, require_staff
+from shared.auth_middleware import get_current_user
 
 logger = logging.getLogger(__name__)
 
@@ -162,18 +163,3 @@ async def delete_review(
     review_service = ReviewService(db)
     review_service.delete_review(review_id, current_user["user_id"])
     return
-
-
-@router.post(
-    "/api/v1/admin/reviews/{review_id}/approve",
-    response_model=ReviewResponse,
-    tags=["Admin - Reviews"],
-)
-async def approve_review(
-    review_id: int,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(require_staff),
-):
-    """Approve a queued review so it shows on the product page."""
-    review_service = ReviewService(db)
-    return review_service.approve_review(review_id)

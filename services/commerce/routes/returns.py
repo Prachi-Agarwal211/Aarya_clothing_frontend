@@ -1,18 +1,14 @@
 """
 Returns and exchanges router.
 
-Three groups of endpoints share this module because they all hit the same
-``return_requests`` table and the same business policies:
+Customer and exchange flows share this module (same ``return_requests`` table).
 
-1. Customer-side: create, list, view, cancel a return.
-2. Admin/staff-side: approve, reject, mark received, mark refunded.
-3. Exchange flow: convert an existing return into an exchange request after
-   validating stock and price parity.
+Admin list/approve/reject/receive/refund lives in ``services/admin/routes/returns.py``
+(nginx ``/api/v1/admin/*`` → admin).
 """
 from __future__ import annotations
 
 import logging
-from decimal import Decimal
 from typing import List, Optional
 
 from fastapi import (
@@ -37,7 +33,7 @@ from schemas.return_request import (
 )
 from service.r2_service import r2_service
 from service.return_service import ReturnService
-from shared.auth_middleware import get_current_user, require_staff
+from shared.auth_middleware import get_current_user
 
 logger = logging.getLogger(__name__)
 
@@ -155,106 +151,6 @@ async def cancel_return_request(
     db.delete(return_request)
     db.commit()
     return {"message": "Return request cancelled successfully", "id": return_id}
-
-
-# ---------------------------------------------------------------------------
-# Admin / staff returns
-# ---------------------------------------------------------------------------
-
-@router.get(
-    "/api/v1/admin/returns",
-    response_model=List[ReturnRequestResponse],
-    tags=["Admin - Returns"],
-)
-async def list_all_returns(
-    status_filter: Optional[str] = None,
-    skip: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=100),
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(require_staff),
-):
-    """List every return request, optionally filtered by status."""
-    return_service = ReturnService(db)
-    return_status = ReturnStatus(status_filter) if status_filter else None
-    return return_service.get_all_returns(status=return_status, skip=skip, limit=limit)
-
-
-@router.post(
-    "/api/v1/admin/returns/{return_id}/approve",
-    response_model=ReturnRequestResponse,
-    tags=["Admin - Returns"],
-)
-async def approve_return(
-    return_id: int,
-    refund_amount: Optional[float] = None,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(require_staff),
-):
-    """Approve a return; optionally lock in the refund amount up front."""
-    return_service = ReturnService(db)
-    return return_service.approve_return(
-        return_id,
-        approved_by=current_user["user_id"],
-        refund_amount=Decimal(refund_amount) if refund_amount else None,
-    )
-
-
-@router.post(
-    "/api/v1/admin/returns/{return_id}/reject",
-    response_model=ReturnRequestResponse,
-    tags=["Admin - Returns"],
-)
-async def reject_return(
-    return_id: int,
-    reason: str,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(require_staff),
-):
-    """Reject a return request and record the reason for the audit trail."""
-    return_service = ReturnService(db)
-    return return_service.reject_return(
-        return_id,
-        approved_by=current_user["user_id"],
-        rejection_reason=reason,
-    )
-
-
-@router.post(
-    "/api/v1/admin/returns/{return_id}/receive",
-    response_model=ReturnRequestResponse,
-    tags=["Admin - Returns"],
-)
-async def mark_return_received(
-    return_id: int,
-    tracking_number: Optional[str] = None,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(require_staff),
-):
-    """Flag the returned item as received in the warehouse."""
-    return_service = ReturnService(db)
-    return return_service.mark_item_received(
-        return_id,
-        tracking_number=tracking_number,
-    )
-
-
-@router.post(
-    "/api/v1/admin/returns/{return_id}/refund",
-    response_model=ReturnRequestResponse,
-    tags=["Admin - Returns"],
-)
-async def process_return_refund(
-    return_id: int,
-    refund_transaction_id: str,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(require_staff),
-):
-    """Mark the return as refunded and store the gateway transaction id."""
-    return_service = ReturnService(db)
-    return return_service.mark_refunded(
-        return_id,
-        refund_transaction_id=refund_transaction_id,
-    )
 
 
 # ---------------------------------------------------------------------------

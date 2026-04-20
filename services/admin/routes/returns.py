@@ -21,44 +21,72 @@ def _now_naive():
 
 
 @router.post("/api/v1/admin/returns/bulk-approve", tags=["Admin Returns"])
+@router.post("/api/v1/admin/returns/bulk/approve", tags=["Admin Returns"])
 async def admin_bulk_approve_returns(
     payload: dict,
     db: Session = Depends(get_db),
     user: dict = Depends(require_admin),
 ):
-    """Approve every pending return whose id is in `return_ids`."""
+    """Approve every open return whose id is in `return_ids` (status ``requested``)."""
     ids = payload.get("return_ids") or []
     if not ids:
         raise HTTPException(status_code=400, detail="No return_ids provided")
-    db.execute(
-        text(
-            "UPDATE return_requests SET status = 'approved', approved_at = :now, "
-            "updated_at = :now WHERE id = ANY(:ids) AND status = 'pending'"
-        ),
-        {"ids": ids, "now": _now_naive()},
-    )
+    staff_id = user.get("user_id")
+    if staff_id is not None:
+        db.execute(
+            text(
+                "UPDATE return_requests SET status = 'approved', approved_at = :now, "
+                "updated_at = :now, approved_by = :approver "
+                "WHERE id = ANY(:ids) AND status = 'requested'"
+            ),
+            {"ids": ids, "now": _now_naive(), "approver": staff_id},
+        )
+    else:
+        db.execute(
+            text(
+                "UPDATE return_requests SET status = 'approved', approved_at = :now, "
+                "updated_at = :now WHERE id = ANY(:ids) AND status = 'requested'"
+            ),
+            {"ids": ids, "now": _now_naive()},
+        )
     db.commit()
     return {"approved": len(ids)}
 
 
 @router.post("/api/v1/admin/returns/bulk-reject", tags=["Admin Returns"])
+@router.post("/api/v1/admin/returns/bulk/reject", tags=["Admin Returns"])
 async def admin_bulk_reject_returns(
     payload: dict,
     db: Session = Depends(get_db),
     user: dict = Depends(require_admin),
 ):
-    """Reject every pending return whose id is in `return_ids`."""
+    """Reject every open return whose id is in `return_ids` (status ``requested``)."""
     ids = payload.get("return_ids") or []
     if not ids:
         raise HTTPException(status_code=400, detail="No return_ids provided")
-    reason = payload.get("rejection_reason") or "Rejected"
-    db.execute(
-        text(
-            "UPDATE return_requests SET status = 'rejected', rejection_reason = :r, "
-            "updated_at = :now WHERE id = ANY(:ids) AND status = 'pending'"
-        ),
-        {"ids": ids, "r": reason, "now": _now_naive()},
+    reason = (
+        payload.get("reason")
+        or payload.get("rejection_reason")
+        or "Rejected"
     )
+    staff_id = user.get("user_id")
+    if staff_id is not None:
+        db.execute(
+            text(
+                "UPDATE return_requests SET status = 'rejected', rejection_reason = :r, "
+                "updated_at = :now, approved_by = :approver "
+                "WHERE id = ANY(:ids) AND status = 'requested'"
+            ),
+            {"ids": ids, "r": reason, "now": _now_naive(), "approver": staff_id},
+        )
+    else:
+        db.execute(
+            text(
+                "UPDATE return_requests SET status = 'rejected', rejection_reason = :r, "
+                "updated_at = :now WHERE id = ANY(:ids) AND status = 'requested'"
+            ),
+            {"ids": ids, "r": reason, "now": _now_naive()},
+        )
     db.commit()
     return {"rejected": len(ids)}
 
@@ -214,8 +242,16 @@ async def admin_approve_return(
     """Approve a single return request, optionally setting `refund_amount`."""
     _ensure_return_exists(db, return_id)
     data = data or {}
-    sets = ["status = 'approved'", "updated_at = :now"]
+    sets = [
+        "status = 'approved'",
+        "updated_at = :now",
+        "approved_at = :now",
+    ]
     params = {"id": return_id, "now": _now_naive()}
+    staff_id = user.get("user_id")
+    if staff_id is not None:
+        sets.append("approved_by = :approved_by")
+        params["approved_by"] = staff_id
     if data.get("refund_amount") is not None:
         sets.append("refund_amount = :refund")
         params["refund"] = data["refund_amount"]
@@ -233,13 +269,28 @@ async def admin_reject_return(
 ):
     """Reject a single return request, recording the rejection reason."""
     _ensure_return_exists(db, return_id)
-    db.execute(
-        text(
-            "UPDATE return_requests SET status = 'rejected', rejection_reason = :reason, "
-            "updated_at = :now WHERE id = :id"
-        ),
-        {"reason": data.get("reason", ""), "now": _now_naive(), "id": return_id},
-    )
+    staff_id = user.get("user_id")
+    if staff_id is not None:
+        db.execute(
+            text(
+                "UPDATE return_requests SET status = 'rejected', rejection_reason = :reason, "
+                "updated_at = :now, approved_by = :approved_by WHERE id = :id"
+            ),
+            {
+                "reason": data.get("reason", ""),
+                "now": _now_naive(),
+                "approved_by": staff_id,
+                "id": return_id,
+            },
+        )
+    else:
+        db.execute(
+            text(
+                "UPDATE return_requests SET status = 'rejected', rejection_reason = :reason, "
+                "updated_at = :now WHERE id = :id"
+            ),
+            {"reason": data.get("reason", ""), "now": _now_naive(), "id": return_id},
+        )
     db.commit()
     return {"message": "Return rejected", "return_id": return_id}
 
@@ -254,7 +305,12 @@ async def admin_receive_return(
     """Mark a return as received, optionally storing a return tracking number."""
     _ensure_return_exists(db, return_id)
     data = data or {}
-    sets = ["status = 'received'", "updated_at = :now"]
+    sets = [
+        "status = 'received'",
+        "updated_at = :now",
+        "received_at = :now",
+        "is_item_received = true",
+    ]
     params = {"id": return_id, "now": _now_naive()}
     if data.get("tracking_number"):
         sets.append("return_tracking_number = :tn")
@@ -276,7 +332,7 @@ async def admin_process_return_refund(
     db.execute(
         text(
             "UPDATE return_requests SET status = 'refunded', refund_transaction_id = :txn, "
-            "updated_at = :now WHERE id = :id"
+            "updated_at = :now, refunded_at = :now WHERE id = :id"
         ),
         {"txn": data.get("refund_transaction_id", ""), "now": _now_naive(), "id": return_id},
     )

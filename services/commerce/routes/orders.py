@@ -23,6 +23,7 @@ from io import BytesIO
 
 from database.database import get_db
 from models.order import Order, OrderStatus
+from models.address import Address
 from schemas.order import OrderResponse, SetDeliveryState
 from service.order_service import OrderService
 from shared.auth_middleware import get_current_user, require_staff
@@ -176,8 +177,12 @@ async def recover_order_from_payment(
     request: Request,
     payment_id: str,
     razorpay_order_id: str,
+    address_id: Optional[int] = Query(
+        None,
+        description="Shipping address id; defaults to the user's default/first saved address",
+    ),
     current_user: dict = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     """
     Recover order from successful payment if order creation failed.
@@ -283,13 +288,37 @@ async def recover_order_from_payment(
             logger.info(f"Minimal order created: {order.id} for payment {payment_id}")
             return _enrich_order_response(order)
         
-        # Full order recovery with cart items
+        resolved_address_id = address_id
+        if not resolved_address_id:
+            preferred = (
+                db.query(Address)
+                .filter(Address.user_id == user_id, Address.is_default.is_(True))
+                .first()
+            )
+            if not preferred:
+                preferred = (
+                    db.query(Address)
+                    .filter(Address.user_id == user_id)
+                    .order_by(Address.id.asc())
+                    .first()
+                )
+            if preferred:
+                resolved_address_id = preferred.id
+
+        if not resolved_address_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No delivery address on file. Add an address in your account, then retry recovery with ?address_id=…",
+            )
+
+        # Full order recovery with cart items (payment proven above; skip HMAC re-check)
         order = order_service.create_order(
             user_id=user_id,
-            address_id=None,  # Will use cart address if available
+            address_id=resolved_address_id,
             payment_method="razorpay",
             transaction_id=payment_id,
             razorpay_order_id=razorpay_order_id,
+            payment_already_verified=True,
         )
         
         logger.info(f"ORDER_RECOVER_SUCCESS: order_id={order.id} payment_id={payment_id}")

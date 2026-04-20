@@ -156,9 +156,8 @@ export const reviewsApi = {
     commerceClient.post('/api/v1/reviews', data),
 
   uploadImage: async (formData) => {
-    // Direct fetch with FormData for file upload
-    const { coreClient } = await import('./baseApi');
-    return coreClient.uploadFile('/api/v1/reviews/upload-image', formData);
+    // Route is served by commerce (nginx → /api/v1/reviews/*)
+    return commerceClient.uploadFile('/api/v1/reviews/upload-image', formData);
   },
 
   markHelpful: (reviewId) =>

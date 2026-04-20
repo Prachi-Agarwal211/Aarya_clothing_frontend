@@ -105,7 +105,8 @@ class OrderService:
         payment_method: str = "razorpay",
         payment_signature: Optional[str] = None,
         razorpay_order_id: Optional[str] = None,
-        qr_code_id: Optional[str] = None
+        qr_code_id: Optional[str] = None,
+        payment_already_verified: bool = False,
     ) -> Order:
         """
         Create order from user's cart.
@@ -154,9 +155,21 @@ class OrderService:
         # payment_signature = HMAC signature from Razorpay handler
         # qr_code_id = for UPI QR payments (no signature needed, payment already completed)
         if payment_method == "razorpay":
+            # Recovery / webhook path: payment proven by caller (Razorpay API or prior verify)
+            if payment_already_verified:
+                if not transaction_id:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Payment ID is required",
+                    )
+                logger.info(
+                    "PAYMENT_VERIFY_SKIP: user=%s payment_id=%s (already_verified=True)",
+                    user_id,
+                    transaction_id,
+                )
             # For QR code payments, payment is already verified via QR status polling
             # No transaction_id or signature needed — just verify the QR code is paid
-            if qr_code_id:
+            elif qr_code_id:
                 logger.info(
                     f"PAYMENT_VERIFY_START (QR): user={user_id} "
                     f"qr_code_id={qr_code_id}"

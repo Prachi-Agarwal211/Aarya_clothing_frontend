@@ -108,8 +108,10 @@ export default function CheckoutConfirmPage() {
         return;
       }
 
-      if (!paymentId && !razorpayOrderId && !qrCodeId) {
-        setError('Payment information missing. Please complete payment first.');
+      if (!qrCodeId && (!paymentId || !razorpayOrderId || !paymentSignature)) {
+        setError(
+          'Payment information missing. For card/UPI checkout we need payment id, order id, and signature. Please complete payment again.',
+        );
         setTimeout(() => router.push('/checkout/payment'), 3000);
         return;
       }
@@ -117,9 +119,9 @@ export default function CheckoutConfirmPage() {
       const orderPayload = {
         address_id: parseInt(addressId),
         payment_method: 'razorpay',
-        transaction_id: paymentId,
-        razorpay_order_id: razorpayOrderId,
-        razorpay_signature: paymentSignature,
+        transaction_id: paymentId || undefined,
+        razorpay_order_id: razorpayOrderId || undefined,
+        razorpay_signature: paymentSignature || undefined,
       };
 
       if (qrCodeId) orderPayload.qr_code_id = qrCodeId;

@@ -44,8 +44,9 @@ class Settings(SharedBaseSettings):
     SUPPORTED_CURRENCIES: List[str] = ["INR"]
 
     # ==================== Service URLs ====================
-    CORE_SERVICE_URL: str = "http://core:8001"
-    COMMERCE_SERVICE_URL: str = "http://commerce:8010"
+    # Docker Compose: core → 5001, commerce → 5002 (see docker-compose.yml)
+    CORE_SERVICE_URL: str = "http://core:5001"
+    COMMERCE_SERVICE_URL: str = "http://commerce:5002"
 
     @property
     def razorpay_enabled(self) -> bool:

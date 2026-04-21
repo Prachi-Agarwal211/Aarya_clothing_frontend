@@ -517,7 +517,11 @@ export default function CollectionDetailClient({ initialCollection, initialProdu
                     ) : featuredProducts.length > 0 ? (
                       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
                         {featuredProducts.slice(0, 8).map(product => (
-                          <ProductCard key={product.id} product={product} onAddToWishlist={handleWishlistToggle} wishlistStatus={wishlistStatus[product.id] || false} />
+                          <ProductCard
+                            key={product.id}
+                            product={product}
+                            isWishlisted={wishlistStatus[product.id] || false}
+                          />
                         ))}
                       </div>
                     ) : (
@@ -598,7 +602,7 @@ export default function CollectionDetailClient({ initialCollection, initialProdu
                 <div className="flex items-center justify-center gap-2 mt-8">
                   <button
                     onClick={() => {
-                      const newPage = prev.page - 1;
+                      const newPage = Math.max(1, filters.page - 1);
                       setFilters(prev => ({ ...prev, page: newPage }));
                       router.push(`/collections/${slug}?page=${newPage}`);
                     }}
@@ -612,7 +616,7 @@ export default function CollectionDetailClient({ initialCollection, initialProdu
                   </span>
                   <button
                     onClick={() => {
-                      const newPage = prev.page + 1;
+                      const newPage = Math.min(totalPages, filters.page + 1);
                       setFilters(prev => ({ ...prev, page: newPage }));
                       router.push(`/collections/${slug}?page=${newPage}`);
                     }}

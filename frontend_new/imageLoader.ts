@@ -50,11 +50,17 @@ const encodeForCloudflare = (url: string): string => {
 };
 
 const isR2Url = (src: string): boolean => {
-  // Check if this is an R2 URL (either full URL or relative path that should go to R2)
-  return (
-    src.includes("pub-") && src.includes("r2.dev") ||
-    src.includes(R2_PUBLIC_URL)
-  );
+  if (!src) return false;
+  // Public R2 dev host, S3 API host, or configured public base (admin/commerce may return any of these)
+  if (src.includes("r2.dev")) return true;
+  if (src.includes("r2.cloudflarestorage.com")) return true;
+  try {
+    const baseHost = new URL(R2_PUBLIC_URL).hostname;
+    if (baseHost && src.includes(baseHost)) return true;
+  } catch {
+    /* ignore */
+  }
+  return src.includes("pub-") && src.includes("r2.dev");
 };
 
 const isLocalStaticAsset = (src: string): boolean => {
@@ -94,6 +100,44 @@ export default function cloudflareLoader({
   // so we return the direct R2 URL to avoid 404s.
   if (isR2Url(src)) {
     return normalizeSrc(src);
+  }
+
+  // Full http(s) URLs that use the public site (or local dev) origin but path is
+  // R2-backed media — optimizing those would fetch HTML. Rewrite to R2 public URL.
+  if (src.startsWith("http://") || src.startsWith("https://")) {
+    try {
+      const u = new URL(src);
+      const p = u.pathname;
+      const isMediaPath =
+        p.startsWith("/products/") ||
+        p.startsWith("/collections/") ||
+        p.startsWith("/hero/") ||
+        p.startsWith("/about/") ||
+        p.startsWith("/landing/");
+      if (!isMediaPath) {
+        /* fall through */
+      } else {
+        const siteUrlEnv =
+          typeof process !== "undefined" && process.env?.NEXT_PUBLIC_SITE_URL;
+        let sameSite = false;
+        if (siteUrlEnv) {
+          try {
+            sameSite = new URL(siteUrlEnv.trim()).origin === u.origin;
+          } catch {
+            /* ignore */
+          }
+        }
+        const localDev =
+          u.hostname === "localhost" ||
+          u.hostname === "127.0.0.1" ||
+          u.hostname === "[::1]";
+        if (sameSite || localDev) {
+          return `${R2_PUBLIC_URL}${p}`;
+        }
+      }
+    } catch {
+      /* ignore */
+    }
   }
 
   // Relative paths — reconstruct full R2 URL

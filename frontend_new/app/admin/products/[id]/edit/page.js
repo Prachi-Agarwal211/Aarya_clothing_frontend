@@ -1201,6 +1201,7 @@ export default function EditProductPage() {
                         src={img.preview}
                         alt={`New product image ${index + 1}`}
                         fill
+                        unoptimized
                         className="object-cover"
                         sizes="(max-width: 640px) 50vw, 25vw"
                       />

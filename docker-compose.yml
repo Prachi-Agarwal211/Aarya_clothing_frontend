@@ -1,6 +1,10 @@
 # Aarya Clothing - Unified Docker Compose
 # Single configuration for local development and testing
 #
+# Production site: https://aaryaclothing.in
+# - Set PUBLIC_SITE_URL / PUBLIC_APP_URL in `.env` (defaults below use aaryaclothing.in).
+# - Frontend image: pass build args so NEXT_PUBLIC_SITE_URL and R2 URLs are baked at `npm run build`.
+#
 # ARCHITECTURE (one frontend, four API microservices, shared data layer)
 # -----------------------------------------------------------------------
 # • Frontend:  Next.js (frontend_new) — one app for storefront + customer flows; talks to APIs via nginx.
@@ -213,13 +217,27 @@ services:
       - MSG91_SENDER_ID=${MSG91_SENDER_ID:-}
       # Optional: DLT-registered Flow template for order SMS (var1/2/3; separate from OTP template)
       - MSG91_ORDER_FLOW_TEMPLATE_ID=${MSG91_ORDER_FLOW_TEMPLATE_ID:-}
-      # Meta WhatsApp API
+      # MSG91 WhatsApp (BSP) — use with WHATSAPP_PROVIDER=msg91 or auto-detect when all three are set
+      - MSG91_WHATSAPP_INTEGRATED_NUMBER=${MSG91_WHATSAPP_INTEGRATED_NUMBER:-}
+      - MSG91_WHATSAPP_NAMESPACE=${MSG91_WHATSAPP_NAMESPACE:-}
+      - MSG91_WHATSAPP_BULK_URL=${MSG91_WHATSAPP_BULK_URL:-https://api.msg91.com/api/v5/whatsapp/whatsapp-outbound-message/bulk/}
+      - MSG91_WHATSAPP_TEXT_URL=${MSG91_WHATSAPP_TEXT_URL:-https://api.msg91.com/api/v5/whatsapp/whatsapp-outbound-message/}
+      - MSG91_WHATSAPP_WEBHOOK_SECRET=${MSG91_WHATSAPP_WEBHOOK_SECRET:-}
+      # WhatsApp: msg91 (default when MSG91 creds complete) or meta (direct Graph API)
+      - WHATSAPP_PROVIDER=${WHATSAPP_PROVIDER:-}
+      # Meta WhatsApp API (legacy; optional if using MSG91 only)
       - WHATSAPP_ACCESS_TOKEN=${WHATSAPP_ACCESS_TOKEN:-}
       - WHATSAPP_PHONE_NUMBER_ID=${WHATSAPP_PHONE_NUMBER_ID:-}
+      - WHATSAPP_BUSINESS_ACCOUNT_ID=${WHATSAPP_BUSINESS_ACCOUNT_ID:-}
       - WHATSAPP_WABA_ID=${WHATSAPP_WABA_ID:-}
+      - WHATSAPP_API_VERSION=${WHATSAPP_API_VERSION:-v20.0}
       - WHATSAPP_TEMPLATE_OTP=${WHATSAPP_TEMPLATE_OTP:-auth_otp}
       - WHATSAPP_TEMPLATE_ORDER_CONFIRMED=${WHATSAPP_TEMPLATE_ORDER_CONFIRMED:-order_confirmation}
       - WHATSAPP_TEMPLATE_ORDER_SHIPPED=${WHATSAPP_TEMPLATE_ORDER_SHIPPED:-order_shipped}
+      - WHATSAPP_TEMPLATE_ORDER_DELIVERED=${WHATSAPP_TEMPLATE_ORDER_DELIVERED:-order_delivered}
+      - WHATSAPP_TEMPLATE_LANGUAGE_CODE=${WHATSAPP_TEMPLATE_LANGUAGE_CODE:-en}
+      - WHATSAPP_WEBHOOK_VERIFY_TOKEN=${WHATSAPP_WEBHOOK_VERIFY_TOKEN:-aarya_whatsapp_webhook_2026}
+      - WHATSAPP_APP_SECRET=${WHATSAPP_APP_SECRET:-}
       # SMTP Configuration - Hostinger
       - SMTP_HOST=smtp.hostinger.com
       - SMTP_PORT=465
@@ -510,26 +528,35 @@ services:
       context: ./frontend_new
       dockerfile: Dockerfile
       args:
-        # SSR uses internal Docker URL, client uses window.location.origin
+        # SSR: gateway inside Docker network. Browser: same-origin via nginx (aaryaclothing.in).
         - NEXT_PUBLIC_API_URL=http://nginx:80
         - NEXT_PUBLIC_INTERNAL_COMMERCE_URL=http://commerce:5002
-        - NEXT_PUBLIC_R2_PUBLIC_URL=https://pub-7846c786f7154610b57735df47899fa0.r2.dev
+        - NEXT_PUBLIC_R2_PUBLIC_URL=${NEXT_PUBLIC_R2_PUBLIC_URL:-https://pub-7846c786f7154610b57735df47899fa0.r2.dev}
+        # Canonical site URL for structured data / metadata (must match public domain)
+        - NEXT_PUBLIC_SITE_URL=${PUBLIC_SITE_URL:-https://aaryaclothing.in}
     container_name: aarya_frontend
     environment:
       - NODE_ENV=production
       - DOCKER_ENV=true
       - NODE_OPTIONS=--max-old-space-size=1024
       - NEXT_SHARP_PATH=/app/node_modules/sharp
-      # SSR needs absolute URL for Node.js fetch() - nginx will proxy to backend
-      # Client-side code uses window.location.origin (CSP compliant)
       - NEXT_PUBLIC_API_URL=http://nginx:80
       - NEXT_PUBLIC_INTERNAL_COMMERCE_URL=http://commerce:5002
-      - NEXT_PUBLIC_R2_PUBLIC_URL=https://pub-7846c786f7154610b57735df47899fa0.r2.dev
+      - NEXT_PUBLIC_R2_PUBLIC_URL=${NEXT_PUBLIC_R2_PUBLIC_URL:-https://pub-7846c786f7154610b57735df47899fa0.r2.dev}
+      - NEXT_PUBLIC_SITE_URL=${PUBLIC_SITE_URL:-https://aaryaclothing.in}
     expose:
       - "3000"
     depends_on:
-      - core
-      - commerce
+      core:
+        condition: service_healthy
+      commerce:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:3000/ > /dev/null || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 3
+      start_period: 45s
     deploy:
       resources:
         limits:
@@ -560,11 +587,16 @@ services:
       - ./docker/nginx/ssl:/etc/nginx/ssl:ro
       - ./docker/certbot/www:/var/www/certbot:ro
     depends_on:
-      - frontend
-      - core
-      - commerce
-      - payment
-      - admin
+      frontend:
+        condition: service_healthy
+      core:
+        condition: service_healthy
+      commerce:
+        condition: service_healthy
+      payment:
+        condition: service_healthy
+      admin:
+        condition: service_healthy
     deploy:
       resources:
         limits:

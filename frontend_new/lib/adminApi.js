@@ -36,7 +36,7 @@ export const dashboardApi = {
 // ==================== Orders API ====================
 export const ordersApi = {
   list: (params = {}) => {
-    const { page, limit = 20, ...rest } = params;
+    const { page, limit = 1000, ...rest } = params;
     const normalizedPage = Number(page) > 0 ? Number(page) : 1;
 
     return adminClient.get('/api/v1/admin/orders', {

@@ -259,6 +259,9 @@ export default function PrivacyPolicyPage() {
                   <strong>Right to Deletion:</strong> You can request deletion of your personal information, subject to legal obligations
                 </li>
                 <li>
+                  <strong>Facebook Data Deletion:</strong> If you have used Facebook to log in to our services, you can request the deletion of your data by contacting us or by removing the App via your Facebook Settings &amp; Privacy &gt; Apps and Websites.
+                </li>
+                <li>
                   <strong>Right to Restriction:</strong> You can request restriction of processing your personal information
                 </li>
                 <li>
@@ -493,10 +496,10 @@ export default function PrivacyPolicyPage() {
                   <strong className="text-[#F2C29A]">Data Protection Officer:</strong> dpo@aaryaclothing.com
                 </p>
                 <p className="text-[#EAE0D5]">
-                  <strong className="text-[#F2C29A]">Phone:</strong> +91-XXXXXXXXXX
+                  <strong className="text-[#F2C29A]">Phone:</strong> +91 73001 86757
                 </p>
                 <p className="text-[#EAE0D5]">
-                  <strong className="text-[#F2C29A]">Address:</strong> [Registered Office Address], India
+                  <strong className="text-[#F2C29A]">Address:</strong> 103/44 Meera Marg, Jaipur, Rajasthan 302020, India
                 </p>
               </div>
               <p className="text-sm">

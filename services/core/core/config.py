@@ -66,26 +66,69 @@ class Settings(SharedBaseSettings):
     # Optional Flow template for order/shipping SMS (DLT-registered body in MSG91 console)
     MSG91_ORDER_FLOW_TEMPLATE_ID: Optional[str] = None
 
-    # ==================== Meta WhatsApp Cloud API ====================
+    # ==================== MSG91 WhatsApp (BSP) ====================
+    # Same authkey as SMS; from MSG91 panel → Authkey. Required for WHATSAPP_PROVIDER=msg91.
+    MSG91_WHATSAPP_INTEGRATED_NUMBER: Optional[str] = None
+    # Template namespace from MSG91 / Meta (WhatsApp → Templates → namespace in API payload)
+    MSG91_WHATSAPP_NAMESPACE: Optional[str] = None
+    MSG91_WHATSAPP_BULK_URL: str = "https://api.msg91.com/api/v5/whatsapp/whatsapp-outbound-message/bulk/"
+    MSG91_WHATSAPP_TEXT_URL: str = "https://api.msg91.com/api/v5/whatsapp/whatsapp-outbound-message/"
+
+    # ==================== WhatsApp provider ====================
+    # "msg91" = MSG91 WhatsApp API (recommended). "meta" = direct Meta Graph API (legacy).
+    # If unset or empty: auto — MSG91 when authkey + integrated number + namespace are set; else Meta when token + phone_number_id.
+    WHATSAPP_PROVIDER: Optional[str] = None
+
+    # ==================== Meta WhatsApp Cloud API (legacy / optional) ====================
     # From Meta Developer Portal -> WhatsApp -> API Setup
     WHATSAPP_ACCESS_TOKEN: Optional[str] = None
     WHATSAPP_PHONE_NUMBER_ID: Optional[str] = None
     WHATSAPP_WABA_ID: Optional[str] = None
     WHATSAPP_API_VERSION: str = "v20.0"
     
-    # Template Names (Must match exactly what you created in Meta Dashboard)
+    # Template Names (Must match exactly what you created in Meta / MSG91 template list)
     WHATSAPP_TEMPLATE_OTP: str = "auth_otp"
     WHATSAPP_TEMPLATE_ORDER_CONFIRMED: str = "order_confirmation"
     WHATSAPP_TEMPLATE_ORDER_SHIPPED: str = "order_shipped"
     WHATSAPP_TEMPLATE_ORDER_DELIVERED: str = "order_delivered"
+    # Language code for template sends (MSG91 examples use "en"; Meta may use "en_US")
+    WHATSAPP_TEMPLATE_LANGUAGE_CODE: str = "en"
+    
+    # Webhook Configuration
+    WHATSAPP_WEBHOOK_VERIFY_TOKEN: str = "aarya_whatsapp_webhook_2026"
+    WHATSAPP_APP_SECRET: Optional[str] = None
+    WHATSAPP_WEBHOOK_URL: str = "https://aaryaclothing.in/api/v1/whatsapp/webhook"
+    # Optional: if MSG91 sends a static header secret for webhook auth, set and validate in POST handler
+    MSG91_WHATSAPP_WEBHOOK_SECRET: Optional[str] = None
+
+    def resolve_whatsapp_provider(self) -> str:
+        """Return 'msg91' or 'meta'."""
+        explicit = (self.WHATSAPP_PROVIDER or "").strip().lower()
+        if explicit in ("msg91", "meta"):
+            return explicit
+        msg91_ready = bool(
+            self.MSG91_AUTH_KEY
+            and self.MSG91_WHATSAPP_INTEGRATED_NUMBER
+            and self.MSG91_WHATSAPP_NAMESPACE
+        )
+        meta_ready = bool(self.WHATSAPP_ACCESS_TOKEN and self.WHATSAPP_PHONE_NUMBER_ID)
+        if msg91_ready:
+            return "msg91"
+        if meta_ready:
+            return "meta"
+        return "msg91"
 
     @property
     def whatsapp_enabled(self) -> bool:
-        """Check if Meta WhatsApp integration is enabled."""
-        return bool(
-            self.WHATSAPP_ACCESS_TOKEN and
-            self.WHATSAPP_PHONE_NUMBER_ID
-        )
+        """True when the active provider has required credentials."""
+        p = self.resolve_whatsapp_provider()
+        if p == "msg91":
+            return bool(
+                self.MSG91_AUTH_KEY
+                and self.MSG91_WHATSAPP_INTEGRATED_NUMBER
+                and self.MSG91_WHATSAPP_NAMESPACE
+            )
+        return bool(self.WHATSAPP_ACCESS_TOKEN and self.WHATSAPP_PHONE_NUMBER_ID)
 
     # ==================== Password Reset Settings ====================
     PASSWORD_RESET_TOKEN_EXPIRE_HOURS: int = 24

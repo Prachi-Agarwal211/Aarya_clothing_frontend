@@ -14,6 +14,7 @@ import {
   commerceClient,
   paymentClient,
 } from './baseApi';
+import { normalizeLandingData } from './normalizeLandingData';
 import { sanitizeSearch } from './sanitize';
 
 // ==================== Products API ====================
@@ -182,11 +183,15 @@ export const wishlistApi = {
     })
     .then(response => response.wishlist_status || {})
     .catch((error) => {
-      // Log error for debugging
-      console.warn('[wishlistApi.checkMultiple] Failed to check wishlist status:', error.message);
-      // Return all false on error
       const emptyMap = {};
-      productIds.forEach(id => { emptyMap[id] = false; });
+      productIds.forEach(id => {
+        emptyMap[id] = false;
+      });
+      // Anonymous sessions: no wishlist — avoid noisy console / failed refresh noise
+      if (error?.status === 401) {
+        return emptyMap;
+      }
+      console.warn('[wishlistApi.checkMultiple] Failed to check wishlist status:', error.message);
       return emptyMap;
     });
   },
@@ -358,11 +363,13 @@ export const landingApi = {
   /**
    * @param {object} [requestOptions] - Pass `{ signal }` to abort (e.g. client-side timeout).
    */
-  getAll: (requestOptions = {}) => {
-    if (requestOptions?.signal) {
-      return coreClient.fetch('/api/v1/landing/all', { signal: requestOptions.signal });
-    }
-    return coreClient.get('/api/v1/landing/all');
+  getAll: async (requestOptions = {}) => {
+    const raw = requestOptions?.signal
+      ? await coreClient.fetch('/api/v1/landing/all', {
+          signal: requestOptions.signal,
+        })
+      : await coreClient.get('/api/v1/landing/all');
+    return normalizeLandingData(raw);
   },
 
   getConfig: () =>

@@ -97,7 +97,7 @@ class OTPService:
         elif phone and (otp_type == "SMS" or otp_type == "WHATSAPP"):
             # Try WhatsApp First (if enabled)
             from service.whatsapp_service import whatsapp_service
-            if whatsapp_service and whatsapp_service.access_token:
+            if whatsapp_service and whatsapp_service.ready:
                 try:
                     res = whatsapp_service.send_otp(phone, otp_code)
                     if res.get("success"):

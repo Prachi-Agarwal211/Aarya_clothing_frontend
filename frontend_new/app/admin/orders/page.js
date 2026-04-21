@@ -83,7 +83,7 @@ function OrdersContent() {
 
       const data = await ordersApi.list({
         page,
-        limit: 20,
+        limit: 1000,
         status: filters.status || undefined,
         search: filters.search || undefined,
       });
@@ -763,6 +763,9 @@ function OrdersContent() {
         getActions={getActions}
         loading={loading}
         pagination={true}
+        serverSide={true}
+        totalCount={total}
+        onPageChange={setPage}
         pageSize={20}
         onRowClick={(row) => router.push(`/admin/orders/${row.id}`)}
         emptyMessage="No orders found"

@@ -1,8 +1,6 @@
 # Frontend Dockerfile for Aarya Clothing
+# NEXT_PUBLIC_* are inlined at `npm run build` — set via docker-compose build args (production: aaryaclothing.in).
 FROM node:20-alpine AS base
-
-# Accept build argument for API URL
-ARG NEXT_PUBLIC_API_URL
 
 # Install dependencies only when needed
 FROM base AS deps
@@ -24,9 +22,14 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Accept build argument for API URL and set as environment variable for build
 ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_INTERNAL_COMMERCE_URL
+ARG NEXT_PUBLIC_R2_PUBLIC_URL
+ARG NEXT_PUBLIC_SITE_URL
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+ENV NEXT_PUBLIC_INTERNAL_COMMERCE_URL=${NEXT_PUBLIC_INTERNAL_COMMERCE_URL}
+ENV NEXT_PUBLIC_R2_PUBLIC_URL=${NEXT_PUBLIC_R2_PUBLIC_URL}
+ENV NEXT_PUBLIC_SITE_URL=${NEXT_PUBLIC_SITE_URL}
 
 # Next.js collects completely anonymous telemetry data about general usage.
 # Learn more here: https://nextjs.org/telemetry
@@ -41,6 +44,9 @@ WORKDIR /app
 
 ENV NODE_ENV production
 ENV NEXT_TELEMETRY_DISABLED 1
+
+# Install curl for health checks
+RUN apk add --no-cache curl
 
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
@@ -63,10 +69,7 @@ EXPOSE 3000
 ENV PORT 3000
 ENV HOSTNAME "0.0.0.0"
 
-# Next.js standalone output reads environment variables at runtime
-# These can be overridden by Docker Compose or Kubernetes
-ENV NEXT_PUBLIC_API_URL=""
-ENV NEXT_PUBLIC_INTERNAL_COMMERCE_URL=""
+# NEXT_PUBLIC_* for SSR: set at runtime via docker-compose (matches build args).
 
 # server.js is created by next build from the standalone output
 # https://nextjs.org/docs/pages/api-reference/next-config-js/output

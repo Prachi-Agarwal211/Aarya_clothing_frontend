@@ -16,52 +16,17 @@ export default async function LandingRootLayout({ children }) {
 
   const links = [];
 
-  if (enabled && (desktop || mobile)) {
-    const d = desktop || mobile;
-    const m = mobile || desktop;
-
-    if (d && m && d === m) {
-      links.push(
-        <link
-          key="intro-preload-unified"
-          rel="preload"
-          href={d}
-          as="video"
-          type={getVideoTypeHint(d)}
-          fetchPriority="high"
-          importance="high"
-        />
-      );
-    } else {
-      if (d) {
-        links.push(
-          <link
-            key="intro-preload-desktop"
-            rel="preload"
-            href={d}
-            as="video"
-            type={getVideoTypeHint(d)}
-            media="(min-width: 769px)"
-            fetchPriority="high"
-            importance="high"
-          />
-        );
-      }
-      if (m) {
-        links.push(
-          <link
-            key="intro-preload-mobile"
-            rel="preload"
-            href={m}
-            as="video"
-            type={getVideoTypeHint(m)}
-            media="(max-width: 768px)"
-            fetchPriority="high"
-            importance="high"
-          />
-        );
-      }
-    }
+  // Edge/Chromium log warnings for rel=preload as="video". Prefetch warms cache without invalid `as`.
+  if (enabled && desktop) {
+    links.push(
+      <link
+        key="intro-prefetch-desktop"
+        rel="prefetch"
+        href={desktop}
+        type={getVideoTypeHint(desktop)}
+        media="(min-width: 769px)"
+      />
+    );
   }
 
   return (

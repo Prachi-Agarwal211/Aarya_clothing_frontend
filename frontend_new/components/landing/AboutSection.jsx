@@ -47,10 +47,10 @@ const AboutSection = ({
 
     // Use gsap.context for proper cleanup - only kills THIS component's animations
     let ctx = gsap.context(() => {
-      // Content reveal animation with dynamic will-change
-      const contentChildren = content.children;
+      // Content reveal animation with dynamic will-change (Array — GSAP does not accept HTMLCollection)
+      const contentChildren = Array.from(content.children);
       gsap.set(contentChildren, { willChange: "transform, opacity" });
-      gsap.fromTo(content.children,
+      gsap.fromTo(contentChildren,
         { y: 80, opacity: 0 },
         {
           y: 0,
@@ -107,9 +107,9 @@ const AboutSection = ({
 
       // Stats counter animation with dynamic will-change
       if (statsElement) {
-        const statElements = statsElement.children;
+        const statElements = Array.from(statsElement.children);
         gsap.set(statElements, { willChange: "transform, opacity" });
-        Array.from(statElements).forEach((el, index) => {
+        statElements.forEach((el, index) => {
           gsap.fromTo(el,
             { y: 50, opacity: 0, scale: 0.8 },
             {
@@ -156,6 +156,16 @@ const AboutSection = ({
     return () => ctx.revert(); // Only kills this component's GSAP animations
   }, [isMobile]);
 
+  /**
+   * Ensure image URL is usable. Backend returns relative R2 paths;
+   * this ensures they are path-only so next/image loader can prefix R2_PUBLIC_URL.
+   */
+  function ensureFullUrl(url) {
+    if (!url) return '';
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    return url.startsWith('/') ? url : `/${url}`;
+  }
+
   return (
     <section id={id} ref={sectionRef} className="relative py-16 sm:py-20 md:py-24 lg:py-32">
       {/* Decorative rotating element - hidden on mobile for cleaner look */}
@@ -191,7 +201,7 @@ const AboutSection = ({
                 >
                   {images[0] ? (
                     <Image
-                      src={images[0]}
+                      src={ensureFullUrl(images[0])}
                       alt="Craftsmanship"
                       fill
                       className="object-top object-cover grayscale hover:grayscale-0 transition-all duration-700"
@@ -221,7 +231,7 @@ const AboutSection = ({
                   <div className="relative w-full h-full rounded-xl sm:rounded-2xl overflow-hidden">
                     {images[1] ? (
                       <Image
-                        src={images[1]}
+                        src={ensureFullUrl(images[1])}
                         alt="Detail"
                         fill
                         className="object-top object-cover opacity-80 hover:opacity-100 transition-opacity duration-500"

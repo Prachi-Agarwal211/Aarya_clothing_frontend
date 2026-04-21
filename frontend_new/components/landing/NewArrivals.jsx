@@ -4,6 +4,7 @@ import React, { useRef, useEffect, memo, useState } from 'react';
 import { gsap, ScrollTrigger } from '@/lib/gsapConfig';
 import ProductCard from '../common/ProductCard';
 import { wishlistApi } from '@/lib/customerApi';
+import { useAuth } from '@/lib/authContext';
 import { useViewport } from '@/lib/hooks/useViewport';
 
 /**
@@ -32,16 +33,20 @@ const NewArrivals = ({
   const productRefs = useRef([]);
   const [wishlistStatus, setWishlistStatus] = useState({});
   const { isMobile } = useViewport();
+  const { isAuthenticated, loading: authLoading } = useAuth();
 
-  // Batch wishlist check for all products
+  // Batch wishlist check for signed-in users only (avoids 401 + refresh noise for guests)
   useEffect(() => {
-    if (products.length > 0) {
-      const productIds = products.map(p => p.id);
-      wishlistApi.checkMultiple(productIds)
-        .then(setWishlistStatus)
-        .catch(e => console.warn('Batch wishlist check failed:', e.message));
+    if (authLoading || !isAuthenticated || products.length === 0) {
+      if (!isAuthenticated) setWishlistStatus({});
+      return;
     }
-  }, [products]);
+    const productIds = products.map(p => p.id);
+    wishlistApi
+      .checkMultiple(productIds)
+      .then(setWishlistStatus)
+      .catch(() => {});
+  }, [products, isAuthenticated, authLoading]);
 
   useEffect(() => {
     const section = sectionRef.current;

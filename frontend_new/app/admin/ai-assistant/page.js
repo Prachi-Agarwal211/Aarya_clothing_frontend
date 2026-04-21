@@ -740,6 +740,7 @@ export default function AdminAiAssistantPage() {
                   src={img.preview}
                   alt={img.name}
                   fill
+                  unoptimized
                   className="rounded-lg object-cover"
                   sizes="64px"
                 />

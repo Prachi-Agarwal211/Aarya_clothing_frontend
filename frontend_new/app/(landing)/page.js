@@ -9,6 +9,7 @@ import IntroVideo from '@/components/landing/IntroVideo';
 import { getLandingAll } from '@/lib/api';
 import { gsap } from '@/lib/gsapConfig';
 import logger from '@/lib/logger';
+import { useViewport } from '@/lib/hooks/useViewport';
 import { LazyLoad, CardSkeleton } from '@/components/ui/LazyLoad';
 
 // Lazy load below-fold sections for faster initial load
@@ -108,6 +109,7 @@ const MAX_RETRIES = 2;
 const INITIAL_RETRY_DELAY = 1000;
 
 export default function Home() {
+  const { isMobile } = useViewport();
   const [showLanding, setShowLanding] = useState(false);
   const [isClient, setIsClient] = useState(false);
   const [landingData, setLandingData] = useState(null);
@@ -185,6 +187,13 @@ export default function Home() {
     }
   }, [landingData, fetchLandingData]);
 
+  // Mobile: Skip intro video and show landing immediately when data is ready
+  useEffect(() => {
+    if (isClient && isMobile && !isLoading && landingData && !showLanding) {
+      setShowLanding(true);
+    }
+  }, [isClient, isMobile, isLoading, landingData, showLanding]);
+
   const handleVideoEnd = () => {
     setShowLanding(true);
   };
@@ -230,11 +239,11 @@ export default function Home() {
     );
   }
 
-  // Show loading state — but only AFTER intro video is done
+  // Show loading state — but only AFTER intro video is done (or immediately on mobile)
   // If video is still playing, let IntroVideo handle the visual
   if (isLoading || !landingData) {
-    if (!showLanding) {
-      // Intro video is still playing — show it instead of spinner
+    if (!showLanding && !isMobile) {
+      // Intro video is still playing on desktop — show it instead of spinner
       return (
         <main id="main-content" className="min-h-screen bg-[#050203]" role="main">
           <IntroVideo onVideoEnd={handleVideoEnd} />
@@ -269,8 +278,8 @@ export default function Home() {
 
   return (
     <>
-      {/* Intro Video Overlay — only if landing data is loaded but video hasn't ended */}
-      {!showLanding && (
+      {/* Intro Video Overlay — only if landing data is loaded but video hasn't ended and NOT mobile */}
+      {!showLanding && !isMobile && (
         <IntroVideo onVideoEnd={handleVideoEnd} />
       )}
 

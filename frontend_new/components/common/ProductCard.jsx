@@ -11,16 +11,17 @@ import { useAuth } from '@/lib/authContext';
 import { useToast } from '@/components/ui/Toast';
 import { AddToCartButton } from '@/components/cart/CartAnimation';
 import { wishlistApi } from '@/lib/customerApi';
-import { getCoreBaseUrl } from '@/lib/baseApi';
 
 /**
- * Ensure image URL is usable. Backend returns full R2 URLs.
+ * Prepare src for next/image + imageLoader.
+ * API often returns R2 object paths like `/products/xxx.jpeg` — those must stay path-only so
+ * imageLoader.ts can prefix NEXT_PUBLIC_R2_PUBLIC_URL. Prefixing the storefront origin turns
+ * them into HTML page URLs (Next catch‑all) and breaks images.
  */
 const ensureFullUrl = (url) => {
   if (!url) return '/placeholder-image.jpg';
   if (url.startsWith('http://') || url.startsWith('https://')) return url;
-  const baseUrl = getCoreBaseUrl();
-  return `${baseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
+  return url.startsWith('/') ? url : `/${url}`;
 };
 
 const ProductCard = ({ 

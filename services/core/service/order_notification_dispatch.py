@@ -95,7 +95,7 @@ def dispatch_order_confirmation(db: Session, body) -> dict:
 
     def mobile_dispatch():
         # Try WhatsApp First
-        if whatsapp_service and whatsapp_service.access_token:
+        if whatsapp_service and whatsapp_service.ready:
             res = whatsapp_service.send_order_confirmation(
                 phone, 
                 customer_name=body.customer_name,

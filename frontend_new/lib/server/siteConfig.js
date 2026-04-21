@@ -2,7 +2,7 @@ import { getCoreBaseUrl } from '@/lib/baseApi';
 
 /**
  * Server-only: fetch public site config (same payload as GET /api/v1/site/config).
- * Used to emit <link rel="preload"> for admin-configured intro videos (desktop + mobile).
+ * Used to emit resource hints for admin-configured intro videos (desktop + mobile).
  * Must stay aligned with core service `get_site_config` (intro_video_url_desktop / _mobile).
  */
 export async function fetchSiteConfigForPreload() {

@@ -222,12 +222,30 @@ const HeroSection = ({
    *   - slide.imageMobile  (mobile 9:16)
    * Falls back to whichever is available.
    */
+  /** Resolve URL string (admin) or legacy object-shaped fields (commerce cache). */
   const getSlideImage = (slide) => {
-    if (isMobile) {
-      return slide.imageMobile || slide.image;
-    }
-    return slide.image || slide.imageMobile;
+    const desktop =
+      slide?.image || slide?.url || slide?.image_url || slide?.desktop_url;
+    const mobile =
+      slide?.imageMobile ||
+      slide?.image_mobile ||
+      slide?.mobile_url ||
+      slide?.mobileImage;
+    
+    const url = isMobile ? (mobile || desktop) : (desktop || mobile);
+    return ensureFullUrl(url);
   };
+
+  /**
+   * Ensure image URL is usable. Backend returns relative R2 paths;
+   * this ensures they are path-only so next/image loader can prefix R2_PUBLIC_URL.
+   */
+  function ensureFullUrl(url) {
+    if (!url) return '';
+    if (typeof url !== 'string') return '';
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    return url.startsWith('/') ? url : `/${url}`;
+  }
 
   return (
     <section

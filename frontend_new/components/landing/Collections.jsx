@@ -5,7 +5,6 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { gsap, ScrollTrigger } from '@/lib/gsapConfig';
 import { ArrowRight } from 'lucide-react';
-import { getCoreBaseUrl } from '@/lib/baseApi';
 import { useViewport } from '@/lib/hooks/useViewport';
 
 /**
@@ -202,8 +201,8 @@ const CollectionCard = ({ category, size = 'medium', index }) => {
   const ensureFullUrl = (url) => {
     if (!url) return '/placeholder-collection.jpg';
     if (url.startsWith('http://') || url.startsWith('https://')) return url;
-    const baseUrl = getCoreBaseUrl();
-    return `${baseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
+    // Path-only so next/image loader maps /collections/* → R2 (see imageLoader.ts)
+    return url.startsWith('/') ? url : `/${url}`;
   };
 
   return (

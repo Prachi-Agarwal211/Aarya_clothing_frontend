@@ -119,7 +119,11 @@ register_error_handlers(app)
 # Service-to-service: Commerce triggers transactional email via Core SMTP
 from api_internal_notify import router as internal_notify_router
 
+# WhatsApp Webhook
+from routes.whatsapp_webhook import router as whatsapp_webhook_router
+
 app.include_router(internal_notify_router, prefix="/api/v1")
+app.include_router(whatsapp_webhook_router)
 
 
 LOCAL_TEST_IPS = {"127.0.0.1", "::1", "localhost", "testclient"}
@@ -1413,6 +1417,77 @@ if settings.ENVIRONMENT == "development":
 
 
 # ==================== Run Server ====================
+
+
+# ==================== WhatsApp Test & Debug Routes ====================
+
+@app.get("/api/v1/whatsapp/config", tags=["WhatsApp"])
+async def get_whatsapp_config():
+    """
+    Get current WhatsApp configuration status.
+    """
+    from service.whatsapp_service import whatsapp_service
+    from core.config import settings as core_settings
+    
+    return {
+        "enabled": core_settings.whatsapp_enabled,
+        "provider": core_settings.resolve_whatsapp_provider(),
+        "phone_number_id": core_settings.WHATSAPP_PHONE_NUMBER_ID
+        if core_settings.resolve_whatsapp_provider() == "meta"
+        else core_settings.MSG91_WHATSAPP_INTEGRATED_NUMBER,
+        "api_version": core_settings.WHATSAPP_API_VERSION,
+        "service_initialized": bool(whatsapp_service and whatsapp_service.ready),
+        "templates": {
+            "otp": core_settings.WHATSAPP_TEMPLATE_OTP,
+            "order_confirmed": core_settings.WHATSAPP_TEMPLATE_ORDER_CONFIRMED,
+            "order_shipped": core_settings.WHATSAPP_TEMPLATE_ORDER_SHIPPED,
+            "order_delivered": core_settings.WHATSAPP_TEMPLATE_ORDER_DELIVERED,
+        },
+    }
+
+
+@app.post("/api/v1/whatsapp/test-otp", tags=["WhatsApp"])
+async def test_whatsapp_otp(phone: str, otp: str = "123456"):
+    """
+    Test sending WhatsApp OTP message.
+    """
+    from service.whatsapp_service import whatsapp_service
+    
+    if not whatsapp_service or not whatsapp_service.ready:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="WhatsApp service not configured"
+        )
+    
+    result = whatsapp_service.send_otp(phone, otp)
+    return {"result": result, "test": True}
+
+
+@app.post("/api/v1/whatsapp/test-order-confirmation", tags=["WhatsApp"])
+async def test_whatsapp_order_confirmation(
+    phone: str,
+    customer_name: str = "Test Customer",
+    order_number: str = "TEST-12345",
+    total_amount: str = "₹500"
+):
+    """
+    Test sending WhatsApp order confirmation message.
+    """
+    from service.whatsapp_service import whatsapp_service
+    
+    if not whatsapp_service or not whatsapp_service.ready:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="WhatsApp service not configured"
+        )
+    
+    result = whatsapp_service.send_order_confirmation(
+        phone=phone,
+        customer_name=customer_name,
+        order_number=order_number,
+        total_amount=total_amount
+    )
+    return {"result": result, "test": True}
 
 if __name__ == "__main__":
     import uvicorn

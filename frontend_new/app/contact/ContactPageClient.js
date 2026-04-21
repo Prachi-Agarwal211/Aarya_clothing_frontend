@@ -82,8 +82,8 @@ export default function ContactPageClient({ breadcrumbSchema, contactPageSchema 
                   </div>
                   <div>
                     <p className="text-[#EAE0D5] font-medium text-sm mb-0.5">Phone</p>
-                    <a href="tel:+919876543210" className="text-[#B76E79] hover:underline text-sm">
-                      +91 98765 43210
+                    <a href="tel:+917300186757" className="text-[#B76E79] hover:underline text-sm">
+                      +91 73001 86757
                     </a>
                     <p className="text-[#EAE0D5]/40 text-xs mt-1">Mon–Sat, 10AM–7PM IST</p>
                   </div>

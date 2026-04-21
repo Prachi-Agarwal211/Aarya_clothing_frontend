@@ -361,13 +361,16 @@ export default function ProductDetailPage() {
         product.colors = [...colorMap.values()];
       }
 
-      setProduct(product);
-
       // Canonical redirect: if accessed by numeric ID and product has a non-numeric slug, redirect to slug URL
+      // Do this BEFORE setProduct to prevent layout shift/flash
       const isNumericId = /^\d+$/.test(String(productId));
       if (product.slug && isNumericId && String(product.id) === String(productId) && product.slug !== String(productId)) {
         router.replace(`/products/${product.slug}`, { scroll: false });
+        setLoading(false);
+        return;
       }
+
+      setProduct(product);
 
       // Fetch reviews
       const reviewsData = await reviewsApi.list(product.id);
@@ -636,7 +639,7 @@ export default function ProductDetailPage() {
             <div className="space-y-4">
               {/* Main Image — swipeable on mobile */}
               <div
-                className="relative aspect-[3/4] bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl overflow-hidden swipe-x"
+                className="relative aspect-[3/4] bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl overflow-hidden"
                 onTouchStart={handleImageTouchStart}
                 onTouchEnd={handleImageTouchEnd}
               >

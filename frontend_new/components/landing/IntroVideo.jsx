@@ -90,6 +90,7 @@ export default function IntroVideo({ onVideoEnd }) {
     const seenRecently = hasSeenIntroRecently();
     const seenInSession = !!sessionStorage.getItem('hasSeenIntroVideo');
     const skip =
+      isMobile ||
       seenRecently ||
       seenInSession ||
       introVideo.enabled === false ||

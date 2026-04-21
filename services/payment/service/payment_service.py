@@ -688,11 +688,12 @@ class PaymentService:
                 
                 # FIX: Always update status to completed for captured/authorized payments
                 # (not just pending ones - webhooks can arrive out of order)
-                if status in ["captured", "authorized", "completed"] and transaction.status != "completed":
+                webhook_status = event_info.get("status", "")
+                if webhook_status in ["captured", "authorized", "completed"] and transaction.status != "completed":
                     transaction.status = "completed"
                     if not transaction.completed_at:
                         transaction.completed_at = datetime.now(timezone.utc)
-                elif status in ["failed", "rejected"] and transaction.status != "failed":
+                elif webhook_status in ["failed", "rejected"] and transaction.status != "failed":
                     transaction.status = "failed"
                 
                 self.db.commit()
@@ -904,11 +905,17 @@ class PaymentService:
             logger.error(f"WEBHOOK_AUTHORIZED_FAILED: {str(e)}")
 
     def _handle_order_paid(self, event_info: Dict[str, Any]):
-        """Handle order.paid webhook — link order to payment."""
+        """Handle order.paid webhook — link order to payment OR create order if missing.
+        
+        CRITICAL FIX: This now also creates orders when they don't exist, similar to 
+        payment.captured handler. Some Razorpay payments (especially UPI) send order.paid
+        instead of payment.captured, so we need to handle order creation here too.
+        """
         try:
             payment_id = event_info.get("payment_id")
             razorpay_order_id = event_info.get("order_id")
-            status = event_info.get("status", "paid")
+            order_status = event_info.get("status", "paid")
+            amount_paise = event_info.get("amount")
 
             # Find existing transaction and update with order info
             transaction = None
@@ -939,11 +946,118 @@ class PaymentService:
                     transaction.completed_at = datetime.now(timezone.utc)
                 self.db.commit()
                 
-                # Ensure order is linked
-                if transaction.order_id and not transaction.transaction_id:
-                    # transaction has order_id but order doesn't have transaction_id
-                    pass
+                # CRITICAL FIX: Check if order exists and create if not
+                # This is the same logic as in _handle_payment_captured
+                from sqlalchemy import text as _text
+                
+                existing_order = self.db.execute(_text("""
+                    SELECT id FROM orders WHERE transaction_id = :payment_id AND user_id = :user_id
+                """), {
+                    "payment_id": transaction.razorpay_payment_id or payment_id,
+                    "user_id": transaction.user_id
+                }).fetchone()
+                
+                if not existing_order and transaction.order_id:
+                    existing_order = self.db.execute(_text("""
+                        SELECT id FROM orders WHERE id = :order_id
+                    """), {"order_id": transaction.order_id}).fetchone()
+                
+                if not existing_order:
+                    existing_order = self.db.execute(_text("""
+                        SELECT id FROM orders WHERE transaction_id = :txn_id AND user_id = :user_id
+                    """), {
+                        "txn_id": transaction.transaction_id,
+                        "user_id": transaction.user_id
+                    }).fetchone()
+                
+                if not existing_order:
+                    # Order doesn't exist - create it!
+                    logger.info(
+                        f"WEBHOOK_ORDER_PAID: No order found for txn={transaction.transaction_id} "
+                        f"payment={payment_id} - creating order"
+                    )
+                    self._create_order_from_webhook(transaction, event_info)
                     
+                    # Update with transaction details
+                    if transaction.order_id and transaction.razorpay_payment_id:
+                        self.db.execute(_text("""
+                            UPDATE orders 
+                            SET transaction_id = :internal_txn_id,
+                                razorpay_payment_id = :razorpay_payment_id,
+                                razorpay_order_id = :razorpay_order_id,
+                                payment_method = COALESCE(payment_method, :payment_method)
+                            WHERE id = :order_id
+                        """), {
+                            "internal_txn_id": transaction.transaction_id,
+                            "razorpay_payment_id": transaction.razorpay_payment_id,
+                            "razorpay_order_id": transaction.razorpay_order_id or razorpay_order_id,
+                            "payment_method": transaction.payment_method,
+                            "order_id": transaction.order_id
+                        })
+                        self.db.commit()
+                else:
+                    # CRITICAL FIX: Also update existing order with razorpay payment details
+                    if transaction.order_id:
+                        self.db.execute(_text("""
+                            UPDATE orders 
+                            SET razorpay_payment_id = COALESCE(razorpay_payment_id, :razorpay_payment_id),
+                                razorpay_order_id = COALESCE(razorpay_order_id, :razorpay_order_id),
+                                transaction_id = COALESCE(transaction_id, :transaction_id),
+                                payment_method = COALESCE(payment_method, :payment_method)
+                            WHERE id = :order_id
+                        """), {
+                            "order_id": transaction.order_id,
+                            "razorpay_payment_id": transaction.razorpay_payment_id or payment_id,
+                            "razorpay_order_id": transaction.razorpay_order_id or razorpay_order_id,
+                            "transaction_id": transaction.transaction_id,
+                            "payment_method": transaction.payment_method
+                        })
+                        self.db.commit()
+                    
+                logger.info(f"WEBHOOK: Order paid: {razorpay_order_id} payment={payment_id}")
+            else:
+                # CRITICAL: No transaction found - this payment was not initiated through our system
+                logger.warning(
+                    f"WEBHOOK_ORDER_PAID_NO_TXN: payment_id={payment_id} order_id={razorpay_order_id} "
+                    f"- Creating transaction and order on the fly"
+                )
+                # Try to create transaction from webhook data
+                if amount_paise:
+                    amount_rupees = Decimal(str(amount_paise)) / Decimal('100')
+                    email = event_info.get("email") or event_info.get("payload", {}).get("payment", {}).get("entity", {}).get("email")
+                    contact = event_info.get("contact") or event_info.get("payload", {}).get("payment", {}).get("entity", {}).get("contact")
+                    
+                    if email:
+                        from sqlalchemy import text as _text
+                        user = self.db.execute(_text("""
+                            SELECT id FROM users WHERE email = :email LIMIT 1
+                        """), {"email": email}).fetchone()
+                        
+                        if user:
+                            from models.payment import PaymentTransaction as PT
+                            transaction = PT(
+                                user_id=user['id'],
+                                amount=amount_rupees,
+                                currency="INR",
+                                payment_method="upi",
+                                transaction_id=payment_id,
+                                razorpay_payment_id=payment_id,
+                                razorpay_order_id=razorpay_order_id,
+                                status="completed",
+                                customer_email=email,
+                                customer_phone=contact or "",
+                                completed_at=datetime.now(timezone.utc),
+                                gateway_response=event_info,
+                            )
+                            self.db.add(transaction)
+                            self.db.flush()
+                            self.db.refresh(transaction)
+                            logger.info(f"WEBHOOK_CREATED shuddered: txn_id={transaction.id} for payment={payment_id}")
+                            self._create_order_from_webhook(transaction, event_info)
+                            self.db.commit()
+                        else:
+                            logger.error(f"WEBHOOK_NO_USER: email={email} not found for payment={payment_id}")
+                
             logger.info(f"WEBHOOK: Order paid: {razorpay_order_id} payment={payment_id}")
         except Exception as e:
             self.db.rollback()

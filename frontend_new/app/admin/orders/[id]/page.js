@@ -338,16 +338,6 @@ function PaymentCard({ order, status }) {
           />
         )}
 
-        {order.cashfree_order_id && (
-          <PaymentDetailBlock
-            label="CASHFREE DETAILS"
-            rows={[
-              ['Order ID', order.cashfree_order_id],
-              ['Reference ID', order.cashfree_reference_id],
-              ['Payment ID', order.cashfree_payment_id],
-            ].filter(([, v]) => Boolean(v))}
-          />
-        )}
       </div>
     </Section>
   );

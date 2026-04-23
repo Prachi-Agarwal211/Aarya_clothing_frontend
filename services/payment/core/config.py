@@ -27,11 +27,6 @@ class Settings(SharedBaseSettings):
     RAZORPAY_WEBHOOK_SECRET: Optional[str] = None
     RAZORPAY_CHECKOUT_CONFIG_ID: Optional[str] = None  # Dashboard Payment Config ID (enables UPI etc.)
 
-    # ==================== Cashfree Configuration ====================
-    CASHFREE_APP_ID: Optional[str] = None
-    CASHFREE_SECRET_KEY: Optional[str] = None
-    CASHFREE_ENV: str = "production"  # "production" or "sandbox"
-
     # ==================== Payment Settings ====================
     PAYMENT_TIMEOUT_SECONDS: int = 300  # 5 minutes
     MAX_RETRY_ATTEMPTS: int = 3
@@ -55,27 +50,6 @@ class Settings(SharedBaseSettings):
             self.RAZORPAY_KEY_ID and
             self.RAZORPAY_KEY_SECRET
         )
-
-    @property
-    def cashfree_enabled(self) -> bool:
-        """Check if Cashfree is configured."""
-        return bool(
-            self.CASHFREE_APP_ID and
-            self.CASHFREE_SECRET_KEY
-        )
-
-    @property
-    def cashfree_base_url(self) -> str:
-        """Get Cashfree API base URL based on environment."""
-        if self.CASHFREE_ENV == "sandbox":
-            return "https://sandbox.cashfree.com"
-        return "https://api.cashfree.com"
-
-    @property
-    def cashfree_notify_url(self) -> str:
-        """Get Cashfree webhook notification URL (separate from Razorpay webhook)."""
-        return self.PAYMENT_NOTIFY_URL.replace("/webhooks/razorpay", "/webhooks/cashfree")
-
 
 # Create cached settings instance
 def get_settings() -> Settings:

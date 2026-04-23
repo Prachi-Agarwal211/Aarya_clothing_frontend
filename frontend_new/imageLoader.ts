@@ -82,27 +82,27 @@ export default function cloudflareLoader({
     return `/placeholder-image.jpg`;
   }
 
-  const queryParams = `width=${width}&quality=${quality ?? 75}`;
-
   // Local static assets are always served from /public
   if (isLocalStaticAsset(src)) {
     return src;
   }
 
-  // R2 URLs: return direct URL — R2 CDN delivers these efficiently.
-  // NOTE: /cdn-cgi/image/ only works at Cloudflare edge (not origin),
-  // so we return the direct R2 URL to avoid 404s.
-  if (isR2Url(src)) {
-    return normalizeSrc(src);
+  // Normalize src: remove leading slash if it's going to be appended to R2_PUBLIC_URL
+  const normalizedR2Base = R2_PUBLIC_URL.replace(/\/+$/, '');
+  
+  // If it's already a full R2 URL, return as-is
+  if (src.includes('r2.dev') || src.includes('cloudflarestorage.com')) {
+    return src;
   }
 
-  // Relative paths — reconstruct full R2 URL
-  if (src.startsWith("/")) {
-    return `${R2_PUBLIC_URL}${src}`;
+  // If it starts with http, it's some other remote image, return as-is
+  if (src.startsWith('http')) {
+    return src;
   }
 
-  // Fallback: return as-is
-  return src;
+  // Otherwise, it's a relative path - append to R2 base
+  const cleanPath = src.startsWith('/') ? src : `/${src}`;
+  return `${normalizedR2Base}${cleanPath}`;
 }
 
 /**

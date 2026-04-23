@@ -1,6 +1,6 @@
 """Admin inventory CRUD + stock movements.
 
-Direct read/write surface for the variant table from the admin tools.
+Direct read/write surface for the inventory table from the admin tools.
 Customer reads still go through commerce; this is for ops adjusting stock,
 auditing movement history, and surfacing low/out-of-stock dashboards.
 """
@@ -32,10 +32,10 @@ async def admin_create_inventory(
             raise HTTPException(status_code=400, detail=f"Missing required field: {f}")
     result = db.execute(
         text("""
-        INSERT INTO product_variants (product_id, sku, size, color, image_url,
-            quantity, low_stock_threshold, created_at, updated_at)
+        INSERT INTO inventory (product_id, sku, size, color, image_url,
+            quantity, reserved_quantity, low_stock_threshold, is_active, created_at, updated_at)
         VALUES (:pid, :sku, :size, :color, :image_url,
-            :qty, :threshold, :now, :now)
+            :qty, 0, :threshold, TRUE, :now, :now)
         RETURNING id
     """),
         {
@@ -64,7 +64,7 @@ async def admin_update_inventory(
 ):
     """Update an inventory record (admin/staff only)."""
     inv = db.execute(
-        text("SELECT id FROM product_variants WHERE id = :id"),
+        text("SELECT id FROM inventory WHERE id = :id"),
         {"id": inventory_id},
     ).fetchone()
     if not inv:
@@ -89,7 +89,7 @@ async def admin_update_inventory(
     if len(sets) == 1:
         return {"message": "Nothing to update"}
     db.execute(
-        text(f"UPDATE product_variants SET {', '.join(sets)} WHERE id = :id"),
+        text(f"UPDATE inventory SET {', '.join(sets)} WHERE id = :id"),
         params,
     )
     db.commit()
@@ -113,10 +113,10 @@ async def admin_inventory_movements(
         params["pid"] = product_id
     rows = db.execute(
         text(f"""
-        SELECT im.*, pv.product_id, pv.sku, pv.size, pv.color,
+        SELECT im.*, pv.sku, pv.size, pv.color,
                p.name AS product_name
         FROM inventory_movements im
-        JOIN product_variants pv ON pv.id = im.variant_id
+        JOIN inventory pv ON pv.id = im.inventory_id
         JOIN products p ON p.id = pv.product_id
         {where}
         ORDER BY im.created_at DESC LIMIT :lim OFFSET :off
@@ -133,7 +133,7 @@ async def admin_out_of_stock(
     """Get out-of-stock inventory items."""
     rows = db.execute(
         text(
-            "SELECT pv.*, p.name AS product_name FROM product_variants pv "
+            "SELECT pv.*, p.name AS product_name FROM inventory pv "
             "JOIN products p ON p.id = pv.product_id "
             "WHERE pv.quantity = 0 ORDER BY p.name"
         )
@@ -150,7 +150,7 @@ async def admin_list_inventory(
     db: Session = Depends(get_db),
     user: dict = Depends(require_staff),
 ):
-    """List inventory (product_variants) with pagination."""
+    """List inventory variants with pagination."""
     offset = (page - 1) * page_size
     where, params = ["1=1"], {"lim": page_size, "off": offset}
     if product_id:
@@ -162,7 +162,7 @@ async def admin_list_inventory(
     where_sql = " AND ".join(where)
     total = db.execute(
         text(
-            "SELECT COUNT(*) FROM product_variants pv JOIN products p ON p.id = pv.product_id "
+            "SELECT COUNT(*) FROM inventory pv JOIN products p ON p.id = pv.product_id "
             f"WHERE {where_sql}"
         ),
         params,
@@ -172,7 +172,7 @@ async def admin_list_inventory(
             "SELECT pv.id, pv.product_id, p.name AS product_name, pv.sku, pv.size, "
             "pv.color, pv.color_hex, pv.image_url, pv.quantity, pv.reserved_quantity, "
             "pv.low_stock_threshold, pv.is_active, pv.updated_at "
-            "FROM product_variants pv JOIN products p ON p.id = pv.product_id "
+            "FROM inventory pv JOIN products p ON p.id = pv.product_id "
             f"WHERE {where_sql} "
             "ORDER BY p.name, pv.color, pv.size LIMIT :lim OFFSET :off"
         ),
@@ -196,7 +196,7 @@ async def admin_low_stock(
         text(
             "SELECT pv.id, pv.product_id, p.name AS product_name, pv.sku, pv.size, "
             "pv.color, pv.quantity, pv.low_stock_threshold "
-            "FROM product_variants pv JOIN products p ON p.id = pv.product_id "
+            "FROM inventory pv JOIN products p ON p.id = pv.product_id "
             "WHERE pv.is_active = TRUE AND pv.quantity > 0 "
             "  AND pv.quantity <= pv.low_stock_threshold "
             "ORDER BY pv.quantity ASC, p.name"
@@ -220,11 +220,11 @@ async def admin_adjust_inventory(
       "reason": str,           # 'manual', 'restock', 'correction', 'sale', 'return'
       "notes": str | None,
     }
-    Audit row written to inventory_movements (variant_id, delta, reason, notes,
-    performed_by, created_at).
+    Audit row written to inventory_movements (inventory_id, product_id, adjustment,
+    reason, notes, performed_by, created_at).
     """
     variant = db.execute(
-        text("SELECT id, quantity FROM product_variants WHERE id = :id"),
+        text("SELECT id, product_id, quantity FROM inventory WHERE id = :id"),
         {"id": variant_id},
     ).fetchone()
     if not variant:
@@ -242,19 +242,20 @@ async def admin_adjust_inventory(
     now = now_ist().replace(tzinfo=None)
     db.execute(
         text(
-            "UPDATE product_variants SET quantity = :q, updated_at = :now WHERE id = :id"
+            "UPDATE inventory SET quantity = :q, updated_at = :now WHERE id = :id"
         ),
         {"q": new_qty, "now": now, "id": variant_id},
     )
     db.execute(
         text(
-            "INSERT INTO inventory_movements (variant_id, delta, reason, notes, "
+            "INSERT INTO inventory_movements (inventory_id, product_id, adjustment, reason, notes, "
             "performed_by, created_at) "
-            "VALUES (:vid, :delta, :reason, :notes, :by, :now)"
+            "VALUES (:inventory_id, :product_id, :adjustment, :reason, :notes, :by, :now)"
         ),
         {
-            "vid": variant_id,
-            "delta": movement_delta,
+            "inventory_id": variant_id,
+            "product_id": int(variant._mapping["product_id"]) if variant._mapping["product_id"] is not None else None,
+            "adjustment": movement_delta,
             "reason": payload.get("reason") or "manual",
             "notes": payload.get("notes"),
             "by": user.get("user_id") or user.get("id"),
@@ -268,4 +269,63 @@ async def admin_adjust_inventory(
         "previous_quantity": current_qty,
         "new_quantity": new_qty,
         "delta": movement_delta,
+    }
+
+
+@router.post("/api/v1/admin/inventory/adjust", tags=["Admin Inventory"])
+async def admin_adjust_inventory_by_sku(
+    payload: dict,
+    db: Session = Depends(get_db),
+    user: dict = Depends(require_staff),
+):
+    """Backward-compatible stock adjustment endpoint using SKU."""
+    sku = (payload.get("sku") or "").strip()
+    adjustment = payload.get("adjustment")
+    if not sku:
+        raise HTTPException(status_code=400, detail="sku is required")
+    if adjustment is None:
+        raise HTTPException(status_code=400, detail="adjustment is required")
+
+    variant = db.execute(
+        text("SELECT id, product_id, quantity FROM inventory WHERE sku = :sku"),
+        {"sku": sku},
+    ).fetchone()
+    if not variant:
+        raise HTTPException(status_code=404, detail="Variant not found for SKU")
+
+    variant_id = int(variant._mapping["id"])
+    current_qty = int(variant._mapping["quantity"])
+    delta = int(adjustment)
+    new_qty = max(0, current_qty + delta)
+    movement_delta = new_qty - current_qty
+    now = now_ist().replace(tzinfo=None)
+
+    db.execute(
+        text("UPDATE inventory SET quantity = :q, updated_at = :now WHERE id = :id"),
+        {"q": new_qty, "now": now, "id": variant_id},
+    )
+    db.execute(
+        text(
+            "INSERT INTO inventory_movements (inventory_id, product_id, adjustment, reason, notes, "
+            "performed_by, created_at) "
+            "VALUES (:inventory_id, :product_id, :adjustment, :reason, :notes, :by, :now)"
+        ),
+        {
+            "inventory_id": variant_id,
+            "product_id": int(variant._mapping["product_id"]) if variant._mapping["product_id"] is not None else None,
+            "adjustment": movement_delta,
+            "reason": payload.get("reason") or "manual",
+            "notes": payload.get("notes"),
+            "by": user.get("user_id") or user.get("id"),
+            "now": now,
+        },
+    )
+    db.commit()
+    redis_client.invalidate_pattern("products:*")
+    return {
+        "id": variant_id,
+        "sku": sku,
+        "previous_quantity": current_qty,
+        "adjustment": delta,
+        "new_quantity": new_qty,
     }

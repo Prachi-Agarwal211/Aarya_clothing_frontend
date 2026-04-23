@@ -13,13 +13,11 @@ import { AddToCartButton } from '@/components/cart/CartAnimation';
 import { getCoreBaseUrl } from '@/lib/baseApi';
 
 /**
- * Ensure image URL is usable. Backend returns full R2 URLs.
+ * Image URL helper. cloudflareLoader handles the R2 prefixing.
  */
 const ensureFullUrl = (url) => {
   if (!url) return '/placeholder-image.jpg';
-  if (url.startsWith('http://') || url.startsWith('https://')) return url;
-  const baseUrl = getCoreBaseUrl();
-  return `${baseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
+  return url;
 };
 
 const ProductCard = ({ product, className, priority = false }) => {

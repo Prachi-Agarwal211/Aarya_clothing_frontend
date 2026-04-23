@@ -1,19 +1,19 @@
 {
   "users": {
     "customer": {
-      "email": "test.customer.1774929817419@aaryaclothing.com",
+      "email": "test.customer.1776929281658@aaryaclothing.com",
       "password": "TestPassword123!",
       "phone": "9876543210",
       "firstName": "Test",
       "lastName": "Customer"
     },
     "admin": {
-      "email": "test.admin.1774929817419@aaryaclothing.com",
+      "email": "test.admin.1776929281658@aaryaclothing.com",
       "password": "AdminPassword123!",
       "role": "admin"
     },
     "staff": {
-      "email": "test.staff.1774929817419@aaryaclothing.com",
+      "email": "test.staff.1776929281658@aaryaclothing.com",
       "password": "StaffPassword123!",
       "role": "staff"
     }

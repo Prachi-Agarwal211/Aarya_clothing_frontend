@@ -1,0 +1,6 @@
+BEGIN;
+
+ALTER TABLE order_tracking
+  ADD COLUMN IF NOT EXISTS courier_name VARCHAR(100);
+
+COMMIT;

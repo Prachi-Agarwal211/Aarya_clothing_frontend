@@ -530,8 +530,6 @@ class OrderService:
                 )
                 # Don't rollback - order is already committed successfully
 
-        # Cashfree removed — only Razorpay supported
-
         # For QR payments, the transaction was already created in the payment service
         # with order_id=NULL. Update it with the order_id and mark as completed.
         if qr_code_id:

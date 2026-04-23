@@ -32,7 +32,8 @@ from models.inventory import Inventory
 from models.product import Product
 from rate_limit import check_rate_limit
 from schemas.order import CartItem, CartResponse, SetDeliveryState
-from service.cart_service import CartConcurrencyManager, CartService
+from core.cart_lock import CartConcurrencyManager
+from service.cart_service import CartService
 from shared.auth_middleware import get_current_user
 
 logger = logging.getLogger(__name__)

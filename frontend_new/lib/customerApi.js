@@ -181,7 +181,7 @@ export const userApi = {
 
 // ==================== Payment API ====================
 export const paymentApi = {
-  // Get public payment configuration (includes Razorpay + Cashfree)
+  // Get public payment configuration (Razorpay only)
   getConfig: () =>
     paymentClient.get('/api/v1/payment/config'),
 

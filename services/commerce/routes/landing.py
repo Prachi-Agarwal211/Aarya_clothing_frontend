@@ -75,7 +75,7 @@ async def get_featured_data(
         .options(
             joinedload(Product.category),
             selectinload(Product.images),
-            selectinload(Product.inventory),
+            selectinload(Product.variants),
         )
         .filter(Product.is_active.is_(True), Product.is_featured.is_(True))
         .order_by(Product.created_at.desc())
@@ -88,7 +88,7 @@ async def get_featured_data(
         .options(
             joinedload(Product.category),
             selectinload(Product.images),
-            selectinload(Product.inventory),
+            selectinload(Product.variants),
         )
         .filter(Product.is_active.is_(True), Product.is_new_arrival.is_(True))
         .order_by(Product.created_at.desc())

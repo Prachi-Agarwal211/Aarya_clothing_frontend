@@ -17,12 +17,14 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # Test configuration
 TEST_DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:postgres123@localhost:6001/aarya_clothing")
-TEST_REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6002/0")
-COMMERCE_REDIS_URL = os.getenv("COMMERCE_REDIS_URL", "redis://localhost:6002/1")
-CORE_SERVICE_URL = os.getenv("CORE_SERVICE_URL", "http://localhost:5001")
-COMMERCE_SERVICE_URL = os.getenv("COMMERCE_SERVICE_URL", "http://localhost:5002")
-PAYMENT_SERVICE_URL = os.getenv("PAYMENT_SERVICE_URL", "http://localhost:5003")
-ADMIN_SERVICE_URL = os.getenv("ADMIN_SERVICE_URL", "http://localhost:5004")
+_DEFAULT_REDIS_PASSWORD = os.getenv("REDIS_PASSWORD", "")
+_DEFAULT_REDIS_AUTH = f":{_DEFAULT_REDIS_PASSWORD}@" if _DEFAULT_REDIS_PASSWORD else ""
+TEST_REDIS_URL = os.getenv("REDIS_URL", f"redis://{_DEFAULT_REDIS_AUTH}localhost:6381/0")
+COMMERCE_REDIS_URL = os.getenv("COMMERCE_REDIS_URL", f"redis://{_DEFAULT_REDIS_AUTH}localhost:6381/1")
+CORE_SERVICE_URL = os.getenv("CORE_SERVICE_URL", "http://localhost")
+COMMERCE_SERVICE_URL = os.getenv("COMMERCE_SERVICE_URL", "http://localhost")
+PAYMENT_SERVICE_URL = os.getenv("PAYMENT_SERVICE_URL", "http://localhost")
+ADMIN_SERVICE_URL = os.getenv("ADMIN_SERVICE_URL", "http://localhost")
 
 fake = Faker()
 
@@ -183,13 +185,18 @@ def redis_client():
 @pytest.fixture
 def fake_user_data() -> Dict[str, Any]:
     """Generate fake user data for testing."""
+    first_name = fake.first_name()
+    last_name = fake.last_name()
     return {
         "email": fake.email(),
         "username": fake.user_name(),
         "password": "TestPass123!",
-        "full_name": fake.name(),
+        "full_name": f"{first_name} {last_name}",
+        "first_name": first_name,
+        "last_name": last_name,
         "phone": fake.numerify("##########"),  # 10 digit number
-        "role": "customer"
+        "role": "customer",
+        "verification_method": "otp_email",
     }
 
 
@@ -244,15 +251,26 @@ def core_client():
             return self.session.get(f"{self.base_url}/health")
         
         def register(self, data: dict):
+            full_name = data.get("full_name") or ""
+            first_name = data.get("first_name") or (full_name.split(" ")[0] if full_name else "Test")
+            last_name = data.get("last_name") or (" ".join(full_name.split(" ")[1:]).strip() if len(full_name.split(" ")) > 1 else "User")
+            payload = {
+                "first_name": first_name,
+                "last_name": last_name or "User",
+                "email": data.get("email"),
+                "phone": data.get("phone"),
+                "password": data.get("password"),
+                "verification_method": data.get("verification_method", "otp_email"),
+            }
             return self.session.post(
                 f"{self.base_url}/api/v1/auth/register",
-                json=data
+                json=payload
             )
         
         def login(self, username: str, password: str):
             return self.session.post(
                 f"{self.base_url}/api/v1/auth/login",
-                json={"username": username, "password": password}
+                json={"identifier": username, "password": password}
             )
         
         def get_user(self, token: str):
@@ -310,17 +328,17 @@ def commerce_client():
             return self.session.get(f"{self.base_url}/health")
         
         def get_products(self, params: dict = None):
-            return self.session.get(f"{self.base_url}/api/v1/products", params=params)
+            return self.session.get(f"{self.base_url}/api/v1/products/browse", params=params)
         
         def get_product(self, product_id: int):
             return self.session.get(f"{self.base_url}/api/v1/products/{product_id}")
         
         def get_categories(self):
-            return self.session.get(f"{self.base_url}/api/v1/categories")
+            return self.session.get(f"{self.base_url}/api/v1/collections")
         
         def get_cart(self, user_id: int, token: str):
             return self.session.get(
-                f"{self.base_url}/api/v1/cart/{user_id}",
+                f"{self.base_url}/api/v1/cart",
                 headers={"Authorization": f"Bearer {token}"}
             )
         
@@ -328,11 +346,16 @@ def commerce_client():
             import time
             last_exc = None
             last_resp = None
+            payload = {
+                "product_id": item.get("product_id"),
+                "quantity": item.get("quantity", 1),
+                "variant_id": item.get("variant_id"),
+            }
             for _ in range(5):
                 try:
                     resp = self.session.post(
-                        f"{self.base_url}/api/v1/cart/{user_id}/add",
-                        json=item,
+                        f"{self.base_url}/api/v1/cart/items",
+                        json=payload,
                         headers={"Authorization": f"Bearer {token}"},
                         timeout=10
                     )
@@ -349,8 +372,8 @@ def commerce_client():
             if last_exc:
                 raise last_exc
             return self.session.post(
-                f"{self.base_url}/api/v1/cart/{user_id}/add",
-                json=item,
+                f"{self.base_url}/api/v1/cart/items",
+                json=payload,
                 headers={"Authorization": f"Bearer {token}"},
                 timeout=10
             )
@@ -529,20 +552,20 @@ def authenticated_user(core_client, verified_user) -> Generator[Dict[str, Any], 
 @pytest.fixture(scope="session", autouse=True)
 def wait_for_services():
     """Wait for all services to be healthy before running tests."""
-    services = [
-        (CORE_SERVICE_URL, "Core"),
-        (COMMERCE_SERVICE_URL, "Commerce"),
-        (PAYMENT_SERVICE_URL, "Payment"),
-        (ADMIN_SERVICE_URL, "Admin"),
+    service_checks = [
+        (f"{CORE_SERVICE_URL}/api/v1/site/config", "Core"),
+        (f"{COMMERCE_SERVICE_URL}/api/v1/products/browse?limit=1", "Commerce"),
+        (f"{PAYMENT_SERVICE_URL}/api/v1/payment/config", "Payment"),
+        (f"{ADMIN_SERVICE_URL}/api/v1/landing/all", "Admin"),
     ]
     
     max_retries = 30
     retry_delay = 2
     
-    for url, name in services:
+    for check_url, name in service_checks:
         for attempt in range(max_retries):
             try:
-                response = requests.get(f"{url}/health", timeout=5)
+                response = requests.get(check_url, timeout=5)
                 if response.status_code == 200:
                     print(f"[OK] {name} service is healthy")
                     break
@@ -550,7 +573,7 @@ def wait_for_services():
                 pass
             
             if attempt == max_retries - 1:
-                pytest.fail(f"Service {name} at {url} is not healthy after {max_retries} retries")
+                pytest.fail(f"Service {name} check failed at {check_url} after {max_retries} retries")
             
             time.sleep(retry_delay)
 

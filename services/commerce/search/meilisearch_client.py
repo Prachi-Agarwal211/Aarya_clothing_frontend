@@ -230,14 +230,14 @@ def sync_all_products(db_session):
                    STRING_AGG(DISTINCT i.sku, ',') as skus,
                    STRING_AGG(DISTINCT i.size, ',') FILTER (WHERE i.size IS NOT NULL AND i.size != '') as sizes,
                    STRING_AGG(DISTINCT i.color, ',') FILTER (WHERE i.color IS NOT NULL AND i.color != '') as colors,
-                   p.tags, p.material, p.care_instructions
+                   p.material, p.care_instructions
             FROM products p
             LEFT JOIN collections c ON p.category_id = c.id
             LEFT JOIN inventory i ON i.product_id = p.id AND i.is_active = true
             WHERE p.is_active = true
             GROUP BY p.id, p.name, p.description,
                      p.base_price, p.mrp, p.slug, p.is_active, p.is_featured,
-                     p.is_new_arrival, p.category_id, p.created_at, c.name, p.tags, p.material, p.care_instructions
+                     p.is_new_arrival, p.category_id, p.created_at, c.name, p.material, p.care_instructions
         """)).fetchall()
 
         products = []
@@ -254,9 +254,9 @@ def sync_all_products(db_session):
                 "sku": r[14] or "",
                 "sizes": r[15] or "",
                 "colors": r[16] or "",
-                "tags": r[17] or "",
-                "material": r[18] or "",
-                "care_instructions": r[19] or "",
+                "tags": "",
+                "material": r[17] or "",
+                "care_instructions": r[18] or "",
             })
 
         index_products_bulk(products)

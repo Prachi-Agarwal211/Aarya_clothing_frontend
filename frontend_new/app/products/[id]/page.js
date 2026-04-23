@@ -662,7 +662,7 @@ export default function ProductDetailPage() {
               {product.images && product.images.length > 1 && (
                 <div className="flex gap-3 overflow-x-auto pb-2">
                   {product.images.map((img, idx) => (
-                    <button
+                      <button
                       key={img.id || `thumb-${idx}`}
                       onClick={() => setSelectedImage(idx)}
                       className={`relative flex-shrink-0 w-20 h-20 rounded-xl overflow-hidden border-2 transition-all ${selectedImage === idx

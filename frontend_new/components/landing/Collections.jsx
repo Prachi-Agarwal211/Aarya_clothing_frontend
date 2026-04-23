@@ -201,9 +201,7 @@ const CollectionCard = ({ category, size = 'medium', index }) => {
 
   const ensureFullUrl = (url) => {
     if (!url) return '/placeholder-collection.jpg';
-    if (url.startsWith('http://') || url.startsWith('https://')) return url;
-    const baseUrl = getCoreBaseUrl();
-    return `${baseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
+    return url;
   };
 
   return (

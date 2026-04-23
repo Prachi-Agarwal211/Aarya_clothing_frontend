@@ -12,15 +12,15 @@
 
 -- Step 2: Convert existing orders to Razorpay
 -- ============================================
--- Convert all Cashfree and COD orders to Razorpay
+-- Convert all non-Razorpay orders to Razorpay
 UPDATE orders 
 SET payment_method = 'razorpay' 
-WHERE payment_method IN ('cashfree', 'cod', 'easebuzz', 'upi', 'bank_transfer', 'wallet');
+WHERE payment_method IS NOT NULL AND payment_method <> 'razorpay';
 
 -- Convert all payment transactions to Razorpay
 UPDATE payment_transactions 
 SET payment_method = 'razorpay' 
-WHERE payment_method IN ('cashfree', 'cod', 'easebuzz', 'upi', 'bank_transfer', 'wallet');
+WHERE payment_method IS NOT NULL AND payment_method <> 'razorpay';
 
 -- Step 3: Update payment methods table
 -- ============================================
@@ -34,18 +34,18 @@ WHERE name = 'razorpay';
 -- Deactivate other payment methods
 UPDATE payment_methods 
 SET is_active = FALSE 
-WHERE name IN ('cashfree', 'cod', 'easebuzz', 'upi', 'bank_transfer', 'wallet');
+WHERE name <> 'razorpay';
 
 -- Optionally, delete other payment methods entirely
--- DELETE FROM payment_methods WHERE name IN ('cashfree', 'cod', 'easebuzz', 'upi', 'bank_transfer', 'wallet');
+-- DELETE FROM payment_methods WHERE name <> 'razorpay';
 
--- Step 4: Clean up Cashfree-specific columns (optional - columns will remain but unused)
+-- Step 4: Clean up legacy gateway-specific columns (optional - columns will remain but unused)
 -- ============================================
 -- Note: We don't drop columns to preserve historical data
 -- If you want to drop them, uncomment the following:
 
--- ALTER TABLE payment_transactions DROP COLUMN IF EXISTS cashfree_order_id;
--- ALTER TABLE payment_transactions DROP COLUMN IF EXISTS cashfree_payment_id;
+-- ALTER TABLE payment_transactions DROP COLUMN IF EXISTS legacy_order_id;
+-- ALTER TABLE payment_transactions DROP COLUMN IF EXISTS legacy_payment_id;
 -- ALTER TABLE payment_transactions DROP COLUMN IF EXISTS cf_payment_session_id;
 
 -- Step 5: Update constraints
@@ -74,9 +74,9 @@ DO $$ BEGIN
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
--- Step 6: Drop Cashfree indexes (optional - improves write performance)
+-- Step 6: Drop legacy indexes (optional - improves write performance)
 -- ============================================
-DROP INDEX IF EXISTS idx_payment_cashfree;
+DROP INDEX IF EXISTS idx_payment_legacy;
 
 -- Step 7: Verify migration
 -- ============================================
@@ -111,7 +111,7 @@ END $$;
 
 /*
 -- Rollback: Reactivate all payment methods
-UPDATE payment_methods SET is_active = TRUE WHERE name IN ('cashfree', 'cod', 'easebuzz', 'upi', 'bank_transfer', 'wallet');
+UPDATE payment_methods SET is_active = TRUE WHERE name <> 'razorpay';
 
 -- Rollback: Restore original payment methods (if you have backup data)
 -- This requires manual intervention based on your backup strategy
@@ -122,8 +122,8 @@ ALTER TABLE payment_transactions DROP CONSTRAINT IF EXISTS chk_payment_transacti
 
 -- Rollback: Recreate old constraints
 ALTER TABLE orders ADD CONSTRAINT chk_orders_payment_method
-    CHECK (payment_method IS NULL OR payment_method IN ('cashfree', 'razorpay', 'easebuzz', 'upi', 'bank_transfer', 'wallet', 'cod'));
+    CHECK (payment_method IS NULL OR payment_method IN ('razorpay'));
 
 ALTER TABLE payment_transactions ADD CONSTRAINT chk_payment_transactions_payment_method
-    CHECK (payment_method IS NULL OR payment_method IN ('cashfree', 'razorpay', 'easebuzz', 'upi', 'bank_transfer', 'wallet', 'cod'));
+    CHECK (payment_method IS NULL OR payment_method IN ('razorpay'));
 */

@@ -55,7 +55,7 @@ This test suite provides comprehensive E2E testing for all critical user flows o
    - Guest checkout
    - Registered user checkout
    - Address management
-   - Payment methods (COD, UPI, Card)
+   - Payment methods (Razorpay, UPI, Card)
    - Order confirmation
 
 5. **Order Management** (`05-order-management.spec.js`)

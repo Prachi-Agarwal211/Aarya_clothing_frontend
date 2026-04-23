@@ -772,22 +772,23 @@ async def admin_create_product_variant(
         )
     result = db.execute(
         text("""
-        INSERT INTO product_variants (product_id, sku, size, color, color_hex,
-            quantity, low_stock_threshold, image_url, created_at, updated_at)
+        INSERT INTO inventory (product_id, sku, size, color, color_hex,
+            quantity, low_stock_threshold, image_url, is_active, created_at, updated_at)
         VALUES (:pid, :sku, :size, :color, :color_hex, :qty,
-            :low_stock_threshold, :image_url, :now, :now) RETURNING id
+            :low_stock_threshold, :image_url, :is_active, :now, :now) RETURNING id
     """),
         {
             "pid": pid,
             "sku": data.sku,
             "size": data.size,
-            "color": data.color,
-            "color_hex": data.color_hex,
+            "color": (data.color or "").strip() or (data.color_hex or "").strip() or "Default",
+            "color_hex": (data.color_hex or "").strip().upper() if data.color_hex else None,
             "qty": data.quantity,
             "low_stock_threshold": data.low_stock_threshold
             if data.low_stock_threshold is not None
             else 5,
             "image_url": getattr(data, "image_url", None) or "",
+            "is_active": data.is_active if data.is_active is not None else True,
             "now": now_ist().replace(tzinfo=None),
         },
     )
@@ -831,10 +832,10 @@ async def admin_update_product_variant(
         params["size"] = data.size
     if data.color is not None:
         sets.append("color = :color")
-        params["color"] = data.color
+        params["color"] = (data.color or "").strip() or (data.color_hex or "").strip() or "Default"
     if data.color_hex is not None:
         sets.append("color_hex = :color_hex")
-        params["color_hex"] = data.color_hex
+        params["color_hex"] = (data.color_hex or "").strip().upper() or None
     if data.quantity is not None:
         sets.append("quantity = :qty")
         params["qty"] = data.quantity
@@ -851,9 +852,7 @@ async def admin_update_product_variant(
         sets.append("sku = :sku")
         params["sku"] = data.sku
     # `price` is intentionally ignored — variant-level pricing was removed.
-    db.execute(
-        text(f"UPDATE product_variants SET {', '.join(sets)} WHERE id = :id"), params
-    )
+    db.execute(text(f"UPDATE inventory SET {', '.join(sets)} WHERE id = :id"), params)
     db.commit()
     redis_client.invalidate_pattern("products:*")
     return {"message": "Variant updated"}

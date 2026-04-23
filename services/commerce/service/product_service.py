@@ -186,7 +186,7 @@ class ProductService:
 
         query = self.db.query(Product).options(
             selectinload(Product.images),
-            selectinload(Product.inventory),
+            selectinload(Product.variants),
             joinedload(Product.collection),
         )
 
@@ -227,7 +227,7 @@ class ProductService:
 
         query = self.db.query(Product).options(
             selectinload(Product.images),
-            selectinload(Product.inventory),
+            selectinload(Product.variants),
             joinedload(Product.collection),
         ).filter(Product.id == product_id)
 
@@ -554,7 +554,7 @@ class ProductService:
 
         products = self.db.query(Product).options(
             selectinload(Product.images),
-            selectinload(Product.inventory),
+            selectinload(Product.variants),
             joinedload(Product.collection),
         ).filter(and_(*filters)).offset(skip).limit(limit).all()
 
@@ -571,7 +571,7 @@ class ProductService:
         """
         return self.db.query(Product).options(
             selectinload(Product.images),
-            selectinload(Product.inventory),
+            selectinload(Product.variants),
             joinedload(Product.collection),
         ).filter(
             Product.is_featured == True,
@@ -589,7 +589,7 @@ class ProductService:
         """
         return self.db.query(Product).options(
             selectinload(Product.images),
-            selectinload(Product.inventory),
+            selectinload(Product.variants),
             joinedload(Product.collection),
         ).filter(
             Product.is_new_arrival == True,
@@ -614,7 +614,7 @@ class ProductService:
         """
         return self.db.query(Product).options(
             selectinload(Product.images),
-            selectinload(Product.inventory),
+            selectinload(Product.variants),
             joinedload(Product.collection),
         ).filter(
             Product.category_id == category_id,

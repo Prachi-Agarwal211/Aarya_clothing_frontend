@@ -44,10 +44,6 @@ class Order(Base):
     razorpay_order_id = Column(String(100), nullable=True)
     razorpay_payment_id = Column(String(100), nullable=True)
     
-    # Cashfree payment details
-    cashfree_order_id = Column(String(100), nullable=True)
-    cashfree_reference_id = Column(String(100), nullable=True)
-
     # Invoice
     invoice_number = Column(String(50), nullable=True, unique=True, index=True)  # e.g. INV-2026-000001
     
@@ -143,7 +139,7 @@ class OrderItem(Base):
 
     id           = Column(Integer, primary_key=True, index=True)
     order_id     = Column(Integer, ForeignKey("orders.id", ondelete="CASCADE"), nullable=False, index=True)
-    variant_id   = Column(Integer, ForeignKey("product_variants.id"), nullable=False, index=True)
+    variant_id   = Column(Integer, ForeignKey("inventory.id"), nullable=False, index=True)
     product_id   = Column(Integer, ForeignKey("products.id"), nullable=False)
 
     # Snapshot at purchase time (so renames/deletes don't break old orders)

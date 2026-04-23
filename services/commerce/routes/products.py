@@ -12,6 +12,7 @@ Product catalog management endpoints:
 import logging
 import hashlib
 import asyncio
+import re
 from typing import List, Optional
 from decimal import Decimal
 from fastapi import APIRouter, Depends, HTTPException, status, Request, UploadFile, File, Query
@@ -118,6 +119,19 @@ def _hex_to_color_name(hex_color: str) -> str:
     return HEX_COLOR_TO_NAME.get(hex_upper, None)
 
 
+def _resolve_variant_hex(inv) -> str:
+    """Return the best hex for a variant (stored hex first, then safe fallback)."""
+    explicit = (getattr(inv, "color_hex", None) or "").strip()
+    if re.match(r"^#[0-9a-fA-F]{6}$", explicit):
+        return explicit.upper()
+
+    # Model-level fallback keeps unknown names deterministic (not all gray).
+    derived = getattr(inv, "resolved_color_hex", None)
+    if isinstance(derived, str) and re.match(r"^#[0-9A-F]{6}$", derived):
+        return derived
+    return "#9CA3AF"
+
+
 def _resolve_display_color_name(color_value: Optional[str], color_hex: Optional[str]) -> Optional[str]:
     """
     Return customer-friendly color labels.
@@ -179,7 +193,7 @@ def _enrich_inventory(inventory, user_role: str = None) -> list:
                 "sku": inv.sku,
                 "size": inv.size,
                 "color": inv.color,
-                "color_hex": getattr(inv, "color_hex", None),
+                "color_hex": _resolve_variant_hex(inv),
                 "color_name": _resolve_display_color_name(
                     inv.color, getattr(inv, "color_hex", None)
                 ),
@@ -202,7 +216,7 @@ def _enrich_inventory(inventory, user_role: str = None) -> list:
             "sku": inv.sku,
             "size": inv.size,
             "color": inv.color,
-            "color_hex": getattr(inv, "color_hex", None),
+            "color_hex": _resolve_variant_hex(inv),
             "color_name": _resolve_display_color_name(
                 inv.color, getattr(inv, "color_hex", None)
             ),
@@ -240,10 +254,9 @@ def _enrich_product(product, db: Session = None, user_role: str = None) -> dict:
     color_image_map = {}
     for inv in inventory_list:
         if inv.color:
-            if getattr(inv, "color_hex", None):
-                color_hex_map[inv.color] = inv.color_hex
+            color_hex_map[inv.color] = _resolve_variant_hex(inv)
             color_name = _resolve_display_color_name(
-                inv.color, getattr(inv, "color_hex", None)
+                inv.color, _resolve_variant_hex(inv)
             )
             if color_name:
                 color_name_map[inv.color] = color_name
@@ -392,7 +405,7 @@ async def list_products(
         query = db.query(Product).options(
             joinedload(Product.collection),
             selectinload(Product.images),
-            selectinload(Product.inventory),
+            selectinload(Product.variants),
         ).filter(Product.is_active == True)
 
         if category_id:
@@ -530,7 +543,7 @@ async def get_new_arrivals(
     products = db.query(Product).options(
         joinedload(Product.collection),
         selectinload(Product.images),
-        selectinload(Product.inventory),
+        selectinload(Product.variants),
     ).filter(
         Product.is_new_arrival == True,
         Product.is_active == True
@@ -550,7 +563,7 @@ async def get_featured_products(
     products = db.query(Product).options(
         joinedload(Product.collection),
         selectinload(Product.images),
-        selectinload(Product.inventory),
+        selectinload(Product.variants),
     ).filter(
         Product.is_active == True,
         Product.is_featured == True
@@ -678,7 +691,7 @@ async def get_product_by_slug(
     product = db.query(Product).options(
         joinedload(Product.collection),
         selectinload(Product.images),
-        selectinload(Product.inventory),
+        selectinload(Product.variants),
     ).filter(Product.slug == slug).first()
 
     if not product:
@@ -701,7 +714,7 @@ async def get_product(
     product = db.query(Product).options(
         joinedload(Product.collection),
         selectinload(Product.images),
-        selectinload(Product.inventory),
+        selectinload(Product.variants),
     ).filter(Product.id == product_id).first()
 
     if not product:

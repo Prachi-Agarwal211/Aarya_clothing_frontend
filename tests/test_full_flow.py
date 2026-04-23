@@ -1,17 +1,42 @@
 """
 Comprehensive end-to-end integration tests for Aarya Clothing.
-Covers: Auth -> Catalog -> Cart (Variants) -> Checkout (Address/COD) -> Payment -> Admin
+Covers: Auth -> Catalog -> Cart (Variants) -> Checkout (Address/Razorpay) -> Payment -> Admin
 
 UPDATED: Now handles email verification requirement.
 """
 import pytest
 import requests
-import json
 import time
-from decimal import Decimal
+import os
+import hmac
+import hashlib
+import uuid
 
 # Mark all tests as integration tests
 pytestmark = pytest.mark.integration
+
+
+def _load_env_value(key: str) -> str | None:
+    """Read a key from process env, falling back to local .env for test runs."""
+    val = os.getenv(key)
+    if val:
+        return val
+    env_path = os.path.join(os.getcwd(), ".env")
+    if not os.path.exists(env_path):
+        return None
+    try:
+        with open(env_path, "r", encoding="utf-8") as f:
+            for raw in f:
+                line = raw.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                k, v = line.split("=", 1)
+                if k.strip() == key:
+                    value = v.strip().strip('"').strip("'")
+                    return value or None
+    except Exception:
+        return None
+    return None
 
 class TestFullUserJourney:
     """Simulate a full user journey."""
@@ -27,30 +52,24 @@ class TestFullUserJourney:
             # If user exists, try login directly (they might already be verified)
             pass
         
-        # Get verification token from database
-        verification_token = None
+        # Registration now requires OTP verification before normal password login.
+        # For integration stability, mark the test user as verified directly in DB.
         if db_connection:
             try:
                 cursor = db_connection.cursor()
                 cursor.execute(
-                    "SELECT token FROM email_verifications WHERE user_id = "
-                    "(SELECT id FROM users WHERE email = %s) "
-                    "ORDER BY created_at DESC LIMIT 1",
+                    """
+                    UPDATE users
+                    SET is_active = TRUE,
+                        email_verified = TRUE,
+                        updated_at = NOW()
+                    WHERE email = %s
+                    """,
                     (fake_user_data["email"],)
                 )
-                result = cursor.fetchone()
-                if result:
-                    verification_token = result[0]
                 cursor.close()
             except Exception as e:
-                print(f"Could not get verification token: {e}")
-        
-        # Verify email if we got a token
-        if verification_token:
-            verify_response = core_client.verify_email(verification_token)
-            if verify_response.status_code != 200:
-                # Might already be verified
-                pass
+                print(f"Could not mark user as verified for test login: {e}")
         
         # Give some time for DB to commit and session to be ready
         time.sleep(0.5)
@@ -158,39 +177,15 @@ class TestFullUserJourney:
         print(f"Step 4: Address created (ID: {address_id})")
 
         """
-        Step 5: Order Creation (Razorpay)
+        Step 5: Payment Preparation (Razorpay-first flow)
         """
-        order_payload = {
-            "user_id": user_id,
-            "address_id": address_id,
-            "payment_method": "razorpay"
-        }
-        
-        create_order_resp = commerce_client.session.post(
-            f"{commerce_client.base_url}/api/v1/orders",
-            json=order_payload,
-            headers={"Authorization": f"Bearer {token}"}
-        )
-        assert create_order_resp.status_code in [200, 201], f"Order creation failed: {create_order_resp.text}"
-        
-        order = create_order_resp.json()
-        assert order["id"] is not None
-        # Check for our new fields
-        if "order_number" in order:
-            assert order["order_number"] is not None
-        
-        print(f"Step 5: Order created successfully (ID: {order['id']})")
-
-        """
-        Step 6: Payment Verification (Razorpay Flow Simulation)
-        """
-        # Create a Razorpay order (backend)
+        amount_paise = max(100, int(float(cart.get("total", 0)) * 100))
         rzp_order_resp = payment_client.session.post(
             f"{payment_client.base_url}/api/v1/payments/razorpay/create-order",
             json={
-                "amount": int(float(order["total_amount"]) * 100),
+                "amount": amount_paise,
                 "currency": "INR",
-                "notes": {"internal_order_id": str(order["id"])}
+                "notes": {"user_id": str(user_id), "source": "pytest_full_flow"}
             },
             headers={"Authorization": f"Bearer {token}"},
             timeout=10
@@ -199,8 +194,48 @@ class TestFullUserJourney:
             pytest.skip(f"Razorpay order creation failed or unavailable: {rzp_order_resp.text}")
         rzp_order = rzp_order_resp.json()
         assert "id" in rzp_order
-        
-        print(f"Step 6: Razorpay order created (ID: {rzp_order['id']})")
+
+        razorpay_secret = _load_env_value("RAZORPAY_KEY_SECRET")
+        if not razorpay_secret:
+            pytest.skip("RAZORPAY_KEY_SECRET not configured in environment")
+
+        # Simulate a successful Razorpay callback payload.
+        payment_id = f"pay_test_{uuid.uuid4().hex[:16]}"
+        signed_payload = f"{rzp_order['id']}|{payment_id}"
+        razorpay_signature = hmac.new(
+            razorpay_secret.encode("utf-8"),
+            signed_payload.encode("utf-8"),
+            hashlib.sha256,
+        ).hexdigest()
+
+        print(f"Step 5: Razorpay order created and signature generated ({rzp_order['id']})")
+
+        """
+        Step 6: Order Creation (requires verified Razorpay identifiers)
+        """
+        order_payload = {
+            "user_id": user_id,
+            "address_id": address_id,
+            "payment_method": "razorpay",
+            "payment_id": payment_id,
+            "transaction_id": payment_id,
+            "razorpay_order_id": rzp_order["id"],
+            "razorpay_signature": razorpay_signature,
+        }
+
+        create_order_resp = commerce_client.session.post(
+            f"{commerce_client.base_url}/api/v1/orders",
+            json=order_payload,
+            headers={"Authorization": f"Bearer {token}"}
+        )
+        assert create_order_resp.status_code in [200, 201], f"Order creation failed: {create_order_resp.text}"
+
+        order = create_order_resp.json()
+        assert order["id"] is not None
+        if "order_number" in order:
+            assert order["order_number"] is not None
+
+        print(f"Step 6: Order created successfully (ID: {order['id']})")
 
         """
         Step 7: Admin Dashboard Verification

@@ -389,7 +389,7 @@ export default function Home() {
                     {
                       Icon: Lock,
                       title: 'Secure Online Payment',
-                      desc: 'Pay safely via UPI, cards, or net banking through Razorpay. No COD — your security is our priority.',
+                      desc: 'Pay safely via UPI, cards, or net banking through Razorpay.',
                       gradient: 'from-blue-500/10 to-cyan-500/5',
                       border: 'border-blue-500/30',
                       iconBg: 'bg-gradient-to-br from-blue-500/20 to-cyan-500/10',

@@ -80,7 +80,7 @@ export default function CreateProductPage() {
         return productsApi.createVariant(productId, {
           sku: v.sku?.trim() || buildAutoSku(productId, v, idx),
           size: v.size || 'Free',
-          color: v.color || 'Default',
+          color: v.color?.trim() || v.color_hex || 'Default',
           color_hex: v.color_hex || null,
           quantity: parseInt(v.quantity, 10) || 0,
           low_stock_threshold: parseInt(v.low_stock_threshold, 10) || 10,

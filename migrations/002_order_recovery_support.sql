@@ -11,9 +11,6 @@ CREATE INDEX IF NOT EXISTS idx_orders_razorpay_payment_id ON orders(razorpay_pay
 -- Add index on razorpay_order_id for payment reconciliation
 CREATE INDEX IF NOT EXISTS idx_orders_razorpay_order_id ON orders(razorpay_order_id);
 
--- Add index on cashfree_order_id for payment reconciliation
-CREATE INDEX IF NOT EXISTS idx_orders_cashfree_order_id ON orders(cashfree_order_id);
-
 -- Add column for order recovery tracking (if payment succeeded but order creation failed)
 ALTER TABLE orders 
 ADD COLUMN IF NOT EXISTS recovered_from_payment BOOLEAN DEFAULT FALSE;
@@ -40,7 +37,6 @@ SELECT
     o.transaction_id,
     o.razorpay_payment_id,
     o.razorpay_order_id,
-    o.cashfree_order_id,
     o.total_amount,
     o.status,
     o.created_at,

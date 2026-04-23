@@ -1,9 +1,9 @@
 #!/bin/bash
 
 # ============================================================================
-# Aarya Clothing - Dual Payment Gateway Deployment Verification Script
+# Aarya Clothing - Razorpay Deployment Verification Script
 # ============================================================================
-# This script verifies that both Razorpay and Cashfree are properly configured
+# This script verifies that Razorpay is properly configured
 # and all Docker images are up to date.
 # ============================================================================
 
@@ -86,13 +86,6 @@ print_info "Checking Razorpay configuration..."
 check_env_variable "RAZORPAY_KEY_ID"
 check_env_variable "RAZORPAY_KEY_SECRET"
 check_env_variable "RAZORPAY_WEBHOOK_SECRET"
-
-# Check Cashfree configuration
-print_info "Checking Cashfree configuration..."
-check_env_variable "CASHFREE_APP_ID"
-check_env_variable "CASHFREE_SECRET_KEY"
-
-# ============================================================================
 
 print_header "STEP 2: Checking Docker Images"
 
@@ -184,18 +177,7 @@ done
 
 # ============================================================================
 
-print_header "STEP 5: Checking Database Migration Scripts"
-
-# Check if migration script exists
-if [ -f "migrations/add_cashfree_payment_support.sql" ]; then
-    print_success "Cashfree migration script exists"
-else
-    print_warning "Cashfree migration script not found"
-fi
-
-# ============================================================================
-
-print_header "STEP 6: Building Docker Images"
+print_header "STEP 5: Building Docker Images"
 
 # Build payment service
 print_info "Building payment service image..."
@@ -226,7 +208,7 @@ fi
 
 # ============================================================================
 
-print_header "STEP 7: Checking Container Health"
+print_header "STEP 6: Checking Container Health"
 
 # Start services (if not already running)
 print_info "Starting services..."
@@ -242,7 +224,7 @@ docker-compose -f "$COMPOSE_FILE" ps
 
 # ============================================================================
 
-print_header "STEP 8: Testing Payment Service Endpoints"
+print_header "STEP 7: Testing Payment Service Endpoints"
 
 # Wait for payment service to be ready
 sleep 10
@@ -274,7 +256,7 @@ fi
 
 # ============================================================================
 
-print_header "STEP 9: Testing Commerce Service Endpoints"
+print_header "STEP 8: Testing Commerce Service Endpoints"
 
 # Wait for commerce service to be ready
 sleep 5
@@ -290,7 +272,7 @@ fi
 
 # ============================================================================
 
-print_header "STEP 10: Testing Frontend"
+print_header "STEP 9: Testing Frontend"
 
 # Wait for frontend to be ready
 sleep 10
@@ -305,37 +287,15 @@ fi
 
 # ============================================================================
 
-print_header "STEP 11: Running Database Migration"
-
-print_info "Checking if migration is needed..."
-
-# Check if migration script exists
-if [ -f "migrations/add_cashfree_payment_support.sql" ]; then
-    print_success "Migration script found"
-    
-    # Run migration (optional - uncomment if needed)
-    # print_info "Running database migration..."
-    # docker-compose -f "$COMPOSE_FILE" exec -T postgres psql -U postgres -d aarya_clothing -f /tmp/migration.sql < migrations/add_cashfree_payment_support.sql
-    # print_success "Database migration completed"
-    
-    print_info "To run the migration manually:"
-    print_info "  docker-compose exec postgres psql -U postgres -d aarya_clothing -f /docker-entrypoint-initdb.d/init.sql"
-else
-    print_warning "Migration script not found"
-fi
-
-# ============================================================================
-
 print_header "DEPLOYMENT VERIFICATION COMPLETE"
 
 echo -e "${GREEN}✓ All checks completed!${NC}"
 echo ""
 print_info "Next steps:"
 print_info "1. Verify payment gateway credentials in .env file"
-print_info "2. Configure webhooks in Razorpay and Cashfree dashboards"
+print_info "2. Configure webhooks in Razorpay dashboard"
 print_info "3. Test a payment with Razorpay"
-print_info "4. Test a payment with Cashfree"
-print_info "5. Verify orders are created in database"
+print_info "4. Verify orders are created in database"
 echo ""
 print_info "Useful commands:"
 print_info "  docker-compose logs -f payment    # View payment service logs"

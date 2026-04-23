@@ -17,10 +17,10 @@ import CartPage from '../../pages/CartPage';
 import CheckoutPage from '../../pages/CheckoutPage';
 
 test.describe('Checkout Flow', () => {
-  let homePage: HomePage;
-  let productPage: ProductPage;
-  let cartPage: CartPage;
-  let checkoutPage: CheckoutPage;
+  let homePage;
+  let productPage;
+  let cartPage;
+  let checkoutPage;
 
   test.beforeEach(async ({ page }) => {
     homePage = new HomePage(page);
@@ -74,7 +74,7 @@ test.describe('Checkout Flow', () => {
       }
       
       // Select payment
-      await checkoutPage.selectPaymentMethod('COD');
+      await checkoutPage.selectPaymentMethod('Razorpay');
       
       // Place order
       await checkoutPage.placeOrder();
@@ -191,16 +191,16 @@ test.describe('Checkout Flow', () => {
   });
 
   test.describe('Payment Methods', () => {
-    test('should select Cash on Delivery', async ({ page }) => {
+    test('should select Razorpay payment', async ({ page }) => {
       await addToCart(page);
       await cartPage.goto();
       await cartPage.checkout();
       
-      await checkoutPage.selectPaymentMethod('COD');
+      await checkoutPage.selectPaymentMethod('Razorpay');
       
-      // COD should be selected
-      const codSelected = await checkoutPage.codOption.isChecked();
-      expect(codSelected).toBeTruthy();
+      // Razorpay should be selected
+      const razorpaySelected = await checkoutPage.razorpayOption.isChecked();
+      expect(razorpaySelected).toBeTruthy();
     });
 
     test('should select UPI payment', async ({ page }) => {
@@ -315,7 +315,7 @@ test.describe('Checkout Flow', () => {
         pincode: '400001',
       });
       
-      await checkoutPage.selectPaymentMethod('COD');
+      await checkoutPage.selectPaymentMethod('Razorpay');
       await checkoutPage.placeOrder();
       
       await checkoutPage.verifyOrderConfirmation();
@@ -335,7 +335,7 @@ test.describe('Checkout Flow', () => {
         addressLine1: '123 Test Street',
       });
       
-      await checkoutPage.selectPaymentMethod('COD');
+      await checkoutPage.selectPaymentMethod('Razorpay');
       await checkoutPage.placeOrder();
       
       const orderNumber = await checkoutPage.getOrderNumber();
@@ -354,7 +354,7 @@ test.describe('Checkout Flow', () => {
         addressLine1: '123 Test Street',
       });
       
-      await checkoutPage.selectPaymentMethod('COD');
+      await checkoutPage.selectPaymentMethod('Razorpay');
       await checkoutPage.placeOrder();
       
       await expect(checkoutPage.orderDate).toBeVisible();
@@ -371,7 +371,7 @@ test.describe('Checkout Flow', () => {
         addressLine1: '123 Test Street',
       });
       
-      await checkoutPage.selectPaymentMethod('COD');
+      await checkoutPage.selectPaymentMethod('Razorpay');
       await checkoutPage.placeOrder();
       
       if (await checkoutPage.viewOrderButton.isVisible()) {
@@ -393,7 +393,7 @@ test.describe('Checkout Flow', () => {
         addressLine1: '123 Test Street',
       });
       
-      await checkoutPage.selectPaymentMethod('COD');
+      await checkoutPage.selectPaymentMethod('Razorpay');
       await checkoutPage.placeOrder();
       
       if (await checkoutPage.continueShoppingButton.isVisible()) {
@@ -446,7 +446,7 @@ test.describe('Checkout Flow', () => {
         addressLine1: '123 Test Street',
       });
       
-      await checkoutPage.selectPaymentMethod('COD');
+      await checkoutPage.selectPaymentMethod('Razorpay');
       
       // Uncheck terms if checked
       if (await checkoutPage.termsCheckbox.isChecked()) {

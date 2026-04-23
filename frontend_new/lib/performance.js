@@ -8,6 +8,8 @@
  * - Virtual scroll helpers
  */
 
+import React from 'react';
+
 /**
  * Debounce function - delays execution until after wait milliseconds
  * @param {Function} func - Function to debounce

@@ -256,7 +256,7 @@ export default function CheckoutPaymentPage() {
     }
   };
 
-  // Cashfree removed — only Razorpay + UPI QR supported
+  // Razorpay hosted checkout + UPI QR supported
 
   // ==================== QR Code Payment Functions ====================
 

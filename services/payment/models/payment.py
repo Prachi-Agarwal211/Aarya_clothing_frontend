@@ -16,7 +16,7 @@ class PaymentTransaction(Base):
     # Payment details
     amount = Column(Numeric(10, 2), nullable=False)
     currency = Column(String(3), default="INR")
-    payment_method = Column(String(50), nullable=False)  # razorpay, card, upi, etc.
+    payment_method = Column(String(50), nullable=False)  # razorpay
 
     # Razorpay specific
     razorpay_order_id = Column(String(100), nullable=True, index=True)
@@ -24,12 +24,6 @@ class PaymentTransaction(Base):
     razorpay_signature = Column(String(500), nullable=True)
     razorpay_qr_code_id = Column(String(100), nullable=True, index=True)
 
-    # Cashfree specific
-    cashfree_order_id = Column(String(100), nullable=True, index=True)
-    cashfree_reference_id = Column(String(100), nullable=True, index=True)
-    cashfree_session_id = Column(String(100), nullable=True)
-    cashfree_signature = Column(String(500), nullable=True)
-    
     # Transaction details
     transaction_id = Column(String(100), nullable=False, unique=True, index=True)
     status = Column(String(50), default="pending")  # pending, processing, completed, failed, refunded

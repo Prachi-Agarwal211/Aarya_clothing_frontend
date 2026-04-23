@@ -11,8 +11,10 @@ This service handles:
 """
 import logging
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
 import os
+import time
+
+from shared.time_utils import ist_naive, now_ist
 from fastapi import FastAPI, Depends, HTTPException, status, Request, Header, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse, Response
@@ -153,7 +155,7 @@ async def health_check():
         "status": "healthy",
         "service": "payment",
         "version": "1.0.0",
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": now_ist().isoformat(),
         "features": {
             "razorpay": bool(settings.RAZORPAY_KEY_ID and settings.RAZORPAY_KEY_SECRET),
             "webhooks": bool(settings.RAZORPAY_WEBHOOK_SECRET)
@@ -459,7 +461,7 @@ async def create_qr_code(
             )
 
         # Calculate expiry time (30 minutes from now)
-        now = int(datetime.now(timezone.utc).timestamp())
+        now = int(time.time())
         close_by = now + 1800  # 30 minutes in seconds
 
         # Create Razorpay QR code
@@ -560,7 +562,7 @@ async def check_qr_status(
             if transaction and transaction.status == "pending":
                 transaction.status = "completed"
                 transaction.razorpay_payment_id = payment_id
-                transaction.completed_at = datetime.now(timezone.utc)
+                transaction.completed_at = ist_naive()
                 transaction.gateway_response = qr_data
                 db.commit()
 
@@ -974,7 +976,7 @@ async def create_cashfree_order(
 
         # Create Cashfree order
         order = await cashfree.create_order(
-            order_id=request.receipt or f"order_{int(datetime.now(timezone.utc).timestamp())}",
+            order_id=request.receipt or f"order_{int(time.time())}",
             amount=float(request.amount) / 100,  # Convert paise to rupees
             currency=request.currency,
             customer_name=user_name,

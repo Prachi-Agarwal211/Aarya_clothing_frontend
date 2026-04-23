@@ -14,8 +14,9 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from datetime import datetime, timezone
 from typing import Any, List, Optional
+
+from shared.time_utils import now_ist
 
 from fastapi import (
     APIRouter,
@@ -213,7 +214,7 @@ async def websocket_chat(
                 "sender_id": user_id,
                 "sender_type": sender_type,
                 "message": msg_text,
-                "created_at": datetime.now(timezone.utc).isoformat(),
+                "created_at": now_ist().isoformat(),
             }
             await chat_manager.broadcast(payload, room_id)
 

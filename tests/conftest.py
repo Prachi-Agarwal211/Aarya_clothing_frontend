@@ -7,9 +7,13 @@ import requests
 import time
 import psycopg2
 import redis
+import urllib3
 from urllib.parse import urlparse
 from typing import Generator, Dict, Any
 from faker import Faker
+
+# Disable SSL warnings for self-signed certificates
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # Test configuration
 TEST_DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:postgres123@localhost:6001/aarya_clothing")
@@ -234,6 +238,7 @@ def core_client():
         def __init__(self, base_url: str):
             self.base_url = base_url
             self.session = requests.Session()
+            self.session.verify = False
         
         def health(self):
             return self.session.get(f"{self.base_url}/health")
@@ -299,6 +304,7 @@ def commerce_client():
         def __init__(self, base_url: str):
             self.base_url = base_url
             self.session = requests.Session()
+            self.session.verify = False
         
         def health(self):
             return self.session.get(f"{self.base_url}/health")
@@ -359,6 +365,7 @@ def payment_client():
         def __init__(self, base_url: str):
             self.base_url = base_url
             self.session = requests.Session()
+            self.session.verify = False
         
         def health(self):
             return self.session.get(f"{self.base_url}/health")
@@ -376,6 +383,7 @@ def admin_client():
         def __init__(self, base_url: str):
             self.base_url = base_url
             self.session = requests.Session()
+            self.session.verify = False
         
         def health(self):
             return self.session.get(f"{self.base_url}/health")

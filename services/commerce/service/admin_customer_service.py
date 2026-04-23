@@ -2,7 +2,9 @@
 from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, func
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
+
+from shared.time_utils import ist_naive
 
 from models.user import User, UserRole
 from models.order import Order, OrderStatus, OrderItem
@@ -182,7 +184,7 @@ class AdminCustomerService:
         """
         from models.address import Address
         
-        now = datetime.now(timezone.utc)
+        now = ist_naive()
         thirty_days_ago = now - timedelta(days=30)
         ninety_days_ago = now - timedelta(days=90)
         

@@ -2,8 +2,10 @@
 from typing import Dict, Any, List, Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import func, and_
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from decimal import Decimal
+
+from shared.time_utils import ist_naive
 
 from models.order import Order, OrderItem, OrderStatus
 from models.product import Product
@@ -25,9 +27,9 @@ class AdminAnalyticsService:
         Returns:
             Dict with key business metrics
         """
-        now = datetime.now(timezone.utc)
+        now = ist_naive()
         today = now.date()
-        start_of_day = datetime.combine(today, datetime.min.time(), tzinfo=timezone.utc)
+        start_of_day = datetime.combine(today, datetime.min.time())
         start_of_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
         
         # Orders
@@ -308,9 +310,8 @@ class AdminAnalyticsService:
             Dict with customer segments
         """
         from models.user import User
-        from datetime import timedelta
-        
-        now = datetime.now(timezone.utc)
+
+        now = ist_naive()
         thirty_days_ago = now - timedelta(days=30)
         ninety_days_ago = now - timedelta(days=90)
         

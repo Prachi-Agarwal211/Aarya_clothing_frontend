@@ -17,7 +17,7 @@ import logging
 import asyncio
 import os
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
+from shared.time_utils import now_ist
 from starlette.concurrency import run_in_threadpool
 from fastapi import FastAPI, Depends, HTTPException, status, Request, UploadFile, File, Query
 from fastapi.responses import StreamingResponse, JSONResponse
@@ -340,7 +340,7 @@ async def health_check(db: Session = Depends(get_db)):
         "status": "healthy" if db_status == "healthy" else "degraded",
         "service": "commerce",
         "version": "2.0.0",
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": now_ist().isoformat(),
         "dependencies": {
             "redis": redis_status,
             "database": db_status
@@ -361,7 +361,7 @@ async def health_api(db: Session = Depends(get_db)):
         "status": "healthy" if db_status == "healthy" else "degraded",
         "service": "commerce",
         "version": "2.0.0",
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": now_ist().isoformat(),
         "dependencies": {
             "redis": redis_status,
             "database": db_status

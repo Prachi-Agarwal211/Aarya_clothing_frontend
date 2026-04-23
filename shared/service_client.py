@@ -7,7 +7,7 @@ import logging
 import os
 from typing import Optional, Dict, Any, List
 from functools import lru_cache
-from datetime import datetime, timezone
+from shared.time_utils import now_ist
 
 logger = logging.getLogger(__name__)
 
@@ -113,7 +113,7 @@ class ServiceClient:
         request_headers = {
             "Content-Type": "application/json",
             "X-Service-Request": "true",
-            "X-Request-Timestamp": datetime.now(timezone.utc).isoformat()
+            "X-Request-Timestamp": now_ist().isoformat()
         }
         
         if auth_token:

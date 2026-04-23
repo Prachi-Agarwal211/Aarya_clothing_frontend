@@ -15,7 +15,6 @@ import os
 import hmac
 from typing import List, Optional
 from decimal import Decimal
-from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
@@ -27,6 +26,7 @@ from models.address import Address
 from schemas.order import OrderResponse, SetDeliveryState
 from service.order_service import OrderService
 from shared.auth_middleware import get_current_user, require_staff
+from shared.time_utils import now_ist
 from core.config import settings
 import httpx
 
@@ -581,7 +581,7 @@ def prepare_invoice_data(order: Order, db: Session) -> dict:
         
         "estimated_delivery": estimated_delivery,
         "tracking_status": tracking_status,
-        "generated_at": datetime.now(timezone.utc).strftime("%d %B %Y, %H:%M IST")
+        "generated_at": now_ist().strftime("%d %B %Y, %H:%M IST")
     }
 
 

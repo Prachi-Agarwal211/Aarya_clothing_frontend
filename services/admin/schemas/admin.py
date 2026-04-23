@@ -198,7 +198,7 @@ class StaffDashboard(BaseModel):
 
 
 class OrderProcessRequest(BaseModel):
-    status: str = "processing"
+    status: str = "shipped"
     items: Optional[List[Dict[str, Any]]] = None
     notes: Optional[str] = None
 

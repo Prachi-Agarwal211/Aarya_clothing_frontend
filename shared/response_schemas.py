@@ -1,7 +1,9 @@
 """Standardized response schemas for all services."""
 from typing import Any, Dict, List, Optional, Union, Generic, TypeVar
 from pydantic import BaseModel, Field
-from datetime import datetime, timezone
+from datetime import datetime
+
+from shared.time_utils import now_ist
 
 T = TypeVar('T')
 
@@ -11,7 +13,7 @@ class BaseResponse(BaseModel, Generic[T]):
     success: bool = True
     message: Optional[str] = None
     data: Optional[T] = None
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = Field(default_factory=lambda: now_ist())
     
     class Config:
         json_encoders = {
@@ -23,7 +25,7 @@ class ErrorResponse(BaseModel):
     """Standardized error response."""
     success: bool = False
     error: Dict[str, Any]
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = Field(default_factory=lambda: now_ist())
     
     class Config:
         json_encoders = {
@@ -36,7 +38,7 @@ class PaginatedResponse(BaseModel, Generic[T]):
     success: bool = True
     data: List[T]
     pagination: Dict[str, Any]
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = Field(default_factory=lambda: now_ist())
     
     class Config:
         json_encoders = {
@@ -48,7 +50,7 @@ class SuccessResponse(BaseModel):
     """Simple success response."""
     success: bool = True
     message: str
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = Field(default_factory=lambda: now_ist())
     
     class Config:
         json_encoders = {
@@ -61,7 +63,7 @@ class HealthResponse(BaseModel):
     status: str
     service: str
     version: Optional[str] = None
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = Field(default_factory=lambda: now_ist())
     
     class Config:
         json_encoders = {
@@ -74,7 +76,7 @@ class ValidationErrorResponse(BaseModel):
     success: bool = False
     error: Dict[str, Any]
     details: List[Dict[str, Any]]
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = Field(default_factory=lambda: now_ist())
     
     class Config:
         json_encoders = {
@@ -87,7 +89,7 @@ class DatabaseErrorResponse(BaseModel):
     success: bool = False
     error: Dict[str, Any]
     message: str
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = Field(default_factory=lambda: now_ist())
     
     class Config:
         json_encoders = {
@@ -100,7 +102,7 @@ class AuthenticationErrorResponse(BaseModel):
     success: bool = False
     error: Dict[str, Any]
     message: str
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = Field(default_factory=lambda: now_ist())
     
     class Config:
         json_encoders = {
@@ -113,7 +115,7 @@ class AuthorizationErrorResponse(BaseModel):
     success: bool = False
     error: Dict[str, Any]
     message: str
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = Field(default_factory=lambda: now_ist())
     
     class Config:
         json_encoders = {
@@ -126,7 +128,7 @@ class NotFoundErrorResponse(BaseModel):
     success: bool = False
     error: Dict[str, Any]
     message: str = "Resource not found"
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = Field(default_factory=lambda: now_ist())
     
     class Config:
         json_encoders = {
@@ -139,7 +141,7 @@ class ConflictErrorResponse(BaseModel):
     success: bool = False
     error: Dict[str, Any]
     message: str
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = Field(default_factory=lambda: now_ist())
     
     class Config:
         json_encoders = {
@@ -153,7 +155,7 @@ class TooManyRequestsErrorResponse(BaseModel):
     error: Dict[str, Any]
     message: str = "Too many requests"
     retry_after: Optional[int] = None
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = Field(default_factory=lambda: now_ist())
     
     class Config:
         json_encoders = {
@@ -166,7 +168,7 @@ class ServiceUnavailableErrorResponse(BaseModel):
     success: bool = False
     error: Dict[str, Any]
     message: str = "Service temporarily unavailable"
-    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    timestamp: datetime = Field(default_factory=lambda: now_ist())
     
     class Config:
         json_encoders = {
@@ -183,7 +185,7 @@ class ResponseBuilder:
         """Build a success response."""
         response = {
             "success": True,
-            "timestamp": datetime.now(timezone.utc).isoformat()
+            "timestamp": now_ist().isoformat()
         }
         if data is not None:
             response["data"] = data
@@ -206,7 +208,7 @@ class ResponseBuilder:
                 "has_prev": page > 1
             },
             "message": message,
-            "timestamp": datetime.now(timezone.utc).isoformat()
+            "timestamp": now_ist().isoformat()
         }
     
     @staticmethod
@@ -219,7 +221,7 @@ class ResponseBuilder:
                 "message": message,
                 "status_code": status_code
             },
-            "timestamp": datetime.now(timezone.utc).isoformat()
+            "timestamp": now_ist().isoformat()
         }
         if details:
             error_response["error"]["details"] = details
@@ -236,7 +238,7 @@ class ResponseBuilder:
                 "details": details,
                 "status_code": 422
             },
-            "timestamp": datetime.now(timezone.utc).isoformat()
+            "timestamp": now_ist().isoformat()
         }
     
     @staticmethod
@@ -249,7 +251,7 @@ class ResponseBuilder:
                 "message": f"{resource} not found",
                 "status_code": 404
             },
-            "timestamp": datetime.now(timezone.utc).isoformat()
+            "timestamp": now_ist().isoformat()
         }
     
     @staticmethod
@@ -262,7 +264,7 @@ class ResponseBuilder:
                 "message": message,
                 "status_code": 401
             },
-            "timestamp": datetime.now(timezone.utc).isoformat()
+            "timestamp": now_ist().isoformat()
         }
     
     @staticmethod
@@ -275,7 +277,7 @@ class ResponseBuilder:
                 "message": message,
                 "status_code": 403
             },
-            "timestamp": datetime.now(timezone.utc).isoformat()
+            "timestamp": now_ist().isoformat()
         }
     
     @staticmethod
@@ -288,7 +290,7 @@ class ResponseBuilder:
                 "message": message,
                 "status_code": 409
             },
-            "timestamp": datetime.now(timezone.utc).isoformat()
+            "timestamp": now_ist().isoformat()
         }
     
     @staticmethod
@@ -301,7 +303,7 @@ class ResponseBuilder:
                 "message": message,
                 "status_code": 429
             },
-            "timestamp": datetime.now(timezone.utc).isoformat()
+            "timestamp": now_ist().isoformat()
         }
         if retry_after:
             response["error"]["retry_after"] = retry_after
@@ -317,7 +319,7 @@ class ResponseBuilder:
                 "message": message,
                 "status_code": 503
             },
-            "timestamp": datetime.now(timezone.utc).isoformat()
+            "timestamp": now_ist().isoformat()
         }
 
 

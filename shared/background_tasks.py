@@ -5,7 +5,9 @@ Provides task queue, scheduling, and execution management.
 import asyncio
 import logging
 from typing import Callable, Any, Dict, List, Optional, Union
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta
+
+from shared.time_utils import now_ist
 from dataclasses import dataclass, field
 from enum import Enum
 from abc import ABC, abstractmethod
@@ -73,7 +75,7 @@ class Task:
     retry_delay: float = 1.0
     timeout: float = 300.0
     scheduled_at: datetime = None
-    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = field(default_factory=now_ist)
     
     def __lt__(self, other):
         """Compare tasks by priority for queue ordering."""
@@ -348,7 +350,7 @@ class TaskWorker:
         result = TaskResult(
             task_id=task.task_id,
             status=TaskStatus.RUNNING,
-            started_at=datetime.now(timezone.utc)
+            started_at=now_ist()
         )
         
         await self.backend.update_status(result)
@@ -375,7 +377,7 @@ class TaskWorker:
                 # Success
                 result.status = TaskStatus.COMPLETED
                 result.result = task_result
-                result.completed_at = datetime.now(timezone.utc)
+                result.completed_at = now_ist()
                 result.duration_ms = int(
                     (result.completed_at - result.started_at).total_seconds() * 1000
                 )
@@ -405,7 +407,7 @@ class TaskWorker:
         # All retries exhausted
         result.status = TaskStatus.FAILED
         result.error = error_msg
-        result.completed_at = datetime.now(timezone.utc)
+        result.completed_at = now_ist()
         result.duration_ms = int(
             (result.completed_at - result.started_at).total_seconds() * 1000
         )

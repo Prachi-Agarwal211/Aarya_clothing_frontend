@@ -10,10 +10,9 @@ Usage:
     expires_at = now_ist() + timedelta(minutes=10)
 """
 from datetime import datetime, timezone, timedelta
+from zoneinfo import ZoneInfo
 
-import pytz
-
-IST = pytz.timezone("Asia/Kolkata")
+IST = ZoneInfo("Asia/Kolkata")
 
 
 def now_ist() -> datetime:
@@ -28,7 +27,7 @@ def to_ist(dt: datetime) -> datetime:
     timestamps and the server runs in IST).
     """
     if dt.tzinfo is None:
-        return IST.localize(dt)
+        return dt.replace(tzinfo=IST)
     return dt.astimezone(IST)
 
 

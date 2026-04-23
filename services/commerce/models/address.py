@@ -1,6 +1,7 @@
 """Address models for commerce service."""
-from datetime import datetime, timezone
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Enum
+
+from shared.time_utils import ist_naive
 from sqlalchemy.orm import relationship
 import enum
 from database.database import Base
@@ -50,8 +51,8 @@ class Address(Base):
     is_active = Column(Boolean, default=True)
     
     # Timestamps
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=lambda: ist_naive())
+    updated_at = Column(DateTime, default=lambda: ist_naive(), onupdate=lambda: ist_naive())
     
     def to_formatted_string(self) -> str:
         """Format address as string for shipping labels."""

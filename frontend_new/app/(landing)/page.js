@@ -10,6 +10,7 @@ import { getLandingAll } from '@/lib/api';
 import { gsap } from '@/lib/gsapConfig';
 import logger from '@/lib/logger';
 import { LazyLoad, CardSkeleton } from '@/components/ui/LazyLoad';
+import { useViewport } from '@/lib/hooks/useViewport';
 
 // Lazy load below-fold sections for faster initial load
 // PERFORMANCE: Removed ssr:false to enable SSR and prevent hydration jumps
@@ -113,6 +114,7 @@ export default function Home() {
   const [landingData, setLandingData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
+  const { isMobile } = useViewport();
 
   // Fetch landing page data from backend with timeout and retry
   // Backend returns fully formatted, ready-to-use data
@@ -189,6 +191,13 @@ export default function Home() {
     setShowLanding(true);
   };
 
+  // Product requirement: mobile skips intro entirely and goes directly to landing content.
+  useEffect(() => {
+    if (isMobile && !showLanding) {
+      setShowLanding(true);
+    }
+  }, [isMobile, showLanding]);
+
   // When landing page is visible and data is loaded, check for URL hash
   // and smooth-scroll to the target section. Retries because dynamic
   // sections (ssr:false) may not be in the DOM immediately.
@@ -234,7 +243,22 @@ export default function Home() {
   // If video is still playing, let IntroVideo handle the visual
   if (isLoading || !landingData) {
     if (!showLanding) {
-      // Intro video is still playing — show it instead of spinner
+      // Desktop keeps intro gate; mobile skips intro and uses loader directly.
+      if (isMobile) {
+        return (
+          <main
+            id="main-content"
+            className="min-h-screen bg-[#050203] flex items-center justify-center"
+            role="main"
+            aria-busy="true"
+          >
+            <div className="flex flex-col items-center gap-4" role="status" aria-live="polite">
+              <div className="w-16 h-16 border-2 border-[#B76E79]/20 border-t-[#F2C29A] rounded-full animate-spin" />
+              <p className="text-[#F2C29A]/60 text-sm uppercase tracking-[0.3em] font-light" style={{ fontFamily: 'Cinzel, serif' }}>Aarya Clothing</p>
+            </div>
+          </main>
+        );
+      }
       return (
         <main id="main-content" className="min-h-screen bg-[#050203]" role="main">
           <IntroVideo onVideoEnd={handleVideoEnd} />
@@ -270,7 +294,7 @@ export default function Home() {
   return (
     <>
       {/* Intro Video Overlay — only if landing data is loaded but video hasn't ended */}
-      {!showLanding && (
+      {!showLanding && !isMobile && (
         <IntroVideo onVideoEnd={handleVideoEnd} />
       )}
 

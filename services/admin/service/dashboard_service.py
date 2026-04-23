@@ -72,7 +72,7 @@ class AdminDashboardService:
             self.db.execute(
                 text(
                     "SELECT COUNT(*) FROM orders "
-                    "WHERE status IN ('confirmed', 'processing')"
+                    "WHERE status = 'confirmed'"
                 )
             ).scalar()
             or 0
@@ -95,7 +95,7 @@ class AdminDashboardService:
         low_stock = (
             self.db.execute(
                 text(
-                    "SELECT COUNT(*) FROM product_variants "
+                    "SELECT COUNT(*) FROM inventory "
                     "WHERE quantity > 0 AND quantity <= low_stock_threshold "
                     "AND is_active = true"
                 )
@@ -106,7 +106,7 @@ class AdminDashboardService:
         out_of_stock = (
             self.db.execute(
                 text(
-                    "SELECT COUNT(*) FROM product_variants "
+                    "SELECT COUNT(*) FROM inventory "
                     "WHERE quantity = 0 AND is_active = true"
                 )
             ).scalar()

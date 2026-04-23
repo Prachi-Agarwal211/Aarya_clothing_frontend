@@ -17,6 +17,8 @@ from typing import Optional, Dict, Any
 from datetime import datetime
 import logging
 
+from shared.time_utils import now_ist
+
 logger = logging.getLogger(__name__)
 
 
@@ -26,7 +28,7 @@ class HealthStatus(BaseModel):
     status: str = Field(default="healthy", description="Service health status")
     service: str = Field(..., description="Service name")
     version: Optional[str] = Field(default=None, description="Service version")
-    timestamp: datetime = Field(default_factory=datetime.utcnow, description="Health check timestamp")
+    timestamp: datetime = Field(default_factory=now_ist, description="Health check timestamp (IST)")
     environment: Optional[str] = Field(default=None, description="Environment (development/production)")
     dependencies: Optional[Dict[str, Any]] = Field(default=None, description="Dependency health status")
 
@@ -248,5 +250,5 @@ def simple_health_check(service_name: str) -> Dict[str, Any]:
     return {
         "status": "healthy",
         "service": service_name,
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": now_ist().isoformat(),
     }

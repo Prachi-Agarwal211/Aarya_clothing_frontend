@@ -1,7 +1,8 @@
 """Stock reservation models for commerce service."""
 import enum
-from datetime import datetime, timezone
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Enum
+
+from shared.time_utils import ist_naive
 from database.database import Base
 
 
@@ -29,5 +30,5 @@ class StockReservation(Base):
     order_id = Column(Integer, nullable=True, index=True)
     payment_ref = Column(String(255), nullable=True)
     
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
-    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=lambda: ist_naive(), index=True)
+    updated_at = Column(DateTime, default=lambda: ist_naive(), onupdate=lambda: ist_naive())

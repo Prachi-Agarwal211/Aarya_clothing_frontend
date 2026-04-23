@@ -6,7 +6,7 @@ import json
 import logging
 import asyncio
 from typing import Dict, Any, List, Callable, Optional
-from datetime import datetime, timezone
+from shared.time_utils import now_ist
 from enum import Enum
 from dataclasses import dataclass, field, asdict
 from abc import ABC, abstractmethod
@@ -77,7 +77,7 @@ class Event:
     aggregate_type: str
     data: Dict[str, Any]
     metadata: Dict[str, Any] = field(default_factory=dict)
-    timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    timestamp: str = field(default_factory=lambda: now_ist().isoformat())
     correlation_id: Optional[str] = None
     
     def to_dict(self) -> Dict[str, Any]:
@@ -285,7 +285,7 @@ class EventBus:
             message = {
                 "event": event.to_dict(),
                 "source": self.service_name,
-                "timestamp": datetime.now(timezone.utc).isoformat()
+                "timestamp": now_ist().isoformat()
             }
             self.redis.publish(channel, message)
         except Exception as e:

@@ -1,5 +1,5 @@
 """Order tracking models for commerce service."""
-from datetime import datetime, timezone
+from shared.time_utils import ist_naive
 from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Enum, Index
 from sqlalchemy.orm import relationship
 from database.database import Base
@@ -31,7 +31,7 @@ class OrderTracking(Base):
     courier_name = Column(String(100), nullable=True)  # Courier used for this status update
     
     # Timestamp
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
+    created_at = Column(DateTime, default=lambda: ist_naive(), index=True)
     
     # Relationships
     order = relationship("Order", foreign_keys=[order_id])

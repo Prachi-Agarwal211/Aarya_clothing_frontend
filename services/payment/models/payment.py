@@ -1,10 +1,8 @@
 """Payment models for payment service."""
-from datetime import datetime, timezone, timedelta
 from sqlalchemy import Column, Integer, String, DateTime, Numeric, Text, Boolean, JSON
 from database.database import Base
 
-# Indian Standard Time (IST = UTC+5:30)
-IST = timezone(timedelta(hours=5, minutes=30))
+from shared.time_utils import ist_naive
 
 
 class PaymentTransaction(Base):
@@ -43,8 +41,8 @@ class PaymentTransaction(Base):
     customer_phone = Column(String(20), nullable=True)
     
     # Timestamps
-    created_at = Column(DateTime, default=lambda: datetime.now(IST))
-    updated_at = Column(DateTime, default=lambda: datetime.now(IST), onupdate=lambda: datetime.now(IST))
+    created_at = Column(DateTime, default=lambda: ist_naive())
+    updated_at = Column(DateTime, default=lambda: ist_naive(), onupdate=lambda: ist_naive())
     completed_at = Column(DateTime, nullable=True)
     
     # Refund details
@@ -63,8 +61,8 @@ class PaymentMethod(Base):
     display_name = Column(String(100), nullable=False)
     is_active = Column(Boolean, default=True)
     config = Column(JSON, nullable=True)  # Store method-specific config
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=lambda: ist_naive())
+    updated_at = Column(DateTime, default=lambda: ist_naive(), onupdate=lambda: ist_naive())
 
 
 class WebhookEvent(Base):
@@ -78,5 +76,5 @@ class WebhookEvent(Base):
     payload = Column(JSON, nullable=False)
     processed = Column(Boolean, default=False)
     processing_error = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=lambda: ist_naive())
     processed_at = Column(DateTime, nullable=True)

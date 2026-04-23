@@ -7,29 +7,10 @@ import { useViewport } from '@/lib/hooks/useViewport';
 import logger from '@/lib/logger';
 
 // ── Network quality helpers ──────────────────────────────────────────────────
-function getNetworkQuality() {
-  if (typeof navigator === 'undefined') return 'unknown';
-  const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
-  if (!conn) return 'unknown';
-  if (conn.saveData) return 'save-data';
-  const et = conn.effectiveType;
-  if (et === '2g' || et === 'slow-2g') return 'slow';
-  if (et === '3g') return 'medium';
-  return 'fast';
-}
-function shouldSkipForNetwork() {
-  const q = getNetworkQuality();
-  return q === 'save-data' || q === 'slow';
-}
-
-// ── localStorage with 24h TTL ────────────────────────────────────────────────
-function hasSeenIntroRecently() {
+// ── localStorage helpers ──────────────────────────────────────────────────────
+function hasSeenIntro() {
   try {
-    const ts = localStorage.getItem('introVideoLastSeen');
-    if (!ts) return false;
-    const parsed = parseInt(ts, 10);
-    if (isNaN(parsed)) return false;
-    return Date.now() - parsed < 24 * 60 * 60 * 1000;
+    return localStorage.getItem('introVideoSeen') === 'true';
   } catch (e) {
     logger.warn('Failed to check intro video status:', e);
     return false;
@@ -37,10 +18,8 @@ function hasSeenIntroRecently() {
 }
 function markIntroSeen() {
   try {
-    const now = Date.now().toString();
-    localStorage.setItem('introVideoLastSeen', now);
-    sessionStorage.setItem('hasSeenIntroVideo', 'true');
-    logger.log('Intro video marked as seen:', new Date(parseInt(now, 10)).toISOString());
+    localStorage.setItem('introVideoSeen', 'true');
+    logger.log('Intro video marked as seen');
   } catch (e) {
     logger.warn('Failed to mark intro as seen:', e);
   }
@@ -55,11 +34,11 @@ function markIntroSeen() {
 export default function IntroVideo({ onVideoEnd }) {
   const videoRef = useRef(null);
   const containerRef = useRef(null);
-  const retryCountRef = useRef(0);
   const [isVideoEnded, setIsVideoEnded] = useState(false);
   const [isFadingOut, setIsFadingOut] = useState(false);
   const [videoError, setVideoError] = useState(false);
   const [hasStartedPlayback, setHasStartedPlayback] = useState(false);
+  const [playbackFailed, setPlaybackFailed] = useState(false);
 
   const { isMobile } = useViewport();
   const introVideo = useIntroVideo();
@@ -82,27 +61,20 @@ export default function IntroVideo({ onVideoEnd }) {
     });
   }
 
-  const prefersReducedMotion =
-    typeof window !== 'undefined' &&
-    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
   useEffect(() => {
-    const seenRecently = hasSeenIntroRecently();
-    const seenInSession = !!sessionStorage.getItem('hasSeenIntroVideo');
+    const seenBefore = hasSeenIntro();
     const skip =
-      seenRecently ||
-      seenInSession ||
+      // Product requirement: mobile should not show intro video.
+      isMobile ||
+      seenBefore ||
       introVideo.enabled === false ||
-      shouldSkipForNetwork() ||
-      prefersReducedMotion;
+      !videoUrl;
 
     logger.log('IntroVideo skip check:', {
       isMobile,
-      seenRecently,
-      seenInSession,
+      seenBefore,
       enabled: introVideo.enabled,
-      slowNetwork: shouldSkipForNetwork(),
-      reducedMotion: prefersReducedMotion,
+      hasVideoUrl: Boolean(videoUrl),
       willSkip: skip,
     });
 
@@ -111,15 +83,7 @@ export default function IntroVideo({ onVideoEnd }) {
       setIsVideoEnded(true);
       onVideoEnd?.();
     }
-  }, [onVideoEnd, introVideo.enabled, isMobile]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (isVideoEnded || !videoUrl) return;
-    const video = videoRef.current;
-    if (video) {
-      video.load();
-    }
-  }, [isVideoEnded, videoUrl]);
+  }, [onVideoEnd, introVideo.enabled, isMobile, videoUrl]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleVideoEnd = useCallback(() => {
     setIsFadingOut(true);
@@ -155,18 +119,6 @@ export default function IntroVideo({ onVideoEnd }) {
       duration: video?.duration,
     });
 
-    // Auto-retry for network errors
-    if (errorCode === 2 && retryCountRef.current < 2) {
-      retryCountRef.current += 1;
-      logger.warn(`Retrying video load (attempt ${retryCountRef.current}/2)`);
-      setTimeout(() => {
-        if (videoRef.current) {
-          videoRef.current.load();
-        }
-      }, 1500);
-      return;
-    }
-
     if (errorCode === 1) {
       logger.warn('Video was aborted (user likely navigated away)');
       return;
@@ -179,6 +131,27 @@ export default function IntroVideo({ onVideoEnd }) {
       setTimeout(handleVideoEnd, 800);
     }
   }, [handleVideoEnd]);
+
+  const handlePlayWithAudio = useCallback(async () => {
+    const video = videoRef.current;
+    if (!video) return;
+    try {
+      video.muted = false;
+      await video.play();
+      setHasStartedPlayback(true);
+      setPlaybackFailed(false);
+    } catch (error) {
+      logger.error('Play with audio failed, falling back to muted playback', error);
+      try {
+        video.muted = true;
+        await video.play();
+        setHasStartedPlayback(true);
+      } catch (fallbackError) {
+        logger.error('Muted fallback playback failed', fallbackError);
+        setPlaybackFailed(true);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     if (isVideoEnded) return;
@@ -207,13 +180,11 @@ export default function IntroVideo({ onVideoEnd }) {
             key={videoUrl}
             playsInline
             preload="auto"
-            autoPlay
             muted
             onEnded={handleVideoEnd}
             onError={handleVideoError}
             onPlaying={() => {
               logger.log('Intro video playing');
-              setHasStartedPlayback(true);
             }}
             className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${hasStartedPlayback ? 'opacity-100' : 'opacity-100'}`}
             src={videoUrl}
@@ -250,29 +221,25 @@ export default function IntroVideo({ onVideoEnd }) {
         </button>
       </div>
 
-      {/* Unmute button — appears after video starts playing (centered) */}
-      {hasStartedPlayback && (
+      {/* Play overlay: user explicitly starts intro with audio */}
+      {!hasStartedPlayback && !videoError && (
         <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-4 pointer-events-none px-6">
           <button
             type="button"
-            onClick={() => {
-              const video = videoRef.current;
-              if (video) {
-                video.muted = false;
-                setHasStartedPlayback(false);
-              }
-            }}
+            onClick={handlePlayWithAudio}
             className="pointer-events-auto flex h-20 w-20 sm:h-24 sm:w-24 items-center justify-center rounded-full border border-white/25 bg-black/45 text-white shadow-2xl backdrop-blur-md transition-transform hover:scale-105 active:scale-95"
-            aria-label="Unmute video"
+            aria-label="Play intro video with audio"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 sm:h-12 sm:w-12" fill="currentColor" viewBox="0 0 24 24" aria-hidden>
-              <path d="M16 7h-2v10h2z"/>
-              <path d="M8 7h-2v10h2z"/>
+              <path d="M8 5v14l11-7z" />
             </svg>
           </button>
-          <p className="pointer-events-none text-center text-sm text-[#EAE0D5]/70">
-            Tap to unmute
-          </p>
+          <p className="pointer-events-none text-center text-sm text-[#EAE0D5]/70">Play intro with audio</p>
+          {playbackFailed && (
+            <p className="pointer-events-none text-center text-xs text-red-300/90">
+              Playback failed. Please tap again or use Skip intro.
+            </p>
+          )}
         </div>
       )}
     </div>

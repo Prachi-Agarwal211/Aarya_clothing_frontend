@@ -1,6 +1,8 @@
 """Payment service for handling payment transactions."""
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from typing import Optional, Dict, Any, List
+
+from shared.time_utils import ist_naive
 from decimal import Decimal
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
@@ -92,7 +94,7 @@ class PaymentService:
         """
         try:
             # Generate unique transaction ID
-            transaction_id = f"txn_{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex[:8]}"
+            transaction_id = f"txn_{ist_naive().strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex[:8]}"
             
             # Create transaction record
             transaction = PaymentTransaction(
@@ -229,7 +231,7 @@ class PaymentService:
             transaction.razorpay_signature = razorpay_signature
             transaction.status = "completed" if payment_details.get("status") == "captured" else "failed"
             transaction.gateway_response = payment_details
-            transaction.completed_at = datetime.now(timezone.utc)
+            transaction.completed_at = ist_naive()
             
             self.db.commit()
             
@@ -377,7 +379,7 @@ class PaymentService:
             transaction.refund_status = refund_details["status"]
             transaction.refund_reason = request.reason
             transaction.status = "refunded"
-            transaction.updated_at = datetime.now(timezone.utc)
+            transaction.updated_at = ist_naive()
             
             self.db.commit()
             
@@ -569,7 +571,7 @@ class PaymentService:
 
             # Mark webhook as processed
             webhook_event.processed = True
-            webhook_event.processed_at = datetime.now(timezone.utc)
+            webhook_event.processed_at = ist_naive()
             self.db.commit()
 
             # AUDIT: Log webhook processed
@@ -691,7 +693,7 @@ class PaymentService:
                 if status in ["captured", "authorized", "completed"] and transaction.status != "completed":
                     transaction.status = "completed"
                     if not transaction.completed_at:
-                        transaction.completed_at = datetime.now(timezone.utc)
+                        transaction.completed_at = ist_naive()
                 elif status in ["failed", "rejected"] and transaction.status != "failed":
                     transaction.status = "failed"
                 
@@ -821,7 +823,7 @@ class PaymentService:
                                 razorpay_payment_id=payment_id,
                                 razorpay_order_id=razorpay_order_id,
                                 status="completed",
-                                completed_at=datetime.now(timezone.utc),
+                                completed_at=ist_naive(),
                                 gateway_response=event_info,
                             )
                             self.db.add(transaction)
@@ -933,10 +935,10 @@ class PaymentService:
                 transaction.gateway_response = event_info
                 if transaction.status == "pending":
                     transaction.status = "completed"
-                    transaction.completed_at = datetime.now(timezone.utc)
+                    transaction.completed_at = ist_naive()
                 elif transaction.status != "completed":
                     transaction.status = "completed"
-                    transaction.completed_at = datetime.now(timezone.utc)
+                    transaction.completed_at = ist_naive()
                 self.db.commit()
                 
                 # Ensure order is linked
@@ -1012,7 +1014,7 @@ class PaymentService:
                     transaction.gateway_response = event_info
                     if transaction.status != "completed":
                         transaction.status = "completed"
-                        transaction.completed_at = datetime.now(timezone.utc)
+                        transaction.completed_at = ist_naive()
                     self.db.commit()
                     
                     # Check if order exists and create if not
@@ -1264,7 +1266,7 @@ class PaymentService:
             
             # Mark webhook as processed
             webhook_event.processed = True
-            webhook_event.processed_at = datetime.now(timezone.utc)
+            webhook_event.processed_at = ist_naive()
             self.db.commit()
             
             return True
@@ -1289,7 +1291,7 @@ class PaymentService:
             
             if transaction and transaction.status == "pending":
                 transaction.status = "completed"
-                transaction.completed_at = datetime.now(timezone.utc)
+                transaction.completed_at = ist_naive()
                 transaction.gateway_response = webhook_data
                 self.db.commit()
                 logger.info(f"✓ Cashfree payment captured: order={order_id}")

@@ -130,12 +130,12 @@ class R2StorageService:
 
         # Upload to R2
         try:
+            settings = BaseSettings()
             self.client.put_object(
                 Bucket=settings.R2_BUCKET_NAME,
                 Key=key,
                 Body=content,
-                ContentType=file.content_type,
-                ACL='public-read'
+                ContentType=file.content_type
             )
 
             public_url = self._public_url(key)

@@ -3,7 +3,6 @@ from typing import List, Optional, Dict
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 from decimal import Decimal
-from datetime import datetime, timezone
 import json
 import logging
 import os
@@ -12,6 +11,7 @@ import uuid
 
 from core.redis_client import redis_client
 from core.config import get_settings
+from shared.time_utils import to_ist
 
 logger = logging.getLogger(__name__)
 from models.product import Product
@@ -139,7 +139,6 @@ class CartService:
         Uses database query instead of Redis SCAN for better performance.
         StockReservation table is indexed on user_id and status.
         """
-        from datetime import datetime, timezone
         from models.stock_reservation import StockReservation, ReservationStatus
         
         try:
@@ -154,12 +153,7 @@ class CartService:
             ).order_by(StockReservation.expires_at.asc()).first()
 
             if earliest_res and earliest_res.expires_at:
-                # Ensure UTC timezone is explicitly included in ISO format
-                expires_at = earliest_res.expires_at
-                if expires_at.tzinfo is None:
-                    expires_at = expires_at.replace(tzinfo=timezone.utc)
-                # Return ISO format with explicit UTC timezone (e.g., "2026-03-21T16:00:00+00:00")
-                return expires_at.isoformat()
+                return to_ist(earliest_res.expires_at).isoformat()
 
             return None
         except Exception:

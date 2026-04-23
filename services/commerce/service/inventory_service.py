@@ -10,7 +10,9 @@ from models.product import Product
 from models.stock_reservation import StockReservation, ReservationStatus
 from schemas.inventory import InventoryCreate, InventoryUpdate, LowStockItem
 import uuid
-from datetime import datetime, timezone, timedelta
+from datetime import timedelta
+
+from shared.time_utils import ist_naive
 
 
 class InventoryService:
@@ -145,7 +147,7 @@ class InventoryService:
                     sku=sku,
                     quantity=quantity,
                     status=ReservationStatus.PENDING,
-                    expires_at=datetime.now(timezone.utc) + timedelta(minutes=expires_minutes)
+                    expires_at=ist_naive() + timedelta(minutes=expires_minutes)
                 )
                 self.db.add(reservation)
         except Exception:

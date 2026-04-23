@@ -9,8 +9,9 @@ This is the SAFETY NET for when webhooks fail AND the frontend checkout fails.
 import os
 import logging
 import httpx
-from datetime import datetime, timezone
 from decimal import Decimal
+
+from shared.time_utils import ist_naive
 
 logger = logging.getLogger(__name__)
 
@@ -46,13 +47,13 @@ def run_payment_recovery():
         orphaned = db.query(PaymentTransaction).filter(
             PaymentTransaction.status == "completed",
             PaymentTransaction.order_id.is_(None),
-            PaymentTransaction.created_at > datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
-            # Last 7 days
+            PaymentTransaction.created_at > ist_naive().replace(hour=0, minute=0, second=0, microsecond=0)
+            # Last 7 days (legacy ORM filter — superseded by raw SQL below)
         ).filter(
-            PaymentTransaction.created_at > datetime.now(timezone.utc).replace(
-                day=datetime.now(timezone.utc).day - 7,
+            PaymentTransaction.created_at > ist_naive().replace(
+                day=ist_naive().day - 7,
                 hour=0, minute=0, second=0, microsecond=0
-            ) if datetime.now(timezone.utc).day > 7 else True
+            ) if ist_naive().day > 7 else True
         ).all()
 
         # Simpler query: all completed without order_id from last 7 days

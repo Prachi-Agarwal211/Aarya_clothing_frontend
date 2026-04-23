@@ -1,6 +1,7 @@
 """Return request models for commerce service."""
-from datetime import datetime, timezone
 from sqlalchemy import Column, Integer, String, Text, Numeric, DateTime, ForeignKey, Enum, Boolean
+
+from shared.time_utils import ist_naive
 from sqlalchemy.orm import relationship
 import enum
 from database.database import Base
@@ -64,11 +65,11 @@ class ReturnRequest(Base):
     is_item_received = Column(Boolean, default=False)
     
     # Timestamps
-    requested_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
+    requested_at = Column(DateTime, default=lambda: ist_naive(), index=True)
     approved_at = Column(DateTime, nullable=True)
     received_at = Column(DateTime, nullable=True)
     refunded_at = Column(DateTime, nullable=True)
-    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: ist_naive(), onupdate=lambda: ist_naive())
     
     # Relationships
     order = relationship("Order", foreign_keys=[order_id])

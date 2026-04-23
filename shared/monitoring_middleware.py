@@ -6,7 +6,7 @@ import time
 import logging
 import asyncio
 from typing import Callable, Optional
-from datetime import datetime, timezone
+from shared.time_utils import now_ist
 from functools import wraps
 
 from fastapi import Request, Response
@@ -420,7 +420,7 @@ class HealthChecker:
         """Run all health checks."""
         results = {
             "service": self.service_name,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": now_ist().isoformat(),
             "status": "healthy",
             "checks": {}
         }

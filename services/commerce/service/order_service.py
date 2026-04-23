@@ -5,8 +5,11 @@ from sqlalchemy import desc, text
 from sqlalchemy.exc import IntegrityError, OperationalError
 from fastapi import HTTPException, status
 from decimal import Decimal
-from datetime import datetime, timezone
+from datetime import datetime
+from time import monotonic
 import logging
+
+from shared.time_utils import ist_naive, now_ist
 
 from models.order import Order, OrderItem, OrderStatus
 from models.product import Product
@@ -237,7 +240,7 @@ class OrderService:
                     import httpx as _httpx
                     import os as _os
                     payment_service_url = _os.getenv("PAYMENT_SERVICE_URL", "http://payment:5003")
-                    verify_start = datetime.now(timezone.utc)
+                    verify_start = monotonic()
 
                     resp = _httpx.post(
                         f"{payment_service_url}/api/v1/payments/razorpay/verify-signature",
@@ -249,7 +252,7 @@ class OrderService:
                         timeout=30.0,  # Increased from 10.0 to 30.0 for reliability
                     )
 
-                    verify_duration = (datetime.now(timezone.utc) - verify_start).total_seconds()
+                    verify_duration = monotonic() - verify_start
                     logger.info(
                         f"PAYMENT_VERIFY_RESPONSE: user={user_id} status={resp.status_code} "
                         f"duration={verify_duration}s response={resp.text[:200]}"
@@ -682,7 +685,7 @@ class OrderService:
                 order_notes = f"{order_notes} [ADDRESS MISSING — RECOVERY]".strip()
 
         # Generate invoice number — no setval/commit, just nextval like normal path
-        year = datetime.now().year
+        year = now_ist().year
         seq_val = self.db.execute(_text("SELECT nextval('invoice_number_seq')")).scalar()
         invoice_number = f"INV-{year}-{seq_val:06d}"
 
@@ -841,7 +844,7 @@ class OrderService:
         order.status = new_status
         
         # Setup timestamps
-        now = datetime.now(timezone.utc)
+        now = ist_naive()
         
         # Determine tracking specific fields
         location = None
@@ -940,7 +943,7 @@ class OrderService:
         self.db.commit()
         
         # Determine tracking specific fields for bulk
-        now = datetime.now(timezone.utc)
+        now = ist_naive()
         location = None
         notes = "Status updated via bulk action"
         if new_status == OrderStatus.SHIPPED:
@@ -1022,7 +1025,7 @@ class OrderService:
         
         # Update order status
         order.status = OrderStatus.CANCELLED
-        order.cancelled_at = datetime.now(timezone.utc)
+        order.cancelled_at = ist_naive()
         order.cancellation_reason = reason or "Cancelled by user"
         
         self.db.commit()

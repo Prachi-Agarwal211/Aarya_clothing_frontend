@@ -16,8 +16,9 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from datetime import datetime, timezone
 from typing import Optional
+
+from shared.time_utils import now_ist
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel
@@ -259,7 +260,7 @@ async def cart_stock_stream(
 
                     event_data = {
                         "type": "stock_update",
-                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                        "timestamp": now_ist().isoformat(),
                         "items": stock_updates,
                     }
                     yield f"data: {json.dumps(event_data)}\n\n"

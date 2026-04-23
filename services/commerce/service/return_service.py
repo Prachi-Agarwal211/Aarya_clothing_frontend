@@ -4,8 +4,9 @@ import json
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
 from fastapi import HTTPException, status
-from datetime import datetime, timezone
 from decimal import Decimal
+
+from shared.time_utils import ist_naive
 
 from models.return_request import ReturnRequest, ReturnStatus, ReturnReason, ReturnType
 from models.order import Order, OrderStatus
@@ -138,7 +139,7 @@ class ReturnService:
         
         return_request.status = ReturnStatus.APPROVED
         return_request.approved_by = approved_by
-        return_request.approved_at = datetime.now(timezone.utc)
+        return_request.approved_at = ist_naive()
         
         if refund_amount is not None:
             return_request.refund_amount = refund_amount
@@ -200,7 +201,7 @@ class ReturnService:
         
         return_request.status = ReturnStatus.RECEIVED
         return_request.is_item_received = True
-        return_request.received_at = datetime.now(timezone.utc)
+        return_request.received_at = ist_naive()
         
         if tracking_number:
             return_request.return_tracking_number = tracking_number
@@ -232,7 +233,7 @@ class ReturnService:
         
         return_request.status = ReturnStatus.REFUNDED
         return_request.refund_transaction_id = refund_transaction_id
-        return_request.refunded_at = datetime.now(timezone.utc)
+        return_request.refunded_at = ist_naive()
         
         # Update order status
         order = self.db.query(Order).filter(Order.id == return_request.order_id).first()

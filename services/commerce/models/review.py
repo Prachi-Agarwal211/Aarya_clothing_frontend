@@ -1,5 +1,5 @@
 """Review models for commerce service."""
-from datetime import datetime, timezone
+from shared.time_utils import ist_naive
 from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, ForeignKey, Index, ARRAY
 from sqlalchemy.orm import relationship
 from database.database import Base
@@ -30,8 +30,8 @@ class Review(Base):
     helpful_count = Column(Integer, default=0)
 
     # Timestamps
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
-    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=lambda: ist_naive(), index=True)
+    updated_at = Column(DateTime, default=lambda: ist_naive(), onupdate=lambda: ist_naive())
 
     # Relationships
     product = relationship("Product", foreign_keys=[product_id])

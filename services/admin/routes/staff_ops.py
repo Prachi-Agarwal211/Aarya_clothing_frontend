@@ -168,7 +168,7 @@ async def staff_dashboard(
         db.execute(
             text(
                 "SELECT COUNT(*) FROM orders "
-                "WHERE status IN ('pending','confirmed','processing')"
+                "WHERE status = 'confirmed'"
             )
         ).scalar()
         or 0
@@ -183,7 +183,7 @@ async def staff_dashboard(
     low_stock = (
         db.execute(
             text(
-                "SELECT COUNT(*) FROM product_variants "
+                "SELECT COUNT(*) FROM inventory "
                 "WHERE is_active = TRUE AND quantity > 0 AND quantity <= low_stock_threshold"
             )
         ).scalar()
@@ -192,7 +192,7 @@ async def staff_dashboard(
     out_of_stock = (
         db.execute(
             text(
-                "SELECT COUNT(*) FROM product_variants "
+                "SELECT COUNT(*) FROM inventory "
                 "WHERE is_active = TRUE AND quantity = 0"
             )
         ).scalar()
@@ -220,7 +220,7 @@ async def staff_orders_pending(
         db.execute(
             text(
                 "SELECT COUNT(*) FROM orders "
-                "WHERE status IN ('pending','confirmed','processing')"
+                "WHERE status = 'confirmed'"
             )
         ).scalar()
         or 0
@@ -230,7 +230,7 @@ async def staff_orders_pending(
             "SELECT o.id, o.invoice_number, o.status, o.total_amount, o.created_at, "
             "       COALESCE(u.full_name, u.email) AS customer "
             "FROM orders o LEFT JOIN users u ON u.id = o.user_id "
-            "WHERE o.status IN ('pending','confirmed','processing') "
+            "WHERE o.status = 'confirmed' "
             "ORDER BY o.created_at ASC LIMIT :lim OFFSET :off"
         ),
         {"lim": page_size, "off": offset},
@@ -250,15 +250,15 @@ async def staff_mark_processed(
     db: Session = Depends(get_db),
     user: dict = Depends(require_staff),
 ):
-    """Move an order into the ``processing`` state."""
+    """Mark a confirmed order as shipped by staff processing."""
     res = db.execute(
         text(
-            "UPDATE orders SET status = 'processing', updated_at = :now "
-            "WHERE id = :id"
+            "UPDATE orders SET status = 'shipped', updated_at = :now "
+            "WHERE id = :id AND status = 'confirmed'"
         ),
         {"id": order_id, "now": now_ist().replace(tzinfo=None)},
     )
     if res.rowcount == 0:
         raise HTTPException(status_code=404, detail="Order not found")
     db.commit()
-    return {"id": order_id, "status": "processing"}
+    return {"id": order_id, "status": "shipped"}

@@ -1,6 +1,7 @@
 """Audit log models for commerce service."""
-from datetime import datetime, timezone
 from sqlalchemy import Column, Integer, String, Text, JSON, DateTime
+
+from shared.time_utils import ist_naive
 from database.database import Base
 
 
@@ -25,4 +26,4 @@ class AuditLog(Base):
     user_agent = Column(String(255), nullable=True)
     
     # Timestamp
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
+    created_at = Column(DateTime, default=lambda: ist_naive(), index=True)

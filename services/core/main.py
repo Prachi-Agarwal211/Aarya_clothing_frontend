@@ -485,7 +485,7 @@ async def verify_otp_registration(
 ):
     """
     Verify OTP for registration and auto-login user.
-    Supports both EMAIL and SMS OTP verification.
+    Supports EMAIL, SMS, and WhatsApp OTP verification.
     OTP and identifiers must be sent in the JSON body (not query params).
     """
     import logging
@@ -494,8 +494,8 @@ async def verify_otp_registration(
     email = body.email
     phone = body.phone
 
-    # SMS + email only (e.g. login recovery): resolve profile phone for OTP key matching
-    if body.otp_type == OTPType.SMS and email and not phone:
+    # SMS/WhatsApp + email fallback (e.g. login recovery): resolve profile phone for OTP key matching
+    if body.otp_type in (OTPType.SMS, OTPType.WHATSAPP) and email and not phone:
         u_lookup = (
             db.query(User)
             .options(joinedload(User.profile))
@@ -516,7 +516,7 @@ async def verify_otp_registration(
     otp_service = OTPService(db)
     otp_request = OTPVerifyRequest(
         email=body.email if body.otp_type == OTPType.EMAIL else None,
-        phone=phone if body.otp_type == OTPType.SMS else None,
+        phone=phone if body.otp_type in (OTPType.SMS, OTPType.WHATSAPP) else None,
         otp_code=body.otp_code,
         otp_type=body.otp_type,
         purpose="registration"
@@ -611,7 +611,7 @@ async def send_verification_otp(
 ):
     """
     Send or resend OTP for registration verification.
-    Supports both EMAIL and SMS OTP.
+    Supports EMAIL, SMS, and WhatsApp OTP.
     Request JSON body (email/phone + otp_type); purpose is always registration.
     For SMS, you may pass email instead of phone — server resolves phone from the user profile
     (used when the user returns from login redirect and only has email in the form).
@@ -620,7 +620,7 @@ async def send_verification_otp(
 
     otp_request_in = body
     if (
-        body.otp_type == OTPType.SMS
+        body.otp_type in (OTPType.SMS, OTPType.WHATSAPP)
         and getattr(body, "email", None)
         and not getattr(body, "phone", None)
     ):
@@ -633,11 +633,11 @@ async def send_verification_otp(
         if not user or not user.profile or not user.profile.phone:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Cannot send SMS code: account or phone number not found.",
+                detail="Cannot send phone-based OTP: account or phone number not found.",
             )
         otp_request_in = OTPSendRequest(
             phone=user.profile.phone,
-            otp_type=OTPType.SMS,
+            otp_type=body.otp_type,
             purpose="registration",
         )
 
@@ -1160,9 +1160,9 @@ async def verify_reset_otp(
     # Create OTP verify request
     otp_request = OTPVerifyRequest(
         email=request_data.identifier if request_data.otp_type == "EMAIL" else None,
-        phone=request_data.identifier if request_data.otp_type == "SMS" else None,
+        phone=request_data.identifier if request_data.otp_type in ("SMS", "WHATSAPP") else None,
         otp_code=request_data.otp_code,
-        otp_type=OTPType.EMAIL if request_data.otp_type == "EMAIL" else OTPType.SMS,
+        otp_type=OTPType.EMAIL if request_data.otp_type == "EMAIL" else (OTPType.WHATSAPP if request_data.otp_type == "WHATSAPP" else OTPType.SMS),
         purpose="password_reset"
     )
 

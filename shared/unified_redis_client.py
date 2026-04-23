@@ -563,6 +563,45 @@ class UnifiedRedisClient:
         except Exception as e:
             logger.error(f"OTP atomic read-delete failed: {e}")
             return None
+
+    def consume_otp_if_matches(self, key: str, otp_code: str) -> Optional[bool]:
+        """
+        Atomically verify OTP and delete only when it matches.
+
+        Returns:
+            True when OTP exists and matches (and is consumed),
+            False when OTP exists but does not match,
+            None when OTP does not exist/expired.
+        """
+        try:
+            otp_key = f"otp:{key}"
+            attempts_key = f"otp_attempts:{key}"
+            # Lua script:
+            #  1) Read OTP
+            #  2) Return 0 if missing
+            #  3) If matches, delete OTP + attempts and return 1
+            #  4) If mismatch, keep OTP and return -1
+            script = """
+            local otp = redis.call('GET', KEYS[1])
+            if not otp then
+                return 0
+            end
+            if otp == ARGV[1] then
+                redis.call('DEL', KEYS[1])
+                redis.call('DEL', KEYS[2])
+                return 1
+            end
+            return -1
+            """
+            result = self.client.eval(script, 2, otp_key, attempts_key, otp_code)
+            if result == 1:
+                return True
+            if result == -1:
+                return False
+            return None
+        except Exception as e:
+            logger.error(f"OTP compare-and-consume failed: {e}")
+            return None
     
     def increment_otp_attempts(self, key: str, max_attempts: int = 5) -> Dict[str, Any]:
         """

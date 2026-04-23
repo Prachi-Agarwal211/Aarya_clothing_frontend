@@ -23,17 +23,32 @@ class OTPService:
     def _generate_otp(self) -> str:
         """Generate a cryptographically secure random OTP code."""
         return ''.join([str(secrets.randbelow(10)) for _ in range(settings.OTP_CODE_LENGTH)])
+
+    def _normalize_email(self, email: Optional[str]) -> Optional[str]:
+        """Normalize email for consistent OTP keying."""
+        if not email:
+            return None
+        return email.strip().lower()
+
+    def _normalize_phone(self, phone: Optional[str]) -> Optional[str]:
+        """Normalize phone for consistent OTP keying."""
+        if not phone:
+            return None
+        phone_str = str(phone).strip()
+        return ''.join(ch for ch in phone_str if ch.isdigit()) or None
     
     def _get_otp_key(self, otp_type: str, email: str = None, phone: str = None) -> str:
         """Generate a unique key for OTP storage."""
-        identifier = email or phone
-        return f"{otp_type}:{identifier}"
+        otp_type_value = getattr(otp_type, "value", str(otp_type)).upper()
+        identifier = self._normalize_email(email) or self._normalize_phone(phone)
+        return f"{otp_type_value}:{identifier}"
     
     def send_otp(self, request) -> dict:
         """Send OTP via email or SMS."""
-        email = request.email
-        phone = request.phone
+        email = self._normalize_email(request.email)
+        phone = self._normalize_phone(request.phone)
         otp_type = request.otp_type
+        otp_type_value = getattr(otp_type, "value", str(otp_type))
         purpose = request.purpose
         
         if not email and not phone:
@@ -94,7 +109,7 @@ class OTPService:
                 logger.error(f"[OTP Service] Failed to send email OTP to {email}: {str(e)}")
                 redis_client.delete_otp(otp_key)
                 raise ValueError(f"Failed to send OTP via email: {str(e)}")
-        elif phone and (otp_type == "SMS" or otp_type == "WHATSAPP"):
+        elif phone and otp_type_value in ("SMS", "WHATSAPP"):
             # Try WhatsApp First (if enabled)
             from service.whatsapp_service import whatsapp_service
             if whatsapp_service and whatsapp_service.ready:
@@ -109,9 +124,23 @@ class OTPService:
                             "phone": phone,
                             "otp_type": "WHATSAPP"
                         }
+                    wa_error = (
+                        res.get("error")
+                        or (res.get("meta_error") or {}).get("message")
+                        or "unknown_error"
+                    )
+                    logger.error(f"[OTP Service] WhatsApp OTP failed: {wa_error}")
+                    # For explicit WhatsApp OTP requests, do not silently mask provider
+                    # errors behind SMS fallback.
+                    if otp_type_value == "WHATSAPP":
+                        redis_client.delete_otp(otp_key)
+                        raise ValueError(f"Failed to send WhatsApp OTP: {wa_error}")
                 except Exception as e:
                     logger.error(f"[OTP Service] WhatsApp OTP failed: {e}")
-                    # Fall through to SMS if WhatsApp fails
+                    if otp_type_value == "WHATSAPP":
+                        redis_client.delete_otp(otp_key)
+                        raise ValueError(f"Failed to send WhatsApp OTP: {str(e)}")
+                    # For SMS OTP requests only, fall through to SMS if WhatsApp fails.
 
             # Fallback to SMS
             if not getattr(settings, 'sms_enabled', False):
@@ -166,8 +195,8 @@ class OTPService:
         Fix RACE: Uses atomic read-and-delete via Lua script to prevent double-use.
         Returns specific error code for expired OTP so frontend can show appropriate message.
         """
-        email = request.email
-        phone = request.phone
+        email = self._normalize_email(request.email)
+        phone = self._normalize_phone(request.phone)
         otp_code = request.otp_code
         otp_type = request.otp_type
         purpose = request.purpose
@@ -186,6 +215,8 @@ class OTPService:
             attempts = int(attempts_result)
 
         if attempts > settings.OTP_MAX_ATTEMPTS:
+            # Lockout reached: force resend by clearing current OTP.
+            redis_client.delete_otp(otp_key)
             return {
                 "success": False,
                 "message": "Too many attempts. Please request a new OTP.",
@@ -193,11 +224,9 @@ class OTPService:
                 "error_code": "LOCKED"
             }
 
-        # ATOMIC read-and-delete via Lua script — prevents double-use race condition
-        stored_otp = redis_client.get_and_delete_otp(otp_key)
-
-        # Server-side expiry validation
-        if not stored_otp:
+        # Atomically compare and consume only on success.
+        compare_result = redis_client.consume_otp_if_matches(otp_key, otp_code)
+        if compare_result is None:
             return {
                 "success": False,
                 "message": "OTP has expired or not found",
@@ -205,8 +234,7 @@ class OTPService:
                 "error_code": "EXPIRED"
             }
 
-        # Verify OTP
-        if stored_otp == otp_code:
+        if compare_result is True:
             return {
                 "success": True,
                 "message": "OTP verified successfully",

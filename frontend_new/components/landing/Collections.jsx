@@ -205,9 +205,14 @@ const CollectionCard = ({ category, size = 'medium', index }) => {
     return url.startsWith('/') ? url : `/${url}`;
   };
 
+  const collectionHref =
+    (category.slug && `/collections/${category.slug}`) ||
+    category.link ||
+    (category.id != null ? `/products?collection_id=${category.id}` : '/collections');
+
   return (
     <Link
-      href={category.link || `/products?collection_id=${category.id}`}
+      href={collectionHref}
       className="
         group relative block w-full overflow-hidden rounded-2xl
         transition-all duration-500

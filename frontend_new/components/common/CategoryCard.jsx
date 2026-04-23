@@ -21,7 +21,10 @@ const CollectionCard = ({ collection, category, className }) => {
   const data = collection || category || {};
   const name = data.name;
   const image = data.image_url || data.image || '';
-  const link = data.link || (data.id ? `/products?collection_id=${data.id}` : `#`);
+  const link =
+    (data.slug && `/collections/${data.slug}`) ||
+    data.link ||
+    (data.id != null ? `/products?collection_id=${data.id}` : '#');
   const count = data.product_count ?? data.count;
 
   return (

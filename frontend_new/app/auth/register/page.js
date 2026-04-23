@@ -13,7 +13,7 @@ import { useLogo, useSiteConfig } from '../../../lib/siteConfigContext';
 import logger from '../../../lib/logger';
 import { validatePhone, validatePassword, formatTime, getErrorMessage } from '../../../lib/authHelpers';
 
-const OTP_EXPIRY_SECONDS = 120;
+const OTP_EXPIRY_SECONDS = 600;
 const RESEND_COOLDOWN_SECONDS = 30;
 
 function RegisterPageContent() {
@@ -65,7 +65,7 @@ function RegisterPageContent() {
     }
     
     recoveryVerifySentRef.current = true;
-    const decodedEmail = decodeURIComponent(emailParam);
+    const decodedEmail = decodeURIComponent(emailParam).trim();
     setEmail(decodedEmail);
     
     // Map methodParam to verificationMethod, supporting all OTP types
@@ -245,10 +245,10 @@ function RegisterPageContent() {
       const response = await authApi.verifyOtpRegistration({
         otp_code: otpValue,
         ...(verificationMethod === 'otp_email'
-          ? { email }
+          ? { email: email.trim() }
           : phone?.trim()
             ? { phone: phone.trim() }
-            : { email }),
+            : { email: email.trim() }),
         otp_type: otpType,
       });
 
@@ -289,7 +289,7 @@ function RegisterPageContent() {
       }
 
       await authApi.resendVerificationOtp({
-        ...(verificationMethod === 'otp_email' ? { email } : { phone }),
+        ...(verificationMethod === 'otp_email' ? { email: email.trim() } : { phone: phone.trim() }),
         otp_type: otpType,
       });
 
@@ -572,30 +572,10 @@ function RegisterPageContent() {
                   </p>
                 </button>
 
-                <button
-                  type="button"
-                  disabled={!smsOtpEnabled}
-                  aria-describedby={!smsOtpEnabled ? 'sms-otp-status' : undefined}
-                  onClick={() => smsOtpEnabled && setVerificationMethod('otp_sms')}
-                  className={`flex flex-col items-center gap-1 p-2.5 sm:p-3 rounded-xl border-2 transition-all duration-300 ${
-                    !smsOtpEnabled
-                      ? 'opacity-50 cursor-not-allowed bg-[#7A2F57]/5 border-[#B76E79]/20'
-                      : verificationMethod === 'otp_sms'
-                        ? 'bg-[#7A2F57]/20 border-[#F2C29A]/60 shadow-[0_0_20px_rgba(242,194,154,0.15)]'
-                        : 'bg-[#7A2F57]/10 border-[#B76E79]/30 hover:border-[#F2C29A]/40'
-                  }`}
-                >
-                  <Smartphone className={`w-5 h-5 transition-colors ${verificationMethod === 'otp_sms' ? 'text-[#F2C29A]' : 'text-[#B76E79]'}`} />
-                  <p className="text-[10px] sm:text-xs text-[#EAE0D5]/90 font-bold tracking-widest">SMS OTP</p>
-                  <p className="text-[9px] text-[#EAE0D5]/50 text-center leading-tight">
-                    {smsOtpEnabled ? 'Code by SMS' : 'Not available'}
-                  </p>
-                </button>
               </div>
               <div className="rounded-lg border border-[#B76E79]/20 bg-[#0B0608]/25 px-3 py-2 text-[10px] sm:text-[11px] text-[#EAE0D5]/70">
                 <p>• Email OTP: <span className="text-green-400">Available</span></p>
                 <p>• WhatsApp OTP: {whatsappEnabled ? <span className="text-green-400">Available</span> : <span className="text-amber-300">Currently unavailable</span>}</p>
-                <p id="sms-otp-status">• SMS OTP: {smsOtpEnabled ? <span className="text-green-400">Available</span> : <span className="text-amber-300">Currently unavailable</span>}</p>
               </div>
               <p className="text-center text-[10px] sm:text-[11px] text-[#EAE0D5]/55">
                 6-digit code to your {verificationMethod === 'otp_email' ? 'email' : 'phone'}.

@@ -128,6 +128,14 @@ function normalizeProductImages(product) {
   return { ...product, image_url: url, image: url };
 }
 
+function resolveCollectionLink(collection) {
+  if (!collection || typeof collection !== 'object') return undefined;
+  if (collection.slug) return `/collections/${collection.slug}`;
+  if (collection.link) return collection.link;
+  if (collection.id != null) return `/products?collection_id=${collection.id}`;
+  return undefined;
+}
+
 export function normalizeLandingData(raw) {
   if (!raw || typeof raw !== 'object') return raw;
 
@@ -171,14 +179,14 @@ export function normalizeLandingData(raw) {
         ...c,
         image: c.image || c.image_url,
         image_url: c.image_url || c.image,
-        link: c.link || (c.slug ? `/collections/${c.slug}` : undefined),
+        link: resolveCollectionLink(c),
       }));
     } else if (hasCategories) {
       col.categories = col.categories.map((c) => ({
         ...c,
         image: c.image || c.image_url,
         image_url: c.image_url || c.image,
-        link: c.link || (c.slug ? `/collections/${c.slug}` : c.link),
+        link: resolveCollectionLink(c),
       }));
     }
     data.collections = col;

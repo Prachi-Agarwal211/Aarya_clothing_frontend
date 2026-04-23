@@ -172,6 +172,32 @@ class CartService:
         cart_key = f"{self.CART_KEY_PREFIX}{user_id}"
         return redis_client.set_cache(cart_key, cart_data, expires_in=7 * 24 * 60)
 
+    def _resolve_inventory_for_cart_item(self, item: Dict) -> Optional[Inventory]:
+        """
+        Resolve cart item to current inventory row.
+
+        Primary lookup is SKU. Fallback by variant_id + product_id handles carts that
+        hold stale SKU after admin edits (SKU rename/reseed) while the variant still exists.
+        """
+        if not self.db:
+            return None
+
+        sku = item.get("sku")
+        if sku:
+            inventory = self.db.query(Inventory).filter(Inventory.sku == sku).first()
+            if inventory:
+                return inventory
+
+        variant_id = item.get("variant_id")
+        product_id = item.get("product_id")
+        if variant_id:
+            query = self.db.query(Inventory).filter(Inventory.id == variant_id)
+            if product_id:
+                query = query.filter(Inventory.product_id == product_id)
+            return query.first()
+
+        return None
+
     def add_to_cart(
         self,
         user_id: int,
@@ -579,10 +605,13 @@ class CartService:
         if not self.db:
             return {"valid": True, "out_of_stock": [], "message": "Cart is valid for checkout"}
 
+        cart_changed = False
         for item in cart["items"]:
-            if not item.get("sku"):
-                continue
-            inventory = self.db.query(Inventory).filter(Inventory.sku == item["sku"]).first()
+            inventory = self._resolve_inventory_for_cart_item(item)
+            if inventory and inventory.sku and item.get("sku") != inventory.sku:
+                # Keep cart coherent when SKU changed in admin while user still had item in cart.
+                item["sku"] = inventory.sku
+                cart_changed = True
             avail = inventory.available_quantity if inventory else 0
             req = item["quantity"]
             if not inventory or avail < req:
@@ -592,6 +621,9 @@ class CartService:
                     "requested": req,
                     "available": avail,
                 })
+
+        if cart_changed:
+            self.save_cart(user_id, cart)
 
         if out_of_stock:
             return {
@@ -618,10 +650,12 @@ class CartService:
             return True
 
         # Re-validate stock availability (checks both quantity and reservations)
+        cart_changed = False
         for item in cart["items"]:
-            if not item.get("sku"):
-                continue
-            inventory = self.db.query(Inventory).filter(Inventory.sku == item["sku"]).first()
+            inventory = self._resolve_inventory_for_cart_item(item)
+            if inventory and inventory.sku and item.get("sku") != inventory.sku:
+                item["sku"] = inventory.sku
+                cart_changed = True
             if not inventory:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
@@ -633,5 +667,8 @@ class CartService:
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"'{item.get('name', item['sku'])}' has only {avail} items available. Please update your cart."
                 )
+
+        if cart_changed:
+            self.save_cart(user_id, cart)
 
         return True

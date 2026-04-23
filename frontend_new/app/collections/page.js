@@ -138,7 +138,7 @@ export default async function CollectionsPage() {
                 {categories.map((category) => (
                   <Link
                     key={category.id}
-                    href={`/products?collection_id=${category.id}`}
+                    href={category.slug ? `/collections/${category.slug}` : `/products?collection_id=${category.id}`}
                     className="group relative aspect-[4/5] rounded-3xl overflow-hidden block"
                     aria-label={`Browse ${category.name} products`}
                   >

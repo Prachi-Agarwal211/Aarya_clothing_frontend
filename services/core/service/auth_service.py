@@ -78,6 +78,22 @@ class AuthService:
             errors.append(f"Password must be at least {min_length} characters")
         if len(password) > 128:
             errors.append("Password must be less than 128 characters")
+        if getattr(settings, "PASSWORD_REQUIRE_UPPERCASE", False) and not any(
+            ch.isupper() for ch in password
+        ):
+            errors.append("Password must contain at least one uppercase letter")
+        if getattr(settings, "PASSWORD_REQUIRE_LOWERCASE", False) and not any(
+            ch.islower() for ch in password
+        ):
+            errors.append("Password must contain at least one lowercase letter")
+        if getattr(settings, "PASSWORD_REQUIRE_NUMBER", False) and not any(
+            ch.isdigit() for ch in password
+        ):
+            errors.append("Password must contain at least one number")
+        if getattr(settings, "PASSWORD_REQUIRE_SPECIAL", False):
+            special_chars = set("!@#$%^&*()_+-=[]{}|;:,.<>?/~`")
+            if not any(ch in special_chars for ch in password):
+                errors.append("Password must contain at least one special character")
         return len(errors) == 0, errors
 
     # ============================================================
@@ -248,20 +264,27 @@ class AuthService:
 
         self.db.refresh(user)
 
-        delivery_method = verification_method.upper().replace("OTP_", "")
-
         from service.otp_service import OTPService
+        from schemas.otp import OTPSendRequest, OTPType
+
+        otp_type = {
+            "otp_email": OTPType.EMAIL,
+            "otp_sms": OTPType.SMS,
+            "otp_whatsapp": OTPType.WHATSAPP,
+        }.get(verification_method, OTPType.EMAIL)
 
         otp_service = OTPService(db=self.db)
-        otp_result = otp_service.create_verification_token(
-            user_id=user.id,
-            token_type="email_verification",
-            delivery_method=delivery_method,
+        otp_request = OTPSendRequest(
+            email=user.email if otp_type == OTPType.EMAIL else None,
+            phone=user.phone if otp_type in (OTPType.SMS, OTPType.WHATSAPP) else None,
+            otp_type=otp_type,
+            purpose="registration",
         )
+        otp_result = otp_service.send_otp(otp_request)
         if not otp_result.get("success"):
             self.db.delete(user)
             self.db.commit()
-            raise ValueError(otp_result.get("error", "Failed to create verification token"))
+            raise ValueError(otp_result.get("error", "Failed to send verification OTP"))
 
         return {
             "message": "Account created. Please verify your email/phone to complete registration.",
@@ -433,17 +456,26 @@ class AuthService:
 
         user = _resolve_user_query(self.db, ident)
         if not user:
-            logger.warning(f"Login attempt with non-existent identifier: {ident}")
             raise ValueError("Invalid credentials")
 
+        if (
+            getattr(user, "account_locked_until", None)
+            and user.account_locked_until > now_ist()
+        ):
+            raise ValueError("Account temporarily locked. Please try again later.")
+
         if not user.is_active:
-            method = (
-                getattr(user, "signup_verification_method", None) or "otp_email"
-            )
-            logger.info(f"Login blocked for unverified account: {user.id}")
-            raise ValueError(f"EMAIL_NOT_VERIFIED:{user.email}:{method}")
+            raise ValueError("Account not verified. Please complete verification.")
+
+        max_attempts = int(getattr(settings, "MAX_LOGIN_ATTEMPTS", 5))
+        lockout_minutes = int(getattr(settings, "ACCOUNT_LOCKOUT_MINUTES", 15))
 
         if not self.verify_password(password, user.hashed_password):
+            user.failed_login_attempts = int(getattr(user, "failed_login_attempts", 0)) + 1
+            if user.failed_login_attempts >= max_attempts:
+                user.account_locked_until = now_ist() + timedelta(minutes=lockout_minutes)
+                user.failed_login_attempts = 0
+            self.db.commit()
             logger.warning(f"Failed login for user: {user.id}")
             raise ValueError("Invalid credentials")
 
@@ -451,20 +483,22 @@ class AuthService:
 
         user.last_login_at = now_ist()
         user.failed_login_attempts = 0
+        user.account_locked_until = None
         self.db.commit()
         self.db.refresh(user)
 
-        # Password is the strong factor here, so we always remember the
-        # fingerprint after a successful password login. Future logins
-        # from the same browser will skip the OTP challenge.
-        remember_device(
-            self.db,
-            user.id,
-            device_fingerprint,
-            device_name=device_name,
-            last_ip=last_ip,
-            user_agent=user_agent,
-        )
+        # DO NOT call remember_device here. 
+        # Password login alone is not enough to trust a NEW device.
+        # We only update last_seen if it was ALREADY trusted.
+        if device_was_trusted:
+            remember_device(
+                self.db,
+                user.id,
+                device_fingerprint,
+                device_name=device_name,
+                last_ip=last_ip,
+                user_agent=user_agent,
+            )
 
         access_token = self.create_access_token(
             user.id, user.role, user.email, user.username,
@@ -501,6 +535,22 @@ class AuthService:
         if not payload or payload.get("type") != "refresh":
             raise ValueError("Invalid refresh token")
         user_id = int(payload.get("sub"))
+        try:
+            from core.redis_client import redis_client
+
+            revoked_key = f"revoked_refresh:{refresh_token[-32:]}"
+            if redis_client.exists(revoked_key):
+                raise ValueError("Refresh token has been revoked")
+
+            logout_all_ts = redis_client.get_cache(f"logout_all:{user_id}")
+            if logout_all_ts:
+                iat = payload.get("iat")
+                if iat is not None and int(iat) <= int(logout_all_ts):
+                    raise ValueError("Refresh token has been revoked")
+        except ValueError:
+            raise
+        except Exception as exc:
+            logger.warning(f"refresh revocation check failed (best-effort): {exc}")
         if remember_me is None:
             remember_me = bool(payload.get("remember_me", False))
 
@@ -534,11 +584,47 @@ class AuthService:
 
         user = _resolve_user_query(self.db, identifier)
         if not user:
-            raise ValueError("No account found with that identifier")
+            return {
+                "success": True,
+                "message": "If an account exists, OTP has been sent.",
+                "otp_type": (otp_type or "EMAIL").upper(),
+                "expires_in": 600,
+            }
         if not user.is_active:
-            raise ValueError("Account is not active. Please verify your email/phone first.")
+            return {
+                "success": True,
+                "message": "If an account exists, OTP has been sent.",
+                "otp_type": (otp_type or "EMAIL").upper(),
+                "expires_in": 600,
+            }
 
-        delivery = (otp_type or "EMAIL").upper()
+        requested_delivery = (otp_type or "EMAIL").upper()
+
+        # Keep login OTP simple for users: automatically fall back to an available
+        # verified channel when the requested one cannot be delivered.
+        available_channels: List[str] = []
+        if bool(getattr(user, "email_verified", False)) and bool(getattr(user, "email", None)):
+            available_channels.append("EMAIL")
+        if bool(getattr(user, "phone_verified", False)) and bool(getattr(user, "phone", None)):
+            available_channels.extend(["SMS", "WHATSAPP"])
+
+        # If account has no verification flags yet, still allow EMAIL if present.
+        if not available_channels and bool(getattr(user, "email", None)):
+            available_channels.append("EMAIL")
+
+        if requested_delivery in available_channels:
+            delivery = requested_delivery
+        elif available_channels:
+            delivery = available_channels[0]
+            logger.info(
+                "login otp channel fallback: requested=%s resolved=%s user_id=%s",
+                requested_delivery,
+                delivery,
+                user.id,
+            )
+        else:
+            raise ValueError("No verified delivery method available for this account")
+
         result = OTPService(db=self.db).create_verification_token(
             user_id=user.id, token_type="login", delivery_method=delivery
         )
@@ -567,7 +653,7 @@ class AuthService:
 
         user = _resolve_user_query(self.db, identifier)
         if not user:
-            raise ValueError("No account found with that identifier")
+            raise ValueError("Invalid or expired OTP")
 
         verify = OTPService(db=self.db).verify_otp(
             user_id=user.id, otp_code=otp_code, token_type="login"
@@ -634,36 +720,49 @@ class AuthService:
         if not valid:
             raise ValueError("; ".join(errors))
         user.hashed_password = self.get_password_hash(new_password)
+        user.password_changed_at = now_ist()
         user.updated_at = now_ist()
         self.db.commit()
+        
+        try:
+            from core.redis_client import redis_client
+            redis_client.set_cache(
+                f"pwd_changed:{user.id}",
+                str(int(now_ist().timestamp())),
+                ttl=86400 * 30
+            )
+            self.logout_all(user.id)
+        except Exception as exc:
+            logger.warning(f"change_password session invalidate failed: {exc}")
+            
         return True
 
     def logout(self, user_id: int, refresh_token: str) -> None:
-        """Best-effort revocation of a single refresh token."""
+        """Revoke a refresh token and blacklist the access token if possible."""
         try:
             from core.redis_client import redis_client
 
+            # Revoke refresh token (using a larger chunk for better uniqueness)
             redis_client.set_cache(
-                f"revoked_refresh:{refresh_token[-32:]}",
+                f"revoked_refresh:{refresh_token[-64:]}",
                 str(user_id),
-                ttl=86400 * 365,
+                ttl=86400 * 30, # Match refresh token max age
             )
         except Exception as exc:
-            logger.warning(f"logout token revoke failed (best-effort): {exc}")
+            logger.warning(f"logout token revoke failed: {exc}")
 
     def logout_all(self, user_id: int) -> None:
-        """Best-effort: stamp a logout-all marker so all existing refresh
-        tokens issued before this moment are rejected by the validator."""
+        """Stamp a logout-all marker to invalidate ALL existing tokens for this user."""
         try:
             from core.redis_client import redis_client
 
             redis_client.set_cache(
                 f"logout_all:{user_id}",
                 str(int(now_ist().timestamp())),
-                ttl=86400 * 365,
+                ttl=86400 * 30,
             )
         except Exception as exc:
-            logger.warning(f"logout_all failed (best-effort): {exc}")
+            logger.warning(f"logout_all failed: {exc}")
 
     # ============================================================
     # Password reset (OTP only — link flow is deprecated)
@@ -732,8 +831,7 @@ class AuthService:
         new_password: str,
         otp_type: str = "EMAIL",
     ) -> Dict[str, Any]:
-        """Verify the OTP then update the password."""
-        from service.otp_service import OTPService
+        """Update password after API-level OTP pre-verification."""
 
         user = _resolve_user_query(self.db, identifier)
         if not user:
@@ -742,18 +840,18 @@ class AuthService:
         if not valid:
             raise ValueError("; ".join(errors))
 
-        verify = OTPService(db=self.db).verify_otp(
-            user_id=user.id,
-            otp_code=otp_code,
-            token_type="password_reset",
-        )
-        if not verify.get("success"):
-            raise ValueError(verify.get("error", "Invalid or expired OTP"))
-
         user.hashed_password = self.get_password_hash(new_password)
         user.updated_at = now_ist()
+        user.password_changed_at = now_ist()  # Update the field
         self.db.commit()
         try:
+            # Set marker in Redis for TokenValidator to catch
+            from core.redis_client import redis_client
+            redis_client.set_cache(
+                f"pwd_changed:{user.id}",
+                str(int(now_ist().timestamp())),
+                ttl=86400 * 30  # 30 days is enough for most token lifetimes
+            )
             self.logout_all(user.id)
         except Exception:  # pragma: no cover - best-effort
             pass

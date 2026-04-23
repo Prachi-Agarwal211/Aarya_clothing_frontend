@@ -74,6 +74,7 @@ def is_device_trusted(
         return row is not None
     except SQLAlchemyError as exc:
         logger.warning("trusted_devices lookup failed: %s", exc)
+        db.rollback()
         return False
 
 
@@ -173,4 +174,5 @@ def list_devices(db: Session, user_id: int) -> list[TrustedDevice]:
         )
     except SQLAlchemyError as exc:
         logger.warning("trusted_devices list failed: %s", exc)
+        db.rollback()
         return []

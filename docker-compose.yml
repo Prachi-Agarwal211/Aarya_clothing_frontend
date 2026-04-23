@@ -52,6 +52,8 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
       - ./docker/postgres/scale_indexes.sql:/docker-entrypoint-initdb.d/02-scale-indexes.sql:ro
+    ports:
+      - "6001:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d aarya_clothing"]
       interval: 10s
@@ -84,7 +86,6 @@ services:
       - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD environment variable is required}@pgbouncer:6432/aarya_clothing
     volumes:
       - ./docker/pgbouncer/pgbouncer.ini:/etc/pgbouncer/pgbouncer.ini:ro
-      - ./docker/pgbouncer/userlist.txt:/etc/pgbouncer/userlist.txt:ro
     expose:
       - "6432"
     depends_on:
@@ -118,6 +119,8 @@ services:
       --requirepass ${REDIS_PASSWORD}
     expose:
       - "6379"
+    ports:
+      - "6381:6379"
     volumes:
       - redis_data:/data
       - ./docker/redis/redis.conf:/etc/redis/redis.conf:ro
@@ -148,6 +151,8 @@ services:
       - MEILI_DB_PATH=/meili_data
     expose:
       - "7700"
+    ports:
+      - "7700:7700"
     volumes:
       - meilisearch_data:/meili_data
     healthcheck:
@@ -185,6 +190,8 @@ services:
       - REDIS_DB=0
       - ALGORITHM=HS256
       - ACCESS_TOKEN_EXPIRE_MINUTES=30
+      - REFRESH_TOKEN_DAYS_DEFAULT=90
+      - REFRESH_TOKEN_DAYS_REMEMBER=365
       - REFRESH_TOKEN_EXPIRE_MINUTES=1440
       - SESSION_EXPIRE_MINUTES=1440
       - ALLOWED_ORIGINS=["http://localhost:6004","http://localhost:6005","http://127.0.0.1:6004","http://127.0.0.1:6005","https://aaryaclothing.in","https://www.aaryaclothing.in"]

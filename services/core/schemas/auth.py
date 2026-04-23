@@ -41,6 +41,7 @@ class UserProfileBase(BaseModel):
 
 class UserProfileResponse(UserProfileBase):
     """Schema for user profile response."""
+    phone: Optional[str] = None
 
     class Config:
         from_attributes = True

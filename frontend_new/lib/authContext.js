@@ -56,33 +56,26 @@ export function AuthProvider({ children }) {
       setAuthError(null);
       const storedUser = getStoredUser();
 
-      if (!storedUser) {
-        setUser(null);
-        setIsAuthenticated(false);
+      // Pre-set from local storage to reduce flicker while we verify with backend.
+      if (storedUser) {
+        setUser(storedUser);
+        setIsAuthenticated(true);
         setLoading(false);
-        return;
       }
 
-      // Pre-set from local storage to avoid flicker
-      setUser(storedUser);
-      setIsAuthenticated(true);
-      setLoading(false); // End loading state immediately to avoid UI flicker
-
-      // Verify and get fresh data from backend
+      // Always verify cookie-backed session from backend. This is required
+      // because login flows may set HttpOnly cookies without writing localStorage.
       try {
         const userData = await apiFetch('/api/v1/users/me');
         setUser(userData);
+        setIsAuthenticated(true);
         localStorage.setItem('user', JSON.stringify(userData));
       } catch (err) {
         logger.warn('Backend session verification failed:', err.message);
-
-        // If unauthorized, clear everything
-        if (err.status === 401 || err.status === 403) {
-          clearAuthData();
-          clearStoredTokens();
-          setUser(null);
-          setIsAuthenticated(false);
-        }
+        clearAuthData();
+        clearStoredTokens();
+        setUser(null);
+        setIsAuthenticated(false);
       }
     } catch (err) {
       logger.error('Critical auth check error:', err);

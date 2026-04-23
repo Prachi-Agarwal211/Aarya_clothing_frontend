@@ -68,7 +68,7 @@ class TokenValidator:
 
             # Check blacklist if enabled and Redis client available
             if check_blacklist and self.redis_client:
-                if self._is_token_blacklisted(token):
+                if self._is_token_blacklisted(token, payload):
                     raise TokenValidationError("Token is blacklisted")
 
             # Validate required fields
@@ -77,6 +77,21 @@ class TokenValidator:
 
             if "exp" not in payload:
                 raise TokenValidationError("Token missing expiration (exp) claim")
+
+            # NEW: Check logout_all and password_changed markers in Redis
+            if self.redis_client:
+                user_id = payload.get("sub")
+                iat = payload.get("iat")
+                if user_id and iat is not None:
+                    # Check global logout
+                    logout_all_ts = self.redis_client.get_cache(f"logout_all:{user_id}")
+                    if logout_all_ts and int(iat) <= int(logout_all_ts):
+                        raise TokenValidationError("Session has been invalidated")
+                    
+                    # Check password change invalidation
+                    pwd_changed_ts = self.redis_client.get_cache(f"pwd_changed:{user_id}")
+                    if pwd_changed_ts and int(iat) <= int(pwd_changed_ts):
+                        raise TokenValidationError("Password was changed. Please login again.")
 
             # Check expiration (JWT decode already does this, but double-check)
             exp_timestamp = payload["exp"]
@@ -93,7 +108,7 @@ class TokenValidator:
             logger.error(f"Unexpected error validating token: {str(e)}")
             raise TokenValidationError(f"Token validation failed: {str(e)}")
 
-    def _is_token_blacklisted(self, token: str) -> bool:
+    def _is_token_blacklisted(self, token: str, payload: Optional[Dict[str, Any]] = None) -> bool:
         """
         Check if token is blacklisted.
 
@@ -111,7 +126,24 @@ class TokenValidator:
             return False
 
         try:
-            return self.redis_client.client.exists(f"blacklist:{token}") > 0
+            # Legacy/global blacklist key.
+            if self.redis_client.client.exists(f"blacklist:{token}") > 0:
+                return True
+
+            # Backward-compatible refresh-token revocation key used by AuthService.logout.
+            if self.redis_client.client.exists(f"revoked_refresh:{token[-32:]}") > 0:
+                return True
+
+            # Logout-all marker keyed per user.
+            if payload and payload.get("type") == "refresh":
+                user_id = payload.get("sub")
+                issued_at = payload.get("iat")
+                if user_id and issued_at is not None:
+                    logout_all_ts = self.redis_client.get_cache(f"logout_all:{user_id}")
+                    if logout_all_ts and int(issued_at) <= int(logout_all_ts):
+                        return True
+
+            return False
         except Exception as e:
             logger.error(f"Error checking token blacklist: {str(e)} - failing open, allowing token")
             # FAIL OPEN: if we can't reach Redis, allow the token through

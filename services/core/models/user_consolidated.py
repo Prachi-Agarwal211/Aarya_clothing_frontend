@@ -145,7 +145,8 @@ class Order(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    order_number = Column(String(50), unique=True, nullable=False)
+    # Legacy databases may still use invoice_number and miss order_number.
+    order_number = Column(String(50), unique=True, nullable=True)
     status = Column(String(50), nullable=False)
     total_amount = Column(Integer, nullable=False)  # in cents
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
@@ -161,6 +162,7 @@ class VerificationToken(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     token = Column(String(6), nullable=False)  # 6-digit OTP
     token_type = Column(String(50), nullable=False)  # email_verification, password_reset, etc.
+    delivery_method = Column(String(20), nullable=True)  # EMAIL | SMS | WHATSAPP
     expires_at = Column(DateTime, nullable=False)
     verified_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)

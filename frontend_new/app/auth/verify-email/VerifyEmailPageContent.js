@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Mail, Smartphone, MessageCircle, RefreshCw, CheckCircle } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../../../src/store/authStore';
 import logger from '../../../lib/logger';
 
@@ -13,7 +13,7 @@ const OTP_EXPIRY_SECONDS = 120;
 const RESEND_COOLDOWN_SECONDS = 30;
 
 // Enhanced OTP Verification Page
-function VerifyEmailPageContent({ searchParams }) {
+function VerifyEmailPageContent() {
   const [otpDigits, setOtpDigits] = useState(['', '', '', '', '', '']);
   const [otpTimeLeft, setOtpTimeLeft] = useState(OTP_EXPIRY_SECONDS);
   const [otpExpired, setOtpExpired] = useState(false);
@@ -28,13 +28,14 @@ function VerifyEmailPageContent({ searchParams }) {
 
   const otpRefs = useRef([]);
   const router = useRouter();
-  const { login, isAuthenticated } = useAuth();
+  const queryParams = useSearchParams();
+  const { checkAuth, isAuthenticated } = useAuth();
 
   // Get email and method from query params
   useEffect(() => {
-    const emailParam = searchParams.get('email');
-    const methodParam = searchParams.get('method') || 'otp_email';
-    const phoneParam = searchParams.get('phone');
+    const emailParam = queryParams.get('email');
+    const methodParam = queryParams.get('method') || 'otp_email';
+    const phoneParam = queryParams.get('phone');
     
     if (emailParam) {
       setEmail(decodeURIComponent(emailParam));
@@ -52,7 +53,7 @@ function VerifyEmailPageContent({ searchParams }) {
     
     // Start OTP timer
     startOtpTimers();
-  }, [searchParams]);
+  }, [queryParams]);
 
   // Timer management
   useEffect(() => {
@@ -118,8 +119,9 @@ function VerifyEmailPageContent({ searchParams }) {
       }
 
       // Call backend to verify OTP
-      const response = await fetch('/api/v1/auth/verify-otp', {
+      const response = await fetch('/api/v1/auth/verify-otp-registration', {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           otp_code: otpValue,
@@ -140,20 +142,8 @@ function VerifyEmailPageContent({ searchParams }) {
 
       const data = await response.json();
 
-      // Auto-login user after verification
-      if (data?.user) {
-        // Store tokens and user data
-        localStorage.setItem('access_token', data.access_token);
-        localStorage.setItem('refresh_token', data.refresh_token);
-        localStorage.setItem('user', JSON.stringify(data.user));
-        
-        // Update auth store
-        const authStore = useAuth.getState();
-        authStore.user = data.user;
-        authStore.accessToken = data.access_token;
-        authStore.refreshToken = data.refresh_token;
-        authStore.isAuthenticated = true;
-      }
+      await checkAuth();
+      setStatus(data?.message || 'Verification successful.');
 
       // Redirect to success page or products
       setTimeout(() => {
@@ -187,8 +177,9 @@ function VerifyEmailPageContent({ searchParams }) {
       }
 
       // Call backend to resend OTP
-      const response = await fetch('/api/v1/auth/resend-otp', {
+      const response = await fetch('/api/v1/auth/send-verification-otp', {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...(verificationMethod === 'otp_email' ? { email } : { phone }),

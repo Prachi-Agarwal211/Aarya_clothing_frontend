@@ -14,15 +14,17 @@ from __future__ import annotations
 
 import logging
 import secrets
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from typing import Any, Dict, Optional, Union
 
 from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from core.config import settings
 from core.redis_client import redis_client
 from models import User, VerificationToken
+from shared.time_utils import IST, ist_naive
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +55,11 @@ def _redis_safe(call):
     except Exception as exc:  # pragma: no cover - infrastructure path
         logger.warning(f"OTP redis call failed (best-effort): {exc}")
         return None
+
+
+def _utcnow_naive() -> datetime:
+    """DB uses timestamp without timezone; keep IST values naive for consistency."""
+    return ist_naive()
 
 
 class OTPService:
@@ -86,7 +93,7 @@ class OTPService:
             self._invalidate_active(user_id, token_type)
 
             otp_code = self.generate_otp()
-            expires_at = datetime.now(timezone.utc) + timedelta(seconds=expires_in)
+            expires_at = _utcnow_naive() + timedelta(seconds=expires_in)
             token = VerificationToken(
                 user_id=user_id,
                 token=otp_code,
@@ -122,15 +129,73 @@ class OTPService:
             logger.error(f"Error creating verification token: {exc}")
             return {"success": False, "error": "Failed to create verification token"}
 
+    def send_otp(self, otp_request: Any) -> Dict[str, Any]:
+        """Compatibility API for FastAPI routes using OTPSendRequest.
+
+        Flow:
+        1) Resolve user by email/phone.
+        2) Create verification token in DB.
+        3) Deliver OTP via EMAIL/SMS/WHATSAPP best-effort.
+        """
+        raw_otp_type = getattr(otp_request, "otp_type", "EMAIL")
+        if hasattr(raw_otp_type, "value"):
+            raw_otp_type = raw_otp_type.value
+        otp_type = str(raw_otp_type).upper()
+        purpose = getattr(otp_request, "purpose", "verification")
+        token_type = _coerce_token_type(purpose)
+        email = getattr(otp_request, "email", None)
+        phone = getattr(otp_request, "phone", None)
+
+        user_id = self._lookup_user_id(email=email, phone=phone)
+        if not user_id:
+            return {"success": False, "error": "User not found"}
+
+        user = self.db.query(User).filter(User.id == user_id).first()
+        if not user:
+            return {"success": False, "error": "User not found"}
+
+        target_email = email or getattr(user, "email", None)
+        target_phone = phone or getattr(user, "phone", None)
+
+        token_result = self.create_verification_token(
+            user_id=user_id,
+            token_type=token_type,
+            delivery_method=otp_type,
+        )
+        if not token_result.get("success"):
+            return token_result
+
+        otp_code = token_result.get("otp_code")
+        send_result = self._dispatch_otp(
+            otp_type=otp_type,
+            email=target_email,
+            phone=target_phone,
+            otp_code=otp_code,
+            purpose=purpose,
+        )
+        if not send_result.get("success"):
+            return {"success": False, "error": send_result.get("error", "Failed to send OTP")}
+
+        return {
+            "success": True,
+            "message": "OTP sent",
+            "expires_in": token_result.get("expires_in", 600),
+            "expires_at": token_result.get("expires_at"),
+            "email": target_email,
+            "phone": target_phone,
+            "otp_type": otp_type,
+        }
+
     # ============================================================
     # OTP verification
     # ============================================================
 
     def verify_otp(
         self,
-        user_id_or_request: Union[int, Any],
+        user_id_or_request: Optional[Union[int, Any]] = None,
         otp_code: Optional[str] = None,
         token_type: str = "email_verification",
+        **kwargs: Any,
     ) -> Dict[str, Any]:
         """Verify a 6-digit OTP.
 
@@ -147,6 +212,9 @@ class OTPService:
         consume it without conditional juggling.
         """
         # --- Normalise inputs ---------------------------------------------
+        if user_id_or_request is None and "user_id" in kwargs:
+            user_id_or_request = kwargs.get("user_id")
+
         if hasattr(user_id_or_request, "otp_code"):
             req = user_id_or_request
             otp_code = req.otp_code
@@ -174,6 +242,17 @@ class OTPService:
                 "error": "Invalid OTP format",
             }
 
+        max_attempts = int(getattr(settings, "OTP_MAX_ATTEMPTS", 5))
+        attempt_key = f"otp_attempts:{user_id}:{token_type}"
+        attempts = _redis_safe(lambda: redis_client.get_cache(attempt_key, namespace=""))
+        if attempts and int(attempts) >= max_attempts:
+            return {
+                "success": False,
+                "verified": False,
+                "message": "Too many attempts. Please request a new OTP.",
+                "error": "Too many attempts",
+            }
+
         # --- Database lookup ----------------------------------------------
         try:
             token = (
@@ -188,13 +267,32 @@ class OTPService:
                 .first()
             )
             if not token:
+                _redis_safe(
+                    lambda: redis_client.set_cache(
+                        attempt_key,
+                        int(attempts or 0) + 1,
+                        ttl=int(getattr(settings, "OTP_EXPIRY_MINUTES", 10)) * 60,
+                        namespace="",
+                    )
+                )
                 return {
                     "success": False,
                     "verified": False,
                     "message": "Invalid OTP code",
                     "error": "Invalid OTP code",
                 }
-            if token.expires_at < datetime.now(timezone.utc):
+            expires_at = token.expires_at
+            if expires_at and expires_at.tzinfo is not None:
+                expires_at = expires_at.astimezone(IST).replace(tzinfo=None)
+            if expires_at and expires_at < _utcnow_naive():
+                _redis_safe(
+                    lambda: redis_client.set_cache(
+                        attempt_key,
+                        int(attempts or 0) + 1,
+                        ttl=int(getattr(settings, "OTP_EXPIRY_MINUTES", 10)) * 60,
+                        namespace="",
+                    )
+                )
                 return {
                     "success": False,
                     "verified": False,
@@ -202,9 +300,10 @@ class OTPService:
                     "error": "OTP has expired",
                 }
 
-            token.verified_at = datetime.now(timezone.utc)
+            token.verified_at = _utcnow_naive()
             self.db.commit()
             _redis_safe(lambda: redis_client.delete_cache(f"otp:{user_id}:{token_type}"))
+            _redis_safe(lambda: redis_client.delete_cache(attempt_key, namespace=""))
 
             return {
                 "success": True,
@@ -269,7 +368,7 @@ class OTPService:
                     VerificationToken.verified_at.is_(None),
                 )
                 .update(
-                    {VerificationToken.verified_at: datetime.now(timezone.utc)},
+                    {VerificationToken.verified_at: _utcnow_naive()},
                     synchronize_session=False,
                 )
             )
@@ -320,7 +419,7 @@ class OTPService:
                 VerificationToken.user_id == user_id,
                 VerificationToken.token_type == token_type,
                 VerificationToken.verified_at.is_(None),
-                VerificationToken.expires_at > datetime.now(timezone.utc),
+                    VerificationToken.expires_at > _utcnow_naive(),
             )
             .all()
         )
@@ -330,7 +429,7 @@ class OTPService:
             deleted = (
                 self.db.query(VerificationToken)
                 .filter(
-                    VerificationToken.expires_at < datetime.now(timezone.utc),
+                    VerificationToken.expires_at < _utcnow_naive(),
                     VerificationToken.verified_at.is_(None),
                 )
                 .delete(synchronize_session=False)
@@ -346,9 +445,61 @@ class OTPService:
         return {
             "status": "healthy",
             "service": "otp",
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": _utcnow_naive().isoformat() + "Z",
             "database_connected": self.db is not None,
         }
+
+    def _dispatch_otp(
+        self,
+        otp_type: str,
+        email: Optional[str],
+        phone: Optional[str],
+        otp_code: str,
+        purpose: str,
+    ) -> Dict[str, Any]:
+        """Send OTP through selected channel."""
+        otp_type = (otp_type or "EMAIL").upper()
+        try:
+            if otp_type == "EMAIL":
+                if not email:
+                    return {"success": False, "error": "Email is required for EMAIL OTP"}
+
+                from service.email_queue import try_enqueue_otp_email
+                from service.email_service import email_service
+
+                queued = try_enqueue_otp_email(email, otp_code, purpose or "verification")
+                if queued:
+                    return {"success": True, "queued": True}
+
+                ok = email_service.send_otp_email(email, otp_code, purpose or "verification")
+                if ok:
+                    return {"success": True}
+                return {"success": False, "error": "Failed to send OTP email"}
+
+            if otp_type == "SMS":
+                if not phone:
+                    return {"success": False, "error": "Phone is required for SMS OTP"}
+                from service.sms_service import sms_service
+
+                if not sms_service:
+                    return {"success": False, "error": "SMS service not configured"}
+                result = sms_service.send_otp(phone, otp_code, purpose or "verification")
+                return result if isinstance(result, dict) else {"success": bool(result)}
+
+            if otp_type == "WHATSAPP":
+                if not phone:
+                    return {"success": False, "error": "Phone is required for WhatsApp OTP"}
+                from service.whatsapp_service import whatsapp_service
+
+                if not whatsapp_service:
+                    return {"success": False, "error": "WhatsApp service not configured"}
+                result = whatsapp_service.send_otp(phone, otp_code)
+                return result if isinstance(result, dict) else {"success": bool(result)}
+
+            return {"success": False, "error": f"Unsupported OTP type: {otp_type}"}
+        except Exception as exc:  # pragma: no cover - infra dependent
+            logger.error(f"OTP delivery failed ({otp_type}): {exc}")
+            return {"success": False, "error": f"Failed to deliver OTP via {otp_type}"}
 
 
 otp_service = OTPService(db=None)

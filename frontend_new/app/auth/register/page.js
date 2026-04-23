@@ -3,12 +3,14 @@
 import React, { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Mail, Lock, Eye, EyeOff, User, Phone, Smartphone, MessageCircle, CheckCircle } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, Smartphone, MessageCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { useAuth } from '../../../src/store/authStore';
 import logger from '../../../lib/logger';
 import { getRedirectForRole, USER_ROLES } from '../../../lib/roles';
+import { useLogo, useSiteConfig } from '../../../lib/siteConfigContext';
 
 const OTP_EXPIRY_SECONDS = 120;
 const RESEND_COOLDOWN_SECONDS = 30;
@@ -40,7 +42,9 @@ export default function RegisterPage() {
   const [registrationSuccess, setRegistrationSuccess] = useState(false);
 
   const router = useRouter();
-  const { isAuthenticated } = useAuth();
+  const { user, isAuthenticated } = useAuth();
+  const logoUrl = useLogo();
+  const { smsOtpEnabled, whatsappEnabled } = useSiteConfig();
   const otpRefs = useRef([]);
   const expiryTimerRef = useRef(null);
   const cooldownTimerRef = useRef(null);
@@ -82,6 +86,15 @@ export default function RegisterPage() {
     };
   }, []);
 
+  React.useEffect(() => {
+    if (!smsOtpEnabled && verificationMethod === 'otp_sms') {
+      setVerificationMethod('otp_email');
+    }
+    if (!whatsappEnabled && verificationMethod === 'otp_whatsapp') {
+      setVerificationMethod('otp_email');
+    }
+  }, [smsOtpEnabled, whatsappEnabled, verificationMethod]);
+
   const handleOtpChange = (index, value) => {
     if (value.length > 1) return; // Single digit only
     
@@ -115,14 +128,8 @@ export default function RegisterPage() {
       return;
     }
 
-    const phoneRequired =
-      verificationMethod === 'otp_sms' || verificationMethod === 'otp_whatsapp';
-    if (phoneRequired && !phone.trim()) {
-      setError(
-        verificationMethod === 'otp_whatsapp'
-          ? 'Phone number is required for WhatsApp verification'
-          : 'Phone number is required for SMS verification',
-      );
+    if (!phone.trim()) {
+      setError('Phone number is required');
       return;
     }
 
@@ -249,7 +256,7 @@ export default function RegisterPage() {
   };
 
   if (isAuthenticated) {
-    router.push(getRedirectForRole(USER_ROLES.CUSTOMER));
+    router.push(getRedirectForRole(user?.role || USER_ROLES.CUSTOMER));
     return null;
   }
 
@@ -258,303 +265,296 @@ export default function RegisterPage() {
     verificationMethod === 'otp_email' ? email : phone;
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-          {step === 1 ? 'Create your account' : `Verify your ${verificationLabel}`}
-        </h2>
-
-        {step === 1 ? (
-          <p className="mt-2 text-center text-sm text-gray-600">
-            Already have an account?{' '}
-            <Link href="/auth/login" className="font-medium text-blue-600 hover:text-blue-500">
-              Sign in
-            </Link>
-          </p>
-        ) : (
-          <p className="mt-2 text-center text-sm text-gray-600">
-            We sent a 6-digit code to your {verificationLabel}
-            {verificationTarget ? ` (${verificationTarget})` : ''}.
-          </p>
-        )}
+    <div className="w-full max-w-md md:max-w-lg flex flex-col items-center">
+      <div className="flex flex-col items-center mb-4 sm:mb-5 animate-fade-in-up">
+        <Image
+          src={logoUrl || '/logo.png'}
+          alt="Aarya Clothing Logo"
+          width={96}
+          height={96}
+          className="w-16 h-16 sm:w-20 sm:h-20 object-contain drop-shadow-[0_0_15px_rgba(242,194,154,0.2)]"
+          priority
+        />
       </div>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+      <div className="text-center mb-4 sm:mb-5 space-y-1 animate-fade-in-up-delay">
+        <h2 className="text-xl sm:text-2xl text-white/90 font-body">
+          {step === 1 ? 'Create your account' : `Verify your ${verificationLabel}`}
+        </h2>
+        <p className="text-[#8A6A5C] text-xs sm:text-sm uppercase tracking-[0.15em] font-light">
+          {step === 1 ? 'Join Aarya Clothing' : 'Complete verification'}
+        </p>
+      </div>
+
+      {step === 1 ? (
+        <form className="w-full space-y-3 sm:space-y-3.5 animate-fade-in-up-delay" onSubmit={handleRegistration} noValidate>
           {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded">
-              <p className="text-red-600 text-sm">{error}</p>
+            <div className="p-2.5 rounded-lg bg-red-500/10 border border-red-500/20">
+              <p className="text-red-300 text-sm">{error}</p>
             </div>
           )}
 
-          {step === 1 ? (
-            <form className="space-y-6" onSubmit={handleRegistration}>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label htmlFor="firstName" className="block text-sm font-medium text-gray-700">
-                    First Name
-                  </label>
-                  <div className="mt-1">
-                    <Input
-                      id="firstName"
-                      name="firstName"
-                      type="text"
-                      autoComplete="given-name"
-                      required
-                      value={firstName}
-                      onChange={(e) => setFirstName(e.target.value)}
-                      className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label htmlFor="lastName" className="block text-sm font-medium text-gray-700">
-                    Last Name
-                  </label>
-                  <div className="mt-1">
-                    <Input
-                      id="lastName"
-                      name="lastName"
-                      type="text"
-                      autoComplete="family-name"
-                      required
-                      value={lastName}
-                      onChange={(e) => setLastName(e.target.value)}
-                      className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                    />
-                  </div>
-                </div>
-              </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="luxury-input-wrapper h-11 sm:h-12 rounded-xl relative flex items-center px-4">
+              <Input
+                id="firstName"
+                name="firstName"
+                type="text"
+                autoComplete="given-name"
+                required
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                placeholder="First name"
+                variant="minimal"
+                className="h-full text-[#EAE0D5] placeholder:text-[#8A6A5C] text-sm"
+              />
+            </div>
+            <div className="luxury-input-wrapper h-11 sm:h-12 rounded-xl relative flex items-center px-4">
+              <Input
+                id="lastName"
+                name="lastName"
+                type="text"
+                autoComplete="family-name"
+                required
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                placeholder="Last name"
+                variant="minimal"
+                className="h-full text-[#EAE0D5] placeholder:text-[#8A6A5C] text-sm"
+              />
+            </div>
+          </div>
 
-              <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                  Email address
-                </label>
-                <div className="mt-1">
-                  <Input
-                    id="email"
-                    name="email"
-                    type="email"
-                    autoComplete="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                  />
-                </div>
-              </div>
+          <div className="luxury-input-wrapper h-11 sm:h-12 rounded-xl relative group flex items-center px-4">
+            <Lock className="w-4 h-4 sm:w-5 sm:h-5 text-[#B76E79] group-focus-within:text-[#F2C29A] transition-colors duration-300 shrink-0" aria-hidden="true" />
+            <Input
+              id="password"
+              name="password"
+              type={showPassword ? 'text' : 'password'}
+              autoComplete="new-password"
+              required
+              minLength={5}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Password (min 5 chars)"
+              variant="minimal"
+              className="h-full pl-3 sm:pl-4 pr-10 text-[#EAE0D5] placeholder:text-[#8A6A5C] text-sm sm:text-base"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-2 touch-target-icon text-[#B76E79] hover:text-[#F2C29A] transition-colors"
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
+            >
+              {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+            </button>
+          </div>
 
-              <div>
-                <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
-                  Phone Number
-                  {(verificationMethod === 'otp_sms' || verificationMethod === 'otp_whatsapp') && (
-                    <span className="text-red-500"> *</span>
-                  )}
-                </label>
-                <div className="mt-1">
-                  <Input
-                    id="phone"
-                    name="phone"
-                    type="tel"
-                    autoComplete="tel"
-                    required={verificationMethod === 'otp_sms' || verificationMethod === 'otp_whatsapp'}
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder={
-                      verificationMethod === 'otp_email' ? 'Optional' : 'Required for SMS/WhatsApp OTP'
-                    }
-                    className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                  />
-                </div>
-              </div>
+          <div className="luxury-input-wrapper h-11 sm:h-12 rounded-xl relative group flex items-center px-4">
+            <Lock className="w-4 h-4 sm:w-5 sm:h-5 text-[#B76E79] group-focus-within:text-[#F2C29A] transition-colors duration-300 shrink-0" aria-hidden="true" />
+            <Input
+              id="confirmPassword"
+              name="confirmPassword"
+              type={showConfirmPassword ? 'text' : 'password'}
+              autoComplete="new-password"
+              required
+              minLength={5}
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="Confirm password"
+              variant="minimal"
+              className="h-full pl-3 sm:pl-4 pr-10 text-[#EAE0D5] placeholder:text-[#8A6A5C] text-sm sm:text-base"
+            />
+            <button
+              type="button"
+              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+              className="absolute right-2 touch-target-icon text-[#B76E79] hover:text-[#F2C29A] transition-colors"
+              aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+            >
+              {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+            </button>
+          </div>
 
-              <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                  Password (min 5 characters)
-                </label>
-                <div className="mt-1 relative">
-                  <Input
-                    id="password"
-                    name="password"
-                    type={showPassword ? "text" : "password"}
-                    autoComplete="new-password"
-                    required
-                    minLength={5}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                  >
-                    {showPassword ? <EyeOff className="h-5 w-5 text-gray-400" /> : <Eye className="h-5 w-5 text-gray-400" />}
-                  </button>
-                </div>
-              </div>
+          <div className="luxury-input-wrapper h-11 sm:h-12 rounded-xl relative group flex items-center px-4">
+            <Mail className="w-4 h-4 sm:w-5 sm:h-5 text-[#B76E79] group-focus-within:text-[#F2C29A] transition-colors duration-300 shrink-0" aria-hidden="true" />
+            <Input
+              id="email"
+              name="email"
+              type="email"
+              autoComplete="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Email address"
+              variant="minimal"
+              className="h-full pl-3 sm:pl-4 text-[#EAE0D5] placeholder:text-[#8A6A5C] text-sm sm:text-base"
+            />
+          </div>
 
-              <div>
-                <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
-                  Confirm Password
-                </label>
-                <div className="mt-1 relative">
-                  <Input
-                    id="confirmPassword"
-                    name="confirmPassword"
-                    type={showConfirmPassword ? "text" : "password"}
-                    autoComplete="new-password"
-                    required
-                    minLength={5}
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                  >
-                    {showConfirmPassword ? <EyeOff className="h-5 w-5 text-gray-400" /> : <Eye className="h-5 w-5 text-gray-400" />}
-                  </button>
-                </div>
-                {password && confirmPassword && password !== confirmPassword && (
-                  <p className="mt-2 text-sm text-red-600">Passwords do not match</p>
-                )}
-              </div>
+          <div className="luxury-input-wrapper h-11 sm:h-12 rounded-xl relative group flex items-center px-4">
+            <Smartphone className="w-4 h-4 sm:w-5 sm:h-5 text-[#B76E79] group-focus-within:text-[#F2C29A] transition-colors duration-300 shrink-0" aria-hidden="true" />
+            <Input
+              id="phone"
+              name="phone"
+              type="tel"
+              autoComplete="tel"
+              required
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="Phone number"
+              variant="minimal"
+              className="h-full pl-3 sm:pl-4 text-[#EAE0D5] placeholder:text-[#8A6A5C] text-sm sm:text-base"
+            />
+          </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700">
-                  Verification Method
-                </label>
-                <div className="mt-2 space-y-2">
-                  <label className="flex items-center">
-                    <input
-                      type="radio"
-                      name="verificationMethod"
-                      value="otp_email"
-                      checked={verificationMethod === 'otp_email'}
-                      onChange={() => setVerificationMethod('otp_email')}
-                      className="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300"
-                    />
-                    <span className="ml-2 block text-sm text-gray-700">
-                      Email OTP
-                    </span>
-                  </label>
-                  <label className="flex items-center">
-                    <input
-                      type="radio"
-                      name="verificationMethod"
-                      value="otp_sms"
-                      checked={verificationMethod === 'otp_sms'}
-                      onChange={() => setVerificationMethod('otp_sms')}
-                      className="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300"
-                    />
-                    <span className="ml-2 block text-sm text-gray-700">
-                      SMS OTP
-                    </span>
-                  </label>
-                  <label className="flex items-center">
-                    <input
-                      type="radio"
-                      name="verificationMethod"
-                      value="otp_whatsapp"
-                      checked={verificationMethod === 'otp_whatsapp'}
-                      onChange={() => setVerificationMethod('otp_whatsapp')}
-                      className="focus:ring-blue-500 h-4 w-4 text-blue-600 border-gray-300"
-                    />
-                    <span className="ml-2 block text-sm text-gray-700">
-                      WhatsApp OTP
-                    </span>
-                  </label>
-                </div>
-              </div>
-
-              <div>
-                <Button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-                >
-                  {isSubmitting ? 'Registering...' : 'Register'}
-                </Button>
-              </div>
-            </form>
-          ) : (
-            <form className="space-y-6" onSubmit={handleOtpVerification}>
-              <div className="text-center">
-                <div className="flex justify-center mb-4">
-                  {verificationMethod === 'otp_email' ? (
-                    <Mail className="h-12 w-12 text-blue-500" />
-                  ) : verificationMethod === 'otp_whatsapp' ? (
-                    <MessageCircle className="h-12 w-12 text-green-500" />
-                  ) : (
-                    <Smartphone className="h-12 w-12 text-blue-500" />
-                  )}
-                </div>
-                <h3 className="text-lg font-medium text-gray-900">
-                  Check your {verificationLabel}
-                </h3>
-                <p className="text-sm text-gray-600 mt-2">
-                  We sent a verification code to{' '}
-                  <span className="font-medium">{verificationTarget}</span>
-                </p>
-                <p className="text-sm text-gray-600">
-                  Enter the 6-digit code below to complete your registration
-                </p>
-              </div>
-
-              <div className="flex justify-center space-x-2">
-                {otpDigits.map((digit, index) => (
-                  <input
-                    key={index}
-                    ref={el => otpRefs.current[index] = el}
-                    type="text"
-                    maxLength={1}
-                    value={digit}
-                    onChange={(e) => handleOtpChange(index, e.target.value)}
-                    onKeyDown={(e) => handleOtpKeyDown(index, e)}
-                    className="w-12 h-12 text-center border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg"
-                  />
-                ))}
-              </div>
-
-              <div className="text-center space-y-2">
-                {!otpExpired ? (
-                  <p className="text-sm text-gray-500">
-                    Code expires in {formatTime(otpTimeLeft)}
-                  </p>
-                ) : (
-                  <p className="text-sm text-red-500">
-                    Code expired. Please request a new one.
-                  </p>
-                )}
-                <button
-                  type="button"
-                  onClick={handleResendOtp}
-                  disabled={resendCooldown > 0 || resending}
-                  className="text-sm font-medium text-blue-600 hover:text-blue-700 disabled:text-gray-400 disabled:cursor-not-allowed"
-                >
-                  {resending
-                    ? 'Sending…'
-                    : resendCooldown > 0
-                    ? `Resend code in ${resendCooldown}s`
-                    : 'Resend code'}
-                </button>
-              </div>
-
-              <div>
-                <Button
-                  type="submit"
-                  disabled={isSubmitting || otpExpired || otpDigits.some(d => !d)}
-                  className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-                >
-                  {isSubmitting ? 'Verifying...' : 'Verify & Complete Registration'}
-                </Button>
-              </div>
-            </form>
+          {password && confirmPassword && password !== confirmPassword && (
+            <p className="text-sm text-red-300">Passwords do not match.</p>
           )}
-        </div>
+
+          <div className="space-y-2">
+            <p className="text-[#EAE0D5]/60 text-[10px] uppercase tracking-widest">Verification method</p>
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                type="button"
+                onClick={() => setVerificationMethod('otp_email')}
+                className={`flex flex-col items-center gap-1 p-2.5 rounded-xl border-2 transition-all duration-300 ${
+                  verificationMethod === 'otp_email'
+                    ? 'bg-[#7A2F57]/20 border-[#F2C29A]/60 shadow-[0_0_20px_rgba(242,194,154,0.15)]'
+                    : 'bg-[#7A2F57]/10 border-[#B76E79]/30 hover:border-[#F2C29A]/40'
+                }`}
+              >
+                <Mail className={`w-5 h-5 transition-colors ${verificationMethod === 'otp_email' ? 'text-[#F2C29A]' : 'text-[#B76E79]'}`} />
+                <p className="text-[10px] sm:text-[11px] text-[#EAE0D5]/90 font-bold tracking-widest">EMAIL</p>
+              </button>
+
+              <button
+                type="button"
+                disabled={!smsOtpEnabled}
+                title={!smsOtpEnabled ? 'SMS OTP is not configured.' : undefined}
+                onClick={() => smsOtpEnabled && setVerificationMethod('otp_sms')}
+                className={`flex flex-col items-center gap-1 p-2.5 rounded-xl border-2 transition-all duration-300 ${
+                  !smsOtpEnabled
+                    ? 'opacity-50 cursor-not-allowed bg-[#7A2F57]/5 border-[#B76E79]/20'
+                    : verificationMethod === 'otp_sms'
+                      ? 'bg-[#7A2F57]/20 border-[#F2C29A]/60 shadow-[0_0_20px_rgba(242,194,154,0.15)]'
+                      : 'bg-[#7A2F57]/10 border-[#B76E79]/30 hover:border-[#F2C29A]/40'
+                }`}
+              >
+                <Smartphone className={`w-5 h-5 transition-colors ${verificationMethod === 'otp_sms' ? 'text-[#F2C29A]' : 'text-[#B76E79]'}`} />
+                <p className="text-[10px] sm:text-[11px] text-[#EAE0D5]/90 font-bold tracking-widest">SMS</p>
+              </button>
+
+              <button
+                type="button"
+                disabled={!whatsappEnabled}
+                title={!whatsappEnabled ? 'WhatsApp OTP is not configured.' : undefined}
+                onClick={() => whatsappEnabled && setVerificationMethod('otp_whatsapp')}
+                className={`flex flex-col items-center gap-1 p-2.5 rounded-xl border-2 transition-all duration-300 ${
+                  !whatsappEnabled
+                    ? 'opacity-50 cursor-not-allowed bg-[#7A2F57]/5 border-[#B76E79]/20'
+                    : verificationMethod === 'otp_whatsapp'
+                      ? 'bg-[#7A2F57]/20 border-[#F2C29A]/60 shadow-[0_0_20px_rgba(242,194,154,0.15)]'
+                      : 'bg-[#7A2F57]/10 border-[#B76E79]/30 hover:border-[#F2C29A]/40'
+                }`}
+              >
+                <MessageCircle className={`w-5 h-5 transition-colors ${verificationMethod === 'otp_whatsapp' ? 'text-[#F2C29A]' : 'text-[#B76E79]'}`} />
+                <p className="text-[10px] sm:text-[11px] text-[#EAE0D5]/90 font-bold tracking-widest">WA</p>
+              </button>
+            </div>
+          </div>
+
+          <Button
+            type="submit"
+            disabled={isSubmitting}
+            className="w-full h-11 sm:h-12 relative overflow-hidden rounded-xl bg-transparent border border-[#B76E79]/40 group transition-all duration-500 hover:border-[#F2C29A]/60 hover:shadow-[0_0_30px_rgba(183,110,121,0.3)]"
+          >
+            <div className="absolute inset-0 bg-gradient-to-r from-[#7A2F57]/80 via-[#B76E79]/70 to-[#2A1208]/80 opacity-90"></div>
+            <div className="animate-sheen"></div>
+            <span className="relative z-10 text-[#F2C29A] font-serif tracking-[0.12em] text-base group-hover:text-white transition-colors font-heading">
+              {isSubmitting ? 'REGISTERING...' : 'REGISTER'}
+            </span>
+          </Button>
+        </form>
+      ) : (
+        <form className="w-full space-y-4 animate-fade-in-up-delay" onSubmit={handleOtpVerification}>
+          {error && (
+            <div className="p-2.5 rounded-lg bg-red-500/10 border border-red-500/20">
+              <p className="text-red-300 text-sm">{error}</p>
+            </div>
+          )}
+
+          <div className="text-center mb-2">
+            <div className="w-12 h-12 rounded-full bg-[#7A2F57]/30 border border-[#B76E79]/30 flex items-center justify-center mx-auto mb-2">
+              {verificationMethod === 'otp_email' ? (
+                <Mail className="w-6 h-6 text-[#F2C29A]" />
+              ) : verificationMethod === 'otp_whatsapp' ? (
+                <MessageCircle className="w-6 h-6 text-[#F2C29A]" />
+              ) : (
+                <Smartphone className="w-6 h-6 text-[#F2C29A]" />
+              )}
+            </div>
+            <p className="text-[#EAE0D5]/80 text-sm">
+              Enter the 6-digit code sent to <span className="text-[#F2C29A]">{verificationTarget}</span>
+            </p>
+          </div>
+
+          <div className="flex justify-center gap-2">
+            {otpDigits.map((digit, index) => (
+              <input
+                key={index}
+                ref={el => otpRefs.current[index] = el}
+                type="text"
+                inputMode="numeric"
+                maxLength={1}
+                value={digit}
+                onChange={(e) => handleOtpChange(index, e.target.value)}
+                onKeyDown={(e) => handleOtpKeyDown(index, e)}
+                className="w-11 h-12 text-center text-lg font-bold border-2 border-[#B76E79]/30 bg-[#0B0608]/60 text-[#F2C29A] rounded-lg focus:border-[#F2C29A] focus:outline-none"
+              />
+            ))}
+          </div>
+
+          <div className="text-center space-y-2">
+            {!otpExpired ? (
+              <p className="text-sm text-[#EAE0D5]/70">Code expires in {formatTime(otpTimeLeft)}</p>
+            ) : (
+              <p className="text-sm text-red-300">Code expired. Request a new one.</p>
+            )}
+            <button
+              type="button"
+              onClick={handleResendOtp}
+              disabled={resendCooldown > 0 || resending}
+              className="text-sm font-medium text-[#C27A4E] hover:text-[#F2C29A] disabled:text-[#8A6A5C] disabled:cursor-not-allowed"
+            >
+              {resending
+                ? 'Sending…'
+                : resendCooldown > 0
+                ? `Resend in ${resendCooldown}s`
+                : 'Resend code'}
+            </button>
+          </div>
+
+          <Button
+            type="submit"
+            disabled={isSubmitting || otpExpired || otpDigits.some(d => !d)}
+            className="w-full h-11 sm:h-12 relative overflow-hidden rounded-xl bg-transparent border border-[#B76E79]/40 group transition-all duration-500 hover:border-[#F2C29A]/60 hover:shadow-[0_0_30px_rgba(183,110,121,0.3)]"
+          >
+            <div className="absolute inset-0 bg-gradient-to-r from-[#7A2F57]/80 via-[#B76E79]/70 to-[#2A1208]/80 opacity-90"></div>
+            <div className="animate-sheen"></div>
+            <span className="relative z-10 text-[#F2C29A] font-serif tracking-[0.12em] text-base group-hover:text-white transition-colors font-heading">
+              {isSubmitting ? 'VERIFYING...' : 'VERIFY & COMPLETE'}
+            </span>
+          </Button>
+        </form>
+      )}
+
+      <div className="w-full mt-6 sm:mt-8">
+        <p className="text-center text-[#8A6A5C] text-xs sm:text-sm tracking-wide">
+          Already have an account?{' '}
+          <Link href="/auth/login" className="text-[#C27A4E] hover:text-[#F2C29A] transition-colors ml-1 uppercase text-sm font-bold tracking-widest">
+            Sign in
+          </Link>
+        </p>
       </div>
     </div>
   );

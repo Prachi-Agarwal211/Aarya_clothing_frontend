@@ -413,13 +413,36 @@ CREATE TRIGGER trg_chat_rooms_touch         BEFORE UPDATE ON chat_rooms         
 -- ============================================
 -- SEED DATA
 -- ============================================
+-- Canonical privileged bootstrap accounts (both password: admin123)
 INSERT INTO users (email, username, hashed_password, role, email_verified, phone, first_name, last_name)
 VALUES (
     'admin@aarya.com',
     'admin',
     '$2b$12$1jw6vTostduYzRG5u/ry..LlgJrs9W/LAYdV763lPwE4ERzJ6JxO.', -- admin123
-    'admin', TRUE, '9999999999', 'System', 'Administrator'
-) ON CONFLICT (email) DO NOTHING;
+    'admin', TRUE, '9999999999', 'System', 'Admin'
+)
+ON CONFLICT (email) DO UPDATE
+SET
+    username = EXCLUDED.username,
+    role = EXCLUDED.role,
+    hashed_password = EXCLUDED.hashed_password,
+    is_active = TRUE,
+    email_verified = TRUE;
+
+INSERT INTO users (email, username, hashed_password, role, email_verified, phone, first_name, last_name)
+VALUES (
+    'super_admin@aarya.com',
+    'super_admin',
+    '$2b$12$1jw6vTostduYzRG5u/ry..LlgJrs9W/LAYdV763lPwE4ERzJ6JxO.', -- admin123
+    'super_admin', TRUE, '9999999998', 'System', 'Super Admin'
+)
+ON CONFLICT (email) DO UPDATE
+SET
+    username = EXCLUDED.username,
+    role = EXCLUDED.role,
+    hashed_password = EXCLUDED.hashed_password,
+    is_active = TRUE,
+    email_verified = TRUE;
 
 INSERT INTO collections (name, slug, description, image_url, is_featured, display_order) VALUES
     ('Kurtis',      'kurtis',     'Elegant kurtis for every occasion',  'collections/kurtis.jpg', TRUE, 1),

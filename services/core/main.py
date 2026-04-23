@@ -15,13 +15,12 @@ import asyncio
 import logging
 import ipaddress
 from contextlib import asynccontextmanager
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from fastapi import FastAPI, Depends, HTTPException, status, Request, BackgroundTasks, Response
 from fastapi.security import OAuth2PasswordBearer
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, text
-from sqlalchemy.orm import joinedload
 from typing import Optional
 
 logger = logging.getLogger(__name__)
@@ -29,7 +28,7 @@ logger = logging.getLogger(__name__)
 from core.config import settings
 from core.redis_client import redis_client
 from database.database import get_db, init_db
-from models import User, UserRole, UserProfile, UserSecurity, EmailVerification
+from models import User, UserRole, UserSecurity, EmailVerification
 from schemas.auth import (
     UserCreate, UserResponse, UserProfileUpdate,
     Token, LoginRequest, LoginResponse,
@@ -44,6 +43,7 @@ from middleware.auth_middleware import init_auth, get_current_user, get_current_
 from middleware.csrf_middleware import CSRFMiddleware
 from shared.request_id_middleware import RequestIDMiddleware
 from shared.error_responses import register_error_handlers
+from shared.time_utils import now_ist
 
 
 # ==================== Lifespan ====================
@@ -157,7 +157,46 @@ def _should_bypass_local_rate_limit(request: Request) -> bool:
 
 # ==================== Cookie Helper ====================
 
-def set_auth_cookies(response: Response, auth_data: dict, remember_me: bool = False):
+def _cookie_scope_for_request(request: Optional[Request] = None) -> tuple[Optional[str], bool]:
+    """Resolve cookie domain/secure flags for prod domains vs local hosts."""
+    env = getattr(settings, "ENVIRONMENT", "").lower() if hasattr(settings, "ENVIRONMENT") else ""
+    is_prod = "production" in env or "prod" in env or env == "prod"
+
+    host = ""
+    forwarded_host = ""
+    scheme = ""
+    forwarded_proto = ""
+    if request is not None:
+        try:
+            host = (request.url.hostname or "").lower()
+        except Exception:
+            host = ""
+        forwarded_host = (request.headers.get("x-forwarded-host") or "").lower()
+        scheme = (request.url.scheme or "").lower()
+        forwarded_proto = (request.headers.get("x-forwarded-proto") or "").lower()
+
+    effective_host = (forwarded_host.split(",")[0].strip() or host).lower()
+    is_local = effective_host in {"localhost", "127.0.0.1", "::1"} or effective_host.endswith(".local")
+    if not effective_host and request is not None and request.headers.get("host"):
+        host_header = request.headers.get("host", "").split(":")[0].lower()
+        is_local = host_header in {"localhost", "127.0.0.1", "::1"} or host_header.endswith(".local")
+
+    effective_scheme = (forwarded_proto.split(",")[0].strip() or scheme).lower()
+    is_https = effective_scheme == "https"
+
+    if is_prod and not is_local:
+        return ".aaryaclothing.in", True
+
+    # Local/dev hosts: avoid domain scoping and avoid Secure cookie on plain HTTP.
+    return None, bool(settings.COOKIE_SECURE and is_https)
+
+
+def set_auth_cookies(
+    response: Response,
+    auth_data: dict,
+    remember_me: bool = False,
+    request: Optional[Request] = None,
+):
     """Set authentication cookies on response.
     
     FIX: Added domain parameter for production to support both www and non-www domains.
@@ -183,19 +222,14 @@ def set_auth_cookies(response: Response, auth_data: dict, remember_me: bool = Fa
     # Session cookie tracks the refresh window so it doesn't drop early.
     session_max_age = refresh_max_age
 
-    # FIX: Set cookie domain for production to support both www and non-www
-    # In development, domain=None (host-only cookies)
-    # Use ENVIRONMENT env var - if it contains 'production' or 'prod', use production domain
-    env = getattr(settings, 'ENVIRONMENT', '').lower() if hasattr(settings, 'ENVIRONMENT') else ''
-    is_prod = 'production' in env or 'prod' in env or env == 'prod'
-    cookie_domain = ".aaryaclothing.in" if is_prod else None
+    cookie_domain, cookie_secure = _cookie_scope_for_request(request)
 
     # Set cookies
     response.set_cookie(
         key="access_token",
         value=tokens["access_token"],
         httponly=settings.COOKIE_HTTPONLY,
-        secure=settings.COOKIE_SECURE,
+        secure=cookie_secure,
         samesite=settings.COOKIE_SAMESITE,
         max_age=access_max_age,
         path="/",
@@ -206,7 +240,7 @@ def set_auth_cookies(response: Response, auth_data: dict, remember_me: bool = Fa
         key="refresh_token",
         value=tokens["refresh_token"],
         httponly=settings.COOKIE_HTTPONLY,
-        secure=settings.COOKIE_SECURE,
+        secure=cookie_secure,
         samesite=settings.COOKIE_SAMESITE,
         max_age=refresh_max_age,
         path="/",
@@ -217,7 +251,7 @@ def set_auth_cookies(response: Response, auth_data: dict, remember_me: bool = Fa
         key="session_id",
         value=session_id,
         httponly=settings.COOKIE_HTTPONLY,
-        secure=settings.COOKIE_SECURE,
+        secure=cookie_secure,
         samesite=settings.COOKIE_SAMESITE,
         max_age=session_max_age,
         path="/",
@@ -225,17 +259,27 @@ def set_auth_cookies(response: Response, auth_data: dict, remember_me: bool = Fa
     )
 
 
-def clear_auth_cookies(response: Response):
-    """Clear all authentication cookies."""
-    # Get environment to determine cookie domain
-    env = getattr(settings, 'ENVIRONMENT', '').lower() if hasattr(settings, 'ENVIRONMENT') else ''
-    is_prod = 'production' in env or 'prod' in env or env == 'prod'
-    cookie_domain = ".aaryaclothing.in" if is_prod else None
-    
-    # Delete cookies with domain to ensure they're cleared across subdomains
+def clear_auth_cookies(response: Response, request: Request):
+    """Clear all authentication cookies from all possible domains."""
+    cookie_domain, _ = _cookie_scope_for_request(request)
+
+    # 1. Clear with currently detected domain
     response.delete_cookie("access_token", path="/", domain=cookie_domain)
     response.delete_cookie("refresh_token", path="/", domain=cookie_domain)
     response.delete_cookie("session_id", path="/", domain=cookie_domain)
+    
+    # 2. Aggressively clear with common production domains just in case
+    # This prevents users from getting stuck if environment flags are misaligned
+    if cookie_domain != ".aaryaclothing.in":
+        response.delete_cookie("access_token", path="/", domain=".aaryaclothing.in")
+        response.delete_cookie("refresh_token", path="/", domain=".aaryaclothing.in")
+        response.delete_cookie("session_id", path="/", domain=".aaryaclothing.in")
+    
+    # 3. Clear without domain (host-only cookies)
+    if cookie_domain is not None:
+        response.delete_cookie("access_token", path="/", domain=None)
+        response.delete_cookie("refresh_token", path="/", domain=None)
+        response.delete_cookie("session_id", path="/", domain=None)
 
 
 # ==================== Email Helper ====================
@@ -257,7 +301,7 @@ async def health():
         "status": "healthy",
         "service": "core",
         "version": "1.0.0",
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": now_ist().isoformat(),
     }
 
 @app.get("/health", tags=["Health"])
@@ -266,7 +310,7 @@ async def root_health():
         "status": "healthy",
         "service": "core",
         "version": "1.0.0",
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": now_ist().isoformat(),
     }
 
 @app.get("/api/v1/auth/health", tags=["Health"])
@@ -287,7 +331,7 @@ async def health_check(db: Session = Depends(get_db)):
         "status": "healthy" if db_status == "healthy" else "degraded",
         "service": "core-platform",
         "version": "1.0.0",
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": now_ist().isoformat(),
         "dependencies": {
             "redis": redis_status,
             "database": db_status
@@ -337,79 +381,19 @@ async def register(
         if not user_response_data:
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="User creation failed to return user data.")
 
-        # Route based on verification method (OTP only: email, SMS, or WhatsApp)
-        # Note: "link" verification method is deprecated. New registrations use OTP only.
-        if user_data.verification_method == "otp_email":
-            # Email OTP verification
-            from service.otp_service import OTPService
-            from schemas.otp import OTPSendRequest, OTPType
-            otp_service = OTPService(db)
-            otp_request = OTPSendRequest(
-                email=user_response_data['email'],
-                otp_type=OTPType.EMAIL,
-                purpose="registration"
-            )
-            try:
-                otp_service.send_otp(otp_request)
-            except ValueError as e:
-                # Rate limited or cooldown — still return success, OTP will be sent later
-                logger.warning(f"OTP send failed during registration (queue will retry): {e}")
-            message = "Account created successfully. Please check your email for the verification code."
-
-        elif user_data.verification_method == "otp_sms":
-            # SMS OTP verification
-            from service.otp_service import OTPService
-            from schemas.otp import OTPSendRequest, OTPType
-            otp_service = OTPService(db)
-            otp_request = OTPSendRequest(
-                phone=user_response_data['profile']['phone'],
-                otp_type=OTPType.SMS,
-                purpose="registration"
-            )
-            try:
-                otp_service.send_otp(otp_request)
-            except ValueError as e:
-                logger.warning(f"SMS OTP send failed during registration (queue will retry): {e}")
-            message = "Account created successfully. Please check your phone for the verification code."
-
-        elif user_data.verification_method == "otp_whatsapp":
-            # WhatsApp OTP verification
-            from service.otp_service import OTPService
-            from schemas.otp import OTPSendRequest, OTPType
-            otp_service = OTPService(db)
-            otp_request = OTPSendRequest(
-                phone=user_response_data['profile']['phone'],
-                otp_type=OTPType.WHATSAPP,
-                purpose="registration"
-            )
-            try:
-                otp_service.send_otp(otp_request)
-            except ValueError as e:
-                logger.warning(f"WhatsApp OTP send failed during registration: {e}")
-            message = "Account created successfully. Please check your WhatsApp for the verification code."
-
-        else:
-            # Fallback for deprecated or unknown verification methods (e.g., "link")
-            # Default to email OTP for backward compatibility
-            logger.warning(f"Deprecated verification_method '{user_data.verification_method}' used. Falling back to email OTP.")
-            from service.otp_service import OTPService
-            from schemas.otp import OTPSendRequest, OTPType
-            otp_service = OTPService(db)
-            otp_request = OTPSendRequest(
-                email=user_response_data['email'],
-                otp_type=OTPType.EMAIL,
-                purpose="registration"
-            )
-            try:
-                otp_service.send_otp(otp_request)
-            except ValueError as e:
-                logger.warning(f"OTP send failed during registration fallback: {e}")
-            message = "Account created successfully. Please check your email for the verification code."
+        # AuthService already creates the registration OTP via OTPService.create_verification_token.
+        # Do not call legacy OTPService.send_otp path here (that API no longer exists).
+        message = result.get(
+            "message",
+            "Account created. Please verify your email/phone to complete registration.",
+        )
 
         return {
             "message": message,
             "user": user_response_data,
-            "verification_method": user_data.verification_method
+            "verification_method": result.get("otp_method", user_data.verification_method),
+            "otp_expires_at": result.get("otp_expires_at"),
+            "requires_verification": result.get("requires_verification", True),
         }
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
@@ -419,60 +403,24 @@ async def register(
 
 
 @app.post("/api/v1/auth/verify-email",
-          status_code=status.HTTP_200_OK,
+          status_code=status.HTTP_410_GONE,
           tags=["Authentication"])
 async def verify_email(
-    token: str,
-    response: Response,
-    db: Session = Depends(get_db)
+    token: str,  # kept for backward compatibility with old clients
 ):
     """
-    Verify user's email address using verification token.
-    
-    After verification, user is automatically logged in.
+    Deprecated email-link verification endpoint.
     """
-    auth_service = AuthService(db)
-    
-    user = auth_service.verify_email_token(token)
-    
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid or expired verification token"
-        )
-    
-    # Generate tokens for auto-login after verification
-    access_token = auth_service.create_access_token(user.id, user.role.value)
-    refresh_token = auth_service.create_refresh_token(user.id, user.role.value)
-    
-    # Create session
-    import secrets
-    session_id = secrets.token_urlsafe(32)
-    try:
-        redis_client.create_session(session_id, {"user_id": user.id}, settings.SESSION_EXPIRE_MINUTES)
-    except Exception:
-        pass  # Redis not available
-    
-    user_response = UserResponse.model_validate(user)
-
-    auth_data = {
-        "user": user_response.model_dump(),
-        "tokens": {
-            "access_token": access_token,
-            "refresh_token": refresh_token,
-            "token_type": "bearer",
-            "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
+    raise HTTPException(
+        status_code=status.HTTP_410_GONE,
+        detail={
+            "error": "endpoint_deprecated",
+            "message": (
+                "Email-link verification has been removed. "
+                "Use OTP verification via /api/v1/auth/verify-otp-registration."
+            ),
         },
-        "session_id": session_id
-    }
-
-    set_auth_cookies(response, auth_data, remember_me=False)
-
-    return {
-        "message": "Email verified successfully",
-        "user": user_response,
-        "tokens": auth_data["tokens"]
-    }
+    )
 
 
 @app.post("/api/v1/auth/verify-otp-registration",
@@ -481,6 +429,7 @@ async def verify_email(
 async def verify_otp_registration(
     body: VerifyRegistrationOTPBody,
     response: Response,
+    request: Request,
     db: Session = Depends(get_db)
 ):
     """
@@ -496,14 +445,9 @@ async def verify_otp_registration(
 
     # SMS / WhatsApp + email only (e.g. login recovery): resolve profile phone for OTP key matching
     if body.otp_type in (OTPType.SMS, OTPType.WHATSAPP) and email and not phone:
-        u_lookup = (
-            db.query(User)
-            .options(joinedload(User.profile))
-            .filter(User.email == email)
-            .first()
-        )
-        if u_lookup and u_lookup.profile and u_lookup.profile.phone:
-            phone = u_lookup.profile.phone
+        u_lookup = db.query(User).filter(User.email == email).first()
+        if u_lookup and u_lookup.phone:
+            phone = u_lookup.phone
 
     logger.info(
         f"[OTP Verify] Starting verification - phone: {phone}, email: {email}, "
@@ -539,8 +483,7 @@ async def verify_otp_registration(
         user = db.query(User).filter(User.email == email).first()
         logger.info(f"[OTP Verify] Found user by email: {user.id if user else 'None'}")
     else:
-        from models.user_profile import UserProfile
-        user = db.query(User).join(UserProfile).filter(UserProfile.phone == phone).first()
+        user = db.query(User).filter(User.phone == phone).first()
         logger.info(f"[OTP Verify] Found user by phone: {user.id if user else 'None'}")
 
     if not user:
@@ -550,6 +493,8 @@ async def verify_otp_registration(
             detail="User not found"
         )
 
+    # Mark account verified/active after successful registration OTP.
+    user.is_active = True
     # Set the verification flag that matches how the user proved identity
     if body.otp_type == OTPType.EMAIL:
         user.email_verified = True
@@ -588,7 +533,7 @@ async def verify_otp_registration(
 
     logger.info(f"[OTP Verify] Verification successful for user {user.id}, redirecting")
     
-    set_auth_cookies(response, auth_data, remember_me=False)
+    set_auth_cookies(response, auth_data, remember_me=False, request=request)
     
     msg = (
         "Email verified successfully"
@@ -624,19 +569,14 @@ async def send_verification_otp(
         and getattr(body, "email", None)
         and not getattr(body, "phone", None)
     ):
-        user = (
-            db.query(User)
-            .options(joinedload(User.profile))
-            .filter(User.email == body.email)
-            .first()
-        )
-        if not user or not user.profile or not user.profile.phone:
+        user = db.query(User).filter(User.email == body.email).first()
+        if not user or not user.phone:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Cannot send SMS code: account or phone number not found.",
             )
         otp_request_in = OTPSendRequest(
-            phone=user.profile.phone,
+            phone=user.phone,
             otp_type=OTPType.SMS,
             purpose="registration",
         )
@@ -680,7 +620,7 @@ async def resend_verification(
         logger.warning(f"Rate limit error (skipping): {e}")
 
     # Find user by email
-    user = db.query(User).options(joinedload(User.profile)).filter(User.email == email).first()
+    user = db.query(User).filter(User.email == email).first()
     
     if not user:
         # Don't reveal if email exists or not
@@ -700,7 +640,7 @@ async def resend_verification(
     
     # Map signup method to OTP type
     if signup_method == "otp_sms":
-        if not user.profile or not user.profile.phone:
+        if not user.phone:
             # Fallback to email if phone not available
             otp_request = OTPSendRequest(
                 email=user.email,
@@ -709,12 +649,12 @@ async def resend_verification(
             )
         else:
             otp_request = OTPSendRequest(
-                phone=user.profile.phone,
+                phone=user.phone,
                 otp_type=OTPType.SMS,
                 purpose="registration"
             )
     elif signup_method == "otp_whatsapp":
-        if not user.profile or not user.profile.phone:
+        if not user.phone:
             # Fallback to email if phone not available
             otp_request = OTPSendRequest(
                 email=user.email,
@@ -723,7 +663,7 @@ async def resend_verification(
             )
         else:
             otp_request = OTPSendRequest(
-                phone=user.profile.phone,
+                phone=user.phone,
                 otp_type=OTPType.WHATSAPP,
                 purpose="registration"
             )
@@ -791,7 +731,17 @@ async def login(
             user_agent=client_ua,
         )
 
-        set_auth_cookies(response, result, request.remember_me)
+        # Ensure session cookie points to a real Redis session row.
+        try:
+            redis_client.create_session(
+                result["session_id"],
+                {"user_id": result["user"]["id"]},
+                settings.SESSION_EXPIRE_MINUTES,
+            )
+        except Exception as exc:
+            logger.warning(f"Failed to persist login session in Redis: {exc}")
+
+        set_auth_cookies(response, result, request.remember_me, request=http_request)
 
         return LoginResponse(
             user=UserResponse.model_validate(result["user"]),
@@ -801,18 +751,19 @@ async def login(
         )
     except ValueError as e:
         msg = str(e)
-        if msg.startswith("EMAIL_NOT_VERIFIED:"):
-            # EMAIL_NOT_VERIFIED:{email}:{signup_verification_method}
-            parts = msg.replace("EMAIL_NOT_VERIFIED:", "", 1).split(":", 1)
-            email = parts[0]
-            signup_verification_method = parts[1] if len(parts) > 1 else "otp_email"
+        if msg in (
+            "Account not verified. Please complete verification.",
+            "Account temporarily locked. Please try again later.",
+        ):
             raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
+                status_code=status.HTTP_400_BAD_REQUEST,
                 detail={
-                    "error_code": "EMAIL_NOT_VERIFIED",
-                    "email": email,
-                    "signup_verification_method": signup_verification_method,
-                    "message": "Please verify your account before logging in. Use the code we sent by email or SMS, or request a new code.",
+                    "error_code": (
+                        "ACCOUNT_NOT_VERIFIED"
+                        if "not verified" in msg.lower()
+                        else "ACCOUNT_LOCKED"
+                    ),
+                    "message": msg,
                 }
             )
         raise HTTPException(
@@ -898,7 +849,15 @@ async def login_otp_verify(
             last_ip=client_ip,
             user_agent=client_ua,
         )
-        set_auth_cookies(response, result, request.remember_me)
+        try:
+            redis_client.create_session(
+                result["session_id"],
+                {"user_id": result["user"]["id"]},
+                settings.SESSION_EXPIRE_MINUTES,
+            )
+        except Exception as exc:
+            logger.warning(f"Failed to persist OTP-login session in Redis: {exc}")
+        set_auth_cookies(response, result, request.remember_me, request=http_request)
         return LoginResponse(
             user=UserResponse.model_validate(result["user"]),
             tokens=Token(**result["tokens"]),
@@ -947,16 +906,14 @@ async def refresh_token(
     tokens = auth_service.refresh_access_token(refresh_token)
 
     # FIX: Add domain for cross-subdomain session support
-    env = getattr(settings, 'ENVIRONMENT', '').lower() if hasattr(settings, 'ENVIRONMENT') else ''
-    is_prod = 'production' in env or 'prod' in env or env == 'prod'
-    cookie_domain = ".aaryaclothing.in" if is_prod else None
+    cookie_domain, cookie_secure = _cookie_scope_for_request(request)
 
     # Set new access token cookie
     response.set_cookie(
         key="access_token",
         value=tokens["access_token"],
         httponly=settings.COOKIE_HTTPONLY,
-        secure=settings.COOKIE_SECURE,
+        secure=cookie_secure,
         samesite=settings.COOKIE_SAMESITE,
         max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         path="/",
@@ -965,13 +922,18 @@ async def refresh_token(
 
     # If a new refresh token was issued (rotation), update the cookie
     if tokens.get("refresh_token"):
+        refresh_days = (
+            settings.REFRESH_TOKEN_DAYS_REMEMBER
+            if bool(payload.get("remember_me", False))
+            else settings.REFRESH_TOKEN_DAYS_DEFAULT
+        )
         response.set_cookie(
             key="refresh_token",
             value=tokens["refresh_token"],
             httponly=settings.COOKIE_HTTPONLY,
-            secure=settings.COOKIE_SECURE,
+            secure=cookie_secure,
             samesite=settings.COOKIE_SAMESITE,
-            max_age=settings.REFRESH_TOKEN_EXPIRE_MINUTES * 60,
+            max_age=refresh_days * 24 * 60 * 60,
             path="/",
             domain=cookie_domain
         )
@@ -1008,9 +970,16 @@ async def logout(
     if user_id and refresh_token:
         auth_service = AuthService(db)
         background_tasks.add_task(auth_service.logout, user_id, refresh_token)
+
+    # Ensure current server-side session is invalidated immediately.
+    if session_id:
+        try:
+            redis_client.delete_session(session_id)
+        except Exception as exc:
+            logger.warning(f"Session delete failed during logout: {exc}")
     
     # Clear cookies
-    clear_auth_cookies(response)
+    clear_auth_cookies(response, request)
     
     return {"detail": "Successfully logged out"}
 
@@ -1034,8 +1003,12 @@ async def logout_all(
             if user_id:
                 auth_service = AuthService(db)
                 background_tasks.add_task(auth_service.logout_all, user_id)
+                try:
+                    redis_client.delete_user_sessions(user_id)
+                except Exception as exc:
+                    logger.warning(f"Bulk session delete failed during logout-all: {exc}")
     
-    clear_auth_cookies(response)
+    clear_auth_cookies(response, request)
     
     return {"detail": "Logged out from all devices"}
 
@@ -1179,12 +1152,23 @@ async def reset_password_with_otp(
     """
     auth_service = AuthService(db)
     try:
+        verification_key = (
+            f"password_reset_verified:{request_data.otp_type.lower()}:{request_data.identifier}"
+        )
+        verification_data = redis_client.get_cache(verification_key, namespace="")
+        if not verification_data:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="OTP verification expired or missing. Please verify OTP again.",
+            )
+
         auth_service.reset_password_with_otp(
             request_data.identifier,
             request_data.otp_code,
             request_data.new_password,
             request_data.otp_type
         )
+        redis_client.delete_cache(verification_key, namespace="")
         return {"message": "Password reset successfully. You can now login."}
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
@@ -1253,9 +1237,8 @@ async def verify_reset_otp(
     # This allows password reset without re-verifying OTP (prevents double verification bug)
     # TTL: 300 seconds (5 minutes) - user must reset password within this window
     verification_key = f"password_reset_verified:{request_data.otp_type.lower()}:{request_data.identifier}"
-    from datetime import datetime, timezone
     verification_data = {
-        "verified_at": datetime.now(timezone.utc).isoformat(),
+        "verified_at": now_ist().isoformat(),
         "identifier": request_data.identifier,
         "otp_type": request_data.otp_type
     }
@@ -1286,7 +1269,7 @@ async def get_current_user_info(
     db: Session = Depends(get_db)
 ):
     """Get current user profile, including profile information."""
-    user = db.query(User).options(joinedload(User.profile)).filter(User.id == user_data.get("user_id")).first()
+    user = db.query(User).filter(User.id == user_data.get("user_id")).first()
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     return user
@@ -1300,18 +1283,22 @@ async def update_current_user(
     db: Session = Depends(get_db)
 ):
     """Update current user's profile."""
-    user = db.query(User).options(joinedload(User.profile)).filter(User.id == current_user.get("user_id")).first()
+    user = db.query(User).filter(User.id == current_user.get("user_id")).first()
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
-    if not user.profile:
-        user.profile = UserProfile()
-
     update_data = profile_data.model_dump(exclude_unset=True)
-    for field, value in update_data.items():
-        setattr(user.profile, field, value)
+    if "phone" in update_data:
+        user.phone = update_data.get("phone")
+    if "full_name" in update_data:
+        full_name = (update_data.get("full_name") or "").strip()
+        user.full_name = full_name or None
+        if full_name:
+            parts = full_name.split()
+            user.first_name = parts[0]
+            user.last_name = " ".join(parts[1:]) if len(parts) > 1 else None
 
-    user.updated_at = datetime.now(timezone.utc)
+    user.updated_at = now_ist()
     db.commit()
     db.refresh(user)
 
@@ -1366,7 +1353,7 @@ async def collect_web_vitals(request: Request, db: Session = Depends(get_db)):
         # Store in Redis with timestamp
         vitals_data = {
             **body,
-            "received_at": datetime.now(timezone.utc).isoformat(),
+            "received_at": now_ist().isoformat(),
             "ip": request.client.host if request.client else "unknown",
             "user_agent": request.headers.get("user-agent", ""),
         }

@@ -26,7 +26,14 @@ const fetchJson = async (url, init = {}) => {
     /* no body */
   }
   if (!res.ok) {
-    const msg = data?.detail || data?.message || `Request failed (${res.status})`
+    const detail = data?.detail
+    const msg =
+      typeof detail === 'string'
+        ? detail
+        : detail?.message ||
+          detail?.error ||
+          data?.message ||
+          `Request failed (${res.status})`
     throw new Error(msg)
   }
   return data

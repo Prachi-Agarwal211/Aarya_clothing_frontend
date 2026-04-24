@@ -7,7 +7,7 @@ small enough (admin tooling) that the join cost is fine.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -214,7 +214,7 @@ async def update_user_status(
         ),
         {
             "is_active": data.is_active,
-            "now": datetime.now(timezone.utc),
+            "now": now_ist(),
             "user_id": user_id,
         },
     )
@@ -247,7 +247,7 @@ async def bulk_update_user_status(
         ),
         {
             "is_active": data.is_active,
-            "now": datetime.now(timezone.utc),
+            "now": now_ist(),
             "user_ids": data.user_ids,
         },
     )

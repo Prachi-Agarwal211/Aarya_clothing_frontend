@@ -13,7 +13,8 @@ request.
 """
 
 import json
-from datetime import datetime, timezone
+from datetime import datetime
+from shared.time_utils import now_ist
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
@@ -62,7 +63,7 @@ async def update_landing_config(
         updates = {
             "config": config_json,
             "updated_by": user_id,
-            "now": datetime.now(timezone.utc),
+            "now": now_ist(),
             "s": section,
         }
         if data.is_active is not None:

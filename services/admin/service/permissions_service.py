@@ -5,6 +5,7 @@ Handles role-based permissions, access control, and audit logging.
 import logging
 import hashlib
 import secrets
+from shared.time_utils import now_ist, ist_naive
 from datetime import datetime, timedelta, time
 from typing import Optional, List, Dict, Any, Set
 from sqlalchemy.orm import Session
@@ -127,7 +128,7 @@ def update_custom_role(
     if is_active is not None:
         role.is_active = is_active
     
-    role.updated_at = datetime.utcnow()
+    role.updated_at = now_ist()
     
     db.commit()
     db.refresh(role)
@@ -278,7 +279,7 @@ def check_ip_access(db: Session, user_id: int, ip_address: str) -> bool:
 def check_time_access(db: Session, user_id: int, current_time: Optional[datetime] = None) -> bool:
     """Check if current time is within allowed access hours."""
     if current_time is None:
-        current_time = datetime.utcnow()
+        current_time = now_ist()
     
     restrictions = db.query(TimeBasedAccess).filter(
         and_(
@@ -347,7 +348,7 @@ def verify_two_factor(db: Session, user_id: int, code: str) -> bool:
     
     if totp.verify(code):
         two_factor.enabled = True
-        two_factor.last_used = datetime.utcnow()
+        two_factor.last_used = now_ist()
         db.commit()
         return True
     
@@ -355,7 +356,7 @@ def verify_two_factor(db: Session, user_id: int, code: str) -> bool:
     if two_factor.backup_codes and code in two_factor.backup_codes:
         two_factor.backup_codes.remove(code)
         two_factor.enabled = True
-        two_factor.last_used = datetime.utcnow()
+        two_factor.last_used = now_ist()
         db.commit()
         return True
     
@@ -385,7 +386,7 @@ def create_session(
 ) -> StaffSession:
     """Create a new session."""
     token_hash = hashlib.sha256(token.encode()).hexdigest()
-    expires_at = datetime.utcnow() + timedelta(hours=expires_in_hours)
+    expires_at = now_ist() + timedelta(hours=expires_in_hours)
     
     session = StaffSession(
         user_id=user_id,
@@ -432,7 +433,7 @@ def get_active_sessions(db: Session, user_id: int) -> List[StaffSession]:
         and_(
             StaffSession.user_id == user_id,
             StaffSession.is_active == True,
-            StaffSession.expires_at > datetime.utcnow()
+            StaffSession.expires_at > ist_naive()
         )
     ).all()
 
@@ -440,7 +441,7 @@ def get_active_sessions(db: Session, user_id: int) -> List[StaffSession]:
 def cleanup_expired_sessions(db: Session) -> int:
     """Clean up expired sessions."""
     result = db.query(StaffSession).filter(
-        StaffSession.expires_at < datetime.utcnow()
+        StaffSession.expires_at < ist_naive()
     ).update({"is_active": False})
     
     db.commit()
@@ -558,7 +559,7 @@ def update_task(
     if status:
         task.status = status
         if status == "completed":
-            task.completed_at = datetime.utcnow()
+            task.completed_at = now_ist()
     if priority:
         task.priority = priority
     if due_date:
@@ -566,7 +567,7 @@ def update_task(
     if notes:
         task.notes = notes
     
-    task.updated_at = datetime.utcnow()
+    task.updated_at = now_ist()
     
     db.commit()
     db.refresh(task)
@@ -616,7 +617,7 @@ def get_staff_dashboard_stats(db: Session, staff_id: int) -> Dict[str, Any]:
         and_(
             StaffTask.assigned_to == staff_id,
             StaffTask.status.in_(["pending", "in_progress"]),
-            StaffTask.due_date < datetime.utcnow()
+            StaffTask.due_date < ist_naive()
         )
     ).count()
     
@@ -687,7 +688,7 @@ def approve_pending_action(
         raise ValueError(f"Pending action {action_id} not found")
     
     action.status = "approved"
-    action.reviewed_at = datetime.utcnow()
+    action.reviewed_at = now_ist()
     action.reviewed_by = reviewed_by
     
     db.commit()
@@ -708,7 +709,7 @@ def reject_pending_action(
         raise ValueError(f"Pending action {action_id} not found")
     
     action.status = "rejected"
-    action.reviewed_at = datetime.utcnow()
+    action.reviewed_at = now_ist()
     action.reviewed_by = reviewed_by
     action.rejection_reason = reason
     

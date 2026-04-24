@@ -5,6 +5,7 @@ Extended tools for dashboard queries, analytics, and platform management.
 import json
 import logging
 from datetime import datetime, timedelta
+from shared.time_utils import now_ist
 from typing import Dict, List, Any, Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import text
@@ -180,7 +181,7 @@ def _get_sales_metrics(db: Session, args: Dict) -> str:
     compare = args.get("compare_previous", False)
     
     # Calculate date ranges
-    now = datetime.utcnow()
+    now = now_ist()
     if period == "today":
         start_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
         end_date = now
@@ -327,7 +328,7 @@ def _get_customer_analytics(db: Session, args: Dict) -> str:
     period = args.get("period", "month")
     limit = args.get("limit", 10)
     
-    now = datetime.utcnow()
+    now = now_ist()
     if period == "today":
         start_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
     elif period == "week":
@@ -473,7 +474,7 @@ def _get_revenue_trends(db: Session, args: Dict) -> str:
     granularity = args.get("granularity", "daily")
     days = args.get("days", 30)
     
-    now = datetime.utcnow()
+    now = now_ist()
     start_date = now - timedelta(days=days)
     
     if granularity == "daily":
@@ -517,7 +518,7 @@ def _get_top_products(db: Session, args: Dict) -> str:
     period = args.get("period", "month")
     limit = args.get("limit", 10)
     
-    now = datetime.utcnow()
+    now = now_ist()
     if period == "week":
         start_date = now - timedelta(days=7)
     elif period == "month":

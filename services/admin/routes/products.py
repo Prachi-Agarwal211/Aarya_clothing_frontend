@@ -11,7 +11,7 @@ on every write.
 
 import logging
 import re
-from datetime import datetime, timezone
+from datetime import datetime
 from decimal import Decimal
 from typing import List, Optional
 
@@ -295,7 +295,7 @@ async def admin_bulk_price_update(
     for p in products:
         sets, params = (
             ["updated_at = :now"],
-            {"id": p[0], "now": datetime.now(timezone.utc)},
+            {"id": p[0], "now": now_ist()},
         )
         price = Decimal(str(p[1])) if p[1] else Decimal("0")
         mrp = Decimal(str(p[2])) if p[2] else None
@@ -344,7 +344,7 @@ async def admin_bulk_status_update(
     """Bulk activate/deactivate/feature products."""
     sets, params = (
         ["updated_at = :now"],
-        {"ids": data.product_ids, "now": datetime.now(timezone.utc)},
+        {"ids": data.product_ids, "now": now_ist()},
     )
     if data.is_active is not None:
         sets.append("is_active = :active")
@@ -383,7 +383,7 @@ async def admin_bulk_assign_collection(
         {
             "cid": data.collection_id,
             "ids": data.product_ids,
-            "now": datetime.now(timezone.utc),
+            "now": now_ist(),
         },
     )
     db.commit()
@@ -408,7 +408,7 @@ async def admin_bulk_inventory_update(
             text(
                 "UPDATE inventory SET quantity = :qty, updated_at = :now WHERE sku = :sku"
             ),
-            {"qty": qty, "sku": sku, "now": datetime.now(timezone.utc)},
+            {"qty": qty, "sku": sku, "now": now_ist()},
         )
         if result.rowcount:
             updated += 1
@@ -504,7 +504,7 @@ async def admin_upload_product_image(
             "alt": alt_text or f"{product[1]} - Image {img_count + 1}",
             "primary": is_primary,
             "order": img_count,
-            "now": datetime.now(timezone.utc),
+            "now": now_ist(),
         },
     )
     image_id = result.scalar()
@@ -917,7 +917,7 @@ async def admin_adjust_variant_stock(
     new_qty = max(0, inv[1] + data.adjustment)
     db.execute(
         text("UPDATE inventory SET quantity = :qty, updated_at = :now WHERE id = :id"),
-        {"qty": new_qty, "id": inv[0], "now": datetime.now(timezone.utc)},
+        {"qty": new_qty, "id": inv[0], "now": now_ist()},
     )
     db.commit()
     redis_client.invalidate_pattern("products:*")

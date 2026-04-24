@@ -67,6 +67,12 @@ export const ordersApi = {
       notes: notes || undefined,
     }),
 
+  delete: (id) =>
+    adminClient.delete(`/api/v1/admin/orders/${id}`),
+
+  bulkDelete: (orderIds) =>
+    adminClient.post('/api/v1/admin/orders/bulk-delete', { order_ids: orderIds }),
+
   getTracking: (id) =>
     adminClient.get(`/api/v1/admin/orders/${id}/tracking`),
 

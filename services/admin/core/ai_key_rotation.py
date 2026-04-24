@@ -20,7 +20,7 @@ import os
 import json
 import time
 import logging
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta
 from typing import Optional, Dict, List, Any
 from dataclasses import dataclass
 from enum import Enum
@@ -152,12 +152,12 @@ class AIKeyRotation:
     
     def _get_rate_limit_key(self, provider: ProviderName) -> str:
         """Get Redis key for rate limit tracking."""
-        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        today = now_ist().strftime("%Y-%m-%d")
         return f"ai:rate_limit:{provider.value}:{today}"
     
     def _get_daily_count_key(self, provider: ProviderName) -> str:
         """Get Redis key for daily count tracking."""
-        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        today = now_ist().strftime("%Y-%m-%d")
         return f"ai:daily_count:{provider.value}:{today}"
     
     def _check_rate_limit(self, provider: ProviderConfig) -> bool:

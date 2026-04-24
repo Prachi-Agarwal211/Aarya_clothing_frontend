@@ -4,6 +4,7 @@ Replaces duplicate models in both Core and Commerce services
 Cleaned up version - removed all unused columns
 """
 from datetime import datetime
+from shared.time_utils import ist_naive
 from typing import Optional, List
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text, Enum, func
 from sqlalchemy.orm import relationship, Mapped, mapped_column
@@ -85,7 +86,7 @@ class User(Base):
     
     def is_locked(self) -> bool:
         """Check if account is locked"""
-        return self.account_locked_until is not None and self.account_locked_until > datetime.now()
+        return self.account_locked_until is not None and self.account_locked_until > ist_naive()
 
     @property
     def profile(self):

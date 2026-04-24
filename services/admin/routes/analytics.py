@@ -7,7 +7,8 @@ admin reaches via "View detailed report" links.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
+from shared.time_utils import now_ist
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import text
@@ -30,7 +31,7 @@ async def get_product_performance(
 ):
     """Detailed product performance: views, orders, revenue, conversion."""
     days = {"7d": 7, "30d": 30, "90d": 90, "1y": 365}[period]
-    since = datetime.now(timezone.utc) - timedelta(days=days)
+    since = now_ist() - timedelta(days=days)
     rows = db.execute(
         text("""
         SELECT p.id, p.name, 
@@ -94,7 +95,7 @@ async def get_detailed_customer_analytics(
 ):
     """Detailed customer analytics: LTV, segments, acquisition trends."""
     days = {"7d": 7, "30d": 30, "90d": 90, "1y": 365}[period]
-    since = datetime.now(timezone.utc) - timedelta(days=days)
+    since = now_ist() - timedelta(days=days)
 
     # Registration trend by day
     reg_trend = db.execute(

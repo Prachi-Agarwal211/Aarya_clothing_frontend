@@ -1,0 +1,58 @@
+services\admin\core\ai_key_rotation.py:        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+services\admin\core\ai_key_rotation.py:        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+services\admin\models\chat.py:    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+services\admin\models\chat.py:    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+services\admin\models\chat.py:    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+services\admin\models\landing_config.py:    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+services\admin\models\landing_config.py:    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+services\admin\models\landing_config.py:    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+services\admin\models\landing_config.py:    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+services\admin\models\landing_config.py:    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+services\admin\routes\ai.py:    now = datetime.now(timezone.utc)
+services\admin\routes\ai.py:            {"v": value_to_store, "now": datetime.now(timezone.utc), "uid": user_id, "k": key},
+services\admin\routes\ai.py:            {"k": key, "v": value_to_store, "uid": user_id, "now": datetime.now(timezone.utc)},
+services\admin\routes\analytics.py:    since = datetime.now(timezone.utc) - timedelta(days=days)
+services\admin\routes\analytics.py:    since = datetime.now(timezone.utc) - timedelta(days=days)
+services\admin\routes\chat.py:        {"now": datetime.now(timezone.utc), "rid": room_id},
+services\admin\routes\chat.py:        {"uid": user.get("user_id"), "rid": room_id, "now": datetime.now(timezone.utc)},
+services\admin\routes\chat.py:        {"rid": room_id, "now": datetime.now(timezone.utc)},
+services\admin\routes\chat.py:            {"now": datetime.now(timezone.utc), "rid": room_id},
+services\admin\routes\chat.py:            now = datetime.now(timezone.utc)
+services\admin\routes\collections.py:        slug = f"{slug}-{int(datetime.now(timezone.utc).timestamp())}"
+services\admin\routes\collections.py:            "now": datetime.now(timezone.utc),
+services\admin\routes\collections.py:        {"id": collection_id, "now": datetime.now(timezone.utc)},
+services\admin\routes\collections.py:        {"active": data.is_active, "ids": data.ids, "now": datetime.now(timezone.utc)},
+services\admin\routes\collections.py:                "now": datetime.now(timezone.utc),
+services\admin\routes\collections.py:        {"img": relative_path, "id": category_id, "now": datetime.now(timezone.utc)},
+services\admin\routes\collections.py:            {"id": category_id, "now": datetime.now(timezone.utc)},
+services\admin\routes\dashboard.py:    since = datetime.now(timezone.utc) - timedelta(days=days)
+services\admin\routes\dashboard.py:    now = datetime.now(timezone.utc)
+services\admin\routes\landing_admin.py:            "now": datetime.now(timezone.utc),
+services\admin\routes\orders.py:    now = datetime.now(timezone.utc)
+services\admin\routes\orders.py:    now = datetime.now(timezone.utc)
+services\admin\routes\orders.py:    filename = f"orders_{status or 'all'}_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.xlsx"
+services\admin\routes\orders.py:                    "now": datetime.now(timezone.utc),
+services\admin\routes\orders.py:                    "now": datetime.now(timezone.utc),
+services\admin\routes\orders.py:    fname = f"pod_template_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.xlsx"
+services\admin\routes\products.py:            {"id": p[0], "now": datetime.now(timezone.utc)},
+services\admin\routes\products.py:        {"ids": data.product_ids, "now": datetime.now(timezone.utc)},
+services\admin\routes\products.py:            "now": datetime.now(timezone.utc),
+services\admin\routes\products.py:            {"qty": qty, "sku": sku, "now": datetime.now(timezone.utc)},
+services\admin\routes\products.py:            "now": datetime.now(timezone.utc),
+services\admin\routes\products.py:        {"qty": new_qty, "id": inv[0], "now": datetime.now(timezone.utc)},
+services\admin\routes\reconciliation.py:        "timestamp": datetime.now(timezone.utc).isoformat(),
+services\admin\routes\site_config.py:            {"key": key, "value": val_str, "now": datetime.now(timezone.utc)},
+services\admin\routes\staff_ops.py:        {"now": datetime.now(timezone.utc), "id": task_id},
+services\admin\routes\users.py:            "now": datetime.now(timezone.utc),
+services\admin\routes\users.py:            "now": datetime.now(timezone.utc),
+services\admin\service\ai_service.py:                {"now": datetime.now(timezone.utc), "sid": session_id}
+services\admin\service\ai_service.py:        {"sid": new_sid, "uid": user_id, "role": role, "now": datetime.now(timezone.utc)}
+services\admin\service\ai_service.py:            "now": datetime.now(timezone.utc),
+services\admin\service\ai_service.py:         "now": datetime.now(timezone.utc), "sid": session_id}
+services\admin\service\ai_service.py:        now = datetime.now(timezone.utc)
+services\admin\service\order_payment_recovery.py:                (datetime.now(timezone.utc) - timedelta(hours=48)).timestamp()
+services\core\models\otp.py:    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+services\core\models\user_consolidated.py:        return self.account_locked_until is not None and self.account_locked_until > datetime.now()
+services\core\models\user_security.py:    last_password_change = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+services\core\models\user_security.py:    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+services\core\models\user_security.py:    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))

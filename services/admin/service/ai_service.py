@@ -16,7 +16,8 @@ import os
 import json
 import uuid
 import logging
-from datetime import datetime, timezone
+from datetime import datetime
+from shared.time_utils import now_ist
 from typing import Optional, List, Dict, Any
 
 from sqlalchemy.orm import Session
@@ -375,7 +376,7 @@ def get_or_create_session(db: Session, session_id: str, user_id: Optional[int], 
         if row:
             db.execute(
                 text("UPDATE ai_sessions SET last_activity = :now WHERE session_id = :sid"),
-                {"now": datetime.now(timezone.utc), "sid": session_id}
+                {"now": now_ist(), "sid": session_id}
             )
             db.commit()
             return session_id
@@ -386,7 +387,7 @@ def get_or_create_session(db: Session, session_id: str, user_id: Optional[int], 
             INSERT INTO ai_sessions (session_id, user_id, role, created_at, last_activity)
             VALUES (:sid, :uid, :role, :now, :now)
         """),
-        {"sid": new_sid, "uid": user_id, "role": role, "now": datetime.now(timezone.utc)}
+        {"sid": new_sid, "uid": user_id, "role": role, "now": now_ist()}
     )
     db.commit()
     return new_sid
@@ -431,7 +432,7 @@ def save_message(db: Session, session_id: str, role: str, content: str,
             "tc": json.dumps(tool_calls) if tool_calls else None,
             "tr": json.dumps(tool_results) if tool_results else None,
             "iu": json.dumps(image_urls) if image_urls else None,
-            "now": datetime.now(timezone.utc),
+            "now": now_ist(),
         }
     )
     db.execute(
@@ -445,7 +446,7 @@ def save_message(db: Session, session_id: str, role: str, content: str,
             WHERE session_id = :sid
         """),
         {"ti": tokens_in, "to_": tokens_out, "cost": cost,
-         "now": datetime.now(timezone.utc), "sid": session_id}
+         "now": now_ist(), "sid": session_id}
     )
     db.commit()
 
@@ -1553,7 +1554,7 @@ def execute_confirmed_action(db: Session, action_type: str, params: Dict, admin_
     DELETE operations are intentionally absent and will never be added.
     """
     try:
-        now = datetime.now(timezone.utc)
+        now = now_ist()
 
         if action_type == "ship_order":
             oid = int(params["order_id"])

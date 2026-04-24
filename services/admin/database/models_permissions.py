@@ -1,5 +1,6 @@
 """Database models for Staff Account Management and Granular Permissions."""
 from datetime import datetime, time
+from shared.time_utils import now_ist
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text, Time, ARRAY, JSON, Index
 from sqlalchemy.orm import declarative_base  # noqa: relationship removed (cross-Base refs)
 

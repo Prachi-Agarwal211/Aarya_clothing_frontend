@@ -62,7 +62,7 @@ export default async function sitemap() {
   try {
     const collectionsData = await fetchJson(`${API_BASE}/api/v1/collections?limit=200`);
     collections = (collectionsData?.items || collectionsData?.collections || []).map((c) => ({
-      url: `${BASE_URL}/collections/${c.slug || c.id}`,
+      url: `${BASE_URL}/products?collection_id=${c.id}`,
       lastModified: c.updated_at ? new Date(c.updated_at).toISOString() : now,
       changeFrequency: 'weekly',
       priority: 0.8,

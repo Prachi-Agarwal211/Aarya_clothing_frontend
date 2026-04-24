@@ -1,5 +1,6 @@
 """OTP model for verification."""
-from datetime import datetime, timezone
+from datetime import datetime
+from shared.time_utils import ist_naive
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text
 from database.database import Base
 
@@ -28,7 +29,7 @@ class OTP(Base):
     max_attempts = Column(Integer, default=3)
     
     # Timestamps
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=ist_naive)
     expires_at = Column(DateTime, nullable=False)
     used_at = Column(DateTime, nullable=True)
     

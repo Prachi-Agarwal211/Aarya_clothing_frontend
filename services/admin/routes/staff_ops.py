@@ -15,7 +15,7 @@ live in their own router.
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import text
@@ -70,7 +70,7 @@ async def complete_task(
             "SET status = 'completed', completed_at = :now, updated_at = :now "
             "WHERE id = :id"
         ),
-        {"now": datetime.now(timezone.utc), "id": task_id},
+        {"now": now_ist(), "id": task_id},
     )
     db.commit()
     return {"message": "Task completed"}

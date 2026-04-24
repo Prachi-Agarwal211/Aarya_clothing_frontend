@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import logging
 import os
-from datetime import datetime, timezone
+from datetime import datetime
+from shared.time_utils import now_ist
 from typing import Optional
 
 import httpx
@@ -130,7 +131,7 @@ async def get_reconciliation_summary(
         "orphaned_payments_sample": [dict(r._mapping) for r in orphaned],
         "orders_without_payment_sample": [dict(r._mapping) for r in no_payment],
         "amount_mismatches_sample": [dict(r._mapping) for r in mismatches],
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": now_ist().isoformat(),
     }
 
 

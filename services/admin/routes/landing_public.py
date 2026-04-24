@@ -353,7 +353,7 @@ async def get_public_landing_all(db: Session = Depends(get_db)):
                 "description": r[3],
                 "image": get_r2_public_url(r[4]) if r[4] else "",
                 "image_url": get_r2_public_url(r[4]) if r[4] else "",
-                "link": f"/collections/{r[2]}",
+                "link": f"/products?collection_id={r[0]}",
                 "is_active": r[5],
                 "is_featured": r[6],
             }

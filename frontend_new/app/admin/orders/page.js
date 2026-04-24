@@ -112,7 +112,40 @@ function OrdersContent() {
       logger.error('Error updating order status:', err);
       setError(err?.message || 'Failed to update order status.');
     } finally {
-      setUpdatingOrder(null);
+       setUpdatingOrder(null);
+    }
+  };
+
+  const deleteOrder = async (orderId) => {
+    if (!confirm(`Are you sure you want to delete order #${orderId}? This will restore inventory quantities and cannot be undone.`)) {
+      return;
+    }
+    
+    try {
+      await ordersApi.delete(orderId);
+      showAlert('Order deleted successfully', 'success');
+      fetchOrders();
+    } catch (err) {
+      logger.error('Error deleting order:', err);
+      setError(err?.message || 'Failed to delete order.');
+    }
+  };
+
+  const bulkDeleteOrders = async () => {
+    if (!selected.size) return;
+    if (!confirm(`Delete ${selected.size} selected order(s)? This action cannot be undone.`)) return;
+    
+    try {
+      setBulkLoading(true);
+      const result = await ordersApi.bulkDelete([...selected]);
+      showAlert(result.message || `Deleted ${result.deleted} order(s)`, 'success');
+      setSelected(new Set());
+      fetchOrders();
+    } catch (err) {
+      logger.error('Error bulk deleting orders:', err);
+      setError(err?.message || 'Failed to delete orders.');
+    } finally {
+      setBulkLoading(false);
     }
   };
 
@@ -184,6 +217,17 @@ function OrdersContent() {
         disabled: updatingOrder === row.id,
       });
     });
+
+    // Add delete action (always available unless shipped/delivered)
+    if (!['shipped', 'delivered'].includes(row.status)) {
+      actions.push({
+        label: 'Delete order',
+        icon: XCircle,
+        onClick: () => deleteOrder(row.id),
+        className: 'text-red-600 hover:text-red-800',
+      });
+    }
+
     return actions;
   };
 
@@ -218,6 +262,17 @@ function OrdersContent() {
           onCancel={() => handleBulkStatus('cancelled')}
           onClear={() => setSelected(new Set())}
         />
+      )}
+
+      {selected.size > 0 && (
+        <button
+          onClick={bulkDeleteOrders}
+          disabled={bulkLoading}
+          className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50"
+        >
+          <XCircle size={16} />
+          {bulkLoading ? 'Deleting...' : `Delete (${selected.size})`}
+        </button>
       )}
 
       {error && (

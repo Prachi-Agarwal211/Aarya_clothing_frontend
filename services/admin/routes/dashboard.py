@@ -15,7 +15,7 @@ All endpoints require an admin JWT.
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import text
@@ -123,7 +123,7 @@ async def get_revenue_analytics(
 ):
     """Daily revenue trend for the chosen window."""
     days = {"7d": 7, "30d": 30, "90d": 90, "1y": 365}[period]
-    since = datetime.now(timezone.utc) - timedelta(days=days)
+    since = now_ist() - timedelta(days=days)
     rows = db.execute(
         text(
             "SELECT DATE(created_at) AS day, COALESCE(SUM(total_amount), 0), COUNT(*) "
@@ -149,7 +149,7 @@ async def get_customer_analytics(
     user: dict = Depends(require_admin),
 ):
     """Counts of total / new / returning customers across common buckets."""
-    now = datetime.now(timezone.utc)
+    now = now_ist()
     total = (
         db.execute(text("SELECT COUNT(*) FROM users WHERE role = 'customer'")).scalar()
         or 0

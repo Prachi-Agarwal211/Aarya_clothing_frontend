@@ -7,7 +7,8 @@ write so the storefront picks up changes within a request or two.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
+from shared.time_utils import now_ist
 
 from fastapi import APIRouter, Depends
 from sqlalchemy import text
@@ -51,7 +52,7 @@ async def update_site_config(
                 "INSERT INTO site_config (key, value) VALUES (:key, :value) "
                 "ON CONFLICT (key) DO UPDATE SET value = :value, updated_at = :now"
             ),
-            {"key": key, "value": val_str, "now": datetime.now(timezone.utc)},
+            {"key": key, "value": val_str, "now": now_ist()},
         )
     db.commit()
     redis_client.invalidate_pattern("public:site:*")

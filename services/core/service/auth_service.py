@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session
 
 from core.config import settings
 from models import User
-from shared.time_utils import now_ist
+from shared.time_utils import now_ist, ist_naive
 
 
 logger = logging.getLogger(__name__)
@@ -460,7 +460,7 @@ class AuthService:
 
         if (
             getattr(user, "account_locked_until", None)
-            and user.account_locked_until > now_ist()
+            and user.account_locked_until > ist_naive()
         ):
             raise ValueError("Account temporarily locked. Please try again later.")
 

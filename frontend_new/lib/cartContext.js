@@ -279,23 +279,39 @@ export function CartProvider({ children }) {
     }
   }, [hasFetched, fetchCart, isAuthenticated]);
 
-  // Update item quantity
+  // Update item quantity with Optimistic UI
   const updateQuantity = useCallback(async (productId, quantity, variantId = null) => {
     if (!isAuthenticated) {
       throw new Error('Please login to update cart');
     }
     
+    // OPTIMISTIC UPDATE: Update local state immediately
+    const previousCart = { ...cart };
+    setCart(prev => {
+      const newItems = prev.items.map(item => {
+        if (item.product_id === productId && (!variantId || item.variant_id === variantId)) {
+          return { ...item, quantity };
+        }
+        return item;
+      });
+      // Recalculate totals approximately (server will provide exact ones)
+      const itemCount = newItems.reduce((sum, i) => sum + i.quantity, 0);
+      return { ...prev, items: newItems, item_count: itemCount };
+    });
+
     try {
       setError(null);
       const data = await cartApi.updateItem(productId, quantity, variantId);
-      setCart(data);
+      setCart(data); // Sync with real server data
       return data;
     } catch (err) {
       logger.error('Error updating quantity:', err);
+      // ROLLBACK: Restore previous cart state on failure
+      setCart(previousCart);
       setError(err.message);
       throw err;
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, cart]);
 
   // Remove item from cart
   const removeItem = useCallback(async (productId, variantId = null) => {

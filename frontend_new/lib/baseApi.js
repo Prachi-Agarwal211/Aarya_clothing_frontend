@@ -223,141 +223,105 @@ async function parseResponse(response) {
   }
 }
 
-// Single in-flight refresh for the whole app — Proxy-based clients create new
-// BaseApiClient instances per method call; a module-level promise dedupes 401 storms.
+// Single in-flight refresh for the whole app
 let authRefreshSingleton = null;
+
+// PERFORMANCE: Request Deduplication & In-Memory Cache
+// Prevents duplicate in-flight requests and caches GET responses for 2 seconds.
+const inflightRequests = new Map();
+const getCache = new Map();
+const CACHE_TTL = 2000; // 2 seconds
 
 export class BaseApiClient {
   constructor(baseUrl, options = {}) {
     this.baseUrl = normalizeBaseUrl(baseUrl);
     this.includeCredentials = options.includeCredentials !== false;
-    this.timeout = options.timeout ?? 10000; // Default 10 second timeout
+    this.timeout = options.timeout ?? 10000; 
     this.maxRetries = options.maxRetries ?? 2;
-  }
-
-  async _tryRefreshToken() {
-    if (authRefreshSingleton) {
-      return authRefreshSingleton;
-    }
-
-    authRefreshSingleton = (async () => {
-      try {
-        // FIX: Use credentials: 'include' to send refresh token cookie
-        // Backend expects refresh token from cookie, not request body
-        const response = await fetch(buildUrl(this.baseUrl, '/api/v1/auth/refresh'), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',  // Always include cookies for token refresh
-        });
-
-        if (!response.ok) {
-          logger.warn('[TokenRefresh] Refresh token invalid or expired');
-          // Clear stale tokens on refresh failure
-          if (typeof window !== 'undefined') {
-            clearAuthData();
-            clearStoredTokens();
-          }
-          return false;
-        }
-
-        const data = await response.json();
-        if (data.access_token) {
-          logger.info('[TokenRefresh] Successfully refreshed access token');
-          // Update tokens in cookies (backend sets them, but we ensure they're updated)
-          if (typeof window !== 'undefined' && data.tokens) {
-            setStoredTokens(data.tokens);
-          }
-          
-          try {
-            const userResponse = await fetch(buildUrl(this.baseUrl, '/api/v1/users/me'), {
-              credentials: 'include',  // Always include cookies
-            });
-            if (userResponse.ok) {
-              const userData = await userResponse.json();
-              localStorage.setItem('user', JSON.stringify(userData));
-            }
-          } catch (e) {
-            logger.warn('[TokenRefresh] Failed to refresh user data:', e);
-          }
-          return true;
-        }
-        logger.warn('[TokenRefresh] No access_token in refresh response');
-        return false;
-      } catch (e) {
-        logger.error('[TokenRefresh] Refresh request failed:', e.message);
-        // Only clear tokens on explicit 401 (invalid/expired refresh token)
-        // Network errors or 5xx should NOT clear auth — retry on next request
-        if (e.status === 401) {
-          if (typeof window !== 'undefined') {
-            clearAuthData();
-            clearStoredTokens();
-          }
-        }
-        return false;
-      } finally {
-        authRefreshSingleton = null;
-      }
-    })();
-
-    return authRefreshSingleton;
   }
 
   async fetch(path, options = {}, _isRetry = false) {
     const url = buildUrl(this.baseUrl, path);
-    const hasFormDataBody = options.body instanceof FormData;
+    const method = options.method || 'GET';
+    const isGet = method.toUpperCase() === 'GET';
+    
+    // 1. Check Cache (GET only)
+    if (isGet && !options.cache && !options.next?.revalidate === 0) {
+      const cached = getCache.get(url);
+      if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+        return cached.data;
+      }
+    }
 
+    // 2. Request Deduplication (GET only)
+    if (isGet && inflightRequests.has(url)) {
+      return inflightRequests.get(url);
+    }
+
+    const hasFormDataBody = options.body instanceof FormData;
     const headers = {
       ...(hasFormDataBody ? {} : { 'Content-Type': 'application/json' }),
       ...(options.headers || {}),
     };
 
-    // Auth endpoints: cap retries at 1 to avoid amplifying outages (see auth spec)
     const effectiveMaxRetries = path.includes('/api/v1/auth/')
       ? Math.min(this.maxRetries, 1)
       : this.maxRetries;
 
-    // Wrap fetch in retry logic — only retry network/5xx errors, never 4xx
-    return fetchWithRetry(async () => {
-      let response;
-      try {
-        response = await fetchWithTimeout(url, {
-          ...options,
-          headers,
-          ...(this.includeCredentials && { credentials: 'include' }),
-        }, this.timeout);
-      } catch (e) {
-        const error = new Error(e.message || 'Network error');
-        error.status = 0;
-        error.isNetworkError = true;
-        error.name = e.name === 'AbortError' ? 'TimeoutError' : e.name;
-        throw error;
-      }
-
-      const data = await parseResponse(response);
-
-      if (!response.ok) {
-        if (response.status === 401 && typeof window !== 'undefined' && !_isRetry) {
-          const refreshed = await this._tryRefreshToken();
-          if (refreshed) {
-            return this.fetch(path, options, true);
-          }
-          // _tryRefreshToken already cleared auth if it was a genuine 401.
-          // If it returned false due to a network error, don't clear — let the
-          // error propagate and the proactive refresh will retry later.
+    const performFetch = async () => {
+      return fetchWithRetry(async () => {
+        let response;
+        try {
+          response = await fetchWithTimeout(url, {
+            ...options,
+            headers,
+            ...(this.includeCredentials && { credentials: 'include' }),
+          }, this.timeout);
+        } catch (e) {
+          const error = new Error(e.message || 'Network error');
+          error.status = 0;
+          error.isNetworkError = true;
+          error.name = e.name === 'AbortError' ? 'TimeoutError' : e.name;
+          throw error;
         }
 
-        const errorDetail = (data && (data.error?.message || data.detail || data.message)) || `Request failed with status ${response.status}`;
-        const detail = typeof errorDetail === 'object' ? JSON.stringify(errorDetail) : errorDetail;
-        const error = new Error(detail);
-        error.status = response.status;
-        error.data = data;
-        // Do NOT retry 4xx client errors — they won't succeed on retry
-        error.noRetry = response.status >= 400 && response.status < 500;
-        throw error;
-      }
+        const data = await parseResponse(response);
 
-      return data;
-    }, effectiveMaxRetries);
+        if (!response.ok) {
+          if (response.status === 401 && typeof window !== 'undefined' && !_isRetry) {
+            const refreshed = await this._tryRefreshToken();
+            if (refreshed) {
+              return this.fetch(path, options, true);
+            }
+          }
+
+          const errorDetail = (data && (data.error?.message || data.detail || data.message)) || `Request failed with status ${response.status}`;
+          const detail = typeof errorDetail === 'object' ? JSON.stringify(errorDetail) : errorDetail;
+          const error = new Error(detail);
+          error.status = response.status;
+          error.data = data;
+          error.noRetry = response.status >= 400 && response.status < 500;
+          throw error;
+        }
+
+        // 3. Update Cache on success
+        if (isGet) {
+          getCache.set(url, { data, timestamp: Date.now() });
+        }
+
+        return data;
+      }, effectiveMaxRetries);
+    };
+
+    if (isGet) {
+      const requestPromise = performFetch().finally(() => {
+        inflightRequests.delete(url);
+      });
+      inflightRequests.set(url, requestPromise);
+      return requestPromise;
+    }
+
+    return performFetch();
   }
 
   _buildPathWithParams(path, params = {}) {

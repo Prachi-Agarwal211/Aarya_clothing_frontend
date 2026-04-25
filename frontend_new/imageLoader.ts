@@ -77,32 +77,38 @@ export default function cloudflareLoader({
   width,
   quality = 75,
 }: ImageLoaderProps): string {
-  // Handle non-string sources (null, undefined, objects, etc.)
+  // Handle non-string sources
   if (!src || typeof src !== 'string' || src.trim() === "") {
     return `/placeholder-image.jpg`;
   }
 
-  // Local static assets are always served from /public
+  // Local static assets are served from /public directly
   if (isLocalStaticAsset(src)) {
     return src;
   }
 
-  // Normalize src: remove leading slash if it's going to be appended to R2_PUBLIC_URL
-  const normalizedR2Base = R2_PUBLIC_URL.replace(/\/+$/, '');
-  
-  // If it's already a full R2 URL, return as-is
-  if (src.includes('r2.dev') || src.includes('cloudflarestorage.com')) {
-    return src;
+  // Normalize src to a full URL if it's a relative path from R2
+  let fullUrl = src;
+  if (!src.startsWith('http')) {
+    const normalizedR2Base = R2_PUBLIC_URL.replace(/\/+$/, '');
+    const cleanPath = src.startsWith('/') ? src : `/${src}`;
+    fullUrl = `${normalizedR2Base}${cleanPath}`;
   }
 
-  // If it starts with http, it's some other remote image, return as-is
-  if (src.startsWith('http')) {
-    return src;
-  }
+  // PERFORMANCE: Use Cloudflare Image Resizing API
+  // This transforms the image at the edge (CDN) before it reaches the user.
+  // We use format=auto to let Cloudflare decide between AVIF, WebP, or JPEG.
+  const params = [
+    `width=${width}`,
+    `quality=${quality}`,
+    'format=auto',
+    'fit=scale-down', // Prevent upscaling small images
+    'metadata=none'   // Strip EXIF data to save more bytes
+  ].join(',');
 
-  // Otherwise, it's a relative path - append to R2 base
-  const cleanPath = src.startsWith('/') ? src : `/${src}`;
-  return `${normalizedR2Base}${cleanPath}`;
+  // The format is: https://yourdomain.com/cdn-cgi/image/{params}/{fullUrl}
+  // Since we are likely on the same domain or a proxied domain:
+  return `/cdn-cgi/image/${params}/${fullUrl}`;
 }
 
 /**

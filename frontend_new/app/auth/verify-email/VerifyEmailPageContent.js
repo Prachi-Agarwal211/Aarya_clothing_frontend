@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Mail, Smartphone, MessageCircle, RefreshCw, CheckCircle } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useAuth } from '../../../src/store/authStore';
+import { useAuth } from '../../../lib/authContext';
 import logger from '../../../lib/logger';
 
 const OTP_EXPIRY_SECONDS = 120;
@@ -29,7 +29,7 @@ function VerifyEmailPageContent() {
   const otpRefs = useRef([]);
   const router = useRouter();
   const queryParams = useSearchParams();
-  const { checkAuth, isAuthenticated } = useAuth();
+  const { checkAuth, isAuthenticated, setAuthStatus } = useAuth();
 
   // Get email and method from query params
   useEffect(() => {

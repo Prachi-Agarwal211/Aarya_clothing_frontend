@@ -7,7 +7,7 @@ import { Eye, EyeOff, Mail, Lock } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { useAuth } from '../../../src/store/authStore';
+import { useAuth } from '../../../lib/authContext';
 import logger from '../../../lib/logger';
 import { getDeviceFingerprint, getDeviceName } from '../../../lib/deviceFingerprint';
 import { useLogo } from '../../../lib/siteConfigContext';

@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Mail, MessageCircle, Smartphone } from 'lucide-react';
 import Image from 'next/image';
-import { useAuth } from '../../../src/store/authStore';
+import { useAuth } from '../../../lib/authContext';
 import logger from '../../../lib/logger';
 import { getDeviceFingerprint, getDeviceName } from '../../../lib/deviceFingerprint';
 import { useLogo, useSiteConfig } from '../../../lib/siteConfigContext';
@@ -30,7 +30,7 @@ export default function LoginOtpPageContent({ redirectUrl = '/products' }) {
 
   const otpRefs = useRef([]);
   const router = useRouter();
-  const { login, user, isAuthenticated } = useAuth();
+  const { login, user, isAuthenticated, setAuthStatus } = useAuth();
   const logoUrl = useLogo();
   const { smsOtpEnabled, whatsappEnabled } = useSiteConfig();
 
@@ -148,6 +148,12 @@ export default function LoginOtpPageContent({ redirectUrl = '/products' }) {
       });
 
       logger.info('OTP Login successful');
+
+      // Update centralized auth context immediately
+      if (result?.user) {
+        setAuthStatus(result.user);
+      }
+
       const role = result?.user?.role || user?.role || USER_ROLES.CUSTOMER;
       const target = redirectUrl && redirectUrl !== '/products' ? redirectUrl : getRedirectForRole(role);
       setTimeout(() => router.push(target), 400);

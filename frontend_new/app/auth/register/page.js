@@ -7,7 +7,7 @@ import { Mail, Lock, Eye, EyeOff, Smartphone, MessageCircle } from 'lucide-react
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { useAuth } from '../../../src/store/authStore';
+import { useAuth } from '../../../lib/authContext';
 import logger from '../../../lib/logger';
 import { getRedirectForRole, USER_ROLES } from '../../../lib/roles';
 import { useLogo, useSiteConfig } from '../../../lib/siteConfigContext';
@@ -42,7 +42,7 @@ export default function RegisterPage() {
   const [registrationSuccess, setRegistrationSuccess] = useState(false);
 
   const router = useRouter();
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, setAuthStatus } = useAuth();
   const logoUrl = useLogo();
   const { smsOtpEnabled, whatsappEnabled } = useSiteConfig();
   const otpRefs = useRef([]);
@@ -238,6 +238,11 @@ export default function RegisterPage() {
       logger.info('Registration & OTP verification successful', {
         userId: data?.user?.id,
       });
+
+      // Update centralized auth context immediately
+      if (data?.user) {
+        setAuthStatus(data.user);
+      }
 
       // Cookies are already set by the verify-otp-registration endpoint —
       // no second login round-trip needed (the user is now authenticated).

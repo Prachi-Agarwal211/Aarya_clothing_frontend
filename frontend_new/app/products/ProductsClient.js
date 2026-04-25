@@ -67,7 +67,7 @@ async function fetchCollectionsAPI() {
   return response.json();
 }
 
-export default function ProductsContent({ initialFilters }) {
+export default function ProductsContent({ initialFilters, initialData }) {
   const router = useRouter();
   const { addItem, openCart } = useCart();
   const { isStaff } = useAuth();
@@ -90,10 +90,10 @@ export default function ProductsContent({ initialFilters }) {
     }
   };
 
-  const [products, setProducts] = useState([]);
-  const [collections, setCollections] = useState([]);
-  const [totalProducts, setTotalProducts] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const [products, setProducts] = useState(initialData?.products || []);
+  const [collections, setCollections] = useState(initialData?.collections || []);
+  const [totalProducts, setTotalProducts] = useState(initialData?.total || products.length);
+  const [loading, setLoading] = useState(!initialData);
   const [error, setError] = useState(null);
   const [viewMode, setViewMode] = useState('grid');
   const [showFilters, setShowFilters] = useState(false);
@@ -110,6 +110,7 @@ export default function ProductsContent({ initialFilters }) {
   const debouncedSearch = useDebounce(searchInput, 400);
 
   const fetchCollections = useCallback(async () => {
+    if (initialData?.collections) return; // Skip if already provided
     try {
       const data = await fetchCollectionsAPI();
       const items = Array.isArray(data) ? data : (data?.items || data?.collections || []);
@@ -118,10 +119,15 @@ export default function ProductsContent({ initialFilters }) {
       logger.warn('Failed to load collections:', err?.message);
       setCollections([]);
     }
-  }, []);
+  }, [initialData]);
 
   const fetchProducts = useCallback(async (activeFilters, isRetry = false, attempt = 0) => {
-    console.log('[ProductsClient] fetchProducts called', { activeFilters, isRetry, attempt });
+    // Skip first fetch if initialData matches current filters
+    if (activeFilters === initialFilters && initialData && !isRetry) {
+      console.log('[ProductsClient] Using initialData, skipping first fetch');
+      return;
+    }
+
     try {
       if (!isRetry) {
         setLoading(true);
@@ -129,7 +135,6 @@ export default function ProductsContent({ initialFilters }) {
       setError(null);
 
       const [sortField, sortOrder] = (activeFilters.sort || 'created_at:desc').split(':');
-
       const currentPage = activeFilters.page || 1;
       const skip = (currentPage - 1) * PAGE_SIZE;
 
@@ -145,52 +150,42 @@ export default function ProductsContent({ initialFilters }) {
       if (activeFilters.minPrice) params.min_price = parseFloat(activeFilters.minPrice);
       if (activeFilters.maxPrice) params.max_price = parseFloat(activeFilters.maxPrice);
 
-      console.log('[ProductsClient] Fetching from URL:', `/api/v1/products?${new URLSearchParams(params).toString()}`);
-      
       const data = await fetchProductsAPI(params);
-      console.log('[ProductsClient] Fetch successful, received:', data);
       const items = Array.isArray(data) ? data : (data?.items || data?.products || []);
       const total = data?.total ?? items.length;
 
       setProducts(items);
       setTotalProducts(total);
-      console.log('[ProductsClient] State updated:', { items: items.length, total });
     } catch (err) {
       console.error('[ProductsClient] Fetch error:', err);
       const shouldRetry = !isRetry && attempt < 2;
 
       if (shouldRetry) {
         const delay = 1000 * Math.pow(2, attempt);
-        logger.warn(`Products fetch failed (attempt ${attempt + 1}/3), retrying in ${delay}ms...`, err?.message);
         await new Promise(resolve => setTimeout(resolve, delay));
         return fetchProducts(activeFilters, true, attempt + 1);
       }
 
-      logger.error('Error fetching products after retries:', err);
       setError(err?.message || 'Failed to load products. Please try again.');
       setProducts([]);
     } finally {
       setLoading(false);
-      console.log('[ProductsClient] Loading set to false');
     }
-  }, []);
+  }, [initialData, initialFilters]);
 
   useEffect(() => {
-    console.log('[ProductsClient] fetchCollections useEffect running');
     fetchCollections();
   }, [fetchCollections]);
 
   useEffect(() => {
-    console.log('[ProductsClient] fetchProducts useEffect running', { filters });
     fetchProducts(filters);
-  }, [filters.collection_id, filters.minPrice, filters.maxPrice, filters.sort, filters.page]);
+  }, [filters.collection_id, filters.minPrice, filters.maxPrice, filters.sort, filters.page, fetchProducts]);
 
   useEffect(() => {
     if (debouncedSearch !== filters.search) {
-      applyFilter({ search: debouncedSearch, page: 1 });
+      setFilters(prev => ({ ...prev, search: debouncedSearch, page: 1 }));
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedSearch]);
+  }, [debouncedSearch, filters.search]);
 
   const applyFilter = (updates) => {
     setFilters(prev => ({ ...prev, ...updates, page: 1 }));

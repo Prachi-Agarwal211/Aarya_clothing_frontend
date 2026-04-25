@@ -248,6 +248,20 @@ export function AuthProvider({ children }) {
     return user?.role ? isStaff(user.role) : false;
   }, [user]);
 
+  /**
+   * Manually set authenticated user (used by Register/OTP pages)
+   */
+  const setAuthStatus = useCallback((userData) => {
+    if (!userData) return;
+    
+    setAuthData({ user: userData });
+    setUser(userData);
+    setIsAuthenticated(true);
+    setLoading(false);
+    
+    logger.info('Auth status manually set for user:', userData.id);
+  }, []);
+
   const value = {
     // State
     user,
@@ -260,6 +274,7 @@ export function AuthProvider({ children }) {
     logout,
     checkAuth,
     updateUser,
+    setAuthStatus,
 
     // Helpers - using centralized role utilities
     hasRole: hasRoleCallback,

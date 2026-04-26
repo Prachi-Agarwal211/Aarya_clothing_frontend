@@ -246,23 +246,35 @@ def _enrich_product(product, db: Session = None, user_role: str = None) -> dict:
         {inv.size for inv in inventory_list if inv.size},
         key=lambda s: SIZE_ORDER.get(s.upper(), 50)
     )
-    colors = sorted({inv.color for inv in inventory_list if inv.color})
     is_admin_user = is_staff(user_role) if user_role else False
 
-    color_hex_map = {}
-    color_name_map = {}
-    color_image_map = {}
+    # Group colors case-insensitively so "Black" and "black" merge into one swatch
+    color_groups = {}  # normalized_key -> {"original": str, "hex": str, "display_name": str, "image_url": str|None}
     for inv in inventory_list:
-        if inv.color:
-            color_hex_map[inv.color] = _resolve_variant_hex(inv)
-            color_name = _resolve_display_color_name(
-                inv.color, _resolve_variant_hex(inv)
-            )
-            if color_name:
-                color_name_map[inv.color] = color_name
-            img = getattr(inv, "image_url", None)
-            if img and inv.color not in color_image_map:
-                color_image_map[inv.color] = _r2_url(img)
+        if not inv.color:
+            continue
+        key = inv.color.strip().lower()
+        if key in color_groups:
+            # Prefer the variant that has an image
+            if getattr(inv, "image_url", None) and not color_groups[key].get("image_url"):
+                color_groups[key]["image_url"] = _r2_url(inv.image_url)
+            continue
+        color_groups[key] = {
+            "original": inv.color.strip(),
+            "hex": _resolve_variant_hex(inv),
+            "display_name": _resolve_display_color_name(inv.color, _resolve_variant_hex(inv)),
+            "image_url": _r2_url(inv.image_url) if getattr(inv, "image_url", None) else None,
+        }
+
+    colors = [
+        {
+            "name": grp["original"],
+            "hex": grp["hex"],
+            "display_name": grp["display_name"] or grp["original"],
+            "image_url": grp.get("image_url"),
+        }
+        for grp in sorted(color_groups.values(), key=lambda g: g["original"].lower())
+    ]
 
     # Compute actual in_stock from inventory items (not from total_stock which may be null)
     actual_in_stock = any(not inv.is_out_of_stock for inv in inventory_list)
@@ -289,16 +301,8 @@ def _enrich_product(product, db: Session = None, user_role: str = None) -> dict:
         "inventory": _enrich_inventory(inventory_list, user_role),
         "variants": _enrich_inventory(inventory_list, user_role),
         "sizes": sizes,
-        "colors": [
-            {
-                "name": c,
-                "hex": color_hex_map.get(c, "#888888"),
-                "display_name": color_name_map.get(c, c),
-                "image_url": color_image_map.get(c),
-            }
-            for c in colors
-        ],
-        "color_images": color_image_map,
+        "colors": colors,
+        "color_images": {c["name"]: c.get("image_url") for c in colors if c.get("image_url")},
         "is_active": product.is_active,
         "is_featured": product.is_featured,
         "is_new_arrival": product.is_new_arrival,

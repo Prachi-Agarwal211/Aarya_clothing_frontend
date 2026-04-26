@@ -84,26 +84,9 @@ export default function LoginOtpPageContent({ redirectUrl = '/products' }) {
       if (verificationMethod === 'otp_whatsapp') otpType = 'WHATSAPP';
       else if (verificationMethod === 'otp_sms') otpType = 'SMS';
 
-      const response = await fetch('/api/v1/auth/login-otp-request', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          identifier: identifier.trim(),
-          otp_type: otpType,
-        }),
-      });
-
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        const msg =
-          typeof data.detail === 'string'
-            ? data.detail
-            : Array.isArray(data.detail)
-              ? data.detail.map((d) => d.msg || d).join(', ')
-              : `Could not send OTP (${response.status})`;
-        throw new Error(msg);
-      }
+      // Fix #4: Use authApi.sendLoginOtpRequest instead of raw fetch
+      // This automatically uses coreClient with its standardized error parsing.
+      await authApi.sendLoginOtpRequest(identifier.trim(), otpType);
 
       setOtpSent(true);
       setOtpDigits(['', '', '', '', '', '']);

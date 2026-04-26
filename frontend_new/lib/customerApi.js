@@ -346,8 +346,14 @@ export const authApi = {
     return coreClient.post('/api/v1/auth/login', credentials);
   },
 
-  register: (data) =>
-    coreClient.post('/api/v1/auth/register', data),
+  sendLoginOtpRequest: (identifier, otpType = 'EMAIL') =>
+    coreClient.post('/api/v1/auth/login-otp-request', {
+      identifier: identifier.trim(),
+      otp_type: otpType,
+    }),
+
+  verifyOtpRegistration: (data) =>
+    coreClient.post('/api/v1/auth/verify-otp-registration', data),
 
   logout: () =>
     coreClient.post('/api/v1/auth/logout'),

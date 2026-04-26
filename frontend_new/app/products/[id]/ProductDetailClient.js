@@ -129,12 +129,15 @@ export default function ProductDetailClient({ initialProduct, initialReviews }) 
 
   const getMatchingVariant = (size, colorKey = selectedColorKey) => {
     if (!product?.inventory?.length) return null;
+    const targetName = normalizeColorName(selectedColor?.name);
     return product.inventory.find((inv) => {
       if (inv.size !== size) return false;
-      if (colorKey && inv.color_hex) {
-        return normalizeHex(inv.color_hex) === colorKey;
-      }
-      return true;
+      if (!colorKey) return true;
+      const invHex = normalizeHex(inv.color_hex);
+      if (invHex && invHex === colorKey) return true;
+      // Fallback: match by color name when hex is missing or is fallback grey
+      if (targetName && normalizeColorName(inv.color) === targetName) return true;
+      return false;
     }) || null;
   };
 
@@ -287,7 +290,7 @@ export default function ProductDetailClient({ initialProduct, initialReviews }) 
 
               {product.colors?.length > 0 && (
                 <div>
-                  <p className="text-sm text-[#EAE0D5]/70 mb-2">Color: {selectedColor?.displayName || selectedColor?.name}</p>
+                  <p className="text-sm text-[#EAE0D5]/70 mb-2">Color: {selectedColor?.display_name || selectedColor?.name}</p>
                   <div className="flex gap-3">
                     {product.colors.map((color) => (
                       <button

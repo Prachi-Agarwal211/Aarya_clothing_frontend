@@ -802,8 +802,8 @@ async def login_otp_request(
             "expires_in": result.get("expires_in", 600),
         }
     except ValueError as e:
-        # Generic error for all cases (no account enumeration)
-        raise HTTPException(status_code=400, detail="If an account exists, an OTP has been sent.")
+        logger.error(f"[Auth Error] {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @app.post("/api/v1/auth/login-otp-verify",

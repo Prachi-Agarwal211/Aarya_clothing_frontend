@@ -155,7 +155,9 @@ class AuthService:
 
         existing = self.db.query(User).filter(or_(User.email == user_data.email, User.username == user_data.username)).first()
         if existing:
-            raise ValueError("Registration failed. An account may already exist with this email or username.")
+            if existing.email == user_data.email:
+                raise ValueError("Email already registered")
+            raise ValueError("Username already taken")
 
         user = User(
             email=user_data.email,
@@ -216,7 +218,7 @@ class AuthService:
         from service.otp_service import OTPService
         otp_service = OTPService(db=self.db)
         
-        otp_verify = otp_service.verify_otp(user_id=user_id, otp_code=otp_code, token_type="email_verification")
+        otp_verify = otp_service.verify_otp(user_id=user_id, otp_code=otp_code, token_type="registration")
         if not otp_verify.get("success"):
             raise ValueError(otp_verify.get("error", "Invalid or expired OTP"))
 
@@ -258,7 +260,7 @@ class AuthService:
         """Authenticate using identifier and password."""
         user = _resolve_user_query(self.db, identifier)
         if not user:
-            raise ValueError("Invalid credentials")
+            raise ValueError("Account not found. Please create an account first.")
 
         if getattr(user, "account_locked_until", None) and user.account_locked_until > now_ist():
             raise ValueError("Account temporarily locked. Please try again later.")
@@ -272,6 +274,18 @@ class AuthService:
                 user.account_locked_until = now_ist() + timedelta(minutes=settings.ACCOUNT_LOCKOUT_MINUTES)
                 user.failed_login_attempts = 0
                 self.db.commit()
+                
+                # SECURITY: Notify the user about the lockout
+                try:
+                    from service.email_service import email_service
+                    email_service.send_security_alert(
+                        user.email,
+                        "Account Locked",
+                        f"Your Aarya Clothing account has been locked for {settings.ACCOUNT_LOCKOUT_MINUTES} minutes due to multiple failed login attempts. If this wasn't you, please reset your password immediately."
+                    )
+                except Exception as exc:
+                    logger.error(f"Failed to send lockout alert email: {exc}")
+                    
                 raise ValueError(f"Account locked due to failed attempts. Try again in {settings.ACCOUNT_LOCKOUT_MINUTES} mins.")
             self.db.commit()
             raise ValueError("Incorrect password. Please try again.")
@@ -302,7 +316,7 @@ class AuthService:
         """Send a login OTP."""
         user = _resolve_user_query(self.db, identifier)
         if not user:
-            return {"success": True, "message": "If an account exists, an OTP has been sent.", "expires_in": 600}
+            raise ValueError("Account not found. Please create an account first.")
         
         if not user.is_active:
             raise ValueError("Account not verified. Please complete your registration verification.")
@@ -410,7 +424,7 @@ class AuthService:
         """Request password reset via OTP."""
         user = _resolve_user_query(self.db, identifier)
         if not user:
-            return {"success": True, "message": "If an account exists, an OTP has been sent.", "expires_in": 600}
+            raise ValueError("Account not found. Please create an account first.")
 
         delivery = (otp_type or "EMAIL").upper()
         from service.otp_service import OTPService

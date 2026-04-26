@@ -1,6 +1,6 @@
 """Product schemas for commerce service."""
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional, List, Any
 from decimal import Decimal
 from datetime import datetime
 
@@ -8,6 +8,14 @@ from schemas.product_image import ProductImageResponse
 from schemas.inventory import InventoryResponse
 from schemas.collection import CollectionResponse
 from schemas.category import CategoryResponse  # backward-compat alias
+
+
+class ColorInfo(BaseModel):
+    """Color swatch info sent to frontend."""
+    name: str
+    hex: str
+    display_name: Optional[str] = None
+    image_url: Optional[str] = None
 
 
 class ProductBase(BaseModel):
@@ -87,9 +95,11 @@ class ProductResponse(BaseModel):
     hsn_code: Optional[str] = None
     gst_rate: Optional[float] = None
     is_taxable: Optional[bool] = None
+    colors: List[ColorInfo] = []
+    sizes: List[str] = []
     created_at: datetime
     updated_at: datetime
-    
+
     class Config:
         from_attributes = True
 

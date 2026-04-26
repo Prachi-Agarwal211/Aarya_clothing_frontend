@@ -166,7 +166,7 @@ class VerificationToken(Base):
     delivery_method = Column(String(20), nullable=True)  # EMAIL | SMS | WHATSAPP
     expires_at = Column(DateTime, nullable=False)
     verified_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, server_default=func.now(), nullable=False)
+    created_at = Column(DateTime, default=ist_naive, server_default=func.now(), nullable=False)
     # Removed unused column: ip_address
     
     user: Mapped["User"] = relationship("User")

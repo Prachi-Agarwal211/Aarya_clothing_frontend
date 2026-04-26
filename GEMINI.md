@@ -19,7 +19,12 @@ This file contains the core requirements and constraints for all development on 
 - **OTP Expiry**: Exactly **600 seconds (10 minutes)**. This must be synchronized across frontend timers and backend verification logic.
 - **Persistent Sessions**: Issue long-lived cookies (90-365 days).
 - **Proactive Refresh**: Frontend must silently refresh tokens every **25 minutes** to ensure zero session timeouts during active shopping.
-- CSRF Whitelist: Ensure `login`, `logout`, `register`, `otp-request`, `otp-verify`, and `resend-otp` are never blocked by CSRF middleware during state transitions.
+- **CSRF Whitelist**: To prevent state-transition blocks, the following routes MUST remain exempt from CSRF: 
+    - `login`, `logout`, `register`
+    - `login-otp-request`, `login-otp-verify`
+    - `send-verification-otp`, `verify-otp-registration`, `resend-verification`
+    - `forgot-password-otp`, `verify-reset-otp`
+- **CSRF Header**: The `X-CSRF-Token` header must be automatically included by `baseApi.js` for all non-GET requests if a `csrf_token` cookie exists.
 - **UPI QR Expiry**: Exactly **300 seconds (5 minutes)**. This must be synchronized between the backend `close_by` logic and the frontend countdown label.
 
 ## 3. Localization & Data

@@ -22,7 +22,11 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         "/api/v1/auth/logout",
         "/api/v1/auth/register",
         "/api/v1/auth/login-otp-request",
+        "/api/v1/auth/login-otp-verify",
         "/api/v1/auth/send-verification-otp",
+        "/api/v1/auth/verify-otp-registration",
+        "/api/v1/auth/forgot-password-otp",
+        "/api/v1/auth/verify-reset-otp",
         "/api/v1/auth/resend-verification",
         "/api/vitals",
         "/health",
@@ -35,28 +39,30 @@ class CSRFMiddleware(BaseHTTPMiddleware):
     SAFE_METHODS = {"GET", "HEAD", "OPTIONS", "TRACE"}
 
     async def dispatch(self, request: Request, call_next: Callable):
-        # Skip CSRF for safe methods
+        # 1. Skip CSRF for safe methods
         if request.method in self.SAFE_METHODS:
-            return await call_next(request)
+            response = await call_next(request)
+            return self._ensure_csrf_cookie(request, response)
 
-        # Skip CSRF for exempt routes
+        # 2. Skip CSRF for exempt routes
         if any(request.url.path.startswith(route) for route in self.EXEMPT_ROUTES):
-            return await call_next(request)
+            response = await call_next(request)
+            return self._ensure_csrf_cookie(request, response)
 
-        # Skip CSRF for webhook endpoints (they have their own verification)
+        # 3. Skip CSRF for webhook endpoints
         if "/webhooks/" in request.url.path:
             return await call_next(request)
 
-        # CSRF check is required for any request using cookie-based auth
+        # 4. CSRF check is required for any request using cookie-based auth
         has_auth_cookie = request.cookies.get("access_token") or request.cookies.get("session_id")
         
         if not has_auth_cookie:
             # If no cookies are sent, the request is not vulnerable to CSRF
-            # (e.g. mobile app using Bearer header only)
             if request.headers.get("Authorization"):
-                return await call_next(request)
+                response = await call_next(request)
+                return self._ensure_csrf_cookie(request, response)
 
-        # Enforce double-submit cookie validation
+        # 5. Enforce double-submit cookie validation
         csrf_header = request.headers.get("X-CSRF-Token")
         csrf_cookie = request.cookies.get("csrf_token")
 
@@ -74,7 +80,28 @@ class CSRFMiddleware(BaseHTTPMiddleware):
                 content={"error": {"type": "forbidden", "message": "CSRF token invalid. Please refresh the page.", "status_code": 403}},
             )
 
-        return await call_next(request)
+        response = await call_next(request)
+        return self._ensure_csrf_cookie(request, response)
+
+    def _ensure_csrf_cookie(self, request: Request, response: JSONResponse):
+        """Set a CSRF cookie if it's missing in the request."""
+        if not request.cookies.get("csrf_token"):
+            token = generate_csrf_token()
+            
+            # Use dot-prefixed domain for cross-subdomain support in production
+            host = request.headers.get("host", "")
+            domain = ".aaryaclothing.in" if "aaryaclothing.in" in host else None
+            
+            response.set_cookie(
+                key="csrf_token",
+                value=token,
+                httponly=False,  # MUST be accessible by JS to send in header
+                secure=True if domain else request.url.scheme == "https",
+                samesite="Lax",
+                path="/",
+                domain=domain
+            )
+        return response
 
 
 def generate_csrf_token() -> str:

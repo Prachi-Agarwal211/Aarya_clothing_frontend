@@ -259,8 +259,17 @@ export class BaseApiClient {
     }
 
     const hasFormDataBody = options.body instanceof FormData;
+    
+    // Automatically include CSRF token for state-changing methods
+    let csrfToken = null;
+    if (typeof document !== 'undefined' && !isGet) {
+      const match = document.cookie.match(/csrf_token=([^;]+)/);
+      if (match) csrfToken = match[1];
+    }
+
     const headers = {
       ...(hasFormDataBody ? {} : { 'Content-Type': 'application/json' }),
+      ...(csrfToken ? { 'X-CSRF-Token': csrfToken } : {}),
       ...(options.headers || {}),
     };
 

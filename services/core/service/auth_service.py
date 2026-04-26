@@ -282,9 +282,10 @@ class AuthService:
         )
         otp_result = otp_service.send_otp(otp_request)
         if not otp_result.get("success"):
+            error_msg = otp_result.get("error", "Failed to send verification OTP")
             self.db.delete(user)
             self.db.commit()
-            raise ValueError(otp_result.get("error", "Failed to send verification OTP"))
+            raise ValueError(f"Registration stopped: {error_msg}")
 
         return {
             "message": "Account created. Please verify your email/phone to complete registration.",
@@ -326,7 +327,14 @@ class AuthService:
             raise ValueError("User not found")
 
         user.is_active = True
-        user.email_verified = True
+        
+        # Set verification flag based on method
+        method = str(otp_method).lower()
+        if method in ("otp_sms", "otp_whatsapp"):
+            user.phone_verified = True
+        else:
+            user.email_verified = True
+            
         user.last_login_at = now_ist()
         self.db.commit()
         self.db.refresh(user)
@@ -625,11 +633,31 @@ class AuthService:
         else:
             raise ValueError("No verified delivery method available for this account")
 
-        result = OTPService(db=self.db).create_verification_token(
+        otp_service = OTPService(db=self.db)
+        result = otp_service.create_verification_token(
             user_id=user.id, token_type="login", delivery_method=delivery
         )
         if not result.get("success"):
             raise ValueError(result.get("error", "Failed to send login OTP"))
+
+        # Actually dispatch the OTP via the chosen channel!
+        # This was missing, causing 200 OK without actual delivery.
+        otp_code = result.get("otp_code")
+        target_email = user.email
+        target_phone = user.phone
+
+        send_result = otp_service._dispatch_otp(
+            otp_type=delivery,
+            email=target_email,
+            phone=target_phone,
+            otp_code=otp_code,
+            purpose="login",
+        )
+
+        if not send_result.get("success"):
+            # If dispatch fails (e.g. provider error), we want to let the caller know.
+            raise ValueError(send_result.get("error", "Failed to deliver OTP"))
+
         return {
             "success": True,
             "message": "OTP sent",

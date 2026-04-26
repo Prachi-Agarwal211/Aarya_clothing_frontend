@@ -331,8 +331,20 @@ export const landingApi = {
 
 // ==================== Auth API ====================
 export const authApi = {
-  login: (credentials) =>
-    coreClient.post('/api/v1/auth/login', credentials),
+  login: (credentials) => {
+    // If login_method is 'otp', use the dedicated OTP verification endpoint
+    if (credentials.login_method === 'otp') {
+      return coreClient.post('/api/v1/auth/login-otp-verify', {
+        identifier: credentials.identifier,
+        otp_code: credentials.otp_code,
+        remember_me: credentials.remember_me || false,
+        device_fingerprint: credentials.device_fingerprint,
+        device_name: credentials.device_name
+      });
+    }
+    // Default to standard password login
+    return coreClient.post('/api/v1/auth/login', credentials);
+  },
 
   register: (data) =>
     coreClient.post('/api/v1/auth/register', data),

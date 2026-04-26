@@ -1,8 +1,10 @@
 # Frontend Dockerfile for Aarya Clothing
 FROM node:20-alpine AS base
 
-# Accept build argument for API URL
+# Accept build arguments for public URLs
 ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_INTERNAL_COMMERCE_URL
+ARG NEXT_PUBLIC_R2_PUBLIC_URL
 
 # Install dependencies only when needed
 FROM base AS deps
@@ -24,9 +26,13 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Accept build argument for API URL and set as environment variable for build
+# Accept build arguments and set as environment variables for build
 ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_INTERNAL_COMMERCE_URL
+ARG NEXT_PUBLIC_R2_PUBLIC_URL
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+ENV NEXT_PUBLIC_INTERNAL_COMMERCE_URL=${NEXT_PUBLIC_INTERNAL_COMMERCE_URL}
+ENV NEXT_PUBLIC_R2_PUBLIC_URL=${NEXT_PUBLIC_R2_PUBLIC_URL}
 
 # Next.js collects completely anonymous telemetry data about general usage.
 # Learn more here: https://nextjs.org/telemetry
@@ -67,6 +73,7 @@ ENV HOSTNAME "0.0.0.0"
 # These can be overridden by Docker Compose or Kubernetes
 ENV NEXT_PUBLIC_API_URL=""
 ENV NEXT_PUBLIC_INTERNAL_COMMERCE_URL=""
+ENV NEXT_PUBLIC_R2_PUBLIC_URL=""
 
 # server.js is created by next build from the standalone output
 # https://nextjs.org/docs/pages/api-reference/next-config-js/output

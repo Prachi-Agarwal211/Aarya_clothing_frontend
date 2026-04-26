@@ -10,7 +10,7 @@ class PaymentTransaction(Base):
     __tablename__ = "payment_transactions"
     
     id = Column(Integer, primary_key=True, index=True)
-    order_id = Column(Integer, nullable=False, index=True)
+    order_id = Column(Integer, nullable=True, index=True)
     user_id = Column(Integer, nullable=False, index=True)
     
     # Payment details

@@ -118,8 +118,8 @@ export default function LoginOtpPageContent({ redirectUrl = '/products' }) {
     }
   };
 
-  const handleOtpLogin = async () => {
-    const otpValue = otpDigits.join('');
+  const handleOtpLogin = async (finalOtpValue) => {
+    const otpValue = finalOtpValue || otpDigits.join('');
     if (otpValue.length !== 6) {
       setError('Please enter all 6 digits.');
       return;
@@ -176,7 +176,8 @@ export default function LoginOtpPageContent({ redirectUrl = '/products' }) {
     if (digit && index < 5) otpRefs.current[index + 1]?.focus();
 
     if (next.every((d) => d)) {
-      setTimeout(() => handleOtpLogin(), 100);
+      const fullOtp = next.join('');
+      setTimeout(() => handleOtpLogin(fullOtp), 50);
     }
   };
 

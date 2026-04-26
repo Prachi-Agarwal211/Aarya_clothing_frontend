@@ -186,7 +186,11 @@ services:
       - /app/.next
     environment:
       - NODE_ENV=development
-      # Use internal gateway so browser + SSR hit your local stack (not production).
+      # Use internal gateway for SSR data fetching inside Docker
+      - NEXT_INTERNAL_API_URL=http://nginx:80
+      # Use localhost for browser-side API calls
       - NEXT_PUBLIC_API_URL=http://localhost
+      - NEXT_PUBLIC_INTERNAL_COMMERCE_URL=http://commerce:5002
+
     # Bind mount hides image node_modules; ensure deps exist before `next dev`.
     command: sh -c "if [ ! -x node_modules/.bin/next ]; then npm install; fi; exec npm run dev"

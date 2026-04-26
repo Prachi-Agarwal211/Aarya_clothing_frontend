@@ -97,7 +97,15 @@ export default function cloudflareLoader({
 
   // PERFORMANCE: Use Cloudflare Image Resizing API
   // This transforms the image at the edge (CDN) before it reaches the user.
-  // We use format=auto to let Cloudflare decide between AVIF, WebP, or JPEG.
+  // Bypass in development because /cdn-cgi/image/ only exists behind Cloudflare proxy
+  const isLocal = typeof window !== 'undefined' 
+    ? (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.port === '3000')
+    : (process.env.NODE_ENV === 'development' || process.env.DOCKER_ENV === 'true');
+
+  if (isLocal) {
+    return fullUrl;
+  }
+
   const params = [
     `width=${width}`,
     `quality=${quality}`,
@@ -107,7 +115,6 @@ export default function cloudflareLoader({
   ].join(',');
 
   // The format is: https://yourdomain.com/cdn-cgi/image/{params}/{fullUrl}
-  // Since we are likely on the same domain or a proxied domain:
   return `/cdn-cgi/image/${params}/${fullUrl}`;
 }
 

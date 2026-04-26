@@ -84,6 +84,9 @@ class BaseSettings(PydanticBaseSettings):
     # ==================== Logging ====================
     LOG_LEVEL: str = "INFO"
     
+    # ==================== OTP Settings ====================
+    EMAIL_OTP_USE_QUEUE: bool = False
+
     # ==================== Cookie Settings ====================
     COOKIE_SECURE: bool = False  # Overridden to True in production via env
     COOKIE_HTTPONLY: bool = True

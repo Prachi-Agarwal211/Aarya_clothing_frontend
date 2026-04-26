@@ -446,25 +446,26 @@ export class BaseApiClient {
  */
 export function getCoreBaseUrl() {
   // Priority 1: Browser environment - use current origin (CSP compliant)
+  // If we are on port 3000 (dev), we need to hit port 80 (nginx)
   if (typeof window !== 'undefined') {
+    if (window.location.port === '3000') {
+      return `${window.location.protocol}//${window.location.hostname}`;
+    }
     return window.location.origin;
   }
 
-  // Priority 2: Server-side - use NEXT_PUBLIC_API_URL
-  // Internal Docker hostnames (nginx, core, commerce) are VALID for SSR
-  if (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_API_URL) {
-    const url = process.env.NEXT_PUBLIC_API_URL.trim();
-    if (url && url.length > 0) {
-      try {
-        new URL(url);
-        return url;  // Return as-is (including internal Docker hostnames for SSR)
-      } catch (error) {
-        console.warn('[baseApi] Invalid NEXT_PUBLIC_API_URL format:', url, '- using relative URL');
-      }
-    }
+  // Priority 2: Server-side (SSR) - Use INTERNAL URL if provided
+  // This is critical for Docker networking (hitting 'http://nginx' instead of localhost)
+  if (typeof process !== 'undefined' && process.env?.NEXT_INTERNAL_API_URL) {
+    return process.env.NEXT_INTERNAL_API_URL.trim();
   }
 
-  // Priority 3: Relative URL fallback (nginx will proxy /api/v1/* to backend)
+  // Priority 3: Server-side (SSR) fallback to PUBLIC_API_URL
+  if (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL.trim();
+  }
+
+  // Priority 4: Relative URL fallback
   return '';
 }
 

@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 # Add parent directory to path so we can import payment service modules
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-REDIS_URL = os.getenv("REDIS_URL", "redis://aarya_redis:6002")
+REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379/2")
 QUEUE_NAME = "payment-jobs"
 
 

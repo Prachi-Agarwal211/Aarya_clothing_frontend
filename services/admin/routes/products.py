@@ -248,12 +248,41 @@ async def admin_delete_product(
     """Delete a product and its R2 images (admin only)."""
     # Resolve slug or ID
     resolved = db.execute(
-        text("SELECT id FROM products WHERE id::text = :pid OR slug = :pid"),
+        text("SELECT id, name FROM products WHERE id::text = :pid OR slug = :pid"),
         {"pid": product_id},
     ).fetchone()
     if not resolved:
         raise HTTPException(status_code=404, detail="Product not found")
-    pid = resolved[0]
+    pid, name = resolved[0], resolved[1]
+
+    # CHECK HISTORY: order_items
+    has_orders = db.execute(
+        text("SELECT 1 FROM order_items WHERE product_id = :pid LIMIT 1"),
+        {"pid": pid}
+    ).fetchone()
+    if has_orders:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Product '{name}' has order history and cannot be deleted. Please mark it as inactive or out of stock instead."
+        )
+
+    # CHECK HISTORY: stock_reservations
+    # Note: reservations use SKU, so we check all variants of this product
+    has_reservations = db.execute(
+        text("""
+            SELECT 1 FROM stock_reservations sr 
+            JOIN product_variants pv ON sr.sku = pv.sku 
+            WHERE pv.product_id = :pid 
+            LIMIT 1
+        """),
+        {"pid": pid}
+    ).fetchone()
+    if has_reservations:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Product '{name}' has active stock reservations and cannot be deleted."
+        )
+
     # Delete R2 images first
     images = db.execute(
         text("SELECT image_url FROM product_images WHERE product_id = :pid"),
@@ -262,6 +291,8 @@ async def admin_delete_product(
     for img in images:
         if img[0]:
             await r2_service.delete_image(img[0])
+    
+    # Delete from DB
     db.execute(
         text("DELETE FROM product_images WHERE product_id = :pid"), {"pid": pid}
     )
@@ -270,8 +301,13 @@ async def admin_delete_product(
     )
     if not result.fetchone():
         raise HTTPException(status_code=404, detail="Product not found")
+    
     db.commit()
+
+    # Cache invalidation
     redis_client.invalidate_pattern("products:*")
+    redis_client.invalidate_pattern(f"product:{pid}")
+    redis_client.invalidate_pattern("query:products:*")
     redis_client.invalidate_pattern("public:landing:*")
 
 

@@ -194,6 +194,7 @@ services:
       - REFRESH_TOKEN_DAYS_REMEMBER=365
       - REFRESH_TOKEN_EXPIRE_MINUTES=1440
       - SESSION_EXPIRE_MINUTES=1440
+      - EMAIL_OTP_USE_QUEUE=false
       - ALLOWED_ORIGINS=["http://localhost:6004","http://localhost:6005","http://127.0.0.1:6004","http://127.0.0.1:6005","https://aaryaclothing.in","https://www.aaryaclothing.in"]
       - DEBUG=${AARYA_DEBUG:-false}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
@@ -231,7 +232,7 @@ services:
       - SMTP_HOST=smtp.hostinger.com
       - SMTP_PORT=465
       - SMTP_USER=noreply@aaryaclothing.in
-      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
       - SMTP_TLS=true
       - EMAIL_FROM=noreply@aaryaclothing.in
       - EMAIL_FROM_NAME=Aarya Clothing
@@ -527,7 +528,7 @@ services:
       # Client-side code uses window.location.origin (CSP compliant)
       - NEXT_PUBLIC_API_URL=http://nginx:80
       - NEXT_PUBLIC_INTERNAL_COMMERCE_URL=http://commerce:5002
-      - NEXT_PUBLIC_R2_PUBLIC_URL=https://pub-7846c786f7154610b57735df47899fa0.r2.dev
+      - NEXT_PUBLIC_R2_PUBLIC_URL=${R2_PUBLIC_URL:-https://pub-7846c786f7154610b57735df47899fa0.r2.dev}
     expose:
       - "3000"
     depends_on:
@@ -611,7 +612,11 @@ services:
     environment:
       - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD environment variable is required}@pgbouncer:6432/aarya_clothing
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/2
+      - REDIS_DB=2
+      - SECRET_KEY=${SECRET_KEY:?SECRET_KEY environment variable is required}
+      - ALGORITHM=HS256
       - COMMERCE_SERVICE_URL=http://commerce:5002
+      - CORE_SERVICE_URL=http://core:5001
       - INTERNAL_SERVICE_SECRET=${INTERNAL_SERVICE_SECRET:?INTERNAL_SERVICE_SECRET environment variable is required}
       # Database connection pool (PgBouncer-compatible)
       - DATABASE_POOL_SIZE=8
@@ -807,7 +812,7 @@ services:
     profiles: ["monitoring"]
     environment:
       - REDIS_ADDR=redis://redis:6379
-      - REDIS_PASSWORD=${REDIS_PASSWORD:-aarya_clothing_redis_password_2024}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:?REDIS_PASSWORD environment variable is required}
     expose:
       - "9121"
     depends_on:

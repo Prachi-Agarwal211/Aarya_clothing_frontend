@@ -1,7 +1,8 @@
 """Database configuration for payment service."""
 import logging
+from contextlib import contextmanager
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy.orm import sessionmaker, declarative_base, Session
 from sqlalchemy.pool import QueuePool
 from core.config import settings
 
@@ -20,7 +21,12 @@ engine = create_engine(
 )
 
 # Create session factory
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+SessionLocal = sessionmaker(
+    autocommit=False,
+    autoflush=False,
+    bind=engine,
+    expire_on_commit=False  # Better performance - objects accessible after commit
+)
 
 # Base class for models
 Base = declarative_base()
@@ -33,7 +39,8 @@ def get_db():
     finally:
         db.close()
 
-def get_db_context():
+@contextmanager
+def get_db_context() -> Session:
     """Context manager for database session - use for background tasks."""
     db = SessionLocal()
     try:
@@ -44,6 +51,32 @@ def get_db_context():
 def init_db():
     """Initialize database tables."""
     from models.payment import PaymentTransaction, PaymentMethod, WebhookEvent
-    
+    from sqlalchemy import text
+
     Base.metadata.create_all(bind=engine)
+
+    # Add columns that may be missing from existing tables (create_all won't ALTER)
+    _ensure_column("payment_transactions", "razorpay_qr_code_id", "VARCHAR(100)")
+    _ensure_column("payment_transactions", "razorpay_signature", "VARCHAR(500)")
+    _ensure_column("payment_transactions", "gateway_response", "JSON")
+    _ensure_column("payment_transactions", "description", "TEXT")
+    _ensure_column("payment_transactions", "customer_email", "VARCHAR(255)")
+    _ensure_column("payment_transactions", "customer_phone", "VARCHAR(20)")
+    _ensure_column("payment_transactions", "completed_at", "TIMESTAMP")
+    _ensure_column("payment_transactions", "refund_amount", "NUMERIC(10,2)")
+    _ensure_column("payment_transactions", "refund_id", "VARCHAR(100)")
+    _ensure_column("payment_transactions", "refund_status", "VARCHAR(50)")
+    _ensure_column("payment_transactions", "refund_reason", "TEXT")
+
     logger.info("✓ Payment service: Database initialized")
+
+
+def _ensure_column(table: str, column: str, col_type: str) -> None:
+    """Add a column to a table if it doesn't already exist."""
+    try:
+        with engine.begin() as conn:
+            conn.execute(text(
+                f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {column} {col_type}"
+            ))
+    except Exception as e:
+        logger.debug(f"Column {table}.{column} check: {e}")

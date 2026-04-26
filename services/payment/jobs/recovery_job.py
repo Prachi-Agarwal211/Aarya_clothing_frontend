@@ -43,20 +43,7 @@ def run_payment_recovery():
         return {"error": "INTERNAL_SERVICE_SECRET not configured"}
 
     try:
-        # Find completed payments without order_id
-        orphaned = db.query(PaymentTransaction).filter(
-            PaymentTransaction.status == "completed",
-            PaymentTransaction.order_id.is_(None),
-            PaymentTransaction.created_at > ist_naive().replace(hour=0, minute=0, second=0, microsecond=0)
-            # Last 7 days (legacy ORM filter — superseded by raw SQL below)
-        ).filter(
-            PaymentTransaction.created_at > ist_naive().replace(
-                day=ist_naive().day - 7,
-                hour=0, minute=0, second=0, microsecond=0
-            ) if ist_naive().day > 7 else True
-        ).all()
-
-        # Simpler query: all completed without order_id from last 7 days
+        # Find completed payments without order_id from last 7 days
         from sqlalchemy import text
         result = db.execute(text("""
             SELECT id, order_id, user_id, amount, payment_method,

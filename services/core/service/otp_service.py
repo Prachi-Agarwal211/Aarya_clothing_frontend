@@ -462,19 +462,27 @@ class OTPService:
         try:
             if otp_type == "EMAIL":
                 if not email:
-                    return {"success": False, "error": "Email is required for EMAIL OTP"}
+                    return {"success": False, "error": "Email is required for email OTP"}
 
                 from service.email_queue import try_enqueue_otp_email
                 from service.email_service import email_service
 
-                queued = try_enqueue_otp_email(email, otp_code, purpose or "verification")
-                if queued:
-                    return {"success": True, "queued": True}
+                # Only try to enqueue if the setting is enabled
+                if settings.EMAIL_OTP_USE_QUEUE:
+                    queued = try_enqueue_otp_email(email, otp_code, purpose or "verification")
+                    if queued:
+                        logger.info("[OTP] Email queued for %s", email)
+                        return {"success": True, "queued": True}
+                    logger.warning("[OTP] Email queueing failed, falling back to sync send for %s", email)
 
+                # Send synchronously
+                logger.info("[OTP] Sending email synchronously to %s", email)
                 ok = email_service.send_otp_email(email, otp_code, purpose or "verification")
                 if ok:
                     return {"success": True}
-                return {"success": False, "error": "Failed to send OTP email"}
+
+                logger.error("[OTP] Failed to send email to %s", email)
+                return {"success": False, "error": "Failed to deliver OTP email. Please check your configuration."}
 
             if otp_type == "SMS":
                 if not phone:
@@ -492,9 +500,14 @@ class OTPService:
                 from service.whatsapp_service import whatsapp_service
 
                 if not whatsapp_service:
-                    return {"success": False, "error": "WhatsApp service not configured"}
+                    return {"success": False, "error": "WhatsApp service internal initialization error"}
+                
                 result = whatsapp_service.send_otp(phone, otp_code)
-                return result if isinstance(result, dict) else {"success": bool(result)}
+                if isinstance(result, dict):
+                    if not result.get("success"):
+                        return {"success": False, "error": result.get("error", "WhatsApp delivery failed")}
+                    return result
+                return {"success": bool(result)}
 
             return {"success": False, "error": f"Unsupported OTP type: {otp_type}"}
         except Exception as exc:  # pragma: no cover - infra dependent

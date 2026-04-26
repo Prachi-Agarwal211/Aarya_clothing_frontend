@@ -801,7 +801,7 @@ async def list_orphaned_payments(
             LEFT JOIN orders o ON pt.order_id = o.id
             WHERE pt.status = 'completed'
               AND o.id IS NULL
-              AND pt.created_at > NOW() - INTERVAL ':days days'
+              AND pt.created_at > NOW() - make_interval(days => :days)
             ORDER BY pt.created_at DESC
         """), {"days": days})
 
@@ -870,12 +870,12 @@ async def razorpay_webhook(
         
         # Process webhook event with proper session management using context manager
         from database.database import get_db_context
-        with next(get_db_context()) as db:
+        with get_db_context() as db:
             try:
                 payment_service = PaymentService(db)
                 success = payment_service.process_webhook_event(webhook_data)
                 db.commit()  # Commit on success
-                
+
                 return WebhookResponse(
                     processed=success,
                     message="Webhook processed successfully",

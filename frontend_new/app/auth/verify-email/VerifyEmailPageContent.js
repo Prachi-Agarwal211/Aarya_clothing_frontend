@@ -90,12 +90,12 @@ function VerifyEmailPageContent() {
     setResendCooldown(RESEND_COOLDOWN_SECONDS);
   };
 
-  const handleOtpVerification = async (e) => {
+  const handleOtpVerification = async (e, finalOtpValue) => {
     e?.preventDefault();
     setOtpError('');
     setIsVerifying(true);
 
-    const otpValue = otpDigits.join('');
+    const otpValue = finalOtpValue || otpDigits.join('');
     
     if (otpValue.length !== 6) {
       setOtpError('Please enter all 6 digits.');
@@ -213,7 +213,15 @@ function VerifyEmailPageContent() {
     next[index] = digit;
     setOtpDigits(next);
     setOtpError('');
-    if (digit && index < 5) otpRefs.current[index + 1]?.focus();
+    
+    if (digit && index < 5) {
+      otpRefs.current[index + 1]?.focus();
+    }
+
+    if (next.every((d) => d)) {
+      const fullOtp = next.join('');
+      setTimeout(() => handleOtpVerification(null, fullOtp), 50);
+    }
   };
 
   const handleOtpKeyDown = (index, e) => {
@@ -236,9 +244,10 @@ function VerifyEmailPageContent() {
     e.preventDefault();
     const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
     if (pasted.length === 6) {
-      setOtpDigits(pasted.split(''));
+      const newDigits = pasted.split('');
+      setOtpDigits(newDigits);
       setOtpError('');
-      otpRefs.current[5]?.focus();
+      handleOtpVerification(null, pasted);
     }
   };
 

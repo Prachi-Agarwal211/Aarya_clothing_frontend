@@ -36,14 +36,24 @@ export default function DataTable({
   emptyIcon,
   serverSide = false,
   totalCount,
+  page,
   onPageChange,
   onSort,
 }) {
   const [sortColumn, setSortColumn] = useState(null);
   const [sortDirection, setSortDirection] = useState('asc');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [horizontalScroll, setHorizontalScroll] = useState(false);
+  const [internalPage, setInternalPage] = useState(1);
   const tableContainerRef = useRef(null);
+
+  // Sync internal page with prop
+  useEffect(() => {
+    if (page !== undefined && page !== internalPage) {
+      setInternalPage(page);
+    }
+  }, [page]);
+
+  // Use internal state if prop is missing
+  const currentPage = page !== undefined ? page : internalPage;
 
   // Check for horizontal scroll need
   useEffect(() => {

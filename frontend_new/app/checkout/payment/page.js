@@ -535,7 +535,7 @@ export default function CheckoutPaymentPage() {
                   <QrCode className="w-5 h-5 text-[#F2C29A]" />
                   <p className="font-semibold text-[#F2C29A]">UPI QR Code</p>
                 </div>
-                <p className="text-sm text-[#EAE0D5]/60 mt-1">Scan with any UPI app (30 min expiry)</p>
+                <p className="text-sm text-[#EAE0D5]/60 mt-1">Scan with any UPI app (5 min expiry)</p>
               </div>
               {selectedGateway === 'upi_qr' && (
                 <Check className="w-5 h-5 text-[#F2C29A]" />

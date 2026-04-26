@@ -445,7 +445,7 @@ async def create_qr_code(
     """
     Create a UPI QR code for payment.
 
-    Creates a single-use QR code with 30-minute expiry.
+    Creates a single-use QR code with 5-minute expiry.
     The QR code image URL is returned and should be displayed to the user.
     """
     try:
@@ -460,9 +460,9 @@ async def create_qr_code(
                 detail=f"Amount too low: {request.amount} paise. Minimum is {MIN_AMOUNT_PAISE} paise."
             )
 
-        # Calculate expiry time (30 minutes from now)
+        # Calculate expiry time (5 minutes from now)
         now = int(time.time())
-        close_by = now + 1800  # 30 minutes in seconds
+        close_by = now + 300  # 5 minutes in seconds
 
         # Create Razorpay QR code
         razorpay_client = get_razorpay_client()

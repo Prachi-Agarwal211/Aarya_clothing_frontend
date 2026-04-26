@@ -81,7 +81,7 @@ class AuthService:
         remember_me: bool = False
     ) -> str:
         """Create a short-lived access token."""
-        expire = now_ist() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+        expire = ist_naive() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
         payload = {
             "sub": str(user_id),
             "role": role,
@@ -90,7 +90,7 @@ class AuthService:
             "is_active": is_active,
             "remember_me": remember_me,
             "type": "access",
-            "iat": now_ist(),
+            "iat": ist_naive(),
             "exp": expire,
             "jti": secrets.token_hex(16),
         }
@@ -102,7 +102,7 @@ class AuthService:
     ) -> str:
         """Create a long-lived refresh token."""
         days = settings.REFRESH_TOKEN_DAYS_REMEMBER if remember_me else settings.REFRESH_TOKEN_DAYS_DEFAULT
-        expire = now_ist() + timedelta(days=days)
+        expire = ist_naive() + timedelta(days=days)
         payload = {
             "sub": str(user_id),
             "role": role,
@@ -111,7 +111,7 @@ class AuthService:
             "is_active": is_active,
             "remember_me": remember_me,
             "type": "refresh",
-            "iat": now_ist(),
+            "iat": ist_naive(),
             "exp": expire,
             "jti": secrets.token_hex(16),
         }
@@ -153,33 +153,49 @@ class AuthService:
         if not valid:
             raise ValueError("; ".join(errors))
 
-        existing = self.db.query(User).filter(or_(User.email == user_data.email, User.username == user_data.username)).first()
-        if existing:
-            if existing.email == user_data.email:
-                raise ValueError("Email already registered")
-            raise ValueError("Username already taken")
+        # Check for existing user by email or username
+        existing = self.db.query(User).filter(
+            or_(User.email == user_data.email, User.username == user_data.username)
+        ).first()
 
-        user = User(
-            email=user_data.email,
-            username=user_data.username,
-            hashed_password=self.get_password_hash(user_data.password),
-            role=getattr(user_data, "role", "customer"),
-            is_active=False,
-            email_verified=False,
-            phone=getattr(user_data, "phone", ""),
-            full_name=getattr(user_data, "full_name", None),
-            signup_verification_method=getattr(user_data, "verification_method", "otp_email"),
-            created_at=now_ist(),
-            updated_at=now_ist(),
-        )
-        self.db.add(user)
+        if existing:
+            # Case 1: Already verified/active -> BLOCK (redirect to login)
+            if existing.is_active:
+                if existing.email == user_data.email:
+                    raise ValueError("Email already registered")
+                raise ValueError("Username already taken")
+            
+            # Case 2: Unverified -> RESUME FLOW (update and send fresh OTP)
+            user = existing
+            user.hashed_password = self.get_password_hash(user_data.password)
+            user.signup_verification_method = getattr(user_data, "verification_method", "otp_email")
+            user.phone = getattr(user_data, "phone", user.phone)
+            user.full_name = getattr(user_data, "full_name", user.full_name)
+            user.updated_at = ist_naive()
+            logger.info(f"[Auth] Resuming registration for unverified user {user.id}")
+        else:
+            # Case 3: Brand new user
+            user = User(
+                email=user_data.email,
+                username=user_data.username,
+                hashed_password=self.get_password_hash(user_data.password),
+                role=getattr(user_data, "role", "customer"),
+                is_active=False,
+                email_verified=False,
+                phone=getattr(user_data, "phone", ""),
+                full_name=getattr(user_data, "full_name", None),
+                signup_verification_method=getattr(user_data, "verification_method", "otp_email"),
+                created_at=ist_naive(),
+                updated_at=ist_naive(),
+            )
+            self.db.add(user)
+
         try:
             self.db.commit()
+            self.db.refresh(user)
         except IntegrityError:
             self.db.rollback()
             raise ValueError("Registration failed due to a database conflict")
-
-        self.db.refresh(user)
 
         from service.otp_service import OTPService
         from schemas.otp import OTPSendRequest, OTPType
@@ -218,6 +234,7 @@ class AuthService:
         from service.otp_service import OTPService
         otp_service = OTPService(db=self.db)
         
+        # UNIFIED FIX: Use "registration" consistently across create and verify
         otp_verify = otp_service.verify_otp(user_id=user_id, otp_code=otp_code, token_type="registration")
         if not otp_verify.get("success"):
             raise ValueError(otp_verify.get("error", "Invalid or expired OTP"))
@@ -232,7 +249,7 @@ class AuthService:
         else:
             user.email_verified = True
 
-        user.last_login_at = now_ist()
+        user.last_login_at = ist_naive()
         self.db.commit()
         self.db.refresh(user)
 
@@ -262,7 +279,7 @@ class AuthService:
         if not user:
             raise ValueError("Account not found. Please create an account first.")
 
-        if getattr(user, "account_locked_until", None) and user.account_locked_until > now_ist():
+        if getattr(user, "account_locked_until", None) and user.account_locked_until > ist_naive():
             raise ValueError("Account temporarily locked. Please try again later.")
 
         if not user.is_active:
@@ -271,7 +288,7 @@ class AuthService:
         if not self.verify_password(password, user.hashed_password):
             user.failed_login_attempts = int(getattr(user, "failed_login_attempts", 0)) + 1
             if user.failed_login_attempts >= settings.MAX_LOGIN_ATTEMPTS:
-                user.account_locked_until = now_ist() + timedelta(minutes=settings.ACCOUNT_LOCKOUT_MINUTES)
+                user.account_locked_until = ist_naive() + timedelta(minutes=settings.ACCOUNT_LOCKOUT_MINUTES)
                 user.failed_login_attempts = 0
                 self.db.commit()
                 
@@ -285,12 +302,12 @@ class AuthService:
                     )
                 except Exception as exc:
                     logger.error(f"Failed to send lockout alert email: {exc}")
-                    
+
                 raise ValueError(f"Account locked due to failed attempts. Try again in {settings.ACCOUNT_LOCKOUT_MINUTES} mins.")
             self.db.commit()
             raise ValueError("Incorrect password. Please try again.")
 
-        user.last_login_at = now_ist()
+        user.last_login_at = ist_naive()
         user.failed_login_attempts = 0
         user.account_locked_until = None
         self.db.commit()
@@ -358,7 +375,7 @@ class AuthService:
         else:
             user.email_verified = True
 
-        user.last_login_at = now_ist()
+        user.last_login_at = ist_naive()
         self.db.commit()
         self.db.refresh(user)
 
@@ -400,7 +417,7 @@ class AuthService:
         # Rotate: Blacklist old, issue new
         exp = payload.get("exp")
         if exp:
-            ttl = int(exp - now_ist().timestamp())
+            ttl = int(exp - ist_naive().timestamp())
             if ttl > 0: redis_client.set_cache(revoked_key, "1", ttl=ttl)
 
         remember_me = bool(payload.get("remember_me", False))
@@ -455,22 +472,22 @@ class AuthService:
         if not valid: raise ValueError("; ".join(errors))
 
         user.hashed_password = self.get_password_hash(new_password)
-        user.password_changed_at = now_ist()
-        user.updated_at = now_ist()
+        user.password_changed_at = ist_naive()
+        user.updated_at = ist_naive()
         self.db.commit()
 
         # Logout all sessions after password change
-        redis_client.set_cache(f"logout_all:{user.id}", str(int(now_ist().timestamp())), ttl=86400 * 30)
+        redis_client.set_cache(f"logout_all:{user.id}", str(int(ist_naive().timestamp())), ttl=86400 * 30)
         
         return {"success": True, "message": "Password reset successful"}
 
     def logout(self, user_id: int, refresh_token: str) -> None:
         """Revoke a single refresh token."""
-        redis_client.set_cache(f"revoked_refresh:{refresh_token[-64:]}", str(user_id), ttl=86400 * 30)
+        redis_client.set_cache(f"revoked_refresh:{refresh_token[-32:]}", str(user_id), ttl=86400 * 30)
 
     def logout_all(self, user_id: int) -> None:
         """Revoke all tokens for a user."""
-        redis_client.set_cache(f"logout_all:{user_id}", str(int(now_ist().timestamp())), ttl=86400 * 30)
+        redis_client.set_cache(f"logout_all:{user_id}", str(int(ist_naive().timestamp())), ttl=86400 * 30)
 
 
 # Backwards-compatible aliases

@@ -14,6 +14,7 @@ import { useDebounce } from '@/lib/hooks/useDebounce';
 import ShipOrderModal from '@/components/admin/orders/ShipOrderModal';
 import PodUploadModal from '@/components/admin/orders/PodUploadModal';
 import ExportOrdersModal from '@/components/admin/orders/ExportOrdersModal';
+import { getRedirectForRole, USER_ROLES } from '@/lib/roles';
 
 const PAGE_SIZE = 20;
 
@@ -25,8 +26,6 @@ const STATUS_OPTIONS = [
   { value: 'cancelled', label: 'Cancelled' },
 ];
 
-// Allowed forward transitions — mirrors the backend `valid_transitions` map
-// in admin order status handler. Keeping this in one place avoids drift.
 const STATUS_TRANSITIONS = {
   confirmed: ['shipped', 'cancelled'],
   shipped: ['delivered'],
@@ -41,6 +40,13 @@ const STATUS_BUTTONS = [
   { value: 'cancelled', label: 'Cancelled', tone: 'red' },
 ];
 
+const TONE_CLASSES = {
+  blue:   { color: 'text-blue-400',   border: 'border-blue-500/20',   activeBg: 'bg-blue-500/20',   activeBorder: 'border-blue-500/40' },
+  orange: { color: 'text-orange-400', border: 'border-orange-500/20', activeBg: 'bg-orange-500/20', activeBorder: 'border-orange-500/40' },
+  green:  { color: 'text-green-400',  border: 'border-green-500/20',  activeBg: 'bg-green-500/20',  activeBorder: 'border-green-500/40' },
+  red:    { color: 'text-red-400',    border: 'border-red-500/20',    activeBg: 'bg-red-500/20',    activeBorder: 'border-red-500/40' },
+};
+
 function OrdersContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -50,6 +56,8 @@ function OrdersContent() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [total, setTotal] = useState(0);
+  const [statusCounts, setStatusCounts] = useState({});
+  const [totalRevenue, setTotalRevenue] = useState(0);
   const [page, setPage] = useState(1);
   const [updatingOrder, setUpdatingOrder] = useState(null);
   const [selected, setSelected] = useState(new Set());
@@ -72,8 +80,10 @@ function OrdersContent() {
         status: statusFilter || undefined,
         search: debouncedSearch || undefined,
       });
-      setOrders(data.orders || data || []);
+      setOrders(data.orders || []);
       setTotal(data.total || 0);
+      setStatusCounts(data.status_counts || {});
+      setTotalRevenue(data.total_revenue || 0);
     } catch (err) {
       logger.error('Error fetching orders:', err);
       setError('Failed to load orders. Please try again.');
@@ -84,7 +94,6 @@ function OrdersContent() {
 
   useEffect(() => { fetchOrders(); }, [fetchOrders]);
 
-  // Reset to page 1 whenever filters change so the new query starts at the top.
   useEffect(() => { setPage(1); }, [statusFilter, debouncedSearch]);
 
   const allSelected = orders.length > 0 && orders.every((o) => selected.has(o.id));
@@ -108,9 +117,11 @@ function OrdersContent() {
       setOrders((prev) =>
         prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o)),
       );
+      showAlert('Order status updated', 'success');
+      fetchOrders(); // Refresh to update counts
     } catch (err) {
       logger.error('Error updating order status:', err);
-      setError(err?.message || 'Failed to update order status.');
+      showAlert(err?.message || 'Failed to update order status.', 'error');
     } finally {
        setUpdatingOrder(null);
     }
@@ -127,7 +138,7 @@ function OrdersContent() {
       fetchOrders();
     } catch (err) {
       logger.error('Error deleting order:', err);
-      setError(err?.message || 'Failed to delete order.');
+      showAlert(err?.message || 'Failed to delete order.', 'error');
     }
   };
 
@@ -143,7 +154,7 @@ function OrdersContent() {
       fetchOrders();
     } catch (err) {
       logger.error('Error bulk deleting orders:', err);
-      setError(err?.message || 'Failed to delete orders.');
+      showAlert(err?.message || 'Failed to delete orders.', 'error');
     } finally {
       setBulkLoading(false);
     }
@@ -170,8 +181,9 @@ function OrdersContent() {
         });
         setSelected(new Set());
         fetchOrders();
+        showAlert('Orders marked as shipped', 'success');
       } catch (err) {
-        setError(err?.message || 'Failed to update orders.');
+        showAlert(err?.message || 'Failed to update orders.', 'error');
       } finally {
         setBulkLoading(false);
       }
@@ -184,148 +196,16 @@ function OrdersContent() {
       await ordersApi.bulkUpdate({ order_ids: [...selected], status: newStatus });
       setSelected(new Set());
       fetchOrders();
+      showAlert('Orders updated successfully', 'success');
     } catch (err) {
       logger.error('Error updating orders:', err);
-      setError(err?.message || 'Failed to update orders. Please try again.');
+      showAlert(err?.message || 'Failed to update orders.', 'error');
     } finally {
       setBulkLoading(false);
     }
   };
 
-  const columns = buildColumns({
-    selected,
-    allSelected,
-    toggleAll,
-    toggleOne,
-  });
-
-  const getActions = (row) => {
-    const actions = [
-      {
-        label: 'View details',
-        icon: Eye,
-        onClick: () => router.push(`/admin/orders/${row.id}`),
-      },
-    ];
-    const transitions = STATUS_TRANSITIONS[row.status] || [];
-    transitions.forEach((status) => {
-      const meta = ACTION_META[status];
-      if (!meta) return;
-      actions.push({
-        ...meta,
-        onClick: () => updateOrderStatus(row.id, status),
-        disabled: updatingOrder === row.id,
-      });
-    });
-
-    // Add delete action (always available unless shipped/delivered)
-    if (!['shipped', 'delivered'].includes(row.status)) {
-      actions.push({
-        label: 'Delete order',
-        icon: XCircle,
-        onClick: () => deleteOrder(row.id),
-        className: 'text-red-600 hover:text-red-800',
-      });
-    }
-
-    return actions;
-  };
-
-  return (
-    <div className="space-y-6">
-      <Header
-        loading={loading}
-        onRefresh={fetchOrders}
-        onExport={() => setExportOpen(true)}
-        onPodUpload={() => setPodOpen(true)}
-      />
-
-      <FiltersBar
-        search={search}
-        onSearch={setSearch}
-        status={statusFilter}
-        onStatusChange={setStatusFilter}
-      />
-
-      <StatusSummary
-        orders={orders}
-        active={statusFilter}
-        onPick={(s) => setStatusFilter(s === statusFilter ? '' : s)}
-      />
-
-      {selected.size > 0 && (
-        <BulkActionsBar
-          count={selected.size}
-          busy={bulkLoading}
-          onShip={() => handleBulkStatus('shipped')}
-          onDeliver={() => handleBulkStatus('delivered')}
-          onCancel={() => handleBulkStatus('cancelled')}
-          onClear={() => setSelected(new Set())}
-        />
-      )}
-
-      {selected.size > 0 && (
-        <button
-          onClick={bulkDeleteOrders}
-          disabled={bulkLoading}
-          className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50"
-        >
-          <XCircle size={16} />
-          {bulkLoading ? 'Deleting...' : `Delete (${selected.size})`}
-        </button>
-      )}
-
-      {error && (
-        <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-sm text-red-400">
-          {error}
-        </div>
-      )}
-
-      <DataTable
-        columns={columns}
-        data={orders}
-        getActions={getActions}
-        loading={loading}
-        pagination
-        pageSize={PAGE_SIZE}
-        serverSide
-        totalCount={total}
-        onPageChange={setPage}
-        onRowClick={(row) => router.push(`/admin/orders/${row.id}`)}
-        emptyMessage="No orders found"
-      />
-
-      <ShipOrderModal
-        orderId={shipOrderId}
-        onClose={() => setShipOrderId(null)}
-        onShipped={fetchOrders}
-        onError={(msg) => showAlert(msg)}
-      />
-
-      <PodUploadModal
-        open={podOpen}
-        onClose={() => setPodOpen(false)}
-        onUploaded={fetchOrders}
-      />
-
-      <ExportOrdersModal
-        open={exportOpen}
-        statusFilter={statusFilter}
-        onClose={() => setExportOpen(false)}
-        onError={(msg) => showAlert(msg)}
-      />
-    </div>
-  );
-}
-
-const ACTION_META = {
-  shipped:   { label: 'Ship order (enter POD)', icon: Truck, variant: 'info' },
-  delivered: { label: 'Mark delivered',        icon: Package, variant: 'success' },
-  cancelled: { label: 'Cancel order',          icon: XCircle, variant: 'danger' },
-};
-
-function buildColumns({ selected, allSelected, toggleAll, toggleOne }) {
-  return [
+  const columns = [
     {
       key: 'select',
       label: (
@@ -355,28 +235,53 @@ function buildColumns({ selected, allSelected, toggleAll, toggleOne }) {
       ),
     },
     {
-      key: 'id',
-      label: 'Order ID',
-      sortable: true,
-      render: (v) => <span className="font-medium text-[#F2C29A]">#{v}</span>,
-    },
-    {
       key: 'order_number',
       label: 'Order #',
       sortable: true,
-      render: (v, row) => <span className="text-[#EAE0D5]">{v || row.id}</span>,
+      render: (v, row) => (
+        <div className="flex flex-col">
+          <span className="text-[#F2C29A] font-medium">{v || `ORD-${row.id.toString().padStart(6, '0')}`}</span>
+          <span className="text-[10px] text-[#EAE0D5]/40 font-mono uppercase truncate max-w-[80px]" title={row.razorpay_payment_id}>
+            {row.razorpay_payment_id || 'ID: ' + row.id}
+          </span>
+        </div>
+      ),
     },
     {
-      key: 'customer_email',
-      label: 'Customer email',
+      key: 'status',
+      label: 'Status',
       sortable: true,
-      render: (v) => <span className="text-[#EAE0D5]/80 text-sm">{v || '-'}</span>,
+      render: (v) => {
+        const tone = STATUS_BUTTONS.find(b => b.value === v)?.tone || 'blue';
+        const config = TONE_CLASSES[tone];
+        return (
+          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${config.color} ${config.activeBg} ${config.activeBorder}`}>
+            {v || 'unknown'}
+          </span>
+        );
+      }
     },
     {
       key: 'customer_name',
-      label: 'Customer name',
+      label: 'Customer',
       sortable: true,
-      render: (v) => <span className="text-[#EAE0D5]">{v || '-'}</span>,
+      render: (v, row) => (
+        <div className="flex flex-col max-w-[150px]">
+          <span className="text-[#EAE0D5] truncate">{v || 'Guest'}</span>
+          <span className="text-[10px] text-[#EAE0D5]/40 truncate">{row.customer_email}</span>
+        </div>
+      ),
+    },
+    {
+      key: 'customer_phone',
+      label: 'Phone',
+      render: (v) => <span className="text-[#EAE0D5]/70 text-xs">{v || '-'}</span>,
+    },
+    {
+      key: 'item_count',
+      label: 'Items',
+      sortable: true,
+      render: (v) => <span className="text-[#EAE0D5]/80 font-mono">{v || 0}</span>,
     },
     {
       key: 'total_amount',
@@ -389,31 +294,143 @@ function buildColumns({ selected, allSelected, toggleAll, toggleOne }) {
       ),
     },
     {
-      key: 'payment_method',
-      label: 'Payment',
-      render: (v) => (
-        <span className="text-[#EAE0D5]/80 text-sm capitalize">{v || '-'}</span>
-      ),
-    },
-    {
-      key: 'tracking_number',
-      label: 'POD / tracking',
-      render: (v, row) => (
-        <span className="text-[#EAE0D5]/80 text-sm">
-          {v || row.pod_number || '-'}
-        </span>
-      ),
-    },
-    {
       key: 'created_at',
-      label: 'Order date',
+      label: 'Date',
       sortable: true,
       render: (v) => (
-        <span className="text-[#EAE0D5]/70 text-sm">{formatDate(v)}</span>
+        <span className="text-[#EAE0D5]/60 text-xs">{formatDate(v)}</span>
       ),
     },
   ];
+
+  const getActions = (row) => {
+    const actions = [
+      {
+        label: 'View details',
+        icon: Eye,
+        onClick: () => router.push(`/admin/orders/${row.id}`),
+      },
+    ];
+    const transitions = STATUS_TRANSITIONS[row.status] || [];
+    transitions.forEach((status) => {
+      const meta = ACTION_META[status];
+      if (!meta) return;
+      actions.push({
+        ...meta,
+        onClick: () => updateOrderStatus(row.id, status),
+        disabled: updatingOrder === row.id,
+      });
+    });
+
+    if (!['shipped', 'delivered'].includes(row.status)) {
+      actions.push({
+        label: 'Delete order',
+        icon: XCircle,
+        onClick: () => deleteOrder(row.id),
+        variant: 'danger',
+      });
+    }
+
+    return actions;
+  };
+
+  return (
+    <div className="space-y-6">
+      <Header
+        loading={loading}
+        totalOrders={total}
+        totalRevenue={totalRevenue}
+        onRefresh={fetchOrders}
+        onExport={() => setExportOpen(true)}
+        onPodUpload={() => setPodOpen(true)}
+      />
+
+      <FiltersBar
+        search={search}
+        onSearch={setSearch}
+        status={statusFilter}
+        onStatusChange={setStatusFilter}
+      />
+
+      <StatusSummary
+        counts={statusCounts}
+        active={statusFilter}
+        onPick={(s) => setStatusFilter(s === statusFilter ? '' : s)}
+      />
+
+      <div className="flex items-center justify-between">
+        {selected.size > 0 && (
+          <BulkActionsBar
+            count={selected.size}
+            busy={bulkLoading}
+            onShip={() => handleBulkStatus('shipped')}
+            onDeliver={() => handleBulkStatus('delivered')}
+            onCancel={() => handleBulkStatus('cancelled')}
+            onClear={() => setSelected(new Set())}
+          />
+        )}
+
+        {selected.size > 0 && (
+          <button
+            onClick={bulkDeleteOrders}
+            disabled={bulkLoading}
+            className="flex items-center gap-2 px-4 py-2 bg-red-600/10 border border-red-500/30 text-red-500 rounded-xl hover:bg-red-600/20 transition-all text-sm font-medium disabled:opacity-50 ml-auto"
+          >
+            <XCircle size={16} />
+            {bulkLoading ? 'Deleting...' : `Delete (${selected.size})`}
+          </button>
+        )}
+      </div>
+
+      {error && (
+        <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-sm text-red-400">
+          {error}
+        </div>
+      )}
+
+      <DataTable
+        columns={columns}
+        data={orders}
+        getActions={getActions}
+        loading={loading}
+        pagination
+        pageSize={PAGE_SIZE}
+        serverSide
+        totalCount={total}
+        page={page}
+        onPageChange={setPage}
+        onRowClick={(row) => router.push(`/admin/orders/${row.id}`)}
+        emptyMessage="No orders found"
+      />
+
+      <ShipOrderModal
+        orderId={shipOrderId}
+        onClose={() => setShipOrderId(null)}
+        onShipped={fetchOrders}
+        onError={(msg) => showAlert(msg, 'error')}
+      />
+
+      <PodUploadModal
+        open={podOpen}
+        onClose={() => setPodOpen(false)}
+        onUploaded={fetchOrders}
+      />
+
+      <ExportOrdersModal
+        open={exportOpen}
+        statusFilter={statusFilter}
+        onClose={() => setExportOpen(false)}
+        onError={(msg) => showAlert(msg, 'error')}
+      />
+    </div>
+  );
 }
+
+const ACTION_META = {
+  shipped:   { label: 'Ship order (enter POD)', icon: Truck, variant: 'info' },
+  delivered: { label: 'Mark delivered',        icon: Package, variant: 'success' },
+  cancelled: { label: 'Cancel order',          icon: XCircle, variant: 'danger' },
+};
 
 function formatDate(value) {
   if (!value) return '-';
@@ -423,14 +440,28 @@ function formatDate(value) {
   });
 }
 
-function Header({ loading, onRefresh, onExport, onPodUpload }) {
+function Header({ loading, totalOrders, totalRevenue, onRefresh, onExport, onPodUpload }) {
   return (
     <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-      <div>
-        <h1 className="text-2xl md:text-3xl font-bold text-[#F2C29A]" style={{ fontFamily: 'Cinzel, serif' }}>
-          Orders
-        </h1>
-        <p className="text-[#EAE0D5]/60 mt-1">Manage and track all customer orders</p>
+      <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold text-[#F2C29A]" style={{ fontFamily: 'Cinzel, serif' }}>
+            Orders
+          </h1>
+          <p className="text-[#EAE0D5]/60 mt-1">Manage and track all customer orders</p>
+        </div>
+        
+        {/* Statistics Pills */}
+        <div className="flex gap-2">
+          <div className="px-3 py-1 bg-[#7A2F57]/10 border border-[#B76E79]/20 rounded-full">
+            <p className="text-[10px] text-[#EAE0D5]/40 uppercase tracking-tighter">Total Orders</p>
+            <p className="text-sm font-bold text-[#F2C29A]">{totalOrders}</p>
+          </div>
+          <div className="px-3 py-1 bg-[#7A2F57]/10 border border-[#B76E79]/20 rounded-full">
+            <p className="text-[10px] text-[#EAE0D5]/40 uppercase tracking-tighter">Filtered Revenue</p>
+            <p className="text-sm font-bold text-[#F2C29A]">₹{Number(totalRevenue || 0).toLocaleString('en-IN')}</p>
+          </div>
+        </div>
       </div>
       <div className="flex items-center gap-3">
         <button
@@ -502,20 +533,14 @@ function FiltersBar({ search, onSearch, status, onStatusChange }) {
   );
 }
 
-const TONE_CLASSES = {
-  blue:   { color: 'text-blue-400',   border: 'border-blue-500/20',   activeBg: 'bg-blue-500/20',   activeBorder: 'border-blue-500/40' },
-  orange: { color: 'text-orange-400', border: 'border-orange-500/20', activeBg: 'bg-orange-500/20', activeBorder: 'border-orange-500/40' },
-  green:  { color: 'text-green-400',  border: 'border-green-500/20',  activeBg: 'bg-green-500/20',  activeBorder: 'border-green-500/40' },
-  red:    { color: 'text-red-400',    border: 'border-red-500/20',    activeBg: 'bg-red-500/20',    activeBorder: 'border-red-500/40' },
-};
-
-function StatusSummary({ orders, active, onPick }) {
+function StatusSummary({ counts, active, onPick }) {
   return (
     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
       {STATUS_BUTTONS.map((status) => {
         const tone = TONE_CLASSES[status.tone];
-        const count = orders.filter((o) => o.status === status.value).length;
         const isActive = active === status.value;
+        const count = counts[status.value] || 0;
+        
         return (
           <button
             key={status.value}

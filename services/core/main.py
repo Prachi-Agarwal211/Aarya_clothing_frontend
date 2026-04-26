@@ -513,6 +513,7 @@ async def verify_otp_registration(
         
         # Ensure session cookie is set
         set_auth_cookies(response, result, remember_me=False, request=request)
+        logger.info(f"[AUTH] Registration verified user_id={user.id} method={body.otp_type}")
         
         return result
     except ValueError as e:
@@ -717,6 +718,8 @@ async def login(
         except Exception as exc:
             logger.warning(f"Failed to persist login session in Redis: {exc}")
 
+        logger.info(f"[AUTH] Login success user_id={result['user']['id']} ip={client_ip}")
+
         set_auth_cookies(response, result, request.remember_me, request=http_request)
 
         return LoginResponse(
@@ -799,8 +802,8 @@ async def login_otp_request(
             "expires_in": result.get("expires_in", 600),
         }
     except ValueError as e:
-        logger.error(f"[Auth Error] {str(e)}")
-        raise HTTPException(status_code=400, detail=str(e))
+        # Generic error for all cases (no account enumeration)
+        raise HTTPException(status_code=400, detail="If an account exists, an OTP has been sent.")
 
 
 @app.post("/api/v1/auth/login-otp-verify",
@@ -834,6 +837,7 @@ async def login_otp_verify(
             )
         except Exception as exc:
             logger.warning(f"Failed to persist OTP-login session in Redis: {exc}")
+        logger.info(f"[AUTH] OTP login success user_id={result['user']['id']} ip={client_ip}")
         set_auth_cookies(response, result, request.remember_me, request=http_request)
         return LoginResponse(
             user=UserResponse.model_validate(result["user"]),
@@ -1111,10 +1115,10 @@ async def forgot_password_otp(
     otp_type = getattr(request_data, 'otp_type', 'SMS')
     try:
         result = auth_service.request_password_reset_otp(identifier, otp_type)
+        logger.info(f"[AUTH] Password reset OTP requested identifier={identifier[:3]}***")
         return result
     except ValueError as e:
-        logger.error(f"[Auth Error] {str(e)}")
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="If an account exists, an OTP has been sent.")
 
 
 @app.post("/api/v1/auth/reset-password-with-otp", status_code=status.HTTP_200_OK, tags=["Authentication"])

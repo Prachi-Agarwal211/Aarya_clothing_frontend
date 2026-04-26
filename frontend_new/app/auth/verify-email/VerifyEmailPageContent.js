@@ -9,7 +9,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../../../lib/authContext';
 import logger from '../../../lib/logger';
 
-const OTP_EXPIRY_SECONDS = 120;
+const OTP_EXPIRY_SECONDS = 600;
 const RESEND_COOLDOWN_SECONDS = 30;
 
 // Enhanced OTP Verification Page

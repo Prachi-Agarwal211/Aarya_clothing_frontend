@@ -12,7 +12,7 @@ import logger from '../../../lib/logger';
 import { getRedirectForRole, USER_ROLES } from '../../../lib/roles';
 import { useLogo, useSiteConfig } from '../../../lib/siteConfigContext';
 
-const OTP_EXPIRY_SECONDS = 120;
+const OTP_EXPIRY_SECONDS = 600;
 const RESEND_COOLDOWN_SECONDS = 30;
 
 const VERIFICATION_LABELS = {

@@ -12,7 +12,7 @@ import { useLogo, useSiteConfig } from '../../../lib/siteConfigContext';
 import logger from '../../../lib/logger';
 import { validatePhone, formatTime, getErrorMessage } from '../../../lib/authHelpers';
 
-const OTP_EXPIRY_SECONDS = 120;
+const OTP_EXPIRY_SECONDS = 600;
 const RESEND_COOLDOWN_SECONDS = 30;
 
 // Total steps in the flow

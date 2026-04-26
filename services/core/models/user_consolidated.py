@@ -56,8 +56,8 @@ class User(Base):
     
     # Role and timestamps
     role = Column(Enum(UserRole), default=UserRole.customer, nullable=False)
-    created_at = Column(DateTime, server_default=func.now(), nullable=False)
-    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
+    created_at = Column(DateTime, default=ist_naive, server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime, default=ist_naive, onupdate=ist_naive, server_default=func.now(), nullable=False)
     
     # Relationships
     addresses: Mapped[List["Address"]] = relationship(

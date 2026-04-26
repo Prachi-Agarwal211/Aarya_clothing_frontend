@@ -24,7 +24,7 @@ export default function LoginOtpPageContent({ redirectUrl = '/products' }) {
   const [otpSent, setOtpSent] = useState(false);
   const [verificationMethod, setVerificationMethod] = useState('otp_email');
   const [otpDigits, setOtpDigits] = useState(['', '', '', '', '', '']);
-  const [otpTimeLeft, setOtpTimeLeft] = useState(120);
+  const [otpTimeLeft, setOtpTimeLeft] = useState(600);
   const [otpExpired, setOtpExpired] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
 
@@ -107,7 +107,7 @@ export default function LoginOtpPageContent({ redirectUrl = '/products' }) {
 
       setOtpSent(true);
       setOtpDigits(['', '', '', '', '', '']);
-      setOtpTimeLeft(120);
+      setOtpTimeLeft(600);
       setOtpExpired(false);
       setResendCooldown(30);
       setTimeout(() => otpRefs.current[0]?.focus(), 100);

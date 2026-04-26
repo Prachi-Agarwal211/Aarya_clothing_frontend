@@ -895,7 +895,67 @@ async def razorpay_webhook(
         )
 
 
-# ==================== Fraud Detection ====================
+# ==================== Legacy Webhook Endpoint ====================
+
+@app.post("/api/payment/webhook/razorpay", response_model=WebhookResponse,
+          tags=["Webhooks"])
+async def legacy_razorpay_webhook(
+    request: Request,
+    x_razorpay_signature: str = Header(..., description="Razorpay webhook signature")
+):
+    """
+    Legacy Razorpay webhook endpoint.
+    Redirects to the v1 webhook handler for compatibility.
+    """
+    try:
+        body = await request.body()
+        body_str = body.decode('utf-8')
+        
+        # Verify webhook signature
+        razorpay_client = get_razorpay_client()
+        is_valid = razorpay_client.verify_webhook_signature(
+            body_str,
+            x_razorpay_signature
+        )
+        
+        if not is_valid:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid webhook signature"
+            )
+        
+        # Parse and process via the same handler
+        webhook_data = json.loads(body_str)
+        
+        from database.database import get_db_context
+        with next(get_db_context()) as db:
+            try:
+                payment_service = PaymentService(db)
+                success = payment_service.process_webhook_event(webhook_data)
+                db.commit()
+                
+                return WebhookResponse(
+                    processed=success,
+                    message="Webhook processed successfully",
+                    event_type=webhook_data.get("event")
+                )
+            except Exception as e:
+                db.rollback()
+                raise e
+                
+    except json.JSONDecodeError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid webhook payload"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Webhook processing failed: {str(e)}"
+        )
+
+
+# ==================== Fraud Detection ========================================
 
 @app.post("/api/v1/payments/verify", tags=["Payments"])
 async def verify_payment_risk(order_id: int, user_id: int, amount: Decimal):

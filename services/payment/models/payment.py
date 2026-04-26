@@ -42,9 +42,9 @@ class PaymentTransaction(Base):
     customer_email = Column(String(255), nullable=True)
     customer_phone = Column(String(20), nullable=True)
     
-    # Timestamps
-    created_at = Column(DateTime, default=lambda: datetime.now(IST))
-    updated_at = Column(DateTime, default=lambda: datetime.now(IST), onupdate=lambda: datetime.now(IST))
+    # Timestamps - using UTC for consistency
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     completed_at = Column(DateTime, nullable=True)
     
     # Refund details

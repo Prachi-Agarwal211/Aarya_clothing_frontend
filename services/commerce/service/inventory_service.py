@@ -273,6 +273,54 @@ class InventoryService:
         inventory.reserved_quantity = max(0, inventory.reserved_quantity)
         
         return True
+
+    def confirm_or_deduct_stock(self, sku: str, quantity: int, user_id: int = None, order_id: int = None) -> bool:
+        """
+        Robust method for payment recovery/webhooks.
+        1. Tries to confirm an existing reservation.
+        2. If reservation is missing/expired, falls back to direct stock deduction.
+        3. Never fails if physical stock exists (10 - 1 = 9).
+        4. If physical stock is 0, still allows deduction (negative stock) to guarantee order creation for paid users.
+        """
+        try:
+            # Step 1: Try normal confirmation (requires PENDING reservation)
+            return self.confirm_reservation(sku, quantity, user_id, order_id)
+        except HTTPException as e:
+            if e.status_code == status.HTTP_400_BAD_REQUEST and "confirm reservation" in str(e.detail).lower():
+                logger.warning(f"RECOVERY_STOCK: No reservation found for {sku} (user={user_id}). Falling back to direct deduction.")
+                
+                # Step 2: Fallback to direct deduction
+                try:
+                    inventory = self.get_inventory_by_sku_for_update(sku)
+                except OperationalError:
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail="Inventory is being updated. Please retry."
+                    )
+                
+                if not inventory:
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail=f"Inventory with SKU '{sku}' not found"
+                    )
+
+                # Simple math: Deduct from physical quantity
+                # We allow it to go negative if necessary because the user HAS PAID.
+                inventory.quantity -= quantity
+                
+                # Log if we went negative
+                if inventory.quantity < 0:
+                    logger.error(f"CRITICAL: Stock for {sku} went negative ({inventory.quantity}) during recovery for order {order_id}")
+                
+                # If there was any reserved quantity, reduce it too (up to the amount we deducted)
+                # to prevent double-counting if some of it was actually reserved but under a different user_id or expired.
+                if inventory.reserved_quantity > 0:
+                    inventory.reserved_quantity = max(0, inventory.reserved_quantity - quantity)
+                
+                return True
+            else:
+                # Re-raise other HTTP exceptions
+                raise e
     
     def deduct_stock_for_order(self, sku: str, quantity: int) -> bool:
         """
@@ -304,24 +352,79 @@ class InventoryService:
         inventory.reserved_quantity = max(0, inventory.reserved_quantity - quantity)
         return True
 
-    def get_low_stock_items(self) -> List[LowStockItem]:
-        """Get all low stock items."""
-        low_stock = self.db.query(Inventory).filter(
-            Inventory.quantity - Inventory.reserved_quantity <= Inventory.low_stock_threshold
+    def release_expired_reservations(self) -> int:
+        """
+        Release all expired stock reservations.
+        Called by background job to clean up stale reservations.
+        
+        Returns: Number of reservations released
+        """
+        try:
+            from sqlalchemy import func
+            from models.stock_reservation import ReservationStatus
+            
+            now = datetime.now(timezone.utc)
+            
+            # Find and release expired reservations
+            expired = self.db.query(StockReservation).filter(
+                StockReservation.status == ReservationStatus.PENDING,
+                StockReservation.expires_at < now
+            ).all()
+            
+            total_released = 0
+            for reservation in expired:
+                # Release the stock
+                inventory = self.get_inventory_by_sku_for_update(reservation.sku, nowait=False)
+                if inventory:
+                    inventory.reserved_quantity = max(0, inventory.reserved_quantity - reservation.quantity)
+                
+                # Mark reservation as expired
+                reservation.status = ReservationStatus.EXPIRED
+                total_released += reservation.quantity
+            
+            if total_released > 0:
+                self.db.commit()
+                logger.info(f"Released {total_released} items from {len(expired)} expired reservations")
+            
+            return total_released
+            
+        except Exception as e:
+            self.db.rollback()
+            logger.error(f"Failed to release expired reservations: {e}")
+            return 0
+
+    def get_stuck_reservations(self, max_age_minutes: int = 30) -> List[dict]:
+        """
+        Find reservations that have been pending for too long.
+        Useful for debugging and manual cleanup.
+        
+        Returns: List of stuck reservation details
+        """
+        from sqlalchemy import func
+        from models.stock_reservation import ReservationStatus
+        
+        cutoff = datetime.now(timezone.utc) - timedelta(minutes=max_age_minutes)
+        
+        reservations = self.db.query(
+            StockReservation,
+            Product.name.label('product_name'),
+            Inventory.sku
+        ).outerjoin(
+            Inventory, Inventory.sku == StockReservation.sku
+        ).outerjoin(
+            Product, Product.id == Inventory.product_id
+        ).filter(
+            StockReservation.status == ReservationStatus.PENDING,
+            StockReservation.created_at < cutoff
         ).all()
         
-        items = []
-        for inv in low_stock:
-            product = self.db.query(Product).filter(Product.id == inv.product_id).first()
-            if product:
-                items.append(LowStockItem(
-                    product_id=inv.product_id,
-                    product_name=product.name,
-                    sku=inv.sku,
-                    size=inv.size,
-                    color=inv.color,
-                    available_quantity=inv.available_quantity,
-                    low_stock_threshold=inv.low_stock_threshold
-                ))
-        
-        return items
+        return [{
+            'reservation_id': r.StockReservation.reservation_id,
+            'sku': r.StockReservation.sku,
+            'quantity': r.StockReservation.quantity,
+            'user_id': r.StockReservation.user_id,
+            'created_at': r.StockReservation.created_at,
+            'expires_at': r.StockReservation.expires_at,
+            'product_name': r.product_name or 'Unknown',
+            'age_minutes': (datetime.now(timezone.utc) - r.StockReservation.created_at).total_seconds() / 60
+        } for r in reservations]

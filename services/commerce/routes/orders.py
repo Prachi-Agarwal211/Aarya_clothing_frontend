@@ -513,118 +513,182 @@ async def recover_order_from_payment(
         )
 
 
-# ==================== Admin Order Management ====================
-
-@router.get("/admin/all", response_model=PaginatedResponse)
-async def get_all_orders(
-    request: Request,
-    status_filter: Optional[OrderStatus] = None,
-    page: int = Query(1, ge=1),
-    limit: int = Query(50, ge=1, le=200),
+@router.get("/admin/reservations/stuck", tags=["Admin"])
+async def get_stuck_reservations(
+    max_age_minutes: int = Query(30, ge=5, le=1440),
     current_user: dict = Depends(require_staff),
     db: Session = Depends(get_db)
 ):
-    """Get all orders with optional status filter (admin/staff only)."""
-    order_service = _get_order_service(db)
+    """
+    Get stale reservations that have been pending for too long.
+    Useful for debugging and identifying stuck orders.
     
-    try:
-        skip = (page - 1) * limit
-        orders = order_service.get_all_orders(
-            status=status_filter,
-            skip=skip,
-            limit=limit
-        )
-        
-        # Get total count
-        query = db.query(Order)
-        if status_filter:
-            query = query.filter(Order.status == status_filter)
-        total = query.count()
+    Returns list of reservations older than max_age_minutes with product info.
+    """
+    from service.inventory_service import InventoryService
+    
+    inventory_service = InventoryService(db)
+    stuck = inventory_service.get_stuck_reservations(max_age_minutes=max_age_minutes)
+    
+    return {
+        "max_age_minutes": max_age_minutes,
+        "count": len(stuck),
+        "reservations": stuck
+    }
 
-        # Calculate pagination metadata to match PaginatedResponse schema
-        skip_val = (page - 1) * limit
-        has_more = skip_val + limit < total
+
+@router.post("/admin/reservations/release-expired", tags=["Admin"])
+async def release_expired_reservations(
+    current_user: dict = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    Manually release all expired stock reservations.
+    
+    Should be called by background jobs but can be triggered manually.
+    Frees up stock held by abandoned cart reservations.
+    """
+    from service.inventory_service import InventoryService
+    
+    inventory_service = InventoryService(db)
+    released = inventory_service.release_expired_reservations()
+    
+    return {
+        "success": True,
+        "released_count": released,
+        "message": f"Released {released} items from expired reservations"
+    }
+
+
+@router.post("/admin/recovery/run-now", tags=["Admin"])
+async def trigger_recovery_job(
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(require_admin)
+):
+    """
+    Manually trigger the payment recovery job.
+
+    Scans for completed payments without matching orders and attempts to create them.
+    Admin only. Runs synchronously and returns results.
+    """
+    try:
+        from jobs.recovery_job import run_payment_recovery
+
+        logger.info(f"RECOVERY_TRIGGER: admin={current_user.get('email')}")
+        result = run_payment_recovery()
 
         return {
-            "items": [_enrich_order_response(o) for o in orders],
-            "total": total,
-            "skip": skip_val,
-            "limit": limit,
-            "has_more": has_more
+            "success": True,
+            "message": "Recovery job completed",
+            "results": result
         }
     except Exception as e:
-        logger.error(f"Error getting all orders: {e}")
+        logger.error(f"RECOVERY_TRIGGER_FAILED: {e}", exc_info=True)
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve orders"
+            status_code=500,
+            detail=f"Recovery job failed: {str(e)}"
         )
 
 
-@router.post("/admin/bulk-update-status", status_code=status.HTTP_200_OK)
-async def bulk_update_order_status(
-    bulk_data: BulkOrderStatusUpdate,
-    request: Request,
-    current_user: dict = Depends(require_staff),
+@router.get("/admin/payment-recovery", tags=["Admin"])
+async def get_payment_recovery_report(
+    from_timestamp: Optional[int] = Query(None, description="Unix timestamp to fetch payments from"),
+    current_user: dict = Depends(require_admin),
     db: Session = Depends(get_db)
 ):
-    """Bulk update order status (admin/staff only)."""
-    order_service = _get_order_service(db)
-    
-    try:
-        updated = order_service.bulk_update_order_status(
-            order_ids=bulk_data.order_ids,
-            new_status=bulk_data.new_status
-        )
-        return {
-            "message": f"Updated {updated} orders",
-            "updated_count": updated
-        }
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e)
-        )
-    except Exception as e:
-        logger.error(f"Error bulk updating orders: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to update orders"
-        )
+    """
+    Fetch all captured Razorpay payments and cross-reference with orders in DB.
 
+    Returns:
+    - matched: payments that have a matching order
+    - missing_orders: payments where no order exists (needs recovery)
+    - total_missing_amount: sum of unrecovered payment amounts
 
-@router.post("/{order_id}/set-delivery-state", response_model=OrderResponse)
-async def set_order_delivery_state(
-    order_id: int,
-    delivery_state: SetDeliveryState,
-    request: Request,
-    current_user: dict = Depends(require_staff),
-    db: Session = Depends(get_db)
-):
-    """Set delivery state for order (admin only)."""
-    order_service = _get_order_service(db)
+    Admin can then manually review missing_orders and decide whether to recover them.
+    """
+    import os, razorpay
+    from sqlalchemy import text as _text
+
+    key_id = os.getenv("RAZORPAY_KEY_ID", "")
+    key_secret = os.getenv("RAZORPAY_KEY_SECRET", "")
+    if not key_id or not key_secret:
+        raise HTTPException(status_code=503, detail="Razorpay credentials not configured")
 
     try:
-        order = order_service.get_order_by_id(order_id)
-        if not order:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Order not found"
-            )
+        client = razorpay.Client(auth=(key_id, key_secret))
+        # Default: last 48 hours if no timestamp given
+        if not from_timestamp:
+            from datetime import timedelta
+            from_timestamp = int((datetime.now(timezone.utc) - timedelta(hours=48)).timestamp())
 
-        # Update delivery state (this would be implemented in order_service)
-        # For now, this is a placeholder for the actual implementation
-        raise HTTPException(
-            status_code=status.HTTP_501_NOT_IMPLEMENTED,
-            detail="Delivery state update not yet implemented"
-        )
-    except HTTPException:
-        raise
+        payments = client.payment.all({
+            "from": from_timestamp,
+            "count": 100,
+            "expand[]": "order",
+        })
+        items = payments.get("items", [])
     except Exception as e:
-        logger.error(f"Error setting delivery state: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to set delivery state"
-        )
+        logger.error(f"Razorpay payment fetch failed: {e}")
+        raise HTTPException(status_code=502, detail=f"Failed to fetch Razorpay payments: {str(e)}")
+
+    # Get all transaction_ids already in our DB
+    existing_transactions = set(
+        row[0] for row in db.execute(
+            _text("SELECT transaction_id FROM orders WHERE transaction_id IS NOT NULL")
+        ).fetchall()
+    )
+
+    matched = []
+    missing_orders = []
+    total_missing_amount = 0
+
+    for payment in items:
+        payment_id = payment.get("id", "")
+        order_id = payment.get("order_id", "")
+        amount_paise = payment.get("amount", 0)
+        amount_inr = amount_paise / 100
+        pay_status = payment.get("status", "")
+        contact = payment.get("contact", "")
+        email = payment.get("email", "")
+        created_at = payment.get("created_at", 0)
+        method = payment.get("method", "")
+
+        if pay_status != "captured":
+            continue
+
+        if payment_id in existing_transactions or order_id in existing_transactions:
+            matched.append({
+                "payment_id": payment_id,
+                "order_id": order_id,
+                "amount": amount_inr,
+                "email": email,
+                "contact": contact,
+                "created_at": created_at,
+                "status": "matched",
+            })
+        else:
+            total_missing_amount += amount_inr
+            missing_orders.append({
+                "payment_id": payment_id,
+                "razorpay_order_id": order_id,
+                "amount": amount_inr,
+                "email": email,
+                "contact": contact,
+                "method": method,
+                "created_at": created_at,
+                "status": "missing_order",
+            })
+
+    return {
+        "from_timestamp": from_timestamp,
+        "total_payments_fetched": len(items),
+        "total_captured": len(matched) + len(missing_orders),
+        "matched_count": len(matched),
+        "missing_order_count": len(missing_orders),
+        "total_missing_amount_inr": total_missing_amount,
+        "matched": matched,
+        "missing_orders": missing_orders,
+    }
 
 
 # ==================== Invoice Generation ====================

@@ -623,50 +623,6 @@ services:
       - frontend_network
 
   # ============================================================
-  # PAYMENT RECOVERY WORKER (RQ Worker)
-  # ============================================================
-  # Background worker that processes payment recovery jobs.
-  # Runs every 5 minutes to find orphaned payments and create orders.
-
-  payment-worker:
-    build:
-      context: .
-      dockerfile: services/payment/Dockerfile
-    container_name: aarya_payment_worker
-    command: python -m jobs.worker
-    env_file:
-      - .env
-    environment:
-      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD environment variable is required}@pgbouncer:6432/aarya_clothing
-      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/2
-      - COMMERCE_SERVICE_URL=http://commerce:5002
-      - INTERNAL_SERVICE_SECRET=${INTERNAL_SERVICE_SECRET:?INTERNAL_SERVICE_SECRET environment variable is required}
-      # Database connection pool (PgBouncer-compatible)
-      - DATABASE_POOL_SIZE=15
-      - DATABASE_MAX_OVERFLOW=10
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      commerce:
-        condition: service_started
-    healthcheck:
-      test: ["CMD-SHELL", "python -c \"import os; from redis import Redis; Redis(host='redis', port=6379, db=2, password=os.environ.get('REDIS_PASSWORD','')).ping()\" || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    deploy:
-      resources:
-        limits:
-          memory: 256M
-          cpus: '0.5'
-    networks:
-      - backend_network
-    restart: unless-stopped
-
-  # ============================================================
   # POSTGRES AUTOMATED BACKUPS
   # ============================================================
 

@@ -1,0 +1,99 @@
+--- a/docker/nginx/nginx.conf
++++ b/docker/nginx/nginx.conf
+@@ -45,6 +45,7 @@ worker_rlimit_nofile 65535;
+ 
+ http {
+     include       /etc/nginx/mime.types;
++    include /etc/nginx/snippets/maintenance.conf;
+     default_type  application/octet-stream;
+ 
+     # Docker DNS resolver for dynamic service IPs
+@@ -597,6 +598,38 @@ events {
+         # Detection: X-Forwarded-For from Docker internal networks (172.x, 10.x) = internal SSR.
+         # All other requests (direct browser access) get 301 → HTTPS.
+ 
++        # MAINTENANCE MODE: Whitelisted paths for HTTP
++        location /auth/ {
++            if ($is_internal_request = 0) {
++                return 301 https://$host$request_uri;
++            }
++            proxy_pass http://$docker_upstream_frontend$request_uri;
++        }
++
++        location /admin/ {
++            if ($is_internal_request = 0) {
++                return 301 https://$host$request_uri;
++            }
++            proxy_pass http://$docker_upstream_frontend$request_uri;
++        }
++
++        location /_next/ {
++            if ($is_internal_request = 0) {
++                return 301 https://$host$request_uri;
++            }
++            proxy_pass http://$docker_upstream_frontend$request_uri;
++        }
++
++        location /api/ {
++            if ($is_internal_request = 0) {
++                return 301 https://$host$request_uri;
++            }
++            proxy_pass http://$docker_upstream_frontend$request_uri;
++        }
++
+         location / {
+             if ($is_internal_request = 0) {
+                 return 301 https://$host$request_uri;
+@@ -605,6 +638,12 @@ events {
+             proxy_set_header X-Forwarded-Proto $scheme;
+             proxy_cache_bypass $http_upgrade;
+             proxy_read_timeout 86400;
++            root /etc/nginx/snippets;
++            try_files /maintenance.html =404;
++        }
++
++        location = /maintenance.html {
++            root /etc/nginx/snippets;
++            internal;
+         }
+ 
+         # Nginx stub_status for Prometheus (internal only)
+@@ -727,6 +766,30 @@ events {
+         # FRONTEND
+         # ==========================================
+ 
++        # MAINTENANCE MODE: Whitelisted paths for HTTPS
++        location /auth/ {
++            proxy_pass http://$docker_upstream_frontend$request_uri;
++        }
++
++        location /admin/ {
++            proxy_pass http://$docker_upstream_frontend$request_uri;
++        }
++
++        location /_next/ {
++            proxy_pass http://$docker_upstream_frontend$request_uri;
++        }
++
++        location /api/ {
++            proxy_pass http://$docker_upstream_frontend$request_uri;
++        }
++
+         location / {
+-            proxy_pass http://$docker_upstream_frontend$request_uri;
++            root /etc/nginx/snippets;
++            try_files /maintenance.html =404;
+             proxy_http_version 1.1;
+             proxy_set_header Upgrade $http_upgrade;
+@@ -737,6 +770,10 @@ events {
+             add_header Pragma "no-cache" always;
+             add_header Expires "0" always;
+         }
++
++        location = /maintenance.html {
++            root /etc/nginx/snippets;
++            internal;
++        }
+ 
+         # Favicon - redirect to logo.png
+         location = /favicon.ico {

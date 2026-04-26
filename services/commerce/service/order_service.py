@@ -735,11 +735,12 @@ class OrderService:
             )
             self.db.add(order_item)
 
-            # CRITICAL FIX: Confirm reservation instead of directly deducting
-            # This transitions reserved stock to permanently deducted stock
+            # CRITICAL FIX: Confirm reservation or fallback to direct deduction
+            # This handles cases where reservations expired (e.g. slow QR/UPI) 
+            # but the payment was successfully captured.
             if sku:
                 try:
-                    self.inventory_service.confirm_reservation(
+                    self.inventory_service.confirm_or_deduct_stock(
                         sku=sku,
                         quantity=item.get("quantity", 1),
                         user_id=user_id,
@@ -747,7 +748,7 @@ class OrderService:
                     )
                 except Exception as e:
                     self.db.rollback()
-                    logger.error(f"Failed to confirm reservation for {sku} in webhook recovery: {e}")
+                    logger.error(f"Failed to deduct stock for {sku} in webhook recovery: {e}")
                     raise HTTPException(
                         status_code=status.HTTP_400_BAD_REQUEST,
                         detail=f"Failed to confirm stock. Order cannot be created without inventory."

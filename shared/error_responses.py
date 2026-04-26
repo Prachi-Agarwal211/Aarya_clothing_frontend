@@ -68,6 +68,9 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     for err in exc.errors():
         field = ".".join(str(loc) for loc in err.get("loc", []))
         errors.append({"field": field, "message": err.get("msg", ""), "type": err.get("type", "")})
+    
+    logger.warning(f"Validation failed on {request.url.path}: {errors}")
+    
     return JSONResponse(
         status_code=422,
         content=error_response(

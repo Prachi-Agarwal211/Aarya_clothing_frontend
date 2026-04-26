@@ -110,11 +110,26 @@ except Exception:
 # Request ID
 app.add_middleware(RequestIDMiddleware)
 
+# HSTS (Strict-Transport-Security)
+@app.middleware("http")
+async def add_hsts_header(request: Request, call_next):
+    response = await call_next(request)
+    if not settings.is_development:
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains; preload"
+    return response
+
 # CSRF Protection
 app.add_middleware(CSRFMiddleware)
 
 # Standardized error handlers
 register_error_handlers(app)
+
+# Filter out health checks from logs to reduce noise
+class HealthCheckFilter(logging.Filter):
+    def filter(self, record):
+        return "GET /health" not in record.getMessage()
+
+logging.getLogger("uvicorn.access").addFilter(HealthCheckFilter())
 
 # Service-to-service: Commerce triggers transactional email via Core SMTP
 from api_internal_notify import router as internal_notify_router
@@ -396,6 +411,7 @@ async def register(
             "requires_verification": result.get("requires_verification", True),
         }
     except ValueError as e:
+        logger.error(f"[Auth Error] {str(e)}")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
         logger.error(f"Registration error: {e}")
@@ -442,6 +458,26 @@ async def verify_otp_registration(
 
     email = body.email
     phone = body.phone
+    
+    # Rate limiting for verification attempts (prevents brute force)
+    if not _should_bypass_local_rate_limit(request):
+        try:
+            # Key by identifier being verified
+            identifier = (email or phone or "unknown").lower().strip()
+            limit_key = f"rate_limit:verify_otp:{identifier}"
+            count = redis_client.get_cache(limit_key) or 0
+            
+            if int(count) >= 5:
+                logger.warning(f"[OTP Verify] Rate limit exceeded for {identifier}")
+                raise HTTPException(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail="Too many verification attempts. Please wait 5 minutes and try again."
+                )
+            redis_client.set_cache(limit_key, int(count) + 1, ttl=300) # 5 min window
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.warning(f"Rate limiting error on verify (skipping): {e}")
 
     # SMS / WhatsApp + email only (e.g. login recovery): resolve profile phone for OTP key matching
     if body.otp_type in (OTPType.SMS, OTPType.WHATSAPP) and email and not phone:
@@ -454,97 +490,37 @@ async def verify_otp_registration(
         f"otp_type: {body.otp_type}"
     )
 
-    from service.otp_service import OTPService
-
-    # Verify OTP
-    otp_service = OTPService(db)
-    otp_request = OTPVerifyRequest(
-        email=body.email if body.otp_type == OTPType.EMAIL else None,
-        phone=phone if body.otp_type in (OTPType.SMS, OTPType.WHATSAPP) else None,
-        otp_code=body.otp_code,
-        otp_type=body.otp_type,
-        purpose="registration"
-    )
-
-    logger.info(f"[OTP Verify] Calling OTP service with purpose: {otp_request.purpose}")
-    result = otp_service.verify_otp(otp_request)
-    logger.info(f"[OTP Verify] OTP service result: {result}")
-
-    if not result.get("verified"):
-        logger.warning(f"[OTP Verify] OTP verification failed: {result.get('message')}")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=result.get("message", "Invalid OTP")
-        )
-
-    # Find user by email or phone
-    auth_service = AuthService(db)
-    if email:
-        user = db.query(User).filter(User.email == email).first()
-        logger.info(f"[OTP Verify] Found user by email: {user.id if user else 'None'}")
-    else:
-        user = db.query(User).filter(User.phone == phone).first()
-        logger.info(f"[OTP Verify] Found user by phone: {user.id if user else 'None'}")
-
+    # Resolve user by email or phone
+    user = db.query(User).filter(
+        or_(User.email == email, User.phone == phone)
+    ).first()
     if not user:
-        logger.error("[OTP Verify] User not found after successful OTP verification")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
+            detail="User not found. Please register first."
         )
 
-    # Mark account verified/active after successful registration OTP.
-    user.is_active = True
-    # Set the verification flag that matches how the user proved identity
-    if body.otp_type == OTPType.EMAIL:
-        user.email_verified = True
-        logger.info(f"[OTP Verify] User {user.id} email marked as verified")
-    else:
-        user.phone_verified = True
-        logger.info(f"[OTP Verify] User {user.id} phone marked as verified")
-    db.commit()
-    db.refresh(user)
+    from service.otp_service import OTPService
 
-    # Generate tokens for auto-login
-    access_token = auth_service.create_access_token(user.id, user.role.value)
-    refresh_token = auth_service.create_refresh_token(user.id, user.role.value)
-
-    # Create session
-    import secrets
-    session_id = secrets.token_urlsafe(32)
+    # Call unified service logic
+    auth_service = AuthService(db)
     try:
-        redis_client.create_session(session_id, {"user_id": user.id}, settings.SESSION_EXPIRE_MINUTES)
-        logger.info(f"[OTP Verify] Session created: {session_id[:10]}...")
-    except Exception as e:
-        logger.warning(f"[OTP Verify] Failed to create session: {e}")
-
-    user_response = UserResponse.model_validate(user)
-
-    auth_data = {
-        "user": user_response.model_dump(),
-        "tokens": {
-            "access_token": access_token,
-            "refresh_token": refresh_token,
-            "token_type": "bearer",
-            "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
-        },
-        "session_id": session_id
-    }
-
-    logger.info(f"[OTP Verify] Verification successful for user {user.id}, redirecting")
-    
-    set_auth_cookies(response, auth_data, remember_me=False, request=request)
-    
-    msg = (
-        "Email verified successfully"
-        if body.otp_type == OTPType.EMAIL
-        else "Phone verified successfully"
-    )
-    return {
-        "message": msg,
-        "user": user_response,
-        "tokens": auth_data["tokens"]
-    }
+        result = auth_service.verify_user_registration(
+            user_id=user.id,
+            otp_code=body.otp_code,
+            otp_method=f"otp_{body.otp_type.lower()}"
+        )
+        
+        # Ensure session cookie is set
+        set_auth_cookies(response, result, remember_me=False, request=request)
+        
+        return result
+    except ValueError as e:
+        logger.warning(f"[OTP Verify] Registration verification failed: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
 
 
 @app.post("/api/v1/auth/send-verification-otp",
@@ -822,8 +798,9 @@ async def login_otp_request(
             "otp_type": result.get("otp_type", otp_type),
             "expires_in": result.get("expires_in", 600),
         }
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
+    except ValueError as e:
+        logger.error(f"[Auth Error] {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @app.post("/api/v1/auth/login-otp-verify",
@@ -864,8 +841,9 @@ async def login_otp_verify(
             session_id=result["session_id"],
             device_trusted=bool(result.get("device_trusted", True)),
         )
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
+    except ValueError as e:
+        logger.error(f"[Auth Error] {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as exc:  # pragma: no cover — defensive
         logger.error(f"OTP login error: {exc}")
         raise HTTPException(status_code=500, detail="Internal server error")
@@ -1135,6 +1113,7 @@ async def forgot_password_otp(
         result = auth_service.request_password_reset_otp(identifier, otp_type)
         return result
     except ValueError as e:
+        logger.error(f"[Auth Error] {str(e)}")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
@@ -1171,6 +1150,7 @@ async def reset_password_with_otp(
         redis_client.delete_cache(verification_key, namespace="")
         return {"message": "Password reset successfully. You can now login."}
     except ValueError as e:
+        logger.error(f"[Auth Error] {str(e)}")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 

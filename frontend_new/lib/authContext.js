@@ -93,14 +93,14 @@ export function AuthProvider({ children }) {
   }, [checkAuth]);
 
   /**
-   * Proactive token refresh every 45 minutes (before 60-min access token expiry).
+   * Proactive token refresh every 25 minutes (before 30-min access token expiry).
    * Extends the session window silently without user interaction.
    */
   useEffect(() => {
     if (!isAuthenticated) return;
 
-    // 45 min base + 0–5 min jitter to avoid thundering herd on refresh (see auth spec)
-    const REFRESH_INTERVAL_MS = 45 * 60 * 1000 + Math.floor(Math.random() * 5 * 60 * 1000);
+    // 25 min base + 0–3 min jitter to avoid thundering herd on refresh
+    const REFRESH_INTERVAL_MS = 25 * 60 * 1000 + Math.floor(Math.random() * 3 * 60 * 1000);
 
     const intervalId = setInterval(async () => {
       try {

@@ -16,23 +16,12 @@ class CSRFMiddleware(BaseHTTPMiddleware):
     exception handlers and results in a 500.  Always use JSONResponse returns.
     """
 
-    # Routes that don't need CSRF protection
+    # Routes that don't need CSRF protection (mostly purely public or internal)
     EXEMPT_ROUTES = [
         "/api/v1/auth/login",
-        "/api/v1/auth/logout",
-        "/api/v1/auth/logout-all",
         "/api/v1/auth/register",
-        "/api/v1/auth/refresh",
-        "/api/v1/auth/verify-email",
-        "/api/v1/auth/send-verification-otp",
-        "/api/v1/auth/verify-otp-registration",
-        "/api/v1/auth/forgot-password-otp",
-        "/api/v1/auth/verify-reset-otp",
-        "/api/v1/auth/reset-password-with-otp",
-        "/api/v1/auth/change-password",
-        "/api/v1/users",
+        "/api/v1/auth/login-otp-request",
         "/api/vitals",
-        "/api/v1/site",
         "/health",
         "/docs",
         "/openapi.json",
@@ -55,15 +44,16 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         if "/webhooks/" in request.url.path:
             return await call_next(request)
 
-        # API clients sending Authorization header or X-Requested-With are not
-        # browser form submissions; HttpOnly+SameSite cookies already prevent CSRF
-        # for same-origin API requests.  Skip CSRF validation for these clients.
-        if (request.headers.get("Authorization") or
-                request.headers.get("X-Requested-With") or
-                request.cookies.get("access_token")):
-            return await call_next(request)
+        # CSRF check is required for any request using cookie-based auth
+        has_auth_cookie = request.cookies.get("access_token") or request.cookies.get("session_id")
+        
+        if not has_auth_cookie:
+            # If no cookies are sent, the request is not vulnerable to CSRF
+            # (e.g. mobile app using Bearer header only)
+            if request.headers.get("Authorization"):
+                return await call_next(request)
 
-        # Full browser form submission without token — validate double-submit
+        # Enforce double-submit cookie validation
         csrf_header = request.headers.get("X-CSRF-Token")
         csrf_cookie = request.cookies.get("csrf_token")
 
@@ -71,14 +61,14 @@ class CSRFMiddleware(BaseHTTPMiddleware):
             logger.warning(f"CSRF token missing for {request.method} {request.url.path}")
             return JSONResponse(
                 status_code=403,
-                content={"error": {"type": "forbidden", "message": "CSRF token missing", "status_code": 403}},
+                content={"error": {"type": "forbidden", "message": "CSRF token missing. Please refresh the page.", "status_code": 403}},
             )
 
         if not secrets.compare_digest(csrf_header, csrf_cookie):
             logger.warning(f"CSRF token invalid for {request.method} {request.url.path}")
             return JSONResponse(
                 status_code=403,
-                content={"error": {"type": "forbidden", "message": "CSRF token invalid", "status_code": 403}},
+                content={"error": {"type": "forbidden", "message": "CSRF token invalid. Please refresh the page.", "status_code": 403}},
             )
 
         return await call_next(request)

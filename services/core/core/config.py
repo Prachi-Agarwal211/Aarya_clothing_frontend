@@ -109,11 +109,21 @@ class Settings(SharedBaseSettings):
     def _validate_required_settings(self):
         """Validate critical settings."""
         super()._validate_required_settings()
-        if len(self.SECRET_KEY) < 32:
-            import logging
-            logging.getLogger(__name__).warning("SECRET_KEY is too short. Use at least 32 characters for security.")
-        if self.SECRET_KEY == "your_secure_key_here":
-             logging.getLogger(__name__).warning("Using default insecure SECRET_KEY. Change this in production!")
+        
+        # Security: Enforce strong JWT secret
+        is_prod = self.ENVIRONMENT.lower() in ("production", "prod")
+        
+        if is_prod:
+            if self.SECRET_KEY == "your_secure_key_here":
+                raise RuntimeError("PRODUCTION ERROR: You MUST change the default SECRET_KEY in .env!")
+            if len(self.SECRET_KEY) < 32:
+                raise RuntimeError("PRODUCTION ERROR: SECRET_KEY must be at least 32 characters for HS256!")
+        else:
+            # Warnings for non-production environments
+            if len(self.SECRET_KEY) < 32:
+                logging.getLogger(__name__).warning("SECRET_KEY is too short. Use at least 32 characters for security.")
+            if self.SECRET_KEY == "your_secure_key_here":
+                logging.getLogger(__name__).warning("Using default insecure SECRET_KEY. Change this for better security.")
 
 
 # Create cached settings instance

@@ -67,11 +67,16 @@ export default function LandingClient({ landingData }) {
 
   const handleVideoEnd = () => {
     setShowLanding(true);
+    // Store timestamp to skip for 24 hours
+    localStorage.setItem('introVideoLastSeen', Date.now().toString());
   };
 
-  // Skip intro on mobile or if already seen
+  // Skip intro on mobile or if seen within last 24h
   useEffect(() => {
-    if (isMobile || localStorage.getItem('introVideoSeen') === 'true') {
+    const lastSeen = localStorage.getItem('introVideoLastSeen');
+    const isRecentlySeen = lastSeen && (Date.now() - parseInt(lastSeen, 10)) < 24 * 60 * 60 * 1000;
+    
+    if (isMobile || isRecentlySeen || localStorage.getItem('introVideoSeen') === 'true') {
       setShowLanding(true);
     }
   }, [isMobile]);

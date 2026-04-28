@@ -255,11 +255,22 @@ class OTPService:
 
         # --- Database lookup ----------------------------------------------
         try:
+            logger.info(f"[OTP DEBUG] Querying DB - user_id={user_id}, type={token_type}, code={otp_code}")
+            
+            # Debug: Check if ANY tokens exist for this user/type
+            all_tokens = self.db.query(VerificationToken).filter(
+                VerificationToken.user_id == user_id,
+                VerificationToken.token_type == token_type
+            ).order_by(VerificationToken.id.desc()).limit(3).all()
+            
+            for t in all_tokens:
+                logger.info(f"[OTP DEBUG] Existing Token: id={t.id}, code={t.token}, verified_at={t.verified_at}, expires_at={t.expires_at}")
+
             token = (
                 self.db.query(VerificationToken)
                 .filter(
                     VerificationToken.user_id == user_id,
-                    VerificationToken.token == str(otp_code),
+                    VerificationToken.token == str(otp_code).strip(),
                     VerificationToken.token_type == token_type,
                     VerificationToken.verified_at.is_(None),
                 )

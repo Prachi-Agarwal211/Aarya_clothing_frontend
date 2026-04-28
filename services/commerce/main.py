@@ -13,13 +13,23 @@ This service handles:
 - Address management
 - Returns and refunds
 """
+
 import logging
 import asyncio
 import os
 from contextlib import asynccontextmanager
 from shared.time_utils import now_ist
 from starlette.concurrency import run_in_threadpool
-from fastapi import FastAPI, Depends, HTTPException, status, Request, UploadFile, File, Query
+from fastapi import (
+    FastAPI,
+    Depends,
+    HTTPException,
+    status,
+    Request,
+    UploadFile,
+    File,
+    Query,
+)
 from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session, joinedload
@@ -36,11 +46,13 @@ from core.redis_client import redis_client
 from core.advanced_cache import cache, cached
 from database.database import get_db, init_db, SessionLocal, get_db_context
 from search.meilisearch_client import (
-    init_products_index, sync_all_products,
+    init_products_index,
+    sync_all_products,
     search_products as meili_search_products,
     index_product as meili_index_product,
     delete_product as meili_delete_product,
 )
+
 # Models
 from models.product import Product
 from models.product_image import ProductImage
@@ -50,11 +62,24 @@ from models.order_tracking import OrderTracking
 
 # Schemas
 from schemas.product import (
-    ProductCreate, ProductResponse, ProductUpdate, ProductDetailResponse,
-    BulkPriceUpdate, BulkStatusUpdate, BulkCollectionAssign, BulkInventoryUpdate, BulkDeleteProducts
+    ProductCreate,
+    ProductResponse,
+    ProductUpdate,
+    ProductDetailResponse,
+    BulkPriceUpdate,
+    BulkStatusUpdate,
+    BulkCollectionAssign,
+    BulkInventoryUpdate,
+    BulkDeleteProducts,
 )
 from schemas.product_image import ProductImageCreate, ProductImageResponse
-from schemas.inventory import InventoryCreate, InventoryUpdate, InventoryResponse, StockAdjustment, LowStockItem
+from schemas.inventory import (
+    InventoryCreate,
+    InventoryUpdate,
+    InventoryResponse,
+    StockAdjustment,
+    LowStockItem,
+)
 from schemas.order import OrderCreate, OrderResponse
 from schemas.error import ErrorResponse, PaginatedResponse
 
@@ -65,6 +90,7 @@ from service.color_utils import _hex_to_color_name
 from service.product_service import ProductService
 from service.order_service import OrderService
 from service.order_tracking_service import OrderTrackingService
+
 # Route modules (for better code organization)
 # These modularize the 2800+ line main.py into manageable route files
 try:
@@ -84,6 +110,7 @@ try:
         search_router,
         size_guide_router,
     )
+
     ROUTES_AVAILABLE = True
 except ImportError:
     ROUTES_AVAILABLE = False
@@ -108,10 +135,11 @@ from shared.auth_middleware import (
     get_current_user_optional,
     require_admin,
     require_staff,
-    initialize_auth_middleware
+    initialize_auth_middleware,
 )
 from shared.roles import is_staff
 from shared.request_id_middleware import RequestIDMiddleware
+
 
 def reconcile_cart_reservations(db: Session) -> int:
     """
@@ -181,7 +209,9 @@ def reconcile_cart_reservations(db: Session) -> int:
     return changed
 
 
-async def _reservation_reconciler(stop_event: asyncio.Event, interval_seconds: int = 600):
+async def _reservation_reconciler(
+    stop_event: asyncio.Event, interval_seconds: int = 600
+):
     """Background task to reconcile cart reservations on a schedule."""
     while not stop_event.is_set():
         try:
@@ -201,7 +231,6 @@ async def _reservation_reconciler(stop_event: asyncio.Event, interval_seconds: i
             continue
 
 
-
 # ==================== Rate Limiting Helpers ====================
 
 from rate_limit import check_rate_limit as _check_rate_limit  # noqa: E402, F401
@@ -212,36 +241,53 @@ from rate_limit import check_rate_limit as _check_rate_limit  # noqa: E402, F401
 # Global instances
 event_bus = None
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan events."""
     global event_bus
-    
+
     # Initialize DB (create tables)
     init_db()
-    
+
     # Initialize auth middleware
     initialize_auth_middleware(
         secret_key=settings.SECRET_KEY,
         algorithm=settings.ALGORITHM,
-        redis_client=redis_client
+        redis_client=redis_client,
     )
-    
+
     # Ensure Redis connects
     if redis_client.is_connected():
         logger.info("Redis connected for Commerce service")
     else:
         logger.warning("Redis ping failed")
-        
+
     # Start background reservation reconciler
     stop_event = asyncio.Event()
     task = asyncio.create_task(_reservation_reconciler(stop_event))
-    
+
+    # Start background email worker (fire-and-forget outbox processor)
+    from jobs.email_worker import start_worker as start_email_worker
+    import threading
+
+    email_stop_event = threading.Event()
+    email_thread = threading.Thread(
+        target=start_email_worker,
+        args=(email_stop_event, 60),  # poll_interval=60s
+        daemon=True,
+        name="email-worker",
+    )
+    email_thread.start()
+    app.state.email_stop_event = email_stop_event  # For graceful shutdown
+    logger.info("✓ Email worker started")
+
     # Initialize Event Bus
     from shared.event_bus import EventBus
+
     event_bus = EventBus(redis_client=redis_client, service_name="commerce_service")
     app.state.event_bus = event_bus  # Store in app.state for route access
-    
+
     # Initialize Meilisearch
     try:
         init_products_index()
@@ -259,6 +305,7 @@ async def lifespan(app: FastAPI):
         db = SessionLocal()
         try:
             from service.order_service import sync_invoice_sequence
+
             sync_invoice_sequence(db)
         finally:
             db.close()
@@ -266,9 +313,17 @@ async def lifespan(app: FastAPI):
         logger.warning(f"⚠ Could not sync invoice sequence on startup: {e}")
 
     yield
-    
+
     # Shutdown
     logger.info("Commerce service shutting down")
+
+    # Stop email worker gracefully
+    try:
+        if hasattr(app.state, "email_stop_event"):
+            app.state.email_stop_event.set()
+            logger.info("Email worker stop signal sent")
+    except Exception as e:
+        logger.warning(f"Failed to stop email worker: {e}")
 
 
 # ==================== FastAPI App ====================
@@ -289,12 +344,20 @@ app.add_middleware(
     allow_origins=settings.ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin", "X-CSRF-Token"],
+    allow_headers=[
+        "Content-Type",
+        "Authorization",
+        "X-Requested-With",
+        "Accept",
+        "Origin",
+        "X-CSRF-Token",
+    ],
 )
 
 # Prometheus metrics — /metrics endpoint for scraping
 try:
     from prometheus_fastapi_instrumentator import Instrumentator
+
     Instrumentator().instrument(app).expose(app, endpoint="/metrics")
 except Exception:
     pass  # Graceful degradation if prometheus lib is missing
@@ -326,6 +389,7 @@ else:
 
 # ==================== Health ====================
 
+
 @app.get("/health", tags=["Health"])
 async def health_check(db: Session = Depends(get_db)):
     """Health check endpoint."""
@@ -335,16 +399,13 @@ async def health_check(db: Session = Depends(get_db)):
         db.execute(text("SELECT 1"))
     except Exception:
         db_status = "unhealthy"
-        
+
     return {
         "status": "healthy" if db_status == "healthy" else "degraded",
         "service": "commerce",
         "version": "2.0.0",
         "timestamp": now_ist().isoformat(),
-        "dependencies": {
-            "redis": redis_status,
-            "database": db_status
-        }
+        "dependencies": {"redis": redis_status, "database": db_status},
     }
 
 
@@ -362,10 +423,7 @@ async def health_api(db: Session = Depends(get_db)):
         "service": "commerce",
         "version": "2.0.0",
         "timestamp": now_ist().isoformat(),
-        "dependencies": {
-            "redis": redis_status,
-            "database": db_status
-        }
+        "dependencies": {"redis": redis_status, "database": db_status},
     }
 
 
@@ -384,7 +442,6 @@ async def health_api(db: Session = Depends(get_db)):
 # Address endpoints have moved to routes/addresses.py.
 
 # Reviews + returns endpoints have moved to routes/reviews.py and routes/returns.py.
-
 
 
 # /api/v1/products/* endpoints (including /related, /browse, /search, etc.)
@@ -413,11 +470,11 @@ async def health_api(db: Session = Depends(get_db)):
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(
         "main:app",
         host="0.0.0.0",
         port=5002,
         reload=settings.DEBUG,
-        log_level=settings.LOG_LEVEL.lower()
+        log_level=settings.LOG_LEVEL.lower(),
     )
-

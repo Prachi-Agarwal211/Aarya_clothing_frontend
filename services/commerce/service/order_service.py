@@ -1,4 +1,5 @@
 """Order service for managing order operations."""
+
 from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session, joinedload, selectinload
 from sqlalchemy import desc, text
@@ -11,7 +12,9 @@ import logging
 
 from shared.time_utils import ist_naive, now_ist
 
+from core.config import settings
 from models.order import Order, OrderItem, OrderStatus
+from models.user import User
 from models.product import Product
 from models.inventory import Inventory
 from models.product_variant import ProductVariant
@@ -20,9 +23,22 @@ from models.user import User, UserProfile
 from service.inventory_service import InventoryService
 from service.cart_service import CartService
 from service.customer_activity_logger import log_customer_activity
+from service.email_outbox_service import EmailOutboxService
 from schemas.order import OrderCreate, OrderUpdate
 
 logger = logging.getLogger(__name__)
+
+
+def _make_full_image_url(path: str | None) -> str | None:
+    """Convert relative R2 path to full public URL."""
+    if not path:
+        return None
+    if path.startswith("http://") or path.startswith("https://"):
+        return path
+    r2_base = getattr(settings, "R2_PUBLIC_URL", "").rstrip("/")
+    if not r2_base:
+        return path
+    return f"{r2_base}/{path.lstrip('/')}"
 
 
 def sync_invoice_sequence(db: Session) -> None:
@@ -38,9 +54,12 @@ def sync_invoice_sequence(db: Session) -> None:
         next_val = max_id + 1
         db.execute(text(f"SELECT setval('invoice_number_seq', {next_val}, false)"))
         db.commit()
-        logger.info(f"✓ invoice_number_seq synced to {next_val} (MAX(orders.id)={max_id})")
+        logger.info(
+            f"✓ invoice_number_seq synced to {next_val} (MAX(orders.id)={max_id})"
+        )
     except Exception as e:
         logger.warning(f"⚠ Could not sync invoice_number_seq: {e}")
+
 
 # Order emails: Commerce → HTTP → Core (SMTP + templates live in Core only)
 from service import core_notification_client as _core_notify
@@ -48,56 +67,69 @@ from service import core_notification_client as _core_notify
 # Try to import payment service client
 try:
     from shared.service_client import PaymentServiceClient, ServiceError
+
     PAYMENT_CLIENT_AVAILABLE = True
 except ImportError:
     PAYMENT_CLIENT_AVAILABLE = False
-    logger.warning("Payment service client not available - payment integration disabled")
+    logger.warning(
+        "Payment service client not available - payment integration disabled"
+    )
 
 
 class OrderService:
     """Service for order management operations."""
-    
+
     def __init__(self, db: Session):
         """Initialize order service."""
         self.db = db
         self.inventory_service = InventoryService(db)
         self.cart_service = CartService(db)
-    
+        self.email_service = EmailOutboxService(db)
+
     def get_user_orders(
         self,
         user_id: int,
         skip: int = 0,
         limit: int = 50,
-        status: Optional[OrderStatus] = None
+        status: Optional[OrderStatus] = None,
     ) -> List[Order]:
         """Get all orders for a user with pagination and eager loading."""
-        query = self.db.query(Order).options(
-            selectinload(Order.items).options(
-                joinedload(OrderItem.inventory),
-                joinedload(OrderItem.product)  # Load product for image fallback
+        query = (
+            self.db.query(Order)
+            .options(
+                selectinload(Order.items).options(
+                    joinedload(OrderItem.variant),
+                    joinedload(OrderItem.product),  # Load product for image fallback
+                )
             )
-        ).filter(Order.user_id == user_id)
+            .filter(Order.user_id == user_id)
+        )
         if status:
             query = query.filter(Order.status == status)
         return query.order_by(desc(Order.created_at)).offset(skip).limit(limit).all()
-    
-    def get_order_by_id(self, order_id: int, user_id: Optional[int] = None) -> Optional[Order]:
+
+    def get_order_by_id(
+        self, order_id: int, user_id: Optional[int] = None
+    ) -> Optional[Order]:
         """Get order by ID with eager loading to prevent N+1 queries."""
-        query = self.db.query(Order).options(
-            selectinload(Order.items).options(
-                joinedload(OrderItem.product),
-                joinedload(OrderItem.inventory)
-            ),
-            joinedload(Order.shipping_address_ref),
-            joinedload(Order.billing_address_ref),
-            selectinload(Order.tracking)
-        ).filter(Order.id == order_id)
-        
+        query = (
+            self.db.query(Order)
+            .options(
+                selectinload(Order.items).options(
+                    joinedload(OrderItem.product), joinedload(OrderItem.variant)
+                ),
+                joinedload(Order.shipping_address_ref),
+                joinedload(Order.billing_address_ref),
+                selectinload(Order.tracking),
+            )
+            .filter(Order.id == order_id)
+        )
+
         if user_id:
             query = query.filter(Order.user_id == user_id)
-        
+
         return query.first()
-    
+
     def create_order(
         self,
         user_id: int,
@@ -117,41 +149,40 @@ class OrderService:
         # Resolve address
         final_shipping_address = shipping_address
         if address_id:
-            address = self.db.query(Address).filter(
-                Address.id == address_id,
-                Address.user_id == user_id
-            ).first()
+            address = (
+                self.db.query(Address)
+                .filter(Address.id == address_id, Address.user_id == user_id)
+                .first()
+            )
             if not address:
                 raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="Address not found"
+                    status_code=status.HTTP_404_NOT_FOUND, detail="Address not found"
                 )
-            
+
             # Construct address string
             parts = [
                 address.full_name,
                 address.address_line1,
                 address.address_line2,
                 f"{address.city}, {address.state} - {address.postal_code}",
-                f"Phone: {address.phone}"
+                f"Phone: {address.phone}",
             ]
             final_shipping_address = ", ".join([p for p in parts if p])
-            
+
         if not final_shipping_address:
-             raise HTTPException(
+            raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Shipping address is required"
+                detail="Shipping address is required",
             )
 
         # Get cart
         cart = self.cart_service.get_cart(user_id)
-        
+
         if not cart.get("items") or len(cart["items"]) == 0:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Cart is empty"
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Cart is empty"
             )
-        
+
         # Verify Razorpay payment before committing the order.
         # transaction_id = razorpay payment_id (pay_xxx)
         # razorpay_order_id = razorpay order_id (order_xxx)
@@ -174,13 +205,15 @@ class OrderService:
             # No transaction_id or signature needed — just verify the QR code is paid
             elif qr_code_id:
                 logger.info(
-                    f"PAYMENT_VERIFY_START (QR): user={user_id} "
-                    f"qr_code_id={qr_code_id}"
+                    f"PAYMENT_VERIFY_START (QR): user={user_id} qr_code_id={qr_code_id}"
                 )
                 try:
                     import httpx as _httpx
                     import os as _os
-                    payment_service_url = _os.getenv("PAYMENT_SERVICE_URL", "http://payment:5003")
+
+                    payment_service_url = _os.getenv(
+                        "PAYMENT_SERVICE_URL", "http://payment:5003"
+                    )
                     resp = _httpx.post(
                         f"{payment_service_url}/api/v1/payments/razorpay/qr-status/{qr_code_id}",
                         timeout=15.0,
@@ -188,7 +221,7 @@ class OrderService:
                     if resp.status_code != 200:
                         raise HTTPException(
                             status_code=status.HTTP_402_PAYMENT_REQUIRED,
-                            detail="QR payment verification failed"
+                            detail="QR payment verification failed",
                         )
                     qr_data = resp.json()
                     qr_status = qr_data.get("status", "")
@@ -198,7 +231,7 @@ class OrderService:
                     if qr_status != "paid":
                         raise HTTPException(
                             status_code=status.HTTP_402_PAYMENT_REQUIRED,
-                            detail=f"QR payment not completed. Status: {qr_data.get('status')}"
+                            detail=f"QR payment not completed. Status: {qr_data.get('status')}",
                         )
                     # Store the Razorpay payment_id from QR status for the transaction record
                     transaction_id = qr_data.get("payment_id") or transaction_id
@@ -212,23 +245,23 @@ class OrderService:
                     logger.error(
                         f"PAYMENT_VERIFY_ERROR (QR): user={user_id} qr_code_id={qr_code_id} "
                         f"error={str(_e)}",
-                        exc_info=True
+                        exc_info=True,
                     )
                     raise HTTPException(
                         status_code=status.HTTP_402_PAYMENT_REQUIRED,
-                        detail="QR payment verification unavailable — cannot create order"
+                        detail="QR payment verification unavailable — cannot create order",
                     )
             else:
                 # Standard Razorpay checkout — verify HMAC signature
                 if not transaction_id:
                     raise HTTPException(
                         status_code=status.HTTP_400_BAD_REQUEST,
-                        detail="Payment ID is required for Razorpay orders"
+                        detail="Payment ID is required for Razorpay orders",
                     )
                 if not payment_signature or not razorpay_order_id:
                     raise HTTPException(
                         status_code=status.HTTP_402_PAYMENT_REQUIRED,
-                        detail="Payment signature and Razorpay order ID are required"
+                        detail="Payment signature and Razorpay order ID are required",
                     )
 
                 logger.info(
@@ -239,7 +272,10 @@ class OrderService:
                 try:
                     import httpx as _httpx
                     import os as _os
-                    payment_service_url = _os.getenv("PAYMENT_SERVICE_URL", "http://payment:5003")
+
+                    payment_service_url = _os.getenv(
+                        "PAYMENT_SERVICE_URL", "http://payment:5003"
+                    )
                     verify_start = monotonic()
 
                     resp = _httpx.post(
@@ -249,7 +285,7 @@ class OrderService:
                             "razorpay_payment_id": transaction_id,
                             "razorpay_signature": payment_signature,
                         },
-                        timeout=30.0,  # Increased from 10.0 to 30.0 for reliability
+                        timeout=5.0,  # Reduced for high concurrency - fast failure
                     )
 
                     verify_duration = monotonic() - verify_start
@@ -265,7 +301,7 @@ class OrderService:
                         )
                         raise HTTPException(
                             status_code=status.HTTP_402_PAYMENT_REQUIRED,
-                            detail="Payment verification failed — signature invalid"
+                            detail="Payment verification failed — signature invalid",
                         )
 
                     logger.info(
@@ -278,32 +314,43 @@ class OrderService:
                     logger.error(
                         f"PAYMENT_VERIFY_ERROR: user={user_id} payment_id={transaction_id} "
                         f"error={str(_e)}",
-                        exc_info=True
+                        exc_info=True,
                     )
                     raise HTTPException(
                         status_code=status.HTTP_402_PAYMENT_REQUIRED,
-                        detail="Payment verification unavailable — cannot create order"
+                        detail="Payment verification unavailable — cannot create order",
                     )
-        
+
         # Compute stored_transaction_id BEFORE the idempotency check that uses it
         stored_transaction_id = transaction_id or razorpay_order_id
 
         # Check for existing order with same transaction_id (idempotency)
         # Row-level lock serializes concurrent duplicate requests for the same payment
         try:
-            existing_order = self.db.query(Order).filter(
-                Order.transaction_id == stored_transaction_id,
-                Order.user_id == user_id
-            ).with_for_update(nowait=True).first()
+            existing_order = (
+                self.db.query(Order)
+                .filter(
+                    Order.transaction_id == stored_transaction_id,
+                    Order.user_id == user_id,
+                )
+                .with_for_update(nowait=True)
+                .first()
+            )
         except OperationalError:
             self.db.rollback()
-            existing_order = self.db.query(Order).filter(
-                Order.transaction_id == stored_transaction_id,
-                Order.user_id == user_id
-            ).first()
+            existing_order = (
+                self.db.query(Order)
+                .filter(
+                    Order.transaction_id == stored_transaction_id,
+                    Order.user_id == user_id,
+                )
+                .first()
+            )
 
         if existing_order:
-            logger.info(f"Duplicate order attempt detected for user {user_id} with transaction {stored_transaction_id}")
+            logger.info(
+                f"Duplicate order attempt detected for user {user_id} with transaction {stored_transaction_id}"
+            )
             # Return existing order instead of creating duplicate
             return self.get_order_by_id(existing_order.id)
 
@@ -311,23 +358,24 @@ class OrderService:
         try:
             self.cart_service.confirm_cart_for_checkout(user_id)
         except Exception as e:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=str(e)
-            )
-        
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
         # Calculate subtotal from DB prices (never trust cached cart prices)
         # BATCH FIX: Fetch all products & inventories in 2 queries instead of 2*N
         product_ids = [ci["product_id"] for ci in cart["items"]]
         skus = [ci["sku"] for ci in cart["items"] if ci.get("sku")]
         products_map = {
-            p.id: p for p in self.db.query(Product).filter(Product.id.in_(product_ids)).all()
+            p.id: p
+            for p in self.db.query(Product).filter(Product.id.in_(product_ids)).all()
         }
         inventory_map = {}
         variant_map: Dict[str, ProductVariant] = {}
         if skus:
             inventory_map = {
-                inv.sku: inv for inv in self.db.query(Inventory).filter(Inventory.sku.in_(skus)).all()
+                inv.sku: inv
+                for inv in self.db.query(Inventory)
+                .filter(Inventory.sku.in_(skus))
+                .all()
             }
             # OrderItem.variant_id is a NOT NULL FK to product_variants — look up by SKU
             # in the canonical variants table so the order_items insert can satisfy the FK.
@@ -345,11 +393,15 @@ class OrderService:
             if not db_product:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Product '{cart_item.get('name', cart_item['product_id'])}' no longer exists"
+                    detail=f"Product '{cart_item.get('name', cart_item['product_id'])}' no longer exists",
                 )
-            authoritative_price = Decimal(str(
-                db_inventory.effective_price if db_inventory else float(db_product.base_price)
-            ))
+            authoritative_price = Decimal(
+                str(
+                    db_inventory.effective_price
+                    if db_inventory
+                    else float(db_product.base_price)
+                )
+            )
             subtotal += authoritative_price * cart_item["quantity"]
 
         # Retrieve cart GST fields (calculated by CartService._recalculate_cart)
@@ -359,20 +411,23 @@ class OrderService:
         igst_amount = Decimal(str(cart.get("igst_amount", 0) or 0))
         delivery_state = cart.get("delivery_state") or ""
         customer_gstin = cart.get("customer_gstin") or None
-        
+
         # Calculate totals including shipping from cart
         shipping_cost = Decimal(str(cart.get("shipping", 0) or 0))
         total_amount = subtotal + shipping_cost + gst_amount
-        
+
         # Generate sequential invoice number: INV-YYYY-NNNNNN
         # Uses a DB sequence — no mid-transaction commit to avoid gaps
         from datetime import datetime as _dt
         from sqlalchemy import text as _text
+
         year = _dt.now().year
 
-        seq_val = self.db.execute(_text("SELECT nextval('invoice_number_seq')")).scalar()
+        seq_val = self.db.execute(
+            _text("SELECT nextval('invoice_number_seq')")
+        ).scalar()
         invoice_number = f"INV-{year}-{seq_val:06d}"
-        
+
         # All orders start as CONFIRMED immediately.
         # For Razorpay: payment is verified before reaching this point.
         initial_status = OrderStatus.CONFIRMED
@@ -400,9 +455,11 @@ class OrderService:
             order_notes=order_notes,
             # Razorpay payment details
             razorpay_order_id=razorpay_order_id,
-            razorpay_payment_id=transaction_id if payment_method == "razorpay" else None,
+            razorpay_payment_id=transaction_id
+            if payment_method == "razorpay"
+            else None,
         )
-        
+
         self.db.add(order)
         self.db.flush()  # Get order ID
 
@@ -427,6 +484,11 @@ class OrderService:
             qty = int(cart_item["quantity"])
             line_total = unit_price * qty
 
+            # Resolve image: use cart item's image (already full URL from product list) or variant's image.
+            # Ensure we store a full R2 CDN URL for frontend display.
+            raw_image = cart_item.get("image") or variant.image_url
+            full_image = _make_full_image_url(raw_image) if raw_image else None
+
             order_item = OrderItem(
                 order_id=order.id,
                 product_id=cart_item["product_id"],
@@ -435,7 +497,7 @@ class OrderService:
                 sku=cart_item.get("sku") or variant.sku,
                 size=variant.size or (inventory.size if inventory else None),
                 color=variant.color or (inventory.color if inventory else None),
-                image_url=cart_item.get("image") or variant.image_url,
+                image_url=full_image,
                 quantity=qty,
                 unit_price=unit_price,
                 line_total=line_total,
@@ -443,25 +505,23 @@ class OrderService:
 
             self.db.add(order_item)
 
-            # CRITICAL FIX: Confirm reservations instead of directly deducting stock
-            # This transitions reserved stock to permanently deducted stock
+            # SIMPLE: Deduct stock atomically - no reservations needed
             if cart_item.get("sku"):
                 try:
-                    self.inventory_service.confirm_reservation(
+                    self.inventory_service.deduct_stock(
                         sku=cart_item["sku"],
                         quantity=cart_item["quantity"],
-                        user_id=user_id,
-                        order_id=order.id
+                        order_id=order.id,
                     )
                 except Exception as e:
-                    # If confirmation fails, rollback the entire order
+                    # If deduction fails, rollback the entire order
                     self.db.rollback()
-                    logger.error(f"Failed to confirm reservation for {cart_item['sku']}: {e}")
+                    logger.error(f"Failed to deduct stock for {cart_item['sku']}: {e}")
                     raise HTTPException(
                         status_code=status.HTTP_400_BAD_REQUEST,
-                        detail=f"Failed to confirm stock for {cart_item.get('name', cart_item['sku'])}. Please try again."
+                        detail=f"Failed to process stock for {cart_item.get('name', cart_item['sku'])}. Please try again.",
                     )
-        
+
         # Commit everything atomically: order, order_items, stock deductions.
         # IntegrityError: concurrent duplicate submit with same (user_id, transaction_id) —
         # return the other transaction's order (idempotent success).
@@ -473,10 +533,14 @@ class OrderService:
             logger.warning(
                 f"ORDER_CREATE_RACE_RECOVER: user={user_id} transaction={stored_transaction_id} {ie}"
             )
-            dup = self.db.query(Order).filter(
-                Order.transaction_id == stored_transaction_id,
-                Order.user_id == user_id,
-            ).first()
+            dup = (
+                self.db.query(Order)
+                .filter(
+                    Order.transaction_id == stored_transaction_id,
+                    Order.user_id == user_id,
+                )
+                .first()
+            )
             if dup:
                 return self.get_order_by_id(dup.id)
             raise HTTPException(
@@ -489,11 +553,12 @@ class OrderService:
         if payment_method == "razorpay" and transaction_id:
             try:
                 from sqlalchemy import text as _text
+
                 logger.info(
                     f"PAYMENT_TRANSACTION_CREATE: order={order.id} user={user_id} "
                     f"payment_id={transaction_id} order_id={razorpay_order_id}"
                 )
-                
+
                 # Insert payment transaction record
                 self.db.execute(
                     _text("""
@@ -515,8 +580,8 @@ class OrderService:
                         "razorpay_order_id": razorpay_order_id or "",
                         "razorpay_payment_id": transaction_id,
                         "signature": payment_signature or "",
-                        "transaction_id": transaction_id
-                    }
+                        "transaction_id": transaction_id,
+                    },
                 )
                 self.db.commit()
                 logger.info(
@@ -535,6 +600,7 @@ class OrderService:
         if qr_code_id:
             try:
                 from sqlalchemy import text as _text
+
                 logger.info(
                     f"PAYMENT_TRANSACTION_UPDATE (QR): order={order.id} user={user_id} "
                     f"qr_code_id={qr_code_id} transaction_id={transaction_id}"
@@ -552,7 +618,7 @@ class OrderService:
                     {
                         "order_id": order.id,
                         "qr_code_id": qr_code_id,
-                    }
+                    },
                 )
                 self.db.commit()
                 logger.info(
@@ -571,7 +637,9 @@ class OrderService:
             self.cart_service.clear_cart(user_id, release_reservations=False)
             logger.info(f"✓ Cart cleared for user {user_id} after order {order.id}")
         except Exception as cart_err:
-            logger.error(f"⚠ FAILED to clear cart for user {user_id} after order {order.id}: {cart_err}")
+            logger.error(
+                f"⚠ FAILED to clear cart for user {user_id} after order {order.id}: {cart_err}"
+            )
             # Add note to order that cart clear failed (for debugging)
             if order.order_notes:
                 order.order_notes += f" [Cart clear failed: {str(cart_err)}]"
@@ -580,21 +648,32 @@ class OrderService:
             self.db.commit()
             # Don't re-throw - order is already committed with reservations confirmed
 
-        # Send order confirmation email (via Core internal API)
+        # Enqueue order confirmation email (fire-and-forget, async outbox)
         try:
-            self._send_order_confirmation_email(order, user_id)
+            user = self.db.query(User).filter(User.id == user_id).first()
+            if user and user.email:
+                self.email_service.enqueue_order_confirmation(
+                    order.id, user_id, order, user
+                )
+            else:
+                logger.warning(
+                    f"No email for user {user_id}, skipping order confirmation"
+                )
         except Exception as e:
-            logger.error(f"Failed to send order confirmation email for order {order.id}: {e}")
+            logger.error(
+                f"Failed to enqueue order confirmation email for order {order.id}: {e}"
+            )
+            # Non-critical - continue
 
         return order
-    
+
     def create_order_from_pending_order(
         self,
         pending_order_data: Dict[str, Any],
         user_id: int,
         payment_id: str,
         razorpay_order_id: Optional[str] = None,
-        payment_signature: Optional[str] = None
+        payment_signature: Optional[str] = None,
     ) -> Order:
         """
         Create an order from a pending_order record (called by webhook handler).
@@ -620,26 +699,39 @@ class OrderService:
         from sqlalchemy import text as _text
 
         # Idempotency: Check if order already exists for this payment — WITH row lock to prevent races
-        existing = self.db.query(Order).filter(
-            Order.transaction_id == payment_id,
-            Order.user_id == user_id
-        ).with_for_update(nowait=True).first()
+        existing = (
+            self.db.query(Order)
+            .filter(Order.transaction_id == payment_id, Order.user_id == user_id)
+            .with_for_update(nowait=True)
+            .first()
+        )
         if existing:
-            logger.info(f"Order already exists for payment {payment_id}, returning existing order {existing.id}")
+            logger.info(
+                f"Order already exists for payment {payment_id}, returning existing order {existing.id}"
+            )
             return existing
 
         # Also check by razorpay_order_id
         if razorpay_order_id:
-            existing_by_razorpay = self.db.query(Order).filter(
-                Order.razorpay_order_id == razorpay_order_id,
-                Order.user_id == user_id
-            ).with_for_update(nowait=True).first()
+            existing_by_razorpay = (
+                self.db.query(Order)
+                .filter(
+                    Order.razorpay_order_id == razorpay_order_id,
+                    Order.user_id == user_id,
+                )
+                .with_for_update(nowait=True)
+                .first()
+            )
             if existing_by_razorpay:
-                logger.info(f"Order already exists for razorpay_order {razorpay_order_id}, returning {existing_by_razorpay.id}")
+                logger.info(
+                    f"Order already exists for razorpay_order {razorpay_order_id}, returning {existing_by_razorpay.id}"
+                )
                 return existing_by_razorpay
 
         # Extract cart items from pending_order snapshot
-        cart_items = pending_order_data.get("cart_snapshot", pending_order_data.get("cart_items", []))
+        cart_items = pending_order_data.get(
+            "cart_snapshot", pending_order_data.get("cart_items", [])
+        )
 
         # Extract order data
         shipping_address = pending_order_data.get("shipping_address")
@@ -663,18 +755,20 @@ class OrderService:
                 f"RECOVERY_MINIMAL_ORDER: user={user_id} payment={payment_id} "
                 f"— no cart items available (cart was cleared). Creating minimal order."
             )
-            cart_items = [{
-                "product_id": None,
-                "name": "Order recovered from payment",
-                "price": float(total_amount),
-                "quantity": 1,
-                "unit_price": float(total_amount),
-                "sku": None,
-                "size": None,
-                "color": None,
-                "hsn_code": None,
-                "gst_rate": None,
-            }]
+            cart_items = [
+                {
+                    "product_id": None,
+                    "name": "Order recovered from payment",
+                    "price": float(total_amount),
+                    "quantity": 1,
+                    "unit_price": float(total_amount),
+                    "sku": None,
+                    "size": None,
+                    "color": None,
+                    "hsn_code": None,
+                    "gst_rate": None,
+                }
+            ]
             created_minimal = True
 
         if not shipping_address:
@@ -684,7 +778,9 @@ class OrderService:
 
         # Generate invoice number — no setval/commit, just nextval like normal path
         year = now_ist().year
-        seq_val = self.db.execute(_text("SELECT nextval('invoice_number_seq')")).scalar()
+        seq_val = self.db.execute(
+            _text("SELECT nextval('invoice_number_seq')")
+        ).scalar()
         invoice_number = f"INV-{year}-{seq_val:06d}"
 
         # Create the order
@@ -704,7 +800,9 @@ class OrderService:
             total_amount=total_amount,
             status=OrderStatus.CONFIRMED,
             shipping_address=shipping_address,
-            order_notes=f"{order_notes} [CREATED FROM WEBHOOK/RECOVERY]".strip() if order_notes else "[CREATED FROM WEBHOOK/RECOVERY]",
+            order_notes=f"{order_notes} [CREATED FROM WEBHOOK/RECOVERY]".strip()
+            if order_notes
+            else "[CREATED FROM WEBHOOK/RECOVERY]",
             razorpay_order_id=razorpay_order_id,
             razorpay_payment_id=payment_id,
         )
@@ -717,43 +815,64 @@ class OrderService:
             product_id = item.get("product_id")
             sku = item.get("sku")
 
-            # Look up current product/inventory for HSN and GST rate
-            product = self.db.query(Product).filter(Product.id == product_id).first() if product_id else None
-            inventory = self.db.query(Inventory).filter(Inventory.sku == sku).first() if sku else None
+            # Look up variant (inventory) from DB
+            variant = None
+            if sku:
+                variant = self.db.query(Inventory).filter(Inventory.sku == sku).first()
+
+            if not variant:
+                self.db.rollback()
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=(
+                        f"Variant for SKU '{sku}' "
+                        f"({item.get('name', 'Unknown product')}) is no longer available."
+                    ),
+                )
+
+            # Resolve product_id: use provided or fall back to variant's product
+            if not product_id:
+                product_id = variant.product_id
+
+            unit_price = Decimal(str(item.get("unit_price", item.get("price", 0))))
+            qty = int(item.get("quantity", 1))
+            line_total = unit_price * qty
+
+            # Resolve image URL and ensure it's a full R2 CDN URL
+            raw_image = item.get("image") or variant.image_url
+            full_image = _make_full_image_url(raw_image) if raw_image else None
 
             order_item = OrderItem(
                 order_id=order.id,
                 product_id=product_id,
-                inventory_id=inventory.id if inventory else None,
-                product_name=item.get("name", item.get("product_name", "Unknown Product")),
+                variant_id=variant.id,
+                product_name=item.get(
+                    "name", item.get("product_name", "Unknown Product")
+                ),
                 sku=sku,
-                size=item.get("size") or (inventory.size if inventory else None),
-                color=item.get("color") or (inventory.color if inventory else None),
-                hsn_code=item.get("hsn_code") or (product.hsn_code if product else None),
-                gst_rate=Decimal(str(item.get("gst_rate"))) if item.get("gst_rate") else (product.gst_rate if product else None),
-                quantity=item.get("quantity", 1),
-                unit_price=Decimal(str(item.get("unit_price", item.get("price", 0)))),
-                price=Decimal(str(item.get("unit_price", item.get("price", 0)))) * item.get("quantity", 1)
+                size=item.get("size") or variant.size,
+                color=item.get("color") or variant.color,
+                image_url=full_image,
+                quantity=qty,
+                unit_price=unit_price,
+                line_total=line_total,
             )
             self.db.add(order_item)
 
-            # CRITICAL FIX: Confirm reservation instead of directly deducting
-            # This transitions reserved stock to permanently deducted stock
-            if sku:
-                try:
-                    self.inventory_service.confirm_reservation(
-                        sku=sku,
-                        quantity=item.get("quantity", 1),
-                        user_id=user_id,
-                        order_id=order.id
-                    )
-                except Exception as e:
-                    self.db.rollback()
-                    logger.error(f"Failed to confirm reservation for {sku} in webhook recovery: {e}")
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail=f"Failed to confirm stock. Order cannot be created without inventory."
-                    )
+            # SIMPLE: Deduct stock atomically - no reservations needed
+            try:
+                self.inventory_service.deduct_stock(
+                    sku=sku, quantity=qty, order_id=order.id
+                )
+            except Exception as e:
+                self.db.rollback()
+                logger.error(
+                    f"Failed to deduct stock for {sku} in webhook recovery: {e}"
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Failed to process stock for {item.get('name', sku)}. Order cannot be created.",
+                )
 
         self.db.commit()
         self.db.refresh(order)
@@ -780,21 +899,36 @@ class OrderService:
                     "razorpay_order_id": razorpay_order_id or "",
                     "razorpay_payment_id": payment_id,
                     "signature": payment_signature or "",
-                    "transaction_id": payment_id
-                }
+                    "transaction_id": payment_id,
+                },
             )
             self.db.commit()
-            logger.info(f"✓ PAYMENT_TRANSACTION_CREATED (webhook): order={order.id} payment={payment_id}")
+            logger.info(
+                f"✓ PAYMENT_TRANSACTION_CREATED (webhook): order={order.id} payment={payment_id}"
+            )
         except Exception as e:
             logger.error(f"⚠ Failed to create payment transaction (webhook): {e}")
 
-        # Send confirmation email (via Core internal API)
+        # Enqueue order confirmation email (fire-and-forget)
         try:
-            self._send_order_confirmation_email(order, user_id)
+            user = self.db.query(User).filter(User.id == user_id).first()
+            if user and user.email:
+                self.email_service.enqueue_order_confirmation(
+                    order.id, user_id, order, user
+                )
+            else:
+                logger.warning(
+                    f"No email for user {user_id}, skipping order confirmation (webhook)"
+                )
         except Exception as e:
-            logger.error(f"Failed to send webhook order confirmation email for order {order.id}: {e}")
+            logger.error(
+                f"Failed to enqueue webhook order confirmation email for order {order.id}: {e}"
+            )
+            # Non-critical - order already committed
 
-        logger.info(f"✓ ORDER CREATED FROM WEBHOOK/RECOVERY: order_id={order.id} user={user_id} payment={payment_id}")
+        logger.info(
+            f"✓ ORDER CREATED FROM WEBHOOK/RECOVERY: order_id={order.id} user={user_id} payment={payment_id}"
+        )
         return order
 
     def update_order_status(
@@ -802,11 +936,11 @@ class OrderService:
         order_id: int,
         new_status: OrderStatus,
         tracking_number: Optional[str] = None,
-        admin_notes: Optional[str] = None
+        admin_notes: Optional[str] = None,
     ) -> Order:
         """
         Update order status with validation.
-        
+
         Status transitions:
         PENDING → CONFIRMED, CANCELLED
         CONFIRMED → PROCESSING, CANCELLED
@@ -816,34 +950,33 @@ class OrderService:
         CANCELLED → (terminal)
         """
         order = self.get_order_by_id(order_id)
-        
+
         if not order:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Order not found"
+                status_code=status.HTTP_404_NOT_FOUND, detail="Order not found"
             )
-        
+
         # Validate status transition
         # Simple 4-state machine: CONFIRMED → SHIPPED → DELIVERED, CONFIRMED → CANCELLED
         valid_transitions = {
             OrderStatus.CONFIRMED: [OrderStatus.SHIPPED, OrderStatus.CANCELLED],
-            OrderStatus.SHIPPED:   [OrderStatus.DELIVERED],
+            OrderStatus.SHIPPED: [OrderStatus.DELIVERED],
             OrderStatus.DELIVERED: [],  # Terminal — returns handled by Returns module
             OrderStatus.CANCELLED: [],  # Terminal
         }
-        
+
         if new_status not in valid_transitions.get(order.status, []):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Cannot transition from {order.status.value} to {new_status.value}"
+                detail=f"Cannot transition from {order.status.value} to {new_status.value}",
             )
-        
+
         # Update status
         order.status = new_status
-        
+
         # Setup timestamps
         now = ist_naive()
-        
+
         # Determine tracking specific fields
         location = None
         notes = admin_notes
@@ -853,7 +986,11 @@ class OrderService:
                 order.tracking_number = tracking_number
             location = "In Transit"
             if not notes:
-                notes = f"Order shipped — POD number: {tracking_number}" if tracking_number else "Order shipped"
+                notes = (
+                    f"Order shipped — POD number: {tracking_number}"
+                    if tracking_number
+                    else "Order shipped"
+                )
         elif new_status == OrderStatus.DELIVERED:
             order.delivered_at = now
             if not notes:
@@ -864,82 +1001,97 @@ class OrderService:
                 order.cancellation_reason = admin_notes
             if not notes:
                 notes = "Order was cancelled"
-        
+
         # 1. Add historical tracking entry
         from models.order_tracking import OrderTracking
+
         tracking_entry = OrderTracking(
             order_id=order_id,
             status=new_status,
             location=location,
             notes=notes,
-            # updated_by is not available in this function signature directly, but we can leave null 
+            # updated_by is not available in this function signature directly, but we can leave null
             # or pass it from the API layer if needed.
         )
         self.db.add(tracking_entry)
-        
+
         self.db.commit()
         self.db.refresh(order)
         self.db.refresh(tracking_entry)
-        
+
         # Publish order status event to Redis Pub/Sub for SSE consumers
         try:
             from core.redis_client import redis_client
             import json as _json
-            
-            event_payload = _json.dumps({
-                "order_id": order_id,
-                "tracking_id": tracking_entry.id if tracking_entry else None,
-                "status": new_status.value,
-                "tracking_number": tracking_number,
-                "location": location,
-                "notes": notes,
-                "timestamp": now.isoformat(),
-            })
+
+            event_payload = _json.dumps(
+                {
+                    "order_id": order_id,
+                    "tracking_id": tracking_entry.id if tracking_entry else None,
+                    "status": new_status.value,
+                    "tracking_number": tracking_number,
+                    "location": location,
+                    "notes": notes,
+                    "timestamp": now.isoformat(),
+                }
+            )
             # Pub/Sub channel per order — SSE endpoint subscribes to this
             redis_client.client.publish(f"order_updates:{order_id}", event_payload)
             # Also set a cache key as fallback for late-joining SSE clients
-            redis_client.set_cache(f"order:event:{order_id}", _json.loads(event_payload), ttl=60)
+            redis_client.set_cache(
+                f"order:event:{order_id}", _json.loads(event_payload), ttl=60
+            )
         except Exception as pub_err:
             logger.warning(f"Failed to publish order status event: {pub_err}")
 
-        # Send email notification based on status (via Core internal API)
+        # Enqueue status-change email (fire-and-forget outbox)
         try:
-            if new_status == OrderStatus.SHIPPED:
-                self._send_order_shipped_email(order, tracking_number)
-            elif new_status == OrderStatus.DELIVERED:
-                self._send_order_delivered_email(order)
-            elif new_status == OrderStatus.CANCELLED:
-                self._send_order_cancelled_email(order, admin_notes)
+            user = self.db.query(User).filter(User.id == order.user_id).first()
+            if user and user.email:
+                if new_status == OrderStatus.SHIPPED:
+                    self.email_service.enqueue_order_shipped(
+                        order.id, order.user_id, order, user, tracking_number or ""
+                    )
+                elif new_status == OrderStatus.DELIVERED:
+                    self.email_service.enqueue_order_delivered(
+                        order.id, order.user_id, order, user
+                    )
+                elif new_status == OrderStatus.CANCELLED:
+                    self.email_service.enqueue_order_cancelled(
+                        order.id, order.user_id, order, user, admin_notes
+                    )
+            else:
+                logger.warning(
+                    f"No email for user {order.user_id}, skipping status email for order {order_id}"
+                )
         except Exception as e:
-            logger.error(f"Failed to send order status email for order {order_id}: {e}")
+            logger.error(f"Failed to enqueue status email for order {order_id}: {e}")
+            # Non-critical - order already updated
 
         return order
-    
+
     def bulk_update_order_status(
-        self,
-        order_ids: List[int],
-        new_status: OrderStatus
+        self, order_ids: List[int], new_status: OrderStatus
     ) -> int:
         """
         Bulk update order status for multiple orders.
-        
+
         Uses a single UPDATE query for efficiency, then publishes
         Redis SSE events for each updated order.
-        
+
         Returns the number of updated orders.
         """
         if not order_ids:
             return 0
-        
-        updated = self.db.query(Order).filter(
-            Order.id.in_(order_ids)
-        ).update(
-            {"status": new_status},
-            synchronize_session=False
+
+        updated = (
+            self.db.query(Order)
+            .filter(Order.id.in_(order_ids))
+            .update({"status": new_status}, synchronize_session=False)
         )
-        
+
         self.db.commit()
-        
+
         # Determine tracking specific fields for bulk
         now = ist_naive()
         location = None
@@ -951,62 +1103,66 @@ class OrderService:
             notes = "Order delivered (bulk)"
         elif new_status == OrderStatus.CANCELLED:
             notes = "Order cancelled (bulk)"
-            
+
         # Create OrderTracking entries in bulk
         from models.order_tracking import OrderTracking
+
         tracking_entries = [
             OrderTracking(
-                order_id=oid,
-                status=new_status,
-                location=location,
-                notes=notes
-            ) for oid in order_ids
+                order_id=oid, status=new_status, location=location, notes=notes
+            )
+            for oid in order_ids
         ]
         self.db.add_all(tracking_entries)
         self.db.commit()
-        
+
         # Publish SSE events for each updated order
         try:
             from core.redis_client import redis_client
             import json as _json
-            
+
             for entry in tracking_entries:
                 oid = entry.order_id
-                event_payload = _json.dumps({
-                    "order_id": oid,
-                    "tracking_id": entry.id,
-                    "status": new_status.value,
-                    "location": location,
-                    "notes": notes,
-                    "timestamp": now.isoformat(),
-                })
+                event_payload = _json.dumps(
+                    {
+                        "order_id": oid,
+                        "tracking_id": entry.id,
+                        "status": new_status.value,
+                        "location": location,
+                        "notes": notes,
+                        "timestamp": now.isoformat(),
+                    }
+                )
                 redis_client.client.publish(f"order_updates:{oid}", event_payload)
-                redis_client.set_cache(f"order:event:{oid}", _json.loads(event_payload), ttl=60)
+                redis_client.set_cache(
+                    f"order:event:{oid}", _json.loads(event_payload), ttl=60
+                )
         except Exception as pub_err:
             logger.warning(f"Failed to publish bulk order status events: {pub_err}")
-        
+
         return updated
-    
-    def cancel_order(self, order_id: int, user_id: int, reason: Optional[str] = None) -> Order:
+
+    def cancel_order(
+        self, order_id: int, user_id: int, reason: Optional[str] = None
+    ) -> Order:
         """
         Cancel order and release inventory.
         Only allowed for PENDING or CONFIRMED orders.
         """
         order = self.get_order_by_id(order_id, user_id=user_id)
-        
+
         if not order:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Order not found"
+                status_code=status.HTTP_404_NOT_FOUND, detail="Order not found"
             )
-        
+
         # Check if cancellable — only CONFIRMED orders can be cancelled
         if order.status not in [OrderStatus.CONFIRMED]:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Cannot cancel order with status {order.status.value}"
+                detail=f"Cannot cancel order with status {order.status.value}",
             )
-        
+
         # Release inventory back to stock
         failed_restores = []
         for item in order.items:
@@ -1014,33 +1170,26 @@ class OrderService:
                 # Add quantity back to inventory
                 try:
                     self.inventory_service.adjust_stock(
-                        item.sku,
-                        item.quantity,
-                        f"Order #{order_id} cancelled"
+                        item.sku, item.quantity, f"Order #{order_id} cancelled"
                     )
                 except Exception as e:
                     failed_restores.append({"sku": item.sku, "error": str(e)})
-        
+
         # Update order status
         order.status = OrderStatus.CANCELLED
         order.cancelled_at = ist_naive()
         order.cancellation_reason = reason or "Cancelled by user"
-        
+
         self.db.commit()
         self.db.refresh(order)
-        
+
         return order
-    
+
     def get_all_orders(
-        self,
-        status: Optional[OrderStatus] = None,
-        skip: int = 0,
-        limit: int = 50
+        self, status: Optional[OrderStatus] = None, skip: int = 0, limit: int = 50
     ) -> List[Order]:
         """Get all orders with optional status filter (admin). Eager loads items + user info."""
-        query = self.db.query(Order).options(
-            selectinload(Order.items)
-        )
+        query = self.db.query(Order).options(selectinload(Order.items))
 
         if status:
             query = query.filter(Order.status == status)
@@ -1058,7 +1207,9 @@ class OrderService:
         user_map = {user.id: user for user in users}
 
         # Fetch all user profiles in one query
-        profiles = self.db.query(UserProfile).filter(UserProfile.user_id.in_(user_ids)).all()
+        profiles = (
+            self.db.query(UserProfile).filter(UserProfile.user_id.in_(user_ids)).all()
+        )
         profile_map = {profile.user_id: profile for profile in profiles}
 
         # Enrich orders with customer info using pre-fetched data
@@ -1073,14 +1224,11 @@ class OrderService:
                 order.customer_email = user.email
 
         return orders
-    
+
     # ==================== Payment Integration ====================
-    
+
     async def initiate_payment(
-        self,
-        order_id: int,
-        payment_method: str = "razorpay",
-        auth_token: str = None
+        self, order_id: int, payment_method: str = "razorpay", auth_token: str = None
     ) -> Dict[str, Any]:
         """
         Initiate payment for an order via Payment service.
@@ -1094,25 +1242,26 @@ class OrderService:
             Payment details including payment gateway response
         """
         if not PAYMENT_CLIENT_AVAILABLE:
-            logger.error("Payment service client not available - cannot initiate payment")
+            logger.error(
+                "Payment service client not available - cannot initiate payment"
+            )
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Payment service unavailable"
+                detail="Payment service unavailable",
             )
-        
+
         order = self.get_order_by_id(order_id)
         if not order:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Order not found"
+                status_code=status.HTTP_404_NOT_FOUND, detail="Order not found"
             )
-        
+
         if order.status != OrderStatus.CONFIRMED:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Cannot initiate payment for order with status {order.status.value}"
+                detail=f"Cannot initiate payment for order with status {order.status.value}",
             )
-        
+
         try:
             client = PaymentServiceClient()
             async with client:
@@ -1121,33 +1270,31 @@ class OrderService:
                     amount=float(order.total_amount),
                     currency="INR",
                     payment_method=payment_method,
-                    auth_token=auth_token
+                    auth_token=auth_token,
                 )
-            
-            logger.info(f"Payment initiated for order {order_id}: {payment.get('payment_id')}")
+
+            logger.info(
+                f"Payment initiated for order {order_id}: {payment.get('payment_id')}"
+            )
             return payment
-            
+
         except ServiceError as e:
             logger.error(f"Payment service error: {e}")
             raise HTTPException(
-                status_code=e.status_code,
-                detail=f"Payment service error: {e.message}"
+                status_code=e.status_code, detail=f"Payment service error: {e.message}"
             )
-    
+
     async def verify_payment(
-        self,
-        order_id: int,
-        payment_id: str,
-        auth_token: str = None
+        self, order_id: int, payment_id: str, auth_token: str = None
     ) -> Dict[str, Any]:
         """
         Verify payment status and update order.
-        
+
         Args:
             order_id: Order ID
             payment_id: Payment ID from gateway
             auth_token: JWT token for authentication
-            
+
         Returns:
             Updated order and payment status
         """
@@ -1155,21 +1302,20 @@ class OrderService:
             logger.error("Payment service client not available - cannot verify payment")
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Payment service unavailable"
+                detail="Payment service unavailable",
             )
-        
+
         order = self.get_order_by_id(order_id)
         if not order:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Order not found"
+                status_code=status.HTTP_404_NOT_FOUND, detail="Order not found"
             )
-        
+
         try:
             client = PaymentServiceClient()
             async with client:
                 payment = await client.verify_payment(payment_id, auth_token=auth_token)
-            
+
             # If payment is captured, update order status
             if payment.get("status") == "captured":
                 order.status = OrderStatus.CONFIRMED
@@ -1177,37 +1323,37 @@ class OrderService:
                 self.db.commit()
                 self.db.refresh(order)
                 logger.info(f"Order {order_id} confirmed after payment verification")
-            
+
             return {
                 "verified": payment.get("status") == "captured",
                 "order_id": order_id,
                 "payment_status": payment.get("status"),
-                "order_status": order.status.value
+                "order_status": order.status.value,
             }
-            
+
         except ServiceError as e:
             logger.error(f"Payment verification error: {e}")
             raise HTTPException(
                 status_code=e.status_code,
-                detail=f"Payment verification failed: {e.message}"
+                detail=f"Payment verification failed: {e.message}",
             )
-    
+
     async def process_refund(
         self,
         order_id: int,
         amount: Optional[float] = None,
         reason: str = None,
-        auth_token: str = None
+        auth_token: str = None,
     ) -> Dict[str, Any]:
         """
         Process refund for a cancelled/returned order.
-        
+
         Args:
             order_id: Order ID
             amount: Refund amount (defaults to full order amount)
             reason: Refund reason
             auth_token: JWT token for authentication
-            
+
         Returns:
             Refund details
         """
@@ -1215,32 +1361,33 @@ class OrderService:
             logger.error("Payment service client not available - cannot process refund")
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail="Payment service unavailable"
+                detail="Payment service unavailable",
             )
-        
+
         order = self.get_order_by_id(order_id)
         if not order:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Order not found"
+                status_code=status.HTTP_404_NOT_FOUND, detail="Order not found"
             )
-        
+
         if order.status not in [OrderStatus.CANCELLED, OrderStatus.RETURNED]:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Refund only allowed for cancelled or returned orders"
+                detail="Refund only allowed for cancelled or returned orders",
             )
-        
+
         if not order.transaction_id:
-            logger.warning(f"Order {order_id} has no transaction ID - may be offline payment")
+            logger.warning(
+                f"Order {order_id} has no transaction ID - may be offline payment"
+            )
             return {
                 "refund_id": None,
                 "order_id": order_id,
                 "amount": amount or float(order.total_amount),
                 "status": "not_applicable",
-                "message": "No online payment found for this order"
+                "message": "No online payment found for this order",
             }
-        
+
         try:
             client = PaymentServiceClient()
             async with client:
@@ -1248,36 +1395,34 @@ class OrderService:
                     payment_id=order.transaction_id,
                     amount=amount,
                     reason=reason,
-                    auth_token=auth_token
+                    auth_token=auth_token,
                 )
-            
+
             # Update order status to refunded
             order.status = OrderStatus.REFUNDED
             self.db.commit()
             self.db.refresh(order)
-            
+
             logger.info(f"Refund processed for order {order_id}")
             return refund
-            
+
         except ServiceError as e:
             logger.error(f"Refund processing error: {e}")
             raise HTTPException(
                 status_code=e.status_code,
-                detail=f"Refund processing failed: {e.message}"
+                detail=f"Refund processing failed: {e.message}",
             )
-    
+
     async def get_payment_status(
-        self,
-        order_id: int,
-        auth_token: str = None
+        self, order_id: int, auth_token: str = None
     ) -> Dict[str, Any]:
         """
         Get payment status for an order.
-        
+
         Args:
             order_id: Order ID
             auth_token: JWT token for authentication
-            
+
         Returns:
             Payment status details
         """
@@ -1285,35 +1430,36 @@ class OrderService:
             return {
                 "order_id": order_id,
                 "payment_status": "unknown",
-                "message": "Payment service not available"
+                "message": "Payment service not available",
             }
-        
+
         order = self.get_order_by_id(order_id)
         if not order:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Order not found"
+                status_code=status.HTTP_404_NOT_FOUND, detail="Order not found"
             )
-        
+
         if not order.transaction_id:
             return {
                 "order_id": order_id,
                 "payment_status": "pending",
-                "message": "No payment initiated for this order"
+                "message": "No payment initiated for this order",
             }
-        
+
         try:
             client = PaymentServiceClient()
             async with client:
-                payment = await client.get_payment(order.transaction_id, auth_token=auth_token)
-            
+                payment = await client.get_payment(
+                    order.transaction_id, auth_token=auth_token
+                )
+
             return {
                 "order_id": order_id,
                 "payment_id": order.transaction_id,
                 "payment_status": payment.get("status"),
                 "amount": payment.get("amount"),
                 "payment_method": payment.get("payment_method"),
-                "created_at": payment.get("created_at")
+                "created_at": payment.get("created_at"),
             }
 
         except ServiceError as e:
@@ -1321,7 +1467,7 @@ class OrderService:
             return {
                 "order_id": order_id,
                 "payment_status": "error",
-                "message": str(e.message)
+                "message": str(e.message),
             }
 
     # ==================== Email Notifications (delegated to Core via HTTP) ====================
@@ -1334,7 +1480,9 @@ class OrderService:
             return False
         return _core_notify.notify_order_confirmation_email(order, user)
 
-    def _send_order_shipped_email(self, order: Order, tracking_number: Optional[str] = None) -> bool:
+    def _send_order_shipped_email(
+        self, order: Order, tracking_number: Optional[str] = None
+    ) -> bool:
         """Send order shipped notification email."""
         if not tracking_number:
             return False
@@ -1350,7 +1498,9 @@ class OrderService:
             return False
         return _core_notify.notify_order_delivered_email(order, user)
 
-    def _send_order_cancelled_email(self, order: Order, reason: Optional[str] = None) -> bool:
+    def _send_order_cancelled_email(
+        self, order: Order, reason: Optional[str] = None
+    ) -> bool:
         """Send order cancelled notification email."""
         user = self.db.query(User).filter(User.id == order.user_id).first()
         if not user or not user.email:

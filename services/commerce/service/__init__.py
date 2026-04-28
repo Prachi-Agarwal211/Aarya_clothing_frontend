@@ -1,14 +1,14 @@
 """Commerce services module."""
-from service.category_service import CategoryService
-from service.inventory_service import InventoryService
-from service.r2_service import r2_service
-from service.product_service import ProductService
-from service.cart_service import CartService
-from service.order_service import OrderService
-from service.address_service import AddressService
-from service.review_service import ReviewService
-from service.order_tracking_service import OrderTrackingService
-from service.return_service import ReturnService
+from commerce.service.category_service import CategoryService
+from commerce.service.inventory_service import InventoryService
+from commerce.service.r2_service import r2_service
+from commerce.service.product_service import ProductService
+from commerce.service.cart_service import CartService
+from commerce.service.order_service import OrderService
+from commerce.service.address_service import AddressService
+from commerce.service.review_service import ReviewService
+from commerce.service.order_tracking_service import OrderTrackingService
+from commerce.service.return_service import ReturnService
 
 __all__ = [
     "CategoryService", "InventoryService", "r2_service",

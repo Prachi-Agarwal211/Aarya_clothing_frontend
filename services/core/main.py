@@ -490,10 +490,18 @@ async def verify_otp_registration(
         f"otp_type: {body.otp_type}"
     )
 
-    # Resolve user by email or phone
-    user = db.query(User).filter(
-        or_(User.email == email, User.phone == phone)
-    ).first()
+    # Resolve user by email or phone - strictly avoiding NULL matching
+    query = db.query(User)
+    if email and phone:
+        query = query.filter(or_(User.email == email.lower(), User.phone == phone))
+    elif email:
+        query = query.filter(User.email == email.lower())
+    elif phone:
+        query = query.filter(User.phone == phone)
+    else:
+        raise HTTPException(status_code=400, detail="Identifier (email or phone) is required.")
+
+    user = query.first()
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

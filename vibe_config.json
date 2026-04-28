@@ -1,0 +1,53 @@
+{
+  "mcpServers": {
+    "exa": {
+      "type": "remote",
+      "url": "https://mcp.exa.ai/mcp?exaApiKey=ae278226-ea7f-4637-a2a7-bd6231d6a7f3&tools=web_search_exa,web_search_advanced_exa,get_code_context_exa,crawling_exa,company_research_exa,people_search_exa,deep_researcher_start,deep_researcher_check"
+    },
+    "docker": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@hypnosis/docker-mcp-server"],
+      "env": {
+        "DOCKER_MCP_AUTO_DISCOVER": "true",
+        "DOCKER_MCP_MASK_SECRETS": "true"
+      }
+    },
+    "filesystem": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@j0hanz/filesystem-mcp", "--allow-cwd"],
+      "env": {
+        "PWD": "C:\\Users\\15anu\\OneDrive\\文档\\code\\ecomm\\Aarya_Clothing"
+      }
+    },
+    "git": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@cyanheads/git-mcp-server"],
+      "env": {
+        "MCP_TRANSPORT_TYPE": "stdio",
+        "MCP_LOG_LEVEL": "info",
+        "GIT_BASE_DIR": "C:\\Users\\15anu\\OneDrive\\文档\\code\\ecomm\\Aarya_Clothing",
+        "LOGS_DIR": "C:\\Users\\15anu\\OneDrive\\文档\\code\\ecomm\\Aarya_Clothing\\.logs\\git-mcp-server",
+        "GIT_AUTHOR_NAME": "Aarya Clothing Dev",
+        "GIT_AUTHOR_EMAIL": "dev@aarya-clothing.com",
+        "GIT_SIGN_COMMITS": "false"
+      }
+    },
+    "playwright": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp"],
+      "env": {
+        "PLAYWRIGHT_BROWSERS_PATH": "0"
+      }
+    },
+    "fetch": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@mokei/mcp-fetch"],
+      "env": {}
+    }
+  }
+}

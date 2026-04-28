@@ -166,33 +166,26 @@ async def get_landing_all(db: Session = Depends(get_db)):
             if img[1] in ("hero", "about") and img[1] in result:
                 result[img[1]]["images"].append(img_data)
 
-        products = db.execute(
-            text(
-                """
-                SELECT p.id, p.name, p.slug, p.description, p.base_price, p.mrp, p.is_new_arrival,
-                       (SELECT image_url FROM product_images
-                          WHERE product_id = p.id AND is_primary = true LIMIT 1) as primary_image
-                FROM landing_products lp
-                JOIN products p ON p.id = lp.product_id
-                WHERE lp.section = 'newArrivals'
-                  AND lp.is_active = true AND p.is_active = true
-                ORDER BY lp.display_order
-                """
-            )
-        ).fetchall()
-        result["newArrivals"]["products"] = [
-            {
-                "id": p[0],
-                "name": p[1],
-                "slug": p[2],
-                "description": p[3],
-                "price": float(p[4]),
-                "compareAtPrice": float(p[5]) if p[5] else None,
-                "isNew": p[6],
-                "image": p[7],
-            }
-            for p in products
-        ]
+        # Fallback for new arrivals: if empty, fetch any active featured products
+        if not result["newArrivals"]["products"]:
+            featured = db.execute(
+                text("""
+                    SELECT p.id, p.name, p.slug, p.description, p.base_price, p.mrp, p.is_new_arrival,
+                           (SELECT image_url FROM product_images
+                              WHERE product_id = p.id AND is_primary = true LIMIT 1) as primary_image
+                    FROM products p
+                    WHERE p.is_active = true AND p.is_featured = true
+                    ORDER BY p.created_at DESC
+                    LIMIT 8
+                """)
+            ).fetchall()
+            result["newArrivals"]["products"] = [
+                {
+                    "id": p[0], "name": p[1], "slug": p[2], "description": p[3],
+                    "price": float(p[4]), "compareAtPrice": float(p[5]) if p[5] else None,
+                    "isNew": p[6], "image": p[7],
+                } for p in featured
+            ]
 
         collections = db.execute(
             text(
@@ -204,6 +197,13 @@ async def get_landing_all(db: Session = Depends(get_db)):
                 """
             )
         ).fetchall()
+        
+        # Fallback for collections: if no featured collections, show any active collections
+        if not collections:
+            collections = db.execute(
+                text("SELECT id, name, slug, description, image_url FROM collections WHERE is_active = true LIMIT 6")
+            ).fetchall()
+
         result["collections"]["collections"] = [
             {
                 "id": c[0],

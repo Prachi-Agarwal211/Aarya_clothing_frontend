@@ -81,7 +81,9 @@ class AuthService:
         remember_me: bool = False
     ) -> str:
         """Create a short-lived access token."""
-        expire = ist_naive() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+        from shared.time_utils import utc_now
+        now = utc_now()
+        expire = now + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
         payload = {
             "sub": str(user_id),
             "role": role,
@@ -90,7 +92,7 @@ class AuthService:
             "is_active": is_active,
             "remember_me": remember_me,
             "type": "access",
-            "iat": ist_naive(),
+            "iat": now,
             "exp": expire,
             "jti": secrets.token_hex(16),
         }
@@ -101,8 +103,10 @@ class AuthService:
         remember_me: bool = False
     ) -> str:
         """Create a long-lived refresh token."""
+        from shared.time_utils import utc_now
+        now = utc_now()
         days = settings.REFRESH_TOKEN_DAYS_REMEMBER if remember_me else settings.REFRESH_TOKEN_DAYS_DEFAULT
-        expire = ist_naive() + timedelta(days=days)
+        expire = now + timedelta(days=days)
         payload = {
             "sub": str(user_id),
             "role": role,
@@ -111,7 +115,7 @@ class AuthService:
             "is_active": is_active,
             "remember_me": remember_me,
             "type": "refresh",
-            "iat": ist_naive(),
+            "iat": now,
             "exp": expire,
             "jti": secrets.token_hex(16),
         }
@@ -141,6 +145,8 @@ class AuthService:
             "is_active": user.is_active,
             "email_verified": user.email_verified,
             "phone_verified": getattr(user, "phone_verified", False),
+            "created_at": user.created_at,
+            "updated_at": user.updated_at,
         }
 
     # ============================================================

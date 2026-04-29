@@ -64,6 +64,11 @@ class BaseSettings(PydanticBaseSettings):
     REFRESH_TOKEN_DAYS_DEFAULT: int = 90  # regular login
     REFRESH_TOKEN_DAYS_REMEMBER: int = 365  # remember_me=True
 
+    # Cookie settings
+    COOKIE_SECURE: bool = False  # Set True in production (HTTPS only)
+    COOKIE_HTTPONLY: bool = True
+    COOKIE_SAMESITE: str = "lax"
+
     @property
     def is_development(self) -> bool:
         """Check if running in development mode."""

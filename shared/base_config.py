@@ -60,6 +60,10 @@ class BaseSettings(PydanticBaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_MINUTES: int = 1440
 
+    # Refresh token "stay logged in" duration
+    REFRESH_TOKEN_DAYS_DEFAULT: int = 90  # regular login
+    REFRESH_TOKEN_DAYS_REMEMBER: int = 365  # remember_me=True
+
     @property
     def is_development(self) -> bool:
         """Check if running in development mode."""

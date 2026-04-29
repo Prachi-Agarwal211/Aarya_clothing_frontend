@@ -13,20 +13,20 @@ Design:
 - Unique constraint on (order_id, email_type) prevents duplicates
 """
 
- from sqlalchemy import (
-     Column,
-     Integer,
-     String,
-     Text,
-     DateTime,
-     Boolean,
-     Float,
-     Index,
-     UniqueConstraint,
- )
- from sqlalchemy.sql import func
- from database.database import Base
- import enum
+from sqlalchemy import (
+    Column,
+    Integer,
+    String,
+    Text,
+    DateTime,
+    Boolean,
+    Float,
+    Index,
+    UniqueConstraint,
+)
+from sqlalchemy.sql import func
+from database.database import Base
+import enum
 
 
 class EmailType(enum.Enum):

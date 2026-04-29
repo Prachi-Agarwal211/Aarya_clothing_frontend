@@ -84,12 +84,12 @@ function nameFromHex(hex) {
 }
 
 export default function ColorPicker({ value, onChange, label = 'Color' }) {
-  // Parse incoming hex → hsl
+  // Parse incoming hex → hsl — recalculate when value changes
   const initHsl = useMemo(() => {
     if (!value) return { h: 0, s: 100, l: 50 };
     const { r, g, b } = hexToRgb(value);
     return rgbToHsl(r, g, b);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [value]); // Recompute when external value changes
 
   const [hue, setHue] = useState(initHsl.h);
   const [sat, setSat] = useState(initHsl.s);
@@ -97,6 +97,16 @@ export default function ColorPicker({ value, onChange, label = 'Color' }) {
   const [opacity, setOpacity] = useState(100);
   const [hexInput, setHexInput] = useState(value || '#000000');
   const [open, setOpen] = useState(false);
+
+  // Sync local HSL state when value prop changes externally (e.g., switching variants)
+  useEffect(() => {
+    const { r, g, b } = hexToRgb(value);
+    const { h, s, l } = rgbToHsl(r, g, b);
+    setHue(h);
+    setSat(s);
+    setLit(l);
+    setHexInput(value);
+  }, [value]);
 
   const gradRef = useRef(null);
   const hueRef = useRef(null);
@@ -114,15 +124,6 @@ export default function ColorPicker({ value, onChange, label = 'Color' }) {
     setHexInput(currentHex);
     if (onChange) onChange(currentHex, nameFromHex(currentHex));
   }, [currentHex]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Sync internal state when value prop changes externally
-  useEffect(() => {
-    if (!value || value.toUpperCase() === currentHex.toUpperCase()) return;
-    const { r, g, b } = hexToRgb(value);
-    const { h, s, l } = rgbToHsl(r, g, b);
-    setHue(h); setSat(s); setLit(l);
-    setHexInput(value);
-  }, [value]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // --- Gradient canvas pointer handling ---
   const handleGradPointer = useCallback((e) => {

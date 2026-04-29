@@ -98,16 +98,6 @@ export default function ColorPicker({ value, onChange, label = 'Color' }) {
   const [hexInput, setHexInput] = useState(value || '#000000');
   const [open, setOpen] = useState(false);
 
-  // Sync local HSL state when value prop changes externally (e.g., switching variants)
-  useEffect(() => {
-    const { r, g, b } = hexToRgb(value);
-    const { h, s, l } = rgbToHsl(r, g, b);
-    setHue(h);
-    setSat(s);
-    setLit(l);
-    setHexInput(value);
-  }, [value]);
-
   const gradRef = useRef(null);
   const hueRef = useRef(null);
   const opacRef = useRef(null);
@@ -124,6 +114,16 @@ export default function ColorPicker({ value, onChange, label = 'Color' }) {
     setHexInput(currentHex);
     if (onChange) onChange(currentHex, nameFromHex(currentHex));
   }, [currentHex]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Sync local HSL state when value prop changes externally (e.g., switching variants)
+  useEffect(() => {
+    const { r, g, b } = hexToRgb(value);
+    const { h, s, l } = rgbToHsl(r, g, b);
+    setHue(h);
+    setSat(s);
+    setLit(l);
+    setHexInput(value);
+  }, [value]);
 
   // --- Gradient canvas pointer handling ---
   const handleGradPointer = useCallback((e) => {

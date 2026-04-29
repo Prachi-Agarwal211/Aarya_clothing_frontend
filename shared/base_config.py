@@ -63,6 +63,10 @@ class BaseSettings(PydanticBaseSettings):
         ]
     )
 
+    # ==================== Redis ====================
+    REDIS_URL: str = "redis://localhost:6379"
+    REDIS_DB: int = 0
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

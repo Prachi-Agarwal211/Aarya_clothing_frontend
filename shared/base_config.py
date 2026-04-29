@@ -77,6 +77,14 @@ class BaseSettings(PydanticBaseSettings):
         ]
     )
 
+    # ==================== Cloudflare R2 ====================
+    R2_ACCOUNT_ID: str = ""
+    R2_ACCESS_KEY_ID: str = ""
+    R2_SECRET_ACCESS_KEY: str = ""
+    R2_BUCKET_NAME: str = ""
+    R2_PUBLIC_URL: str = ""
+    R2_REGION: str = "auto"
+
     # ==================== Redis ====================
     REDIS_URL: str = "redis://localhost:6379"
     REDIS_DB: int = 0

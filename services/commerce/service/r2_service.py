@@ -1,4 +1,5 @@
 """Cloudflare R2 storage service for image uploads."""
+
 import logging
 import boto3
 import uuid
@@ -11,29 +12,29 @@ from core.config import settings
 logger = logging.getLogger(__name__)
 
 
-ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"]
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 
 # Video upload settings
-ALLOWED_VIDEO_TYPES = ['video/mp4', 'video/quicktime', 'video/webm']
+ALLOWED_VIDEO_TYPES = ["video/mp4", "video/quicktime", "video/webm"]
 MAX_VIDEO_FILE_SIZE = 50 * 1024 * 1024  # 50 MB
 
 # Magic bytes for image file type verification
 IMAGE_SIGNATURES = {
-    b'\xff\xd8\xff': 'image/jpeg',
-    b'\x89PNG': 'image/png',
-    b'RIFF': 'image/webp',   # WebP: RIFF....WEBP
-    b'GIF8': 'image/gif',
+    b"\xff\xd8\xff": "image/jpeg",
+    b"\x89PNG": "image/png",
+    b"RIFF": "image/webp",  # WebP: RIFF....WEBP
+    b"GIF8": "image/gif",
 }
 
 
 class R2StorageService:
     """Service for managing file uploads to Cloudflare R2."""
-    
+
     def __init__(self):
         """Initialize R2 client."""
         self._client = None
-    
+
     @property
     def client(self):
         """Lazy-load S3 client for R2."""
@@ -41,41 +42,47 @@ class R2StorageService:
             if not settings.R2_ACCESS_KEY_ID or not settings.R2_SECRET_ACCESS_KEY:
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail="R2 storage is not configured"
+                    detail="R2 storage is not configured",
                 )
-            
+
             self._client = boto3.client(
-                's3',
+                "s3",
                 endpoint_url=f"https://{settings.R2_ACCOUNT_ID}.r2.cloudflarestorage.com",
                 aws_access_key_id=settings.R2_ACCESS_KEY_ID,
                 aws_secret_access_key=settings.R2_SECRET_ACCESS_KEY,
                 region_name=settings.R2_REGION,
-                config=Config(signature_version='s3v4')
+                config=Config(signature_version="s3v4"),
             )
         return self._client
-    
-    def _generate_unique_filename(self, original_filename: str, folder: str = "products") -> str:
+
+    def _generate_unique_filename(
+        self, original_filename: str, folder: str = "products"
+    ) -> str:
         """Generate a unique, sanitized filename."""
-        ext = original_filename.rsplit('.', 1)[-1].lower() if '.' in original_filename else 'jpg'
+        ext = (
+            original_filename.rsplit(".", 1)[-1].lower()
+            if "." in original_filename
+            else "jpg"
+        )
         # Only allow safe extensions
-        safe_extensions = {'jpg', 'jpeg', 'png', 'webp', 'gif'}
+        safe_extensions = {"jpg", "jpeg", "png", "webp", "gif"}
         if ext not in safe_extensions:
-            ext = 'jpg'
+            ext = "jpg"
         unique_id = uuid.uuid4().hex[:12]
         return f"{folder}/{unique_id}.{ext}"
 
     def _validate_magic_bytes(self, content: bytes, claimed_type: str) -> bool:
         """Verify file content matches its claimed MIME type via magic bytes."""
         for signature, mime_type in IMAGE_SIGNATURES.items():
-            if content[:len(signature)] == signature:
+            if content[: len(signature)] == signature:
                 return True
         return False
-    
+
     async def upload_image(
         self,
         file: UploadFile,
         folder: str = "products",
-        custom_filename: Optional[str] = None
+        custom_filename: Optional[str] = None,
     ) -> str:
         """
         Upload an image to R2 storage.
@@ -92,7 +99,7 @@ class R2StorageService:
         if file.content_type not in ALLOWED_IMAGE_TYPES:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid file type '{file.content_type}'. Allowed: {', '.join(ALLOWED_IMAGE_TYPES)}"
+                detail=f"Invalid file type '{file.content_type}'. Allowed: {', '.join(ALLOWED_IMAGE_TYPES)}",
             )
 
         # Read file content
@@ -102,14 +109,14 @@ class R2StorageService:
         if len(content) > MAX_FILE_SIZE:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"File too large. Maximum size is {MAX_FILE_SIZE // (1024*1024)} MB."
+                detail=f"File too large. Maximum size is {MAX_FILE_SIZE // (1024 * 1024)} MB.",
             )
 
         # Validate magic bytes (actual file content)
         if not self._validate_magic_bytes(content, file.content_type):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="File content does not match an allowed image type."
+                detail="File content does not match an allowed image type.",
             )
 
         # Generate or use custom filename
@@ -124,7 +131,7 @@ class R2StorageService:
                 Bucket=settings.R2_BUCKET_NAME,
                 Key=key,
                 Body=content,
-                ContentType=file.content_type
+                ContentType=file.content_type,
             )
 
             # Return public URL
@@ -136,90 +143,115 @@ class R2StorageService:
         except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to upload image: {str(e)}"
+                detail=f"Failed to upload image: {str(e)}",
             )
-    
+
+    async def upload_product_image(
+        self, product_id: int, file: UploadFile, image_type: str = "product"
+    ) -> str:
+        """
+        Convenience wrapper for uploading product images.
+        Used by product endpoints.
+
+        Args:
+            product_id: The product ID (used in filename generation)
+            file: The uploaded image file
+            image_type: Type of image (product, category, etc.)
+
+        Returns:
+            The public URL of the uploaded image
+        """
+        return await self.upload_image(
+            file=file,
+            folder="products",
+            custom_filename=f"product_{product_id}_{uuid.uuid4().hex[:8]}.{file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else 'jpg'}",
+        )
+
     async def delete_image(self, image_url: str) -> bool:
         """
         Delete an image from R2 storage.
-        
+
         Args:
             image_url: The full URL of the image to delete
-            
+
         Returns:
             True if deleted successfully
         """
         try:
             # Extract the R2 object key from whatever form the URL is in
-            if image_url.startswith('http://') or image_url.startswith('https://'):
+            if image_url.startswith("http://") or image_url.startswith("https://"):
                 # Full URL — strip the base to get the key
-                if settings.R2_PUBLIC_URL and image_url.startswith(settings.R2_PUBLIC_URL):
-                    key = image_url.replace(settings.R2_PUBLIC_URL.rstrip('/') + '/', '')
+                if settings.R2_PUBLIC_URL and image_url.startswith(
+                    settings.R2_PUBLIC_URL
+                ):
+                    key = image_url.replace(
+                        settings.R2_PUBLIC_URL.rstrip("/") + "/", ""
+                    )
                 else:
                     # Fallback: take everything after the domain
                     from urllib.parse import urlparse
-                    key = urlparse(image_url).path.lstrip('/')
+
+                    key = urlparse(image_url).path.lstrip("/")
             else:
                 # Already a relative path (e.g. "products/abc123.jpg")
-                key = image_url.lstrip('/')
-            
-            self.client.delete_object(
-                Bucket=settings.R2_BUCKET_NAME,
-                Key=key
-            )
+                key = image_url.lstrip("/")
+
+            self.client.delete_object(Bucket=settings.R2_BUCKET_NAME, Key=key)
             return True
-            
+
         except Exception as e:
             logger.warning(f"Warning: Failed to delete image {image_url}: {str(e)}")
             return False
-    
-    def _generate_video_filename(self, original_filename: str, folder: str = "returns") -> str:
+
+    def _generate_video_filename(
+        self, original_filename: str, folder: str = "returns"
+    ) -> str:
         """Generate a unique filename for video uploads."""
-        ext = original_filename.rsplit('.', 1)[-1].lower() if '.' in original_filename else 'mp4'
+        ext = (
+            original_filename.rsplit(".", 1)[-1].lower()
+            if "." in original_filename
+            else "mp4"
+        )
         # Only allow safe video extensions
-        safe_extensions = {'mp4', 'mov', 'webm'}
+        safe_extensions = {"mp4", "mov", "webm"}
         if ext not in safe_extensions:
-            ext = 'mp4'
+            ext = "mp4"
         unique_id = uuid.uuid4().hex[:12]
         return f"{folder}/{unique_id}.{ext}"
-    
+
     def _validate_video_magic_bytes(self, content: bytes) -> bool:
         """Verify file content is a valid video format via magic bytes."""
         if len(content) < 12:
             return False
-        
+
         # Check for MP4/MOV - 'ftyp' box at offset 4
-        if b'ftyp' in content[4:12]:
+        if b"ftyp" in content[4:12]:
             return True
-        
+
         # Check for MP4 alternative - 'moov' at beginning (less common)
-        if content[:4] == b'moov':
+        if content[:4] == b"moov":
             return True
-            
+
         # Check for WebM - EBML header
-        if content[:4] == b'\x1aE\xdf\xa3':
+        if content[:4] == b"\x1aE\xdf\xa3":
             return True
-        
+
         # Check for AVI - RIFF header
-        if content[:4] == b'RIFF':
+        if content[:4] == b"RIFF":
             # Verify it's AVI (RIFF....AVI)
-            if len(content) > 12 and content[8:12] == b'AVI ':
+            if len(content) > 12 and content[8:12] == b"AVI ":
                 return True
-        
+
         return False
-    
-    async def upload_video(
-        self,
-        file: UploadFile,
-        folder: str = "returns"
-    ) -> str:
+
+    async def upload_video(self, file: UploadFile, folder: str = "returns") -> str:
         """
         Upload a video to R2 storage.
-        
+
         Args:
             file: The uploaded video file
             folder: Subfolder in bucket (default: returns)
-            
+
         Returns:
             The public URL of the uploaded video
         """
@@ -227,94 +259,84 @@ class R2StorageService:
         if file.content_type not in ALLOWED_VIDEO_TYPES:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid video type '{file.content_type}'. Allowed: {', '.join(ALLOWED_VIDEO_TYPES)}"
+                detail=f"Invalid video type '{file.content_type}'. Allowed: {', '.join(ALLOWED_VIDEO_TYPES)}",
             )
-        
+
         # Read file content
         content = await file.read()
-        
+
         # Validate file size
         if len(content) > MAX_VIDEO_FILE_SIZE:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Video too large. Maximum size is {MAX_VIDEO_FILE_SIZE // (1024*1024)} MB."
+                detail=f"Video too large. Maximum size is {MAX_VIDEO_FILE_SIZE // (1024 * 1024)} MB.",
             )
-        
+
         # Validate magic bytes (actual file content)
         if not self._validate_video_magic_bytes(content):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="File content does not match an allowed video format."
+                detail="File content does not match an allowed video format.",
             )
-        
+
         # Generate unique filename
         key = self._generate_video_filename(file.filename, folder)
-        
+
         try:
             # Upload to R2
             self.client.put_object(
                 Bucket=settings.R2_BUCKET_NAME,
                 Key=key,
                 Body=content,
-                ContentType=file.content_type
+                ContentType=file.content_type,
             )
-            
+
             # Return public URL
             if settings.R2_PUBLIC_URL:
                 return f"{settings.R2_PUBLIC_URL.rstrip('/')}/{key}"
             else:
                 return f"https://{settings.R2_BUCKET_NAME}.{settings.R2_ACCOUNT_ID}.r2.cloudflarestorage.com/{key}"
-                
+
         except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to upload video: {str(e)}"
+                detail=f"Failed to upload video: {str(e)}",
             )
-    
+
     def generate_presigned_url(
-        self, 
-        filename: str, 
-        folder: str = "products",
-        expires_in: int = 3600
+        self, filename: str, folder: str = "products", expires_in: int = 3600
     ) -> dict:
         """
         Generate a presigned URL for direct client-side upload.
-        
+
         Args:
             filename: Original filename
             folder: Subfolder in bucket
             expires_in: URL expiration time in seconds
-            
+
         Returns:
             Dict with upload_url and final_url
         """
         key = self._generate_unique_filename(filename, folder)
-        
+
         try:
             presigned_url = self.client.generate_presigned_url(
-                'put_object',
-                Params={
-                    'Bucket': settings.R2_BUCKET_NAME,
-                    'Key': key
-                },
-                ExpiresIn=expires_in
+                "put_object",
+                Params={"Bucket": settings.R2_BUCKET_NAME, "Key": key},
+                ExpiresIn=expires_in,
             )
-            
+
             if settings.R2_PUBLIC_URL:
                 final_url = f"{settings.R2_PUBLIC_URL.rstrip('/')}/{key}"
             else:
                 final_url = f"https://{settings.R2_BUCKET_NAME}.{settings.R2_ACCOUNT_ID}.r2.cloudflarestorage.com/{key}"
-            
-            return {
-                "upload_url": presigned_url,
-                "final_url": final_url,
-                "key": key
-            }
-            
+
+            return {"upload_url": presigned_url, "final_url": final_url, "key": key}
+
         except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to generate presigned URL: {str(e)}"
+                detail=f"Failed to generate presigned URL: {str(e)}",
             )
 
 

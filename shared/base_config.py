@@ -51,6 +51,18 @@ class BaseSettings(PydanticBaseSettings):
     DATABASE_POOL_SIZE: int = 20
     DATABASE_MAX_OVERFLOW: int = 30
 
+    # ==================== CORS ====================
+    ALLOWED_ORIGINS: List[str] = Field(
+        default=[
+            "http://localhost:6004",
+            "http://localhost:6005",
+            "http://127.0.0.1:6004",
+            "http://127.0.0.1:6005",
+            "https://aaryaclothing.in",
+            "https://www.aaryaclothing.in",
+        ]
+    )
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
@@ -97,6 +109,22 @@ class SecuritySettings(PydanticBaseSettings):
                 "SECRET_KEY must be set in environment variables. "
                 "Generate a secure key using: python -c 'import secrets; print(secrets.token_urlsafe(32))'"
             )
+
+
+class DatabaseSettings(PydanticBaseSettings):
+    """
+    Standalone database settings for services that need database configuration
+    without inheriting all base settings.
+    """
+
+    DATABASE_URL: str = "postgresql://postgres:password@localhost/aarya_clothing"
+    DATABASE_POOL_SIZE: int = 5
+    DATABASE_MAX_OVERFLOW: int = 10
+
+    class Config:
+        env_file = ".env"
+        env_file_encoding = "utf-8"
+        case_sensitive = True
 
 
 @lru_cache()

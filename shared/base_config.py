@@ -60,6 +60,11 @@ class BaseSettings(PydanticBaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_MINUTES: int = 1440
 
+    @property
+    def is_development(self) -> bool:
+        """Check if running in development mode."""
+        return self.ENVIRONMENT.lower() in ("development", "dev", "local")
+
     # ==================== CORS ====================
     ALLOWED_ORIGINS: List[str] = Field(
         default=[

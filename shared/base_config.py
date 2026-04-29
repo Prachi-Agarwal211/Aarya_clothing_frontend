@@ -51,6 +51,15 @@ class BaseSettings(PydanticBaseSettings):
     DATABASE_POOL_SIZE: int = 20
     DATABASE_MAX_OVERFLOW: int = 30
 
+    # ==================== Security ====================
+    SECRET_KEY: str = Field(
+        default="your_secure_key_here_change_in_production",
+        description="JWT signing key. MUST be overridden in production via environment variable.",
+    )
+    ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    REFRESH_TOKEN_EXPIRE_MINUTES: int = 1440
+
     # ==================== CORS ====================
     ALLOWED_ORIGINS: List[str] = Field(
         default=[

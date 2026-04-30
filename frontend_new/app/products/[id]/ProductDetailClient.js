@@ -349,7 +349,7 @@ export default function ProductDetailClient({ initialProduct, initialReviews }) 
 
           <div className="mt-12">
             <div className="flex gap-6 border-b border-[#B76E79]/15">
-              {['description', 'details', 'reviews'].map((tab) => (
+              {['description', 'reviews'].map((tab) => (
                 <button key={tab} onClick={() => setActiveTab(tab)} className={`pb-3 text-sm font-medium capitalize transition-colors ${activeTab === tab ? 'text-[#F2C29A] border-b-2 border-[#B76E79]' : 'text-[#EAE0D5]/50'}`}>{tab}</button>
               ))}
             </div>

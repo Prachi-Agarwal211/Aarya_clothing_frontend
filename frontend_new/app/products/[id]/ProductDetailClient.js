@@ -257,7 +257,7 @@ export default function ProductDetailClient({ initialProduct, initialReviews }) 
               </div>
 
               {product.images?.length > 1 && (
-                <div className="flex gap-3 overflow-x-auto pb-2">
+                <div className="flex gap-3 overflow-x-auto pb-2 scroll-snap-x snap-mandatory">
                   {product.images.map((img, idx) => (
                     <button
                       key={idx}
@@ -297,7 +297,7 @@ export default function ProductDetailClient({ initialProduct, initialReviews }) 
                         key={color.name}
                         onClick={() => colorHasAnyStock(color) && selectColor(color)}
                         disabled={!colorHasAnyStock(color)}
-                        className={`w-10 h-10 rounded-full border-2 transition-all ${normalizeHex(selectedColor?.hex) === normalizeHex(color.hex) ? 'border-[#F2C29A] scale-110' : 'border-[#B76E79]/20'} ${!colorHasAnyStock(color) ? 'opacity-30' : ''}`}
+                        className={`w-10 h-10 rounded-full border-2 transition-all ${normalizeHex(selectedColor?.hex) === normalizeHex(color.hex) ? 'border-[#F2C29A] scale-110 shadow-[0_0_15px_rgba(242,194,154,0.4)]' : 'border-[#B76E79]/20'} ${!colorHasAnyStock(color) ? 'opacity-30' : ''}`}
                         style={{ backgroundColor: color.hex }}
                       />
                     ))}

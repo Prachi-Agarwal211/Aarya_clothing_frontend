@@ -263,7 +263,7 @@ export class BaseApiClient {
     // Automatically include CSRF token for state-changing methods
     let csrfToken = null;
     if (typeof document !== 'undefined' && !isGet) {
-      const match = document.cookie.match(/csrf_token=([^;]+)/);
+      const match = document.cookie.match(/(?:csrf_token|csrftoken)=([^;]+)/);
       if (match) csrfToken = match[1];
     }
 

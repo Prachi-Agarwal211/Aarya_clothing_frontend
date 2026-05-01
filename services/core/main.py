@@ -28,7 +28,9 @@ logger = logging.getLogger(__name__)
 from core.config import settings
 from core.redis_client import redis_client
 from database.database import get_db, init_db
-from models import User, UserRole, UserSecurity, EmailVerification
+from models import User, UserRole, EmailVerification
+# UserSecurity is deprecated - fields moved to User model
+# from models import UserSecurity
 from schemas.auth import (
     UserCreate, UserResponse, UserProfileUpdate,
     Token, LoginRequest, LoginResponse,

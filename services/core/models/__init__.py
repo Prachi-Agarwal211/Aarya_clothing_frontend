@@ -9,15 +9,17 @@ from .user_consolidated import (
     VerificationToken,
     TrustedDevice,
 )
-from .user_profile import UserProfile
-from .user_security import UserSecurity
+# UserProfile is deprecated - fields moved to User model
+# from .user_profile import UserProfile
+# UserSecurity is deprecated - fields moved to User model
+# from .user_security import UserSecurity
 from .email_verification import EmailVerification
 
 __all__ = [
     "User",
     "OTP",
-    "UserProfile",
-    "UserSecurity",
+    # "UserProfile",  # Deprecated - fields moved to User model
+    # "UserSecurity",  # Deprecated - fields moved to User model
     "EmailVerification",
     "Address",
     "Review",

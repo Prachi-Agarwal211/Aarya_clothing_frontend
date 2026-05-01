@@ -97,9 +97,15 @@ def _ensure_users_signup_verification_method_column() -> None:
 def init_db():
     """Initialize database tables."""
     # Import all models here so Base knows about them
-    from models import User, UserProfile, UserSecurity, EmailVerification, OTP
+    from models import User, EmailVerification, OTP
+    # UserProfile is deprecated - fields moved to User model
+    # from models import UserProfile
+    # UserSecurity is deprecated - fields moved to User model
+    # from models import UserSecurity
 
-    Base.metadata.create_all(bind=engine)
+    # Skip create_all to avoid foreign key issues with database initialization order
+    # Tables are created by init.sql script
+    # Base.metadata.create_all(bind=engine)
     _ensure_users_phone_verified_column()
     _ensure_users_signup_verification_method_column()
 

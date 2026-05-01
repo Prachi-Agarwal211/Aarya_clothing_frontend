@@ -95,27 +95,10 @@ export default function cloudflareLoader({
     fullUrl = `${normalizedR2Base}${cleanPath}`;
   }
 
-  // PERFORMANCE: Use Cloudflare Image Resizing API
-  // This transforms the image at the edge (CDN) before it reaches the user.
-  // Bypass in development because /cdn-cgi/image/ only exists behind Cloudflare proxy
-  const isLocal = typeof window !== 'undefined' 
-    ? (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.port === '3000')
-    : (process.env.NODE_ENV === 'development' || process.env.DOCKER_ENV === 'true');
-
-  if (isLocal) {
-    return fullUrl;
-  }
-
-  const params = [
-    `width=${width}`,
-    `quality=${quality}`,
-    'format=auto',
-    'fit=scale-down', // Prevent upscaling small images
-    'metadata=none'   // Strip EXIF data to save more bytes
-  ].join(',');
-
-  // The format is: https://yourdomain.com/cdn-cgi/image/{params}/{fullUrl}
-  return `/cdn-cgi/image/${params}/${fullUrl}`;
+  // Return direct R2 URL - Cloudflare Image Resizing via /cdn-cgi/image/
+  // requires the "Image Resizing" paid addon which is not enabled on this domain.
+  // R2 public bucket already serves via Cloudflare CDN with caching.
+  return fullUrl;
 }
 
 /**

@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Mail, MessageCircle, Smartphone } from 'lucide-react';
 import Image from 'next/image';
 import { useAuth } from '../../../lib/authContext';
+import { authApi } from '../../../lib/customerApi';
 import logger from '../../../lib/logger';
 import { getDeviceFingerprint, getDeviceName } from '../../../lib/deviceFingerprint';
 import { useLogo, useSiteConfig } from '../../../lib/siteConfigContext';

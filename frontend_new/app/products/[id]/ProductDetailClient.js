@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -55,7 +55,10 @@ export default function ProductDetailClient({ initialProduct, initialReviews }) 
   const { addItem, openCart } = useCart();
   const { isAuthenticated } = useAuth();
 
-  const [product] = useState(initialProduct);
+  // Fix 1: Sync product state with incoming prop so data stays fresh
+  const [product, setProduct] = useState(initialProduct);
+  const [heroError, setHeroError] = useState(false);
+  const [thumbErrors, setThumbErrors] = useState({});
   const [reviews, setReviews] = useState(initialReviews || []);
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [selectedImage, setSelectedImage] = useState(0);
@@ -67,6 +70,11 @@ export default function ProductDetailClient({ initialProduct, initialReviews }) 
   const [activeTab, setActiveTab] = useState('description');
   const [showSizeGuide, setShowSizeGuide] = useState(false);
   const [touchStartX, setTouchStartX] = useState(null);
+
+  // Sync when parent passes a new product (e.g. after revalidation)
+  useEffect(() => {
+    if (initialProduct) setProduct(initialProduct);
+  }, [initialProduct]);
 
   const handleShare = async () => {
     const url = typeof window !== 'undefined' ? window.location.href : '';
@@ -116,7 +124,7 @@ export default function ProductDetailClient({ initialProduct, initialReviews }) 
   const handleImageTouchEnd = (e) => {
     if (touchStartX === null || !product?.images?.length) return;
     const dx = e.changedTouches[0].clientX - touchStartX;
-    if (Math.abs(dx) < 40) return;
+    if (Math.abs(dx) < 80) return;
     setSelectedImage(prev =>
       dx < 0
         ? (prev + 1) % product.images.length
@@ -153,23 +161,49 @@ export default function ProductDetailClient({ initialProduct, initialReviews }) 
     return product.inventory.some((inv) => (normalizeHex(inv.color_hex) || selHex) === selHex && inv.in_stock);
   };
 
+  // Fix 3: Consolidated initialization — runs once when product loads,
+  // then separately when the user actively changes size/color.
+  // Uses an "initialized" flag to avoid the cascading re-render loop.
+  const [initialized, setInitialized] = useState(false);
+
   useEffect(() => {
-    if (product?.inventory?.length) {
-      setSelectedVariant(getMatchingVariant(selectedSize, selectedColorKey));
+    if (!product || initialized) return;
+
+    // Auto-select first color with stock
+    if (product.colors?.length && !selectedColor) {
+      const firstWithStock = product.colors.find(c => colorHasAnyStock(c)) || product.colors[0];
+      if (firstWithStock) setSelectedColor(firstWithStock);
     }
-  }, [selectedSize, selectedColorKey, product]);
 
-  useEffect(() => {
-    if (!product?.sizes?.length || selectedSize) return;
-    const firstAvailable = product.sizes.find((size) => getMatchingVariant(size)) || product.sizes[0];
-    if (firstAvailable) setSelectedSize(firstAvailable);
-  }, [product, selectedSize]);
+    // Auto-select first available size
+    if (product.sizes?.length && !selectedSize) {
+      const colorKey = selectedColor ? normalizeHex(selectedColor.hex) : null;
+      const firstAvailable = product.sizes.find(
+        (size) => product.inventory?.some(
+          (inv) => inv.size === size && inv.in_stock && (!colorKey || normalizeHex(inv.color_hex) === colorKey)
+        )
+      ) || product.sizes[0];
+      if (firstAvailable) setSelectedSize(firstAvailable);
+    }
 
+    setInitialized(true);
+  }, [product, initialized, selectedColor, selectedSize]);
+
+  // Update variant when size or color changes (user-initiated or initialized)
   useEffect(() => {
-    if (!product?.colors?.length || selectedColor) return;
-    const firstWithStock = product.colors.find(c => colorHasAnyStock(c)) || product.colors[0];
-    if (firstWithStock) setSelectedColor(firstWithStock);
-  }, [product, selectedColor]);
+    if (!product?.inventory?.length) return;
+    const colorKey = selectedColor ? normalizeHex(selectedColor.hex) : null;
+    const targetName = normalizeColorName(selectedColor?.name);
+    const variant = product.inventory.find((inv) => {
+      if (inv.size !== selectedSize) return false;
+      if (!colorKey) return true;
+      const invHex = normalizeHex(inv.color_hex);
+      if (invHex && invHex === colorKey) return true;
+      if (targetName && normalizeColorName(inv.color) === targetName) return true;
+      return false;
+    }) || null;
+    setSelectedVariant(variant);
+  }, [selectedSize, selectedColor, product]);
 
   const handleAddToCart = async () => {
     if (!isAuthenticated) {
@@ -238,7 +272,7 @@ export default function ProductDetailClient({ initialProduct, initialReviews }) 
                 {(() => {
                   const variantImage = findVariantImageForColor(selectedColor);
                   const heroSrc = (product.images && product.images[selectedImage]?.image_url) || variantImage || product.image_url || product.primary_image;
-                  return heroSrc ? (
+                  return heroSrc && !heroError ? (
                     <Image
                       src={heroSrc}
                       alt={product.name}
@@ -246,8 +280,9 @@ export default function ProductDetailClient({ initialProduct, initialReviews }) 
                       className="object-cover"
                       sizes="(max-width: 768px) 100vw, 50vw"
                       priority
+                      onError={() => setHeroError(true)}
                     />
-                  ) : <div className="absolute inset-0 flex items-center justify-center text-[#B76E79]/30">No Image</div>;
+                  ) : <div className="absolute inset-0 flex items-center justify-center text-[#B76E79]/30"><ShoppingBag className="w-12 h-12" /></div>;
                 })()}
                 {discountPercent > 0 && (
                   <span className="absolute top-4 right-4 px-3 py-1.5 bg-[#B76E79]/80 text-white text-sm rounded-lg">
@@ -261,10 +296,23 @@ export default function ProductDetailClient({ initialProduct, initialReviews }) 
                   {product.images.map((img, idx) => (
                     <button
                       key={idx}
-                      onClick={() => setSelectedImage(idx)}
+                      onClick={() => { setSelectedImage(idx); setHeroError(false); }}
                       className={`relative flex-shrink-0 w-20 h-20 rounded-xl overflow-hidden border-2 transition-all ${selectedImage === idx ? 'border-[#B76E79]' : 'border-[#B76E79]/20'}`}
                     >
-                      <Image src={img.image_url} alt={product.name} fill className="object-cover" sizes="80px" />
+                      {thumbErrors[idx] ? (
+                        <div className="absolute inset-0 flex items-center justify-center bg-[#0B0608]/60 text-[#B76E79]/30">
+                          <ShoppingBag className="w-5 h-5" />
+                        </div>
+                      ) : (
+                        <Image
+                          src={img.image_url}
+                          alt={product.name}
+                          fill
+                          className="object-cover"
+                          sizes="80px"
+                          onError={() => setThumbErrors(prev => ({ ...prev, [idx]: true }))}
+                        />
+                      )}
                     </button>
                   ))}
                 </div>

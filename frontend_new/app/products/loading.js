@@ -5,7 +5,7 @@ export default function ProductsLoading() {
     <main className="min-h-screen text-[#EAE0D5] selection:bg-[#F2C29A] selection:text-[#050203]">
       <div className="relative z-10 page-wrapper">
         {/* Header skeleton */}
-        <div className="h-16 bg-[#0B0608]/60 border-b border-[#B76E79]/10" />
+        <div className="h-16 md:h-20 bg-[#0B0608]/60 border-b border-[#B76E79]/10" />
         
         <div className="page-content">
           <div className="container mx-auto px-4 sm:px-6 md:px-8 header-spacing">

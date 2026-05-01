@@ -1,0 +1,667 @@
+{
+  "nodes": [
+    {
+      "id": "frontend_new_app_products_page_js",
+      "label": "page.js",
+      "file_type": "code",
+      "source_file": "frontend_new\\app\\products\\page.js",
+      "source_location": "L1"
+    },
+    {
+      "id": "page_getinitialdata",
+      "label": "getInitialData()",
+      "file_type": "code",
+      "source_file": "frontend_new\\app\\products\\page.js",
+      "source_location": "L8"
+    },
+    {
+      "id": "page_productspage",
+      "label": "ProductsPage()",
+      "file_type": "code",
+      "source_file": "frontend_new\\app\\products\\page.js",
+      "source_location": "L42"
+    },
+    {
+      "id": "frontend_new_app_products_productsclient_js",
+      "label": "ProductsClient.js",
+      "file_type": "code",
+      "source_file": "frontend_new\\app\\products\\ProductsClient.js",
+      "source_location": "L1"
+    },
+    {
+      "id": "productsclient_fetchproductsapi",
+      "label": "fetchProductsAPI()",
+      "file_type": "code",
+      "source_file": "frontend_new\\app\\products\\ProductsClient.js",
+      "source_location": "L30"
+    },
+    {
+      "id": "productsclient_fetchcollectionsapi",
+      "label": "fetchCollectionsAPI()",
+      "file_type": "code",
+      "source_file": "frontend_new\\app\\products\\ProductsClient.js",
+      "source_location": "L50"
+    },
+    {
+      "id": "productsclient_productscontent",
+      "label": "ProductsContent()",
+      "file_type": "code",
+      "source_file": "frontend_new\\app\\products\\ProductsClient.js",
+      "source_location": "L63"
+    },
+    {
+      "id": "frontend_new_app_products_id_page_js",
+      "label": "page.js",
+      "file_type": "code",
+      "source_file": "frontend_new\\app\\products\\[id]\\page.js",
+      "source_location": "L1"
+    },
+    {
+      "id": "page_page",
+      "label": "Page()",
+      "file_type": "code",
+      "source_file": "frontend_new\\app\\products\\[id]\\page.js",
+      "source_location": "L16"
+    },
+    {
+      "id": "frontend_new_app_products_id_productdetailclient_js",
+      "label": "ProductDetailClient.js",
+      "file_type": "code",
+      "source_file": "frontend_new\\app\\products\\[id]\\ProductDetailClient.js",
+      "source_location": "L1"
+    },
+    {
+      "id": "productdetailclient_normalizehex",
+      "label": "normalizeHex()",
+      "file_type": "code",
+      "source_file": "frontend_new\\app\\products\\[id]\\ProductDetailClient.js",
+      "source_location": "L33"
+    },
+    {
+      "id": "productdetailclient_normalizecolorname",
+      "label": "normalizeColorName()",
+      "file_type": "code",
+      "source_file": "frontend_new\\app\\products\\[id]\\ProductDetailClient.js",
+      "source_location": "L40"
+    },
+    {
+      "id": "productdetailclient_variantmatchescolor",
+      "label": "variantMatchesColor()",
+      "file_type": "code",
+      "source_file": "frontend_new\\app\\products\\[id]\\ProductDetailClient.js",
+      "source_location": "L45"
+    },
+    {
+      "id": "productdetailclient_productdetailclient",
+      "label": "ProductDetailClient()",
+      "file_type": "code",
+      "source_file": "frontend_new\\app\\products\\[id]\\ProductDetailClient.js",
+      "source_location": "L52"
+    },
+    {
+      "id": "frontend_new_components_common_productcard_jsx",
+      "label": "ProductCard.jsx",
+      "file_type": "code",
+      "source_file": "frontend_new\\components\\common\\ProductCard.jsx",
+      "source_location": "L1"
+    },
+    {
+      "id": "productcard_ensurefullurl",
+      "label": "ensureFullUrl()",
+      "file_type": "code",
+      "source_file": "frontend_new\\components\\common\\ProductCard.jsx",
+      "source_location": "L18"
+    },
+    {
+      "id": "productcard_productcard",
+      "label": "ProductCard()",
+      "file_type": "code",
+      "source_file": "frontend_new\\components\\common\\ProductCard.jsx",
+      "source_location": "L23"
+    }
+  ],
+  "edges": [
+    {
+      "source": "frontend_new_app_products_page_js",
+      "target": "react",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend_new\\app\\products\\page.js",
+      "source_location": "L1",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_new_app_products_page_js",
+      "target": "frontend_new_app_products_productsclient",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend_new\\app\\products\\page.js",
+      "source_location": "L2",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_new_app_products_page_js",
+      "target": "customerapi",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend_new\\app\\products\\page.js",
+      "source_location": "L3",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_new_app_products_page_js",
+      "target": "logger",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend_new\\app\\products\\page.js",
+      "source_location": "L4",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_new_app_products_page_js",
+      "target": "page_getinitialdata",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend_new\\app\\products\\page.js",
+      "source_location": "L8",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_new_app_products_page_js",
+      "target": "page_productspage",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend_new\\app\\products\\page.js",
+      "source_location": "L42",
+      "weight": 1.0
+    },
+    {
+      "source": "page_productspage",
+      "target": "page_getinitialdata",
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend_new\\app\\products\\page.js",
+      "source_location": "L44",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_new_app_products_productsclient_js",
+      "target": "react",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend_new\\app\\products\\ProductsClient.js",
+      "source_location": "L3",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_new_app_products_productsclient_js",
+      "target": "usedebounce",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend_new\\app\\products\\ProductsClient.js",
+      "source_location": "L4",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_new_app_products_productsclient_js",
+      "target": "link",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend_new\\app\\products\\ProductsClient.js",
+      "source_location": "L5",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_new_app_products_productsclient_js",
+      "target": "lucide_react",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend_new\\app\\products\\ProductsClient.js",
+      "source_location": "L6",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_new_app_products_productsclient_js",
+      "target": "enhancedheader",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend_new\\app\\products\\ProductsClient.js",
+      "source_location": "L15",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_new_app_products_productsclient_js",
+      "target": "footer",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend_new\\app\\products\\ProductsClient.js",
+      "source_location": "L16",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_new_app_products_productsclient_js",
+      "target": "productcard",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend_new\\app\\products\\ProductsClient.js",
+      "source_location": "L17",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_new_app_products_productsclient_js",
+      "target": "logger",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend_new\\app\\products\\ProductsClient.js",
+      "source_location": "L18",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_new_app_products_productsclient_js",
+      "target": "productsclient_fetchproductsapi",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend_new\\app\\products\\ProductsClient.js",
+      "source_location": "L30",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_new_app_products_productsclient_js",
+      "target": "productsclient_fetchcollectionsapi",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend_new\\app\\products\\ProductsClient.js",
+      "source_location": "L50",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_new_app_products_productsclient_js",
+      "target": "productsclient_productscontent",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend_new\\app\\products\\ProductsClient.js",
+      "source_location": "L63",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_new_app_products_id_page_js",
+      "target": "react",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend_new\\app\\products\\[id]\\page.js",
+      "source_location": "L1",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_new_app_products_id_page_js",
+      "target": "navigation",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend_new\\app\\products\\[id]\\page.js",
+      "source_location": "L2",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_new_app_products_id_page_js",
+      "target": "frontend_new_app_products_id_productdetailclient",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend_new\\app\\products\\[id]\\page.js",
+      "source_location": "L3",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_new_app_products_id_page_js",
+      "target": "customerapi",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend_new\\app\\products\\[id]\\page.js",
+      "source_location": "L4",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_new_app_products_id_page_js",
+      "target": "logger",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend_new\\app\\products\\[id]\\page.js",
+      "source_location": "L5",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_new_app_products_id_page_js",
+      "target": "page_page",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend_new\\app\\products\\[id]\\page.js",
+      "source_location": "L16",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_new_app_products_id_productdetailclient_js",
+      "target": "react",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend_new\\app\\products\\[id]\\ProductDetailClient.js",
+      "source_location": "L3",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_new_app_products_id_productdetailclient_js",
+      "target": "navigation",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend_new\\app\\products\\[id]\\ProductDetailClient.js",
+      "source_location": "L4",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_new_app_products_id_productdetailclient_js",
+      "target": "link",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend_new\\app\\products\\[id]\\ProductDetailClient.js",
+      "source_location": "L5",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_new_app_products_id_productdetailclient_js",
+      "target": "image",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend_new\\app\\products\\[id]\\ProductDetailClient.js",
+      "source_location": "L6",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_new_app_products_id_productdetailclient_js",
+      "target": "lucide_react",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend_new\\app\\products\\[id]\\ProductDetailClient.js",
+      "source_location": "L7",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_new_app_products_id_productdetailclient_js",
+      "target": "enhancedheader",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend_new\\app\\products\\[id]\\ProductDetailClient.js",
+      "source_location": "L19",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_new_app_products_id_productdetailclient_js",
+      "target": "footer",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend_new\\app\\products\\[id]\\ProductDetailClient.js",
+      "source_location": "L20",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_new_app_products_id_productdetailclient_js",
+      "target": "sizeguidemodal",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend_new\\app\\products\\[id]\\ProductDetailClient.js",
+      "source_location": "L21",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_new_app_products_id_productdetailclient_js",
+      "target": "relatedproducts",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend_new\\app\\products\\[id]\\ProductDetailClient.js",
+      "source_location": "L22",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_new_app_products_id_productdetailclient_js",
+      "target": "reviewform",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend_new\\app\\products\\[id]\\ProductDetailClient.js",
+      "source_location": "L23",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_new_app_products_id_productdetailclient_js",
+      "target": "customerapi",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend_new\\app\\products\\[id]\\ProductDetailClient.js",
+      "source_location": "L24",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_new_app_products_id_productdetailclient_js",
+      "target": "cartcontext",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend_new\\app\\products\\[id]\\ProductDetailClient.js",
+      "source_location": "L25",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_new_app_products_id_productdetailclient_js",
+      "target": "authcontext",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend_new\\app\\products\\[id]\\ProductDetailClient.js",
+      "source_location": "L26",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_new_app_products_id_productdetailclient_js",
+      "target": "logger",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend_new\\app\\products\\[id]\\ProductDetailClient.js",
+      "source_location": "L27",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_new_app_products_id_productdetailclient_js",
+      "target": "usealerttoast",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend_new\\app\\products\\[id]\\ProductDetailClient.js",
+      "source_location": "L28",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_new_app_products_id_productdetailclient_js",
+      "target": "colormap",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend_new\\app\\products\\[id]\\ProductDetailClient.js",
+      "source_location": "L29",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_new_app_products_id_productdetailclient_js",
+      "target": "productdetailclient_normalizehex",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend_new\\app\\products\\[id]\\ProductDetailClient.js",
+      "source_location": "L33",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_new_app_products_id_productdetailclient_js",
+      "target": "productdetailclient_normalizecolorname",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend_new\\app\\products\\[id]\\ProductDetailClient.js",
+      "source_location": "L40",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_new_app_products_id_productdetailclient_js",
+      "target": "productdetailclient_variantmatchescolor",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend_new\\app\\products\\[id]\\ProductDetailClient.js",
+      "source_location": "L45",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_new_app_products_id_productdetailclient_js",
+      "target": "productdetailclient_productdetailclient",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend_new\\app\\products\\[id]\\ProductDetailClient.js",
+      "source_location": "L52",
+      "weight": 1.0
+    },
+    {
+      "source": "productdetailclient_variantmatchescolor",
+      "target": "productdetailclient_normalizehex",
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend_new\\app\\products\\[id]\\ProductDetailClient.js",
+      "source_location": "L47",
+      "weight": 1.0
+    },
+    {
+      "source": "productdetailclient_productdetailclient",
+      "target": "productdetailclient_normalizehex",
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend_new\\app\\products\\[id]\\ProductDetailClient.js",
+      "source_location": "L128",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_new_components_common_productcard_jsx",
+      "target": "react",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend_new\\components\\common\\ProductCard.jsx",
+      "source_location": "L3",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_new_components_common_productcard_jsx",
+      "target": "link",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend_new\\components\\common\\ProductCard.jsx",
+      "source_location": "L4",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_new_components_common_productcard_jsx",
+      "target": "navigation",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend_new\\components\\common\\ProductCard.jsx",
+      "source_location": "L5",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_new_components_common_productcard_jsx",
+      "target": "image",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend_new\\components\\common\\ProductCard.jsx",
+      "source_location": "L6",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_new_components_common_productcard_jsx",
+      "target": "lucide_react",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend_new\\components\\common\\ProductCard.jsx",
+      "source_location": "L7",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_new_components_common_productcard_jsx",
+      "target": "utils",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend_new\\components\\common\\ProductCard.jsx",
+      "source_location": "L8",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_new_components_common_productcard_jsx",
+      "target": "cartcontext",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend_new\\components\\common\\ProductCard.jsx",
+      "source_location": "L9",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_new_components_common_productcard_jsx",
+      "target": "authcontext",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend_new\\components\\common\\ProductCard.jsx",
+      "source_location": "L10",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_new_components_common_productcard_jsx",
+      "target": "toast",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend_new\\components\\common\\ProductCard.jsx",
+      "source_location": "L11",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_new_components_common_productcard_jsx",
+      "target": "cartanimation",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend_new\\components\\common\\ProductCard.jsx",
+      "source_location": "L12",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_new_components_common_productcard_jsx",
+      "target": "baseapi",
+      "relation": "imports_from",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend_new\\components\\common\\ProductCard.jsx",
+      "source_location": "L13",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_new_components_common_productcard_jsx",
+      "target": "productcard_ensurefullurl",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend_new\\components\\common\\ProductCard.jsx",
+      "source_location": "L18",
+      "weight": 1.0
+    },
+    {
+      "source": "frontend_new_components_common_productcard_jsx",
+      "target": "productcard_productcard",
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend_new\\components\\common\\ProductCard.jsx",
+      "source_location": "L23",
+      "weight": 1.0
+    },
+    {
+      "source": "productcard_productcard",
+      "target": "productcard_ensurefullurl",
+      "relation": "calls",
+      "confidence": "EXTRACTED",
+      "source_file": "frontend_new\\components\\common\\ProductCard.jsx",
+      "source_location": "L111",
+      "weight": 1.0
+    }
+  ],
+  "input_tokens": 0,
+  "output_tokens": 0
+}

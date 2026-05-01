@@ -60,10 +60,8 @@ const ProductCard = ({ product, className, priority = false }) => {
 
     // On product browsing pages, require authentication and add to cart
     if (!isAuthenticated) {
-      if (typeof window !== 'undefined') {
-        const currentPath = window.location.pathname + window.location.search;
-        window.location.href = `/auth/login?redirect_url=${encodeURIComponent(currentPath)}`;
-      }
+      const currentPath = window.location.pathname + window.location.search;
+      router.push(`/auth/login?redirect_url=${encodeURIComponent(currentPath)}`);
       return;
     }
 

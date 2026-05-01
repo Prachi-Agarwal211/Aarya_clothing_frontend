@@ -3,25 +3,18 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useDebounce } from '@/lib/hooks/useDebounce';
 import Link from 'next/link';
-import Image from 'next/image';
-import { useRouter } from 'next/navigation';
 import {
   Search,
-  Grid,
-  List,
   ChevronDown,
   X,
   SlidersHorizontal,
   ChevronLeft,
   ChevronRight as ChevronRightIcon,
   ShoppingBag,
-  ShoppingCart,
-  Star,
 } from 'lucide-react';
-import { useCart } from '@/lib/cartContext';
-import { useAuth } from '@/lib/authContext';
 import EnhancedHeader from '@/components/landing/EnhancedHeader';
 import Footer from '@/components/landing/Footer';
+import ProductCard from '@/components/common/ProductCard';
 import logger from '@/lib/logger';
 
 const SORT_OPTIONS = [
@@ -68,34 +61,11 @@ async function fetchCollectionsAPI() {
 }
 
 export default function ProductsContent({ initialFilters, initialData }) {
-  const router = useRouter();
-  const { addItem, openCart } = useCart();
-  const { isStaff } = useAuth();
-  const isAdminUser = isStaff();
-  const [quickAddingId, setQuickAddingId] = React.useState(null);
-
-  const handleQuickAdd = async (e, product) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!product.in_stock || quickAddingId) return;
-    setQuickAddingId(product.id);
-    try {
-      const variantId = product.inventory?.[0]?.id || null;
-      await addItem(product.id, 1, variantId);
-      openCart();
-    } catch (err) {
-      logger.error('Quick add failed:', err);
-    } finally {
-      setQuickAddingId(null);
-    }
-  };
-
   const [products, setProducts] = useState(initialData?.products || []);
   const [collections, setCollections] = useState(initialData?.collections || []);
   const [totalProducts, setTotalProducts] = useState(initialData?.total || products.length);
   const [loading, setLoading] = useState(!initialData);
   const [error, setError] = useState(null);
-  const [viewMode, setViewMode] = useState('grid');
   const [showFilters, setShowFilters] = useState(false);
 
   const [filters, setFilters] = useState(initialFilters || {
@@ -202,9 +172,6 @@ export default function ProductsContent({ initialFilters, initialData }) {
     });
   };
 
-  const formatCurrency = (amount) =>
-    new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(amount);
-
   const hasActiveFilters = filters.collection_id || filters.minPrice || filters.maxPrice || filters.search;
   const totalPages = Math.ceil(totalProducts / PAGE_SIZE);
   const selectedCollection = collections.find(c => String(c.id) === String(filters.collection_id));
@@ -212,7 +179,7 @@ export default function ProductsContent({ initialFilters, initialData }) {
   return (
     <main className="min-h-screen text-[#EAE0D5] selection:bg-[#F2C29A] selection:text-[#050203]">
       <div className="relative z-10 page-wrapper">
-        <div className="h-16 bg-[#0B0608]/60 border-b border-[#B76E79]/10" />
+        <EnhancedHeader />
         <div className="page-content">
           <div className="container mx-auto px-4 sm:px-6 md:px-8 header-spacing">
             {/* Page Header */}
@@ -269,29 +236,13 @@ export default function ProductsContent({ initialFilters, initialData }) {
                 <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#EAE0D5]/50 pointer-events-none" />
               </div>
 
-              {/* View Mode & Filters Toggle */}
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setShowFilters(!showFilters)}
-                  className="md:hidden px-4 py-2.5 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-xl text-[#EAE0D5] hover:border-[#B76E79]/40 transition-colors"
-                >
-                  <SlidersHorizontal className="w-4 h-4" />
-                </button>
-                <div className="flex rounded-xl border border-[#B76E79]/20 overflow-hidden">
-                  <button
-                    onClick={() => setViewMode('grid')}
-                    className={`px-3 py-2.5 transition-colors ${viewMode === 'grid' ? 'bg-[#B76E79]/20 text-[#F2C29A]' : 'bg-[#0B0608]/60 text-[#EAE0D5]/50 hover:text-[#EAE0D5]'}`}
-                  >
-                    <Grid className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => setViewMode('list')}
-                    className={`px-3 py-2.5 transition-colors ${viewMode === 'list' ? 'bg-[#B76E79]/20 text-[#F2C29A]' : 'bg-[#0B0608]/60 text-[#EAE0D5]/50 hover:text-[#EAE0D5]'}`}
-                  >
-                    <List className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
+              {/* Filters Toggle (mobile) */}
+              <button
+                onClick={() => setShowFilters(!showFilters)}
+                className="md:hidden px-4 py-2.5 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-xl text-[#EAE0D5] hover:border-[#B76E79]/40 transition-colors"
+              >
+                <SlidersHorizontal className="w-4 h-4" />
+              </button>
             </div>
 
             <div className="flex gap-6">
@@ -432,107 +383,14 @@ export default function ProductsContent({ initialFilters, initialData }) {
 
                 {!error && !loading && products.length > 0 && (
                   <>
-                    <div className={`
-                      grid gap-4 md:gap-6
-                      ${viewMode === 'grid' ? 'grid-cols-2 md:grid-cols-3 lg:grid-cols-4' : 'grid-cols-1'}
-                    `}>
-                      {products.map(product => {
-                      // Validate product ID to prevent null/undefined URLs
-                      const productHref = product.id ? `/products/${product.slug || product.id}` : '/products';
-                      return (
-                        <Link
-                          key={product.id ?? `product-${product.sku ?? product.slug ?? 'unknown'}`}
-                          href={productHref}
-                          className="group"
-                        >
-                          <div className={`
-                            bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15
-                            rounded-2xl overflow-hidden
-                            hover:border-[#B76E79]/30 hover:shadow-[0_0_30px_rgba(183,110,121,0.1)]
-                            transition-all duration-300
-                            ${viewMode === 'list' ? 'flex' : ''}
-                          `}>
-                            {/* Image */}
-                            <div className={`
-                              relative overflow-hidden flex-shrink-0
-                              ${viewMode === 'list' ? 'w-32 h-32' : 'aspect-[3/4]'}
-                            `}>
-                              {(product.primary_image || product.image_url) ? (
-                                <Image
-                                  src={product.primary_image || product.image_url}
-                                  alt={product.name}
-                                  fill
-                                  className="object-cover group-hover:scale-105 transition-transform duration-500"
-                                  sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-                                />
-                              ) : (
-                                <div className="absolute inset-0 bg-[#1A1114] flex items-center justify-center">
-                                  <span className="text-[#B76E79]/30 text-xs">No Image</span>
-                                </div>
-                              )}
-                              {(product.is_new || product.is_new_arrival) && (
-                                <span className="absolute top-2 left-2 z-10 px-2 py-0.5 bg-[#7A2F57]/80 text-[#F2C29A] text-xs rounded-md">
-                                  New
-                                </span>
-                              )}
-                              {product.discount_percentage > 0 && (
-                                <span className="absolute top-2 right-2 z-10 px-2 py-0.5 bg-[#B76E79]/80 text-white text-xs rounded-md">
-                                  {product.discount_percentage}% OFF
-                                </span>
-                              )}
-                              {/* Quick-add (admin/staff only) */}
-                              {isAdminUser && viewMode === 'grid' && product.in_stock && (
-                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end justify-center pb-4 z-10">
-                                  <button
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      addItem(product.id, 1, product.inventory?.[0]?.id || null);
-                                      openCart();
-                                    }}
-                                    className="flex items-center gap-1.5 px-4 py-2 bg-[#7A2F57]/90 text-[#F2C29A] text-sm rounded-xl hover:bg-[#7A2F57] transition-colors backdrop-blur-sm"
-                                  >
-                                    <ShoppingCart className="w-3.5 h-3.5" />
-                                    Quick Add
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Info */}
-                            <div className="p-3 md:p-4">
-                              {(product.collection_name || product.category) && (
-                                <p className="text-xs text-[#B76E79] mb-1 truncate">
-                                  {product.collection_name || product.category}
-                                </p>
-                              )}
-                              <h3 className="font-medium text-[#EAE0D5] group-hover:text-[#F2C29A] transition-colors line-clamp-2 text-sm md:text-base">
-                                {product.name}
-                              </h3>
-                              <div className="flex items-center gap-2 mt-2 flex-wrap">
-                                <span className="font-semibold text-[#F2C29A]">{formatCurrency(product.price)}</span>
-                                {product.mrp && product.mrp > product.price && (
-                                  <span className="text-sm text-[#EAE0D5]/40 line-through">
-                                    {formatCurrency(product.mrp)}
-                                  </span>
-                                )}
-                              </div>
-                              {product.average_rating > 0 && (
-                                <div className="flex items-center gap-1 mt-2">
-                                  <Star className="w-3.5 h-3.5 fill-[#B76E79] text-[#B76E79]" />
-                                  <span className="text-xs text-[#EAE0D5]/70">
-                                    {product.average_rating.toFixed(1)} ({product.review_count || product.reviews_count || 0})
-                                  </span>
-                                </div>
-                              )}
-                              {!product.in_stock && (
-                                <p className="text-xs text-red-400 mt-2 font-medium">Out of Stock</p>
-                              )}
-                            </div>
-                          </div>
-                        </Link>
-                      );
-                    })}
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+                      {products.map((product, index) => (
+                        <ProductCard
+                          key={product.id ?? `product-${product.sku ?? product.slug ?? index}`}
+                          product={product}
+                          priority={index < 4}
+                        />
+                      ))}
                     </div>
 
                     {/* Pagination */}
@@ -563,8 +421,11 @@ export default function ProductsContent({ initialFilters, initialData }) {
             </div>
           </div>
         </div>
+
+        <div className="mt-16">
+          <Footer />
+        </div>
       </div>
-      <Footer />
     </main>
   );
 }

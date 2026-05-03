@@ -52,6 +52,8 @@ def _r2_url(path: str) -> str:
     """Convert R2 relative path to full R2 CDN URL."""
     if not path:
         return ""
+    if path.startswith("http://") or path.startswith("https://"):
+        return path
     from core.config import get_settings
     settings = get_settings()
     r2_base = settings.R2_PUBLIC_URL.rstrip('/')

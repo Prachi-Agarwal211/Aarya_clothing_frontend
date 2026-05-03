@@ -244,21 +244,71 @@ async def staff_orders_pending(
     }
 
 
-@router.post("/api/v1/staff/orders/{order_id}/mark-processed")
-async def staff_mark_processed(
+@router.put("/api/v1/staff/orders/{order_id}/ship")
+async def staff_ship_order(
+    order_id: int,
+    data: dict, # {tracking_number: str, notes?: str}
+    db: Session = Depends(get_db),
+    user: dict = Depends(require_staff),
+):
+    """Mark a confirmed order as shipped (staff action)."""
+    track = data.get("tracking_number")
+    if not track or not str(track).strip():
+        raise HTTPException(status_code=400, detail="Tracking number is required")
+    notes = data.get("notes") or f"Shipped (POD: {track})"
+    staff_id = user.get("user_id") or user.get("id")
+    now = now_ist().replace(tzinfo=None)
+
+    res = db.execute(
+        text(
+            "UPDATE orders SET status = 'shipped', tracking_number = :track, "
+            "updated_at = :now, shipped_at = :now "
+            "WHERE id = :id AND status = 'confirmed'"
+        ),
+        {"id": order_id, "track": track, "now": now}
+    )
+    if res.rowcount == 0:
+        raise HTTPException(status_code=404, detail="Order not found or not in 'confirmed' status")
+    
+    # Add tracking history
+    db.execute(
+        text(
+            "INSERT INTO order_tracking (order_id, status, notes, updated_by, created_at) "
+            "VALUES (:oid, 'shipped', :notes, :staff, :now)"
+        ),
+        {"oid": order_id, "notes": notes, "staff": staff_id, "now": now}
+    )
+    db.commit()
+    return {"id": order_id, "status": "shipped"}
+
+
+@router.put("/api/v1/staff/orders/{order_id}/deliver")
+async def staff_deliver_order(
     order_id: int,
     db: Session = Depends(get_db),
     user: dict = Depends(require_staff),
 ):
-    """Mark a confirmed order as shipped by staff processing."""
+    """Mark a shipped order as delivered (staff action)."""
+    staff_id = user.get("user_id") or user.get("id")
+    now = now_ist().replace(tzinfo=None)
+
     res = db.execute(
         text(
-            "UPDATE orders SET status = 'shipped', updated_at = :now "
-            "WHERE id = :id AND status = 'confirmed'"
+            "UPDATE orders SET status = 'delivered', updated_at = :now, delivered_at = :now "
+            "WHERE id = :id AND status = 'shipped'"
         ),
-        {"id": order_id, "now": now_ist().replace(tzinfo=None)},
+        {"id": order_id, "now": now}
     )
     if res.rowcount == 0:
-        raise HTTPException(status_code=404, detail="Order not found")
+        raise HTTPException(status_code=404, detail="Order not found or not in 'shipped' status")
+    
+    # Add tracking history
+    db.execute(
+        text(
+            "INSERT INTO order_tracking (order_id, status, notes, updated_by, created_at) "
+            "VALUES (:oid, 'delivered', 'Order marked as delivered', :staff, :now)"
+        ),
+        {"oid": order_id, "staff": staff_id, "now": now}
+    )
     db.commit()
-    return {"id": order_id, "status": "shipped"}
+    return {"id": order_id, "status": "delivered"}

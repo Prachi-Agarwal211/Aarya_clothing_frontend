@@ -251,6 +251,7 @@ async def excel_inventory_import(
 async def excel_orders_export(
     from_date: Optional[str] = None,
     to_date: Optional[str] = None,
+    status: Optional[str] = None,
     db: Session = Depends(get_db),
     user: dict = Depends(require_staff),
 ):
@@ -261,12 +262,17 @@ async def excel_orders_export(
     if to_date:
         where.append("DATE(o.created_at) <= :to_date")
         params["to_date"] = to_date
+    if status:
+        where.append("o.status = :status")
+        params["status"] = status
+
+    # Query with corrected column names and mapping
     rows = db.execute(
         text(
             "SELECT o.invoice_number, o.id AS order_id, o.status, "
-            "       o.payment_status, COALESCE(u.full_name, u.username) AS customer_name, "
+            "       o.payment_method AS payment_status, COALESCE(u.full_name, u.username) AS customer_name, "
             "       u.email AS customer_email, o.total_amount, o.subtotal, "
-            "       o.tax_amount, o.shipping_amount, o.created_at, "
+            "       o.gst_amount AS tax_amount, o.shipping_cost AS shipping_amount, o.created_at, "
             "       oi.product_name, oi.sku, oi.size, oi.color, oi.quantity, "
             "       oi.unit_price, oi.line_total "
             "FROM orders o LEFT JOIN users u ON u.id = o.user_id "
@@ -276,7 +282,119 @@ async def excel_orders_export(
         ),
         params,
     ).fetchall()
+    
+    # Process rows to ensure they match ORDER_HEADERS exactly
+    export_data = []
+    for r in rows:
+        m = r._mapping
+        export_data.append({
+            "invoice_number": m["invoice_number"],
+            "order_id": m["order_id"],
+            "status": m["status"],
+            "payment_status": m["payment_status"],
+            "customer_name": m["customer_name"],
+            "customer_email": m["customer_email"],
+            "total_amount": float(m["total_amount"] or 0),
+            "subtotal": float(m["subtotal"] or 0),
+            "tax_amount": float(m["tax_amount"] or 0),
+            "shipping_amount": float(m["shipping_amount"] or 0),
+            "created_at": str(m["created_at"]),
+            "product_name": m["product_name"],
+            "sku": m["sku"],
+            "size": m["size"],
+            "color": m["color"],
+            "quantity": m["quantity"],
+            "unit_price": float(m["unit_price"] or 0),
+            "line_total": float(m["line_total"] or 0),
+        })
+
     return _excel_response(
-        excel_service.export_orders([dict(r._mapping) for r in rows]),
+        excel_service.export_orders(export_data),
         "orders_export.xlsx",
     )
+
+
+@router.get("/api/v1/admin/orders/pod-template", tags=["Admin Excel"])
+async def excel_pod_template(
+    db: Session = Depends(get_db), 
+    user: dict = Depends(require_staff)
+):
+    """Download a template of all 'confirmed' orders to fill in POD numbers."""
+    rows = db.execute(
+        text(
+            "SELECT o.id, o.invoice_number, COALESCE(u.full_name, u.username) as customer_name, "
+            "       o.courier_name "
+            "FROM orders o LEFT JOIN users u ON u.id = o.user_id "
+            "WHERE o.status = 'confirmed' "
+            "ORDER BY o.created_at ASC"
+        )
+    ).fetchall()
+    
+    orders = [dict(r._mapping) for r in rows]
+    return _excel_response(
+        excel_service.pod_template(orders),
+        "shipment_template.xlsx"
+    )
+
+
+@router.post("/api/v1/admin/orders/upload-pod-excel", tags=["Admin Excel"])
+async def excel_pod_import(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    user: dict = Depends(require_staff),
+):
+    """Bulk update order status to 'shipped' via Excel upload."""
+    contents = await file.read()
+    try:
+        rows = excel_service.parse_pod_import(contents)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+        
+    updated = 0
+    errors = []
+    staff_id = user.get("user_id") or user.get("id")
+    now = now_ist().replace(tzinfo=None)
+    
+    for row in rows:
+        order_id = row["order_id"]
+        tracking = str(row["tracking_number"]).strip()
+        courier = str(row.get("courier_name") or "Delhivery").strip()
+        
+        if not tracking or tracking.lower() == "none":
+            continue
+            
+        # Update order status to shipped
+        res = db.execute(
+            text(
+                "UPDATE orders SET status = 'shipped', tracking_number = :track, "
+                "courier_name = :courier, updated_at = :now, shipped_at = :now "
+                "WHERE id = :id AND status = 'confirmed'"
+            ),
+            {"id": order_id, "track": tracking, "courier": courier, "now": now}
+        )
+        
+        if res.rowcount > 0:
+            # Add tracking history
+            db.execute(
+                text(
+                    "INSERT INTO order_tracking (order_id, status, notes, updated_by, created_at) "
+                    "VALUES (:oid, 'shipped', :notes, :staff, :now)"
+                ),
+                {
+                    "oid": order_id,
+                    "notes": f"Bulk shipped via Excel (Courier: {courier}, POD: {tracking})",
+                    "staff": staff_id,
+                    "now": now
+                }
+            )
+            updated += 1
+        else:
+            errors.append(f"Order #{order_id} not found or not in 'confirmed' status.")
+            
+    db.commit()
+    return {
+        "message": f"Successfully shipped {updated} orders",
+        "updated": updated,
+        "skipped": len(rows) - updated,
+        "errors": errors
+    }

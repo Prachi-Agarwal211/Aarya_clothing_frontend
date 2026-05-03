@@ -73,6 +73,9 @@ class QrCodeCreateRequest(BaseModel):
     amount: Decimal = Field(..., gt=0, description="Amount in smallest currency unit (paise)")
     description: str = Field(..., min_length=1, max_length=255, description="Payment description")
     notes: Optional[Dict[str, str]] = None
+    # Snapshot fields
+    cart_snapshot: Optional[List[Dict[str, Any]]] = None
+    shipping_address: Optional[str] = None
 
 
 class QrCodeCreateResponse(BaseModel):
@@ -109,6 +112,9 @@ class PaymentRequest(BaseModel):
     customer_phone: Optional[str] = None
     description: Optional[str] = None
     notes: Optional[Dict[str, str]] = None
+    # Snapshot fields
+    cart_snapshot: Optional[List[Dict[str, Any]]] = None
+    shipping_address: Optional[str] = None
 
 
 class PaymentResponse(BaseModel):

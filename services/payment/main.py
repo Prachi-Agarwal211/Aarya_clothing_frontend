@@ -69,36 +69,8 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"⚠ Payment service: Razorpay client not initialized - {str(e)}")
 
-    # FIX: Start background recovery job scheduler
-    # Runs every 5 minutes to catch missed webhooks
-    try:
-        from jobs.recovery_job import run_payment_recovery
-        import threading
-        import time
-        
-        def recovery_scheduler():
-            """Run recovery job every 5 minutes in background thread."""
-            while True:
-                try:
-                    logger.info("==> RECOVERY_JOB: Running scheduled payment recovery...")
-                    run_payment_recovery()
-                except Exception as e:
-                    logger.error(f"RECOVERY_JOB: Scheduled run failed: {e}", exc_info=True)
-                
-                # Sleep for 5 minutes
-                for _ in range(300):  # 5 minutes * 12 = 600 seconds, but we check every second
-                    time.sleep(1)
-        
-        # Start scheduler thread
-        scheduler_thread = threading.Thread(
-            target=recovery_scheduler,
-            daemon=True,  # Daemon thread will exit when main process exits
-            name="payment-recovery-scheduler"
-        )
-        scheduler_thread.start()
-        logger.info("✓ Payment service: Recovery job scheduler started (5 min intervals)")
-    except Exception as e:
-        logger.warning(f"⚠ Payment service: Could not start recovery scheduler - {str(e)}")
+    # Recovery job scheduler removed — recovery system deprecated
+    # Normal order creation is reliable; no safety net needed
 
     logger.info("✓ Payment service started")
     yield
@@ -464,13 +436,44 @@ async def create_qr_code(
         now = int(time.time())
         close_by = now + 300  # 5 minutes in seconds
 
+        notes = request.notes or {}
+
+        # If we have a cart snapshot, prepare a pending order in commerce
+        if request.cart_snapshot and request.shipping_address:
+            try:
+                import httpx
+                commerce_url = os.environ.get("COMMERCE_SERVICE_URL", "http://commerce:5002")
+                internal_secret = os.environ.get("INTERNAL_SERVICE_SECRET")
+                
+                prepare_resp = await httpx.AsyncClient().post(
+                    f"{commerce_url}/api/v1/orders/internal/orders/prepare",
+                    json={
+                        "user_id": current_user["id"],
+                        "cart_snapshot": request.cart_snapshot,
+                        "shipping_address": request.shipping_address,
+                        "total_amount": float(request.amount) / 100.0,
+                        "subtotal": float(notes.get("subtotal", float(request.amount) / 100.0)),
+                        "discount_applied": float(notes.get("discount_applied", 0)),
+                        "shipping_cost": float(notes.get("shipping_cost", 0)),
+                    },
+                    headers={"X-Internal-Secret": internal_secret},
+                    timeout=5.0
+                )
+                if prepare_resp.status_code == 200:
+                    pending_data = prepare_resp.json()
+                    pending_id = pending_data.get("pending_order_id")
+                    notes["pending_order_id"] = str(pending_id)
+                    logger.info(f"✓ QR_PENDING_ORDER_PREPARED: id={pending_id} for user={current_user['id']}")
+            except Exception as e:
+                logger.warning(f"⚠ Failed to prepare QR pending order: {e}")
+
         # Create Razorpay QR code
         razorpay_client = get_razorpay_client()
         qr_response = razorpay_client.create_qr_code(
             amount=int(request.amount),
             description=request.description,
             close_by=close_by,
-            notes=request.notes
+            notes=notes
         )
 
         qr_code_id = qr_response.get("id")
@@ -735,102 +738,6 @@ async def get_transaction_history(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to get transaction history: {str(e)}"
-        )
-
-
-# ==================== Recovery & Background Jobs ====================
-
-@app.post("/api/v1/admin/recovery/run", tags=["Recovery"])
-async def trigger_recovery_job(
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(require_admin)
-):
-    """
-    Manually trigger the payment recovery job.
-
-    Scans for completed payments without matching orders and attempts to create them.
-    Admin only.
-    """
-    try:
-        from jobs.recovery_job import run_payment_recovery
-
-        logger.info(f"RECOVERY_TRIGGER: admin={current_user.get('email')}")
-        result = run_payment_recovery()
-
-        return {
-            "success": True,
-            "message": "Recovery job completed",
-            "results": result
-        }
-    except Exception as e:
-        logger.error(f"RECOVERY_TRIGGER_FAILED: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=500,
-            detail=f"Recovery job failed: {str(e)}"
-        )
-
-
-@app.get("/api/v1/admin/recovery/orphaned-payments", tags=["Recovery"])
-async def list_orphaned_payments(
-    days: int = Query(7, ge=1, le=30),
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(require_admin)
-):
-    """
-    List payments that are completed but have no matching order.
-
-    Admin only. Used for manual recovery and monitoring.
-    """
-    try:
-        from sqlalchemy import text
-
-        result = db.execute(text("""
-            SELECT
-                pt.id AS payment_transaction_id,
-                pt.transaction_id,
-                pt.razorpay_order_id,
-                pt.razorpay_payment_id,
-                pt.razorpay_qr_code_id,
-                pt.user_id,
-                pt.amount,
-                pt.status,
-                pt.payment_method,
-                pt.created_at AS payment_created_at,
-                pt.completed_at AS payment_completed_at
-            FROM payment_transactions pt
-            LEFT JOIN orders o ON pt.order_id = o.id
-            WHERE pt.status = 'completed'
-              AND o.id IS NULL
-              AND pt.created_at > NOW() - make_interval(days => :days)
-            ORDER BY pt.created_at DESC
-        """), {"days": days})
-
-        payments = [
-            {
-                "payment_transaction_id": row[0],
-                "transaction_id": row[1],
-                "razorpay_order_id": row[2],
-                "razorpay_payment_id": row[3],
-                "razorpay_qr_code_id": row[4],
-                "user_id": row[5],
-                "amount": float(row[6]),
-                "status": row[7],
-                "payment_method": row[8],
-                "payment_created_at": str(row[9]),
-                "payment_completed_at": str(row[10]) if row[10] else None,
-            }
-            for row in result.fetchall()
-        ]
-
-        return {
-            "count": len(payments),
-            "payments": payments
-        }
-    except Exception as e:
-        logger.error(f"ORPHANED_PAYMENTS_QUERY_FAILED: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to query orphaned payments: {str(e)}"
         )
 
 

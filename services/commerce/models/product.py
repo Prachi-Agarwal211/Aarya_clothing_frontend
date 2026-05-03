@@ -4,6 +4,7 @@ from sqlalchemy.orm import relationship
 
 from database.database import Base
 from shared.time_utils import ist_naive
+from shared.storage.utils import get_r2_public_url
 from models.collection import Collection  # noqa: F401 - register before Product
 
 
@@ -84,7 +85,8 @@ class Product(Base):
         if not self.images:
             return None
         primary = next((img for img in self.images if getattr(img, "is_primary", False)), None)
-        return (primary or self.images[0]).image_url
+        raw_url = (primary or self.images[0]).image_url
+        return get_r2_public_url(raw_url)
 
     @property
     def tags(self):

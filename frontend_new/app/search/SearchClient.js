@@ -89,8 +89,21 @@ export default function SearchClient({ initialQuery, initialData, initialFilters
       if (maxP) params.max_price = parseFloat(maxP);
 
       const data = await productsApi.list(params);
-      const items = Array.isArray(data) ? data : (data?.items || data?.products || []);
-      const totalCount = data?.total ?? items.length;
+      
+      // Robust data extraction
+      let items = [];
+      if (Array.isArray(data)) {
+        items = data;
+      } else if (data?.items) {
+        items = data.items;
+      } else if (data?.products) {
+        items = data.products;
+      } else if (data?.hits) {
+        items = data.hits;
+      }
+      
+      const totalCount = data?.total ?? data?.total_hits ?? items.length;
+      
       setProducts(items);
       setTotal(totalCount);
     } catch (err) {
@@ -100,7 +113,7 @@ export default function SearchClient({ initialQuery, initialData, initialFilters
     } finally {
       setLoading(false);
     }
-  }, [initialData, initialFilters, initialQuery]);
+  }, []);
 
   // Run search when query/filters change
   useEffect(() => {

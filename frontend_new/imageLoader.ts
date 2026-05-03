@@ -103,7 +103,7 @@ export default function cloudflareLoader({
   // Return direct R2 URL - Cloudflare Image Resizing via /cdn-cgi/image/
   // requires the "Image Resizing" paid addon which is not enabled on this domain.
   // R2 public bucket already serves via Cloudflare CDN with caching.
-  return fullUrl;
+  return encodeURI(fullUrl);
 }
 
 /**

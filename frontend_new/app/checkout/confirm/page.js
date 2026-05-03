@@ -122,6 +122,7 @@ export default function CheckoutConfirmPage() {
         transaction_id: paymentId || undefined,
         razorpay_order_id: razorpayOrderId || undefined,
         razorpay_signature: paymentSignature || undefined,
+        pending_order_id: sessionStorage.getItem('pending_order_id') ? parseInt(sessionStorage.getItem('pending_order_id')) : undefined,
       };
 
       if (qrCodeId) orderPayload.qr_code_id = qrCodeId;
@@ -151,6 +152,7 @@ export default function CheckoutConfirmPage() {
       sessionStorage.removeItem('razorpay_order_id');
       sessionStorage.removeItem('payment_signature');
       sessionStorage.removeItem('qr_code_id');
+      sessionStorage.removeItem('pending_order_id');
     } catch (err) {
       logger.error('Error creating order:', err);
       // Clear the idempotency guard so the user can retry

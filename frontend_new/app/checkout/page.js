@@ -142,13 +142,26 @@ function CheckoutAddressPage() {
   };
 
   const handleContinue = () => {
-    if (!selectedAddress) {
+    const address = addresses.find(a => a.id === selectedAddress);
+    if (!address) {
       setError('Please select a delivery address');
       return;
     }
+
+    // Construct address string for snapshotting
+    const parts = [
+      address.full_name,
+      address.address_line1,
+      address.address_line2,
+      `${address.city}, ${address.state} - ${address.postal_code}`,
+      `Phone: ${address.phone}`
+    ];
+    const addressString = parts.filter(p => p).join(', ');
+
     // Clear any previous order to allow fresh checkout
     sessionStorage.removeItem('order_created');
     sessionStorage.setItem('checkout_address_id', selectedAddress);
+    sessionStorage.setItem('checkout_address_string', addressString);
     sessionStorage.removeItem('checkout_gstin');
     router.push('/checkout/payment');
   };

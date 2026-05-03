@@ -4,6 +4,7 @@ from sqlalchemy.orm import relationship
 
 from database.database import Base
 from shared.time_utils import ist_naive
+from shared.storage.utils import get_r2_public_url
 
 
 class ProductImage(Base):
@@ -19,3 +20,7 @@ class ProductImage(Base):
     updated_at = Column(DateTime, default=ist_naive, onupdate=ist_naive)
 
     product = relationship("Product", back_populates="images")
+
+    @property
+    def resolved_url(self):
+        return get_r2_public_url(self.image_url)

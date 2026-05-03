@@ -133,6 +133,27 @@ export default function RegisterPage() {
       return;
     }
 
+    const phoneDigits = phone.replace(/\D/g, '');
+    if (phoneDigits.length < 10) {
+      setError('Phone number must be at least 10 digits');
+      return;
+    }
+    if (phoneDigits.length > 15) {
+      setError('Phone number is too long');
+      return;
+    }
+
+    // Validate Indian number starts with 6/7/8/9 (after removing country code)
+    const coreDigits = phoneDigits.startsWith('91') && phoneDigits.length > 10
+      ? phoneDigits.slice(2)
+      : phoneDigits.startsWith('0')
+        ? phoneDigits.slice(1)
+        : phoneDigits;
+    if (coreDigits.length === 10 && !/^[6789]/.test(coreDigits)) {
+      setError('Invalid phone number. Must start with 6, 7, 8, or 9');
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {

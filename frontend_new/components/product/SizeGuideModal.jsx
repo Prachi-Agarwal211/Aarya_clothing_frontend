@@ -170,7 +170,23 @@ function SizeChart({ sizeData, measurementLabels }) {
   ];
 
   // Use backend data if available, otherwise use default
-  const sizes = sizeData?.size_chart?.length > 0 ? sizeData.size_chart : defaultSizeChart;
+  const rawSizes = sizeData?.size_chart?.length > 0 ? sizeData.size_chart : defaultSizeChart;
+
+  // Normalize backend nested format {chest_bust: {inches, centimeters}} to flat {chest_bust, chest_bustCm}
+  const sizes = rawSizes.map(row => {
+    if (typeof row.size === 'object') return row; // already flat/default
+    const flat = { size: row.size };
+    for (const [key, val] of Object.entries(row)) {
+      if (key === 'size' || typeof val !== 'object' || val === null) {
+        flat[key] = val;
+      } else {
+        flat[key] = val.inches;
+        flat[key + 'Cm'] = val.centimeters;
+      }
+    }
+    return flat;
+  });
+
   const measurements = sizes[0] ? Object.keys(sizes[0]).filter(k => k !== 'size') : [];
 
   // Friendly measurement labels

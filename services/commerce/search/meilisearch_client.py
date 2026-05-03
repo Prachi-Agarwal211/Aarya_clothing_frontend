@@ -363,11 +363,14 @@ def get_search_suggestions(query: str, limit: int = 5, db_session=None) -> Dict[
         trending = []
         if db_session:
             trend_rows = db_session.execute(text("""
-                SELECT DISTINCT p.name
-                FROM products p
-                WHERE p.is_active = true 
-                  AND p.name ILIKE :q
-                ORDER BY p.average_rating DESC, p.total_stock DESC
+                SELECT name
+                FROM (
+                    SELECT DISTINCT p.name, p.average_rating, p.total_stock
+                    FROM products p
+                    WHERE p.is_active = true 
+                      AND p.name ILIKE :q
+                ) as sub
+                ORDER BY average_rating DESC, total_stock DESC
                 LIMIT :lim
             """), {"q": f"%{query}%", "lim": 3}).fetchall()
             trending = [r[0] for r in trend_rows]

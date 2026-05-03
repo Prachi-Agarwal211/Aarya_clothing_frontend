@@ -11,9 +11,11 @@ from time import monotonic
 import logging
 
 from shared.time_utils import ist_naive, now_ist
+from shared.storage.utils import get_r2_public_url
 
 from core.config import settings
 from models.order import Order, OrderItem, OrderStatus
+from models.pending_order import PendingOrder
 from models.user import User
 from models.product import Product
 from models.inventory import Inventory
@@ -27,18 +29,6 @@ from service.email_outbox_service import EmailOutboxService
 from schemas.order import OrderCreate, OrderUpdate
 
 logger = logging.getLogger(__name__)
-
-
-def _make_full_image_url(path: str | None) -> str | None:
-    """Convert relative R2 path to full public URL."""
-    if not path:
-        return None
-    if path.startswith("http://") or path.startswith("https://"):
-        return path
-    r2_base = getattr(settings, "R2_PUBLIC_URL", "").rstrip("/")
-    if not r2_base:
-        return path
-    return f"{r2_base}/{path.lstrip('/')}"
 
 
 def sync_invoice_sequence(db: Session) -> None:
@@ -85,6 +75,153 @@ class OrderService:
         self.inventory_service = InventoryService(db)
         self.cart_service = CartService(db)
         self.email_service = EmailOutboxService(db)
+
+    def create_pending_order(
+        self,
+        user_id: int,
+        cart_snapshot: List[Dict],
+        shipping_address: str,
+        total_amount: Decimal,
+        subtotal: Decimal,
+        address_id: Optional[int] = None,
+        razorpay_order_id: Optional[str] = None,
+        discount_applied: Decimal = Decimal(0),
+        shipping_cost: Decimal = Decimal(0),
+    ) -> PendingOrder:
+        """Create a checkout snapshot."""
+        from datetime import timedelta
+        expires_at = now_ist() + timedelta(minutes=30)
+        pending = PendingOrder(
+            user_id=user_id,
+            cart_snapshot=cart_snapshot,
+            shipping_address=shipping_address,
+            address_id=address_id,
+            total_amount=total_amount,
+            subtotal=subtotal,
+            discount_applied=discount_applied,
+            shipping_cost=shipping_cost,
+            razorpay_order_id=razorpay_order_id,
+            status="pending",
+            expires_at=expires_at,
+        )
+        self.db.add(pending)
+        self.db.commit()
+        self.db.refresh(pending)
+        return pending
+
+    def _create_order_from_snapshot(
+        self,
+        user_id: int,
+        cart_items: List[Dict],
+        shipping_address: str,
+        total_amount: Decimal,
+        subtotal: Decimal,
+        payment_method: str = "razorpay",
+        transaction_id: Optional[str] = None,
+        razorpay_order_id: Optional[str] = None,
+        pending_order_id: Optional[int] = None,
+        discount_applied: Decimal = Decimal(0),
+        shipping_cost: Decimal = Decimal(0),
+        order_notes: Optional[str] = None,
+    ) -> Order:
+        """Internal helper to build an Order object from a list of items."""
+        order = Order(
+            user_id=user_id,
+            total_amount=total_amount,
+            subtotal=subtotal,
+            discount_applied=discount_applied,
+            shipping_cost=shipping_cost,
+            shipping_address=shipping_address,
+            billing_address=shipping_address,
+            status=OrderStatus.CONFIRMED,
+            payment_method=payment_method,
+            transaction_id=transaction_id,
+            razorpay_order_id=razorpay_order_id,
+            pending_order_id=pending_order_id,
+            order_notes=order_notes,
+        )
+        self.db.add(order)
+        self.db.flush()
+
+        # Add items
+        for item in cart_items:
+            # Re-verify variant exists (might have been deleted during payment)
+            variant = (
+                self.db.query(ProductVariant)
+                .filter(ProductVariant.id == item["variant_id"])
+                .first()
+            )
+            if not variant:
+                logger.warning(
+                    f"Variant {item['variant_id']} not found during order creation snapshot recovery"
+                )
+                continue
+
+            order_item = OrderItem(
+                order_id=order.id,
+                product_id=item["product_id"],
+                variant_id=item["variant_id"],
+                sku=item["sku"],
+                quantity=item["quantity"],
+                unit_price=Decimal(str(item["unit_price"])),
+                total_price=Decimal(str(item["unit_price"])) * item["quantity"],
+                size=item.get("size", variant.size),
+                color=item.get("color", variant.color),
+                image_url=item.get("image_url", variant.resolved_image_url),
+            )
+            self.db.add(order_item)
+
+            # Deduct stock immediately (atomic)
+            variant.quantity -= item["quantity"]
+
+        self.db.commit()
+        self.db.refresh(order)
+        return order
+
+    def create_order_from_pending_id(
+        self,
+        pending_id: int,
+        transaction_id: str,
+        payment_method: str = "razorpay",
+    ) -> Order:
+        """Create order from a pending order snapshot (webhook recovery)."""
+        pending = self.db.query(PendingOrder).filter(PendingOrder.id == pending_id).first()
+        if not pending:
+            raise ValueError(f"Pending order {pending_id} not found")
+
+        # Double check idempotency
+        existing = (
+            self.db.query(Order)
+            .filter(Order.pending_order_id == pending_id)
+            .first()
+        )
+        if existing:
+            logger.info(f"Order already exists for pending_id {pending_id}: {existing.id}")
+            return existing
+
+        order = self._create_order_from_snapshot(
+            user_id=pending.user_id,
+            cart_items=pending.cart_snapshot,
+            shipping_address=pending.shipping_address,
+            total_amount=pending.total_amount,
+            subtotal=pending.subtotal,
+            payment_method=payment_method,
+            transaction_id=transaction_id,
+            razorpay_order_id=pending.razorpay_order_id,
+            pending_order_id=pending.id,
+            discount_applied=pending.discount_applied,
+            shipping_cost=pending.shipping_cost,
+            order_notes=pending.order_notes,
+        )
+
+        # Update pending status
+        pending.status = "order_created"
+        pending.order_id = order.id
+        pending.transaction_id = transaction_id
+        pending.order_created_at = now_ist()
+        self.db.commit()
+
+        return order
 
     def get_user_orders(
         self,
@@ -142,6 +279,7 @@ class OrderService:
         razorpay_order_id: Optional[str] = None,
         qr_code_id: Optional[str] = None,
         payment_already_verified: bool = False,
+        pending_order_id: Optional[int] = None,
     ) -> Order:
         """
         Create order from user's cart.
@@ -453,6 +591,7 @@ class OrderService:
             status=initial_status,
             shipping_address=final_shipping_address,
             order_notes=order_notes,
+            pending_order_id=pending_order_id,
             # Razorpay payment details
             razorpay_order_id=razorpay_order_id,
             razorpay_payment_id=transaction_id
@@ -487,7 +626,7 @@ class OrderService:
             # Resolve image: use cart item's image (already full URL from product list) or variant's image.
             # Ensure we store a full R2 CDN URL for frontend display.
             raw_image = cart_item.get("image") or variant.image_url
-            full_image = _make_full_image_url(raw_image) if raw_image else None
+            full_image = get_r2_public_url(raw_image) if raw_image else None
 
             order_item = OrderItem(
                 order_id=order.id,

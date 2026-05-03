@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 import logging
 import json
+import os
 
 logger = logging.getLogger(__name__)
 from sqlalchemy import and_, or_
@@ -138,15 +139,48 @@ class PaymentService:
             
             # Create Razorpay order
             razorpay_client = get_razorpay_client()
+            
+            notes = {
+                "order_id": str(request.order_id),
+                "user_id": str(request.user_id),
+                "transaction_id": transaction.transaction_id
+            }
+
+            # If we have a cart snapshot, prepare a pending order in commerce
+            if request.cart_snapshot and request.shipping_address:
+                try:
+                    import httpx
+                    commerce_url = os.environ.get("COMMERCE_SERVICE_URL", "http://commerce:5002")
+                    internal_secret = os.environ.get("INTERNAL_SERVICE_SECRET")
+                    
+                    prepare_resp = httpx.post(
+                        f"{commerce_url}/api/v1/orders/internal/orders/prepare",
+                        json={
+                            "user_id": request.user_id,
+                            "cart_snapshot": request.cart_snapshot,
+                            "shipping_address": request.shipping_address,
+                            "total_amount": float(request.amount),
+                            "subtotal": float(request.notes.get("subtotal", request.amount)) if request.notes else float(request.amount),
+                            "discount_applied": float(request.notes.get("discount_applied", 0)) if request.notes else 0,
+                            "shipping_cost": float(request.notes.get("shipping_cost", 0)) if request.notes else 0,
+                        },
+                        headers={"X-Internal-Secret": internal_secret},
+                        timeout=5.0
+                    )
+                    if prepare_resp.status_code == 200:
+                        pending_data = prepare_resp.json()
+                        pending_id = pending_data.get("pending_order_id")
+                        notes["pending_order_id"] = str(pending_id)
+                        transaction.gateway_response = {"pending_order_id": pending_id}
+                        logger.info(f"✓ PENDING_ORDER_PREPARED: id={pending_id} for user={request.user_id}")
+                except Exception as e:
+                    logger.warning(f"⚠ Failed to prepare pending order: {e}")
+
             razorpay_order = razorpay_client.create_order(
                 amount=amount_paise,
                 currency=request.currency,
                 receipt=transaction.transaction_id,
-                notes={
-                    "order_id": str(request.order_id),
-                    "user_id": str(request.user_id),
-                    "transaction_id": transaction.transaction_id
-                }
+                notes=notes
             )
             
             # Update transaction with Razorpay order ID
@@ -1039,11 +1073,7 @@ class PaymentService:
         """Create order in commerce service when webhook confirms payment.
 
         This is the CRITICAL reliability path that prevents silent failures.
-        When payment succeeds but the frontend never called the order creation endpoint,
-        this method creates the order directly via the commerce service internal API.
-
-        FIX: Fetches cart data from commerce service before creating order to ensure
-        proper cart_snapshot and shipping_address are included.
+        We prioritize the pending_order_id snapshot created during checkout initiation.
         """
         try:
             import httpx
@@ -1056,52 +1086,33 @@ class PaymentService:
                 logger.error("INTERNAL_SERVICE_SECRET not configured — cannot create order from webhook")
                 return
 
-            # FIX: Fetch cart from commerce service to get actual items + shipping address
-            cart_snapshot = []
-            shipping_address = ""
-            try:
-                with httpx.Client(timeout=15.0) as client:
-                    cart_response = client.get(
-                        f"{commerce_url}/api/v1/internal/cart/{transaction.user_id}",
-                        headers={"X-Internal-Secret": internal_secret}
-                    )
-                    if cart_response.status_code == 200:
-                        cart_data = cart_response.json()
-                        cart_snapshot = cart_data.get("items", []) or cart_data.get("cart_snapshot", [])
-                        shipping_address = cart_data.get("shipping_address", "") or ""
-                        logger.info(
-                            f"WEBHOOK_CART_FETCH: user={transaction.user_id} "
-                            f"items={len(cart_snapshot)} shipping={'yes' if shipping_address else 'no'}"
-                        )
-                    else:
-                        logger.warning(
-                            f"WEBHOOK_CART_FETCH_FAILED: user={transaction.user_id} "
-                            f"status={cart_response.status_code} — using empty cart"
-                        )
-            except Exception as e:
-                logger.warning(f"WEBHOOK_CART_FETCH_ERROR: user={transaction.user_id} error={e} — using empty cart")
+            # Extract metadata
+            notes = event_info.get("notes", {})
+            pending_order_id = notes.get("pending_order_id")
+            
+            # Fallback to transaction metadata
+            if not pending_order_id and transaction.gateway_response and isinstance(transaction.gateway_response, dict):
+                pending_order_id = transaction.gateway_response.get("pending_order_id")
 
-            # Build pending_order_data with fetched cart data
-            pending_order_data = {
-                "cart_snapshot": cart_snapshot,
-                "shipping_address": shipping_address,
-                "subtotal": float(transaction.amount),
-                "total_amount": float(transaction.amount),
-                "shipping_cost": 0,
-                "gst_amount": 0,
-                "cgst_amount": 0,
-                "sgst_amount": 0,
-                "igst_amount": 0,
-                "order_notes": "Order created from payment webhook",
-                "payment_method": transaction.payment_method,
-            }
-
-            # Fallback: If cart was empty/failed and we have data in gateway_response, use it
-            if not cart_snapshot and transaction.gateway_response and isinstance(transaction.gateway_response, dict):
-                if "cart_snapshot" in transaction.gateway_response:
-                    pending_order_data["cart_snapshot"] = transaction.gateway_response["cart_snapshot"]
-                if "shipping_address" in transaction.gateway_response:
-                    pending_order_data["shipping_address"] = transaction.gateway_response["shipping_address"]
+            # Fallback: If no pending_order_id, try to fetch current cart (legacy/failsafe)
+            pending_order_data = {}
+            if not pending_order_id:
+                try:
+                    with httpx.Client(timeout=10.0) as client:
+                        cart_response = client.get(
+                            f"{commerce_url}/api/v1/internal/cart/{transaction.user_id}",
+                            headers={"X-Internal-Secret": internal_secret}
+                        )
+                        if cart_response.status_code == 200:
+                            cart_data = cart_response.json()
+                            pending_order_data = {
+                                "cart_snapshot": cart_data.get("items", []),
+                                "shipping_address": cart_data.get("shipping_address", ""),
+                                "subtotal": float(transaction.amount),
+                                "total_amount": float(transaction.amount),
+                            }
+                except Exception as e:
+                    logger.warning(f"WEBHOOK_CART_FETCH_ERROR: {e}")
 
             payload = {
                 "user_id": transaction.user_id,
@@ -1109,12 +1120,13 @@ class PaymentService:
                 "razorpay_order_id": transaction.razorpay_order_id or event_info.get("order_id"),
                 "payment_signature": transaction.razorpay_signature or "",
                 "amount": float(transaction.amount),
+                "pending_order_id": pending_order_id,
                 "pending_order_data": pending_order_data,
+                "payment_method": transaction.payment_method,
             }
 
             logger.info(
-                f"WEBHOOK_ORDER_CREATE: calling commerce internal endpoint "
-                f"user={transaction.user_id} payment={payload['payment_id']}"
+                f"WEBHOOK_ORDER_CREATE: user={transaction.user_id} payment={payload['payment_id']} pending_id={pending_order_id}"
             )
 
             with httpx.Client(timeout=30.0) as client:
@@ -1127,14 +1139,10 @@ class PaymentService:
                 if response.status_code == 200:
                     result = response.json()
                     order_id = result.get("order_id")
-                    logger.info(
-                        f"✓ WEBHOOK_ORDER_CREATED: order_id={order_id} "
-                        f"payment_id={payload['payment_id']}"
-                    )
-                    # Update transaction with order_id
                     transaction.order_id = order_id
                     self.db.commit()
-
+                    logger.info(f"✓ WEBHOOK_ORDER_CREATED: order_id={order_id}")
+                    
                     # AUDIT: Log successful order creation from webhook
                     _audit_payment_event(
                         self.db, event_type="order_created_from_webhook", success=True,
@@ -1144,13 +1152,11 @@ class PaymentService:
                         order_id=order_id,
                         transaction_id=transaction.transaction_id,
                         amount=float(transaction.amount),
+                        pending_order_id=pending_order_id,
                         response_data=result
                     )
                 else:
-                    logger.error(
-                        f"✗ WEBHOOK_ORDER_CREATE_FAILED: status={response.status_code} "
-                        f"body={response.text[:500]} payment_id={payload['payment_id']}"
-                    )
+                    logger.error(f"✗ WEBHOOK_ORDER_CREATE_FAILED: {response.text[:500]}")
                     # AUDIT: Log failed order creation
                     _audit_payment_event(
                         self.db, event_type="order_creation_failed", success=False,
@@ -1159,34 +1165,14 @@ class PaymentService:
                         error_message=f"Commerce service returned {response.status_code}",
                         error_details={"status": response.status_code, "body": response.text[:1000]},
                     )
-                    # Don't raise — transaction is already marked completed
-                    # The recovery job will handle this case
-
-        except httpx.TimeoutException:
-            logger.error(
-                f"✗ WEBHOOK_ORDER_CREATE_TIMEOUT: commerce service did not respond "
-                f"payment_id={transaction.razorpay_payment_id}"
-            )
-            _audit_payment_event(
-                self.db, event_type="order_creation_timeout", success=False,
-                razorpay_payment_id=transaction.razorpay_payment_id,
-                user_id=transaction.user_id,
-                error_message="Commerce service timeout",
-            )
         except Exception as e:
-            logger.error(
-                f"✗ WEBHOOK_ORDER_CREATE_ERROR: {str(e)} "
-                f"payment_id={transaction.razorpay_payment_id}",
-                exc_info=True
-            )
+            logger.error(f"✗ WEBHOOK_ORDER_CREATE_ERROR: {str(e)}", exc_info=True)
             _audit_payment_event(
                 self.db, event_type="order_creation_error", success=False,
                 razorpay_payment_id=transaction.razorpay_payment_id,
                 user_id=transaction.user_id,
                 error_message=str(e),
             )
-            # Don't raise — transaction is already completed
-            # Recovery job will handle order creation
     
     def _handle_payment_failed(self, event_info: Dict[str, Any]):
         """Handle payment failed webhook event."""

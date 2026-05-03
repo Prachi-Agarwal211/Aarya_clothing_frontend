@@ -166,6 +166,51 @@ async def get_landing_all(db: Session = Depends(get_db)):
             if img[1] in ("hero", "about") and img[1] in result:
                 result[img[1]]["images"].append(img_data)
 
+        # ── Transform hero config+images → frontend-expected shape ──
+        hero_config = result["hero"].get("config", {})
+        hero_images = result["hero"].get("images", [])
+
+        # Group images by device variant
+        laptop_images = [i for i in hero_images if not i.get("device") or i["device"] == "laptop"]
+        phone_images = [i for i in hero_images if i.get("device") == "phone"]
+
+        # Build slides: pair laptop + phone images by index
+        slides = []
+        max_slides = max(len(laptop_images), len(phone_images), 0)
+        for i in range(max_slides):
+            slide = {}
+            if i < len(laptop_images):
+                slide["image"] = laptop_images[i]["url"]
+            if i < len(phone_images):
+                slide["imageMobile"] = phone_images[i]["url"]
+            # If only one variant exists, use it for both
+            if not slide.get("image") and slide.get("imageMobile"):
+                slide["image"] = slide["imageMobile"]
+            if not slide.get("imageMobile") and slide.get("image"):
+                slide["imageMobile"] = slide["image"]
+            if slide:
+                slides.append(slide)
+
+        # Extract buttons from config (or use defaults)
+        buttons = hero_config.get("buttons", [
+            {"text": "Shop Now", "link": "/products"},
+            {"text": "Explore Collections", "link": "/collections"},
+        ])
+
+        result["hero"] = {
+            "tagline": hero_config.get("tagline", "Where Tradition Meets Modern Elegance"),
+            "slides": slides,
+            "buttons": buttons,
+        }
+
+        # ── Transform newArrivals config → frontend-expected shape ──
+        na_config = result["newArrivals"].get("config", {})
+        result["newArrivals"] = {
+            "title": na_config.get("title", "New Arrivals"),
+            "subtitle": na_config.get("subtitle", "Fresh styles, just for you"),
+            "products": result["newArrivals"]["products"],
+        }
+
         # Fallback for new arrivals: if empty, fetch any active featured products
         if not result["newArrivals"]["products"]:
             featured = db.execute(
@@ -182,11 +227,14 @@ async def get_landing_all(db: Session = Depends(get_db)):
             result["newArrivals"]["products"] = [
                 {
                     "id": p[0], "name": p[1], "slug": p[2], "description": p[3],
-                    "price": float(p[4]), "compareAtPrice": float(p[5]) if p[5] else None,
-                    "isNew": p[6], "image": p[7],
+                    "price": float(p[4]), "mrp": float(p[5]) if p[5] else None,
+                    "is_new_arrival": bool(p[6]),
+                    "image_url": p[7],
+                    "primary_image": p[7],
                 } for p in featured
             ]
 
+        # ── Transform collections → categories (frontend expects 'categories') ──
         collections = db.execute(
             text(
                 """
@@ -197,23 +245,37 @@ async def get_landing_all(db: Session = Depends(get_db)):
                 """
             )
         ).fetchall()
-        
+
         # Fallback for collections: if no featured collections, show any active collections
         if not collections:
             collections = db.execute(
                 text("SELECT id, name, slug, description, image_url FROM collections WHERE is_active = true LIMIT 6")
             ).fetchall()
 
-        result["collections"]["collections"] = [
-            {
-                "id": c[0],
-                "name": c[1],
-                "slug": c[2],
-                "description": c[3],
-                "image": c[4],
-            }
-            for c in collections
-        ]
+        coll_config = result["collections"].get("config", {})
+        result["collections"] = {
+            "title": coll_config.get("title", "Our Collections"),
+            "categories": [
+                {
+                    "id": c[0],
+                    "name": c[1],
+                    "slug": c[2],
+                    "description": c[3],
+                    "image_url": c[4],
+                }
+                for c in collections
+            ],
+        }
+
+        # ── Transform about config+images → frontend-expected shape ──
+        about_config = result["about"].get("config", {})
+        about_images = result["about"].get("images", [])
+        result["about"] = {
+            "title": about_config.get("title", "Our Story"),
+            "story": about_config.get("story", about_config.get("description", "")),
+            "stats": about_config.get("stats", []),
+            "images": [img["url"] for img in about_images],
+        }
 
         site_config = db.execute(text("SELECT key, value FROM site_config")).fetchall()
         config_dict = {row[0]: row[1] for row in site_config}

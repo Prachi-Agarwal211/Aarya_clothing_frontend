@@ -9,6 +9,7 @@ from .collection         import Collection
 from .product            import Product
 from .product_image      import ProductImage
 from .product_variant    import ProductVariant
+from .pending_order      import PendingOrder
 from .inventory_movement import InventoryMovement
 from .order              import Order, OrderItem, OrderStatus
 from .address            import Address, AddressType
@@ -28,6 +29,7 @@ Inventory = ProductVariant
 __all__ = [
     "Collection", "Category",
     "Product", "ProductImage", "ProductVariant", "Inventory",
+    "PendingOrder",
     "InventoryMovement",
     "Order", "OrderItem", "OrderStatus",
     "Address", "AddressType", "Review",

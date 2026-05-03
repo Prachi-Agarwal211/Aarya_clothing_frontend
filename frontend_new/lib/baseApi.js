@@ -305,7 +305,24 @@ export class BaseApiClient {
             }
           }
 
-          const errorDetail = (data && (data.error?.message || data.detail || data.message)) || `Request failed with status ${response.status}`;
+          // Extract the most useful error message from various backend formats
+          let errorDetail;
+          if (data) {
+            // Pydantic validation errors: {error: {message: "Request validation failed", details: [{field, message}]}}
+            if (data.error?.details?.length > 0) {
+              errorDetail = data.error.details.map(d => d.message).join(', ');
+            } else if (data.error?.message) {
+              errorDetail = data.error.message;
+            } else if (data.detail) {
+              errorDetail = data.detail;
+            } else if (data.message) {
+              errorDetail = data.message;
+            } else {
+              errorDetail = `Request failed with status ${response.status}`;
+            }
+          } else {
+            errorDetail = `Request failed with status ${response.status}`;
+          }
           const detail = typeof errorDetail === 'object' ? JSON.stringify(errorDetail) : errorDetail;
           const error = new Error(detail);
           error.status = response.status;

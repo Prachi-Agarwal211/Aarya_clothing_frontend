@@ -7,6 +7,7 @@ from sqlalchemy.orm import relationship
 
 from database.database import Base
 from shared.time_utils import ist_naive
+from shared.storage.utils import get_r2_public_url
 
 
 class ProductVariant(Base):
@@ -35,6 +36,13 @@ class ProductVariant(Base):
     product = relationship("Product", back_populates="variants")
 
     # ---- Helpers -----------------------------------------------------------
+
+    @property
+    def resolved_image_url(self):
+        """Resolves variant image, falling back to product primary image if missing."""
+        if self.image_url:
+            return get_r2_public_url(self.image_url)
+        return self.product.primary_image if self.product else None
 
     @property
     def available_quantity(self) -> int:

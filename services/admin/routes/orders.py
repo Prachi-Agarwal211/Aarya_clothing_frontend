@@ -5,7 +5,7 @@ Optimized for high-volume listing and detailed status tracking.
 
 import logging
 from typing import List, Optional, Dict
-from datetime import datetime
+from shared.time_utils import now_ist
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 from sqlalchemy import text
@@ -39,8 +39,12 @@ async def list_orders(
         params["status"] = status
     
     if search:
-        # Support search by invoice_number, email, or name
-        where.append("(o.invoice_number ILIKE :search OR u.email ILIKE :search OR u.full_name ILIKE :search)")
+        # Support search by order id (numeric), invoice_number, email, or name
+        if search.isdigit():
+            where.append("(o.id = :id_search OR o.invoice_number ILIKE :search OR u.email ILIKE :search OR u.full_name ILIKE :search)")
+            params["id_search"] = int(search)
+        else:
+            where.append("(o.invoice_number ILIKE :search OR u.email ILIKE :search OR u.full_name ILIKE :search)")
         params["search"] = f"%{search}%"
         
     where_clause = "WHERE " + " AND ".join(where) if where else ""
@@ -87,10 +91,9 @@ async def list_orders(
                 SELECT oi.order_id, oi.id as item_id, oi.product_id, oi.product_name,
                        oi.size, oi.color, COALESCE(oi.color_hex, iv.color_hex) as color_hex, oi.quantity, oi.unit_price, oi.line_total,
                        p.name as product_name_from_catalog,
-                       pi.image_url as image_url
+                       oi.image_url as image_url
                 FROM order_items oi
                 LEFT JOIN products p ON p.id = oi.product_id
-                LEFT JOIN product_images pi ON p.id = pi.product_id AND pi.is_primary = true
                 LEFT JOIN inventory iv ON iv.id = oi.variant_id
                 WHERE oi.order_id IN ({placeholders})
                 ORDER BY oi.order_id, oi.id
@@ -218,13 +221,18 @@ async def get_order(
 
     items_rows = db.execute(
         text("""
-        SELECT oi.*, p.name as product_name_catalog, pi.image_url, iv.color_hex as fallback_color_hex
-        FROM order_items oi
-        LEFT JOIN products p ON p.id = oi.product_id
-        LEFT JOIN product_images pi ON p.id = pi.product_id AND pi.is_primary = true
-        LEFT JOIN inventory iv ON iv.id = oi.variant_id
-        WHERE oi.order_id = :oid
-    """),
+            SELECT oi.id, oi.order_id, oi.product_id, oi.product_name,
+                   oi.sku, oi.size, oi.color, 
+                   COALESCE(oi.color_hex, iv.color_hex) as color_hex, 
+                   oi.image_url,
+                   oi.quantity, oi.unit_price, oi.line_total,
+                   p.name as product_name_catalog
+            FROM order_items oi
+            LEFT JOIN products p ON p.id = oi.product_id
+            LEFT JOIN inventory iv ON iv.id = oi.variant_id
+            WHERE oi.order_id = :oid
+            ORDER BY oi.id
+        """),
         {"oid": order_id},
     ).mappings().all()
 
@@ -237,7 +245,7 @@ async def get_order(
             "sku": item["sku"],
             "size": item["size"],
             "color": item["color"],
-            "color_hex": item["color_hex"] or item["fallback_color_hex"],
+            "color_hex": item["color_hex"],
             "quantity": item["quantity"],
             "unit_price": float(item["unit_price"] or 0),
             "total_price": float(item["line_total"] or 0),
@@ -341,7 +349,7 @@ async def bulk_update_order_status(
         return {"updated": 0}
         
     staff_id = user.get("user_id")
-    now = datetime.now()
+    now = now_ist().replace(tzinfo=None)
     
     # 1. Update the orders
     sets = ["status = :status", "updated_at = :now"]

@@ -158,6 +158,55 @@ async def internal_get_cart(
 
 
 @router.post(
+    "/api/v1/orders/internal/orders/prepare",
+    tags=["Internal - Payment Preparation"],
+)
+async def internal_prepare_pending_order(
+    request: Request,
+    db: Session = Depends(get_db),
+    _: bool = Depends(verify_internal_secret),
+):
+    """Create a pending order snapshot before payment initiation."""
+    from service.order_service import OrderService
+    from decimal import Decimal
+
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON body")
+
+    user_id = body.get("user_id")
+    cart_snapshot = body.get("cart_snapshot")
+    shipping_address = body.get("shipping_address")
+    total_amount = Decimal(str(body.get("total_amount", 0)))
+    subtotal = Decimal(str(body.get("subtotal", 0)))
+    razorpay_order_id = body.get("razorpay_order_id")
+
+    if not user_id or not cart_snapshot or not shipping_address:
+        raise HTTPException(
+            status_code=400, detail="user_id, cart_snapshot, and shipping_address are required"
+        )
+
+    order_service = OrderService(db)
+    pending = order_service.create_pending_order(
+        user_id=user_id,
+        cart_snapshot=cart_snapshot,
+        shipping_address=shipping_address,
+        total_amount=total_amount,
+        subtotal=subtotal,
+        razorpay_order_id=razorpay_order_id,
+        discount_applied=Decimal(str(body.get("discount_applied", 0))),
+        shipping_cost=Decimal(str(body.get("shipping_cost", 0))),
+    )
+
+    return {
+        "success": True,
+        "pending_order_id": pending.id,
+        "payment_intent_id": str(pending.payment_intent_id),
+    }
+
+
+@router.post(
     "/api/v1/orders/internal/orders/create-from-payment",
     tags=["Internal - Payment Recovery"],
 )
@@ -184,25 +233,34 @@ async def internal_create_order_from_payment(
     razorpay_order_id = body.get("razorpay_order_id")
     payment_signature = body.get("payment_signature", "")
     pending_order_data = body.get("pending_order_data", {})
+    pending_order_id = body.get("pending_order_id")
 
     if not user_id or not payment_id:
         raise HTTPException(
             status_code=400, detail="user_id and payment_id are required"
         )
-    if not pending_order_data:
-        raise HTTPException(status_code=400, detail="pending_order_data is required")
 
     order_service = OrderService(db)
 
     try:
-        logger.info(f"INTERNAL_ORDER_CREATE: user={user_id} payment={payment_id}")
-        order = order_service.create_order_from_pending_order(
-            pending_order_data=pending_order_data,
-            user_id=user_id,
-            payment_id=payment_id,
-            razorpay_order_id=razorpay_order_id,
-            payment_signature=payment_signature,
-        )
+        logger.info(f"INTERNAL_ORDER_CREATE: user={user_id} payment={payment_id} pending_id={pending_order_id}")
+        
+        if pending_order_id:
+            order = order_service.create_order_from_pending_id(
+                pending_id=pending_order_id,
+                transaction_id=payment_id,
+                payment_method=body.get("payment_method", "razorpay"),
+            )
+        elif pending_order_data:
+            order = order_service.create_order_from_pending_order(
+                pending_order_data=pending_order_data,
+                user_id=user_id,
+                payment_id=payment_id,
+                razorpay_order_id=razorpay_order_id,
+                payment_signature=payment_signature,
+            )
+        else:
+            raise HTTPException(status_code=400, detail="pending_order_id or pending_order_data is required")
         logger.info(
             f"INTERNAL_ORDER_CREATE_SUCCESS: order_id={order.id} user={user_id}"
         )

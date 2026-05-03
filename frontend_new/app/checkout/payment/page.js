@@ -176,12 +176,33 @@ export default function CheckoutPaymentPage() {
       // Create Razorpay order on our backend
       let orderData;
       try {
+        const addressString = sessionStorage.getItem('checkout_address_string');
+        const cartSnapshot = cart.items.map(item => ({
+          product_id: item.product_id,
+          variant_id: item.variant_id,
+          sku: item.sku,
+          quantity: item.quantity,
+          unit_price: item.price,
+          name: item.name,
+          size: item.size,
+          color: item.color,
+          image_url: item.image
+        }));
+
         orderData = await paymentApi.createRazorpayOrder({
           amount: Math.round((cart.total || 0) * 100),
           currency: 'INR',
           receipt: `cart_${Date.now()}`,
+          cart_snapshot: cartSnapshot,
+          shipping_address: addressString,
+          notes: {
+            subtotal: String(cart.subtotal),
+            discount_applied: String(cart.discount || 0),
+            shipping_cost: String(cart.shipping || 0)
+          }
         });
-      } catch {
+      } catch (orderErr) {
+        logger.error('Order creation error:', orderErr);
         setError('Failed to initialise payment. Please try again.');
         setRedirectProcessing(false);
         return;
@@ -191,6 +212,13 @@ export default function CheckoutPaymentPage() {
         setError('Payment initialisation failed. Please try again.');
         setRedirectProcessing(false);
         return;
+      }
+
+      // Store pending_order_id if returned (from backend gateway_response)
+      const pendingOrderId = orderData?.gateway_response?.pending_order_id;
+      if (pendingOrderId) {
+        sessionStorage.setItem('pending_order_id', pendingOrderId);
+        logger.info('Stored pending_order_id:', pendingOrderId);
       }
 
       const origin = typeof window !== 'undefined' ? window.location.origin : 'https://aaryaclothing.in';
@@ -294,20 +322,44 @@ export default function CheckoutPaymentPage() {
       }
 
       const amountInPaise = Math.round((cart.total || 0) * 100);
+      const addressString = sessionStorage.getItem('checkout_address_string');
+      const cartSnapshot = cart.items.map(item => ({
+        product_id: item.product_id,
+        variant_id: item.variant_id,
+        sku: item.sku,
+        quantity: item.quantity,
+        unit_price: item.price,
+        name: item.name,
+        size: item.size,
+        color: item.color,
+        image_url: item.image
+      }));
 
       // Create QR code
       const qrResponse = await paymentApi.createQrCode({
         amount: amountInPaise,
         description: `Aarya Clothing Order - ${user?.email || 'Customer'}`,
+        cart_snapshot: cartSnapshot,
+        shipping_address: addressString,
         notes: {
           order_id: '0',  // Will be updated when order is created
           user_id: user?.id?.toString() || '0',
-          cart_total: cart.total?.toString() || '0'
+          cart_total: cart.total?.toString() || '0',
+          subtotal: String(cart.subtotal),
+          discount_applied: String(cart.discount || 0),
+          shipping_cost: String(cart.shipping || 0)
         }
       });
 
       if (!qrResponse?.qr_code_id || !qrResponse?.image_url) {
         throw new Error('Invalid QR code response from server');
+      }
+
+      // Store pending_order_id from QR response
+      // Backend: notes["pending_order_id"] = str(pending_id)
+      const qrPendingId = qrResponse?.notes?.pending_order_id;
+      if (qrPendingId) {
+        sessionStorage.setItem('pending_order_id', qrPendingId);
       }
 
       setQrCodeData(qrResponse);

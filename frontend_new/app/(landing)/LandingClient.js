@@ -1,65 +1,17 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import dynamic from 'next/dynamic';
 import EnhancedHeader from '@/components/landing/EnhancedHeader';
 import HeroSection from '@/components/landing/HeroSection';
 import IntroVideo from '@/components/landing/IntroVideo';
-import { LazyLoad, CardSkeleton } from '@/components/ui/LazyLoad';
+import NewArrivals from '@/components/landing/NewArrivals';
+import Collections from '@/components/landing/Collections';
+import WholesaleSection from '@/components/landing/WholesaleSection';
+import AboutSection from '@/components/landing/AboutSection';
+import Footer from '@/components/landing/Footer';
 import { useViewport } from '@/lib/hooks/useViewport';
 import { ShieldCheck, Truck, Lock } from 'lucide-react';
 import { gsap } from '@/lib/gsapConfig';
-
-// Lazy load below-fold sections
-const NewArrivals = dynamic(() => import('@/components/landing/NewArrivals'), {
-  loading: () => (
-    <section aria-label="Loading new arrivals" className="py-16 sm:py-20 md:py-24">
-      <div className="container mx-auto px-4">
-        <CardSkeleton count={4} className="grid-cols-1 sm:grid-cols-2 lg:grid-cols-4" />
-      </div>
-    </section>
-  ),
-});
-
-const Collections = dynamic(() => import('@/components/landing/Collections'), {
-  loading: () => (
-    <section aria-label="Loading collections" className="py-16 sm:py-20 md:py-24">
-      <div className="container mx-auto px-4">
-        <CardSkeleton count={3} className="grid-cols-1 md:grid-cols-3" />
-      </div>
-    </section>
-  ),
-});
-
-const WholesaleSection = dynamic(() => import('@/components/landing/WholesaleSection'), {
-  loading: () => (
-    <section aria-label="Loading wholesale section" className="py-16 sm:py-20 md:py-24">
-      <div className="container mx-auto px-4">
-        <div className="skeleton h-64 rounded-2xl" />
-      </div>
-    </section>
-  ),
-});
-
-const AboutSection = dynamic(() => import('@/components/landing/AboutSection'), {
-  loading: () => (
-    <section aria-label="Loading about section" className="py-16 sm:py-20 md:py-24">
-      <div className="container mx-auto px-4">
-        <div className="skeleton h-64 rounded-2xl" />
-      </div>
-    </section>
-  ),
-});
-
-const Footer = dynamic(() => import('@/components/landing/Footer'), {
-  loading: () => (
-    <footer aria-label="Loading footer" className="py-16">
-      <div className="container mx-auto px-4">
-        <div className="skeleton h-48 rounded-3xl" />
-      </div>
-    </footer>
-  ),
-});
 
 export default function LandingClient({ landingData }) {
   const [showLanding, setShowLanding] = useState(false);
@@ -67,11 +19,9 @@ export default function LandingClient({ landingData }) {
 
   const handleVideoEnd = () => {
     setShowLanding(true);
-    // Store timestamp to skip for 24 hours
     localStorage.setItem('introVideoLastSeen', Date.now().toString());
   };
 
-  // Skip intro on mobile or if seen within last 24h
   useEffect(() => {
     const lastSeen = localStorage.getItem('introVideoLastSeen');
     const isRecentlySeen = lastSeen && (Date.now() - parseInt(lastSeen, 10)) < 24 * 60 * 60 * 1000;
@@ -81,7 +31,6 @@ export default function LandingClient({ landingData }) {
     }
   }, [isMobile]);
 
-  // Handle hash scrolling
   useEffect(() => {
     if (!showLanding) return;
     const hash = window.location.hash;
@@ -102,14 +51,12 @@ export default function LandingClient({ landingData }) {
 
   return (
     <>
-      {/* Intro Video Overlay - Non-blocking */}
       {!showLanding && !isMobile && (
         <div className="fixed inset-0 z-[200]">
           <IntroVideo onVideoEnd={handleVideoEnd} />
         </div>
       )}
 
-      {/* Main Content - Always rendered behind or after intro */}
       <main 
         id="main-content"
         className={`min-h-screen text-[#EAE0D5] overflow-x-hidden selection:bg-[#F2C29A] selection:text-[#050203] transition-opacity duration-700 ${showLanding ? 'opacity-100' : 'opacity-0 md:opacity-100'}`}
@@ -129,34 +76,28 @@ export default function LandingClient({ landingData }) {
             })()}
           />
 
-          <LazyLoad skeletonHeight="400px">
-            <NewArrivals
-              id="new-arrivals"
-              title={landingData.newArrivals?.title}
-              subtitle={landingData.newArrivals?.subtitle}
-              products={landingData.newArrivals?.products}
-            />
-          </LazyLoad>
+          <NewArrivals
+            id="new-arrivals"
+            title={landingData.newArrivals?.title}
+            subtitle={landingData.newArrivals?.subtitle}
+            products={landingData.newArrivals?.products}
+          />
 
-          <LazyLoad skeletonHeight="300px">
-            <Collections
-              id="collections"
-              title={landingData.collections?.title}
-              categories={landingData.collections?.categories}
-            />
-          </LazyLoad>
+          <Collections
+            id="collections"
+            title={landingData.collections?.title}
+            categories={landingData.collections?.categories}
+          />
 
           <WholesaleSection />
 
-          <LazyLoad skeletonHeight="600px">
-            <AboutSection
-              id="about"
-              title={landingData.about?.title}
-              story={landingData.about?.story}
-              stats={landingData.about?.stats}
-              images={landingData.about?.images}
-            />
-          </LazyLoad>
+          <AboutSection
+            id="about"
+            title={landingData.about?.title}
+            story={landingData.about?.story}
+            stats={landingData.about?.stats}
+            images={landingData.about?.images}
+          />
 
           <section className="py-16 sm:py-20 relative z-10">
             <div className="container mx-auto px-4 sm:px-6">
@@ -189,9 +130,7 @@ export default function LandingClient({ landingData }) {
             </div>
           </section>
 
-          <LazyLoad skeletonHeight="300px">
-            <Footer id="footer" />
-          </LazyLoad>
+          <Footer id="footer" />
         </div>
       </main>
     </>

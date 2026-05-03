@@ -87,6 +87,7 @@ async def create_order(
             razorpay_order_id=order_data.razorpay_order_id,
             payment_signature=order_data.razorpay_signature,
             qr_code_id=order_data.qr_code_id,
+            pending_order_id=order_data.pending_order_id,
         )
     except ValueError as exc:
         raise HTTPException(

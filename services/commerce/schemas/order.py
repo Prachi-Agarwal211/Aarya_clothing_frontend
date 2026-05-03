@@ -69,6 +69,8 @@ class OrderCreate(BaseModel):
     razorpay_signature: Optional[str] = None
     # UPI QR payment details
     qr_code_id: Optional[str] = None
+    # Snapshot identifier
+    pending_order_id: Optional[int] = None
 
 
 class OrderItemResponse(BaseModel):

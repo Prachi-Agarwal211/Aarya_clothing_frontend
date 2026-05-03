@@ -204,16 +204,44 @@ def inventory_template() -> bytes:
     return _wb_to_bytes(wb)
 
 
-def parse_inventory_import(file_bytes: bytes) -> list[dict]:
-    """Parse an inventory workbook keyed by SKU. Used for bulk stock updates."""
+# --------------------------------------------------------------------------- #
+# Bulk POD Upload                                                              #
+# --------------------------------------------------------------------------- #
+
+POD_HEADERS = ["order_id", "invoice_number", "customer", "tracking_number", "courier_name"]
+
+def pod_template(orders: list[dict]) -> bytes:
+    """Generate a template for bulk POD upload from confirmed orders."""
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "shipments"
+    ws.append(POD_HEADERS)
+    for o in orders:
+        ws.append([
+            o.get("id"),
+            o.get("invoice_number"),
+            o.get("customer_name"),
+            "", # empty tracking_number
+            o.get("courier_name") or "Delhivery" # default courier
+        ])
+    _autosize(ws)
+    return _wb_to_bytes(wb)
+
+def parse_pod_import(file_bytes: bytes) -> list[dict]:
+    """Parse bulk POD shipments; requires 'order_id' and 'tracking_number'."""
     wb = load_workbook(io.BytesIO(file_bytes), data_only=True)
     ws = wb.active
-    headers = [c.value for c in next(ws.iter_rows(min_row=1, max_row=1))]
-    if "sku" not in headers or "quantity" not in headers:
-        raise ValueError("Inventory import requires 'sku' and 'quantity' columns")
+    headers = [str(c.value).strip().lower() for c in next(ws.iter_rows(min_row=1, max_row=1))]
+    
+    if "order_id" not in headers or "tracking_number" not in headers:
+        raise ValueError("Bulk POD upload requires 'order_id' and 'tracking_number' columns")
+        
     out: list[dict] = []
     for row in ws.iter_rows(min_row=2, values_only=True):
         if all(v is None for v in row):
             continue
-        out.append(dict(zip(headers, row)))
+        data = dict(zip(headers, row))
+        # Ensure values are clean
+        if data.get("order_id") and data.get("tracking_number"):
+            out.append(data)
     return out

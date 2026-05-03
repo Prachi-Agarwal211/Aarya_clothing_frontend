@@ -168,8 +168,8 @@ class AuthService:
             # Case 1: Already verified/active -> BLOCK (redirect to login)
             if existing.is_active:
                 if existing.email == user_data.email:
-                    raise ValueError("Email already registered")
-                raise ValueError("Username already taken")
+                    raise ValueError("This email is already registered. Please sign in instead.")
+                raise ValueError("This username is already taken. Please choose another.")
             
             # Case 2: Unverified -> RESUME FLOW (update and send fresh OTP)
             user = existing

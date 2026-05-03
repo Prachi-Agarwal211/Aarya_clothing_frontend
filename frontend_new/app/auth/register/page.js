@@ -144,7 +144,7 @@ export default function RegisterPage() {
           first_name: firstName.trim(),
           last_name: lastName.trim(),
           email: email.trim(),
-          phone: phone.trim() || null,
+          phone: phone.trim(),
           password: password,
           verification_method: verificationMethod,
         })
@@ -152,7 +152,17 @@ export default function RegisterPage() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.detail || 'Registration failed');
+        // Handle 422 validation errors: { error: { details: [{ message }] } }
+        // Handle 400/500 errors: { detail: "message" } or { error: { message: "..." } }
+        let message = 'Registration failed';
+        if (errorData.detail) {
+          message = errorData.detail;
+        } else if (errorData.error?.message) {
+          message = errorData.error.message;
+        } else if (errorData.error?.details?.length > 0) {
+          message = errorData.error.details.map(d => d.message).join('. ');
+        }
+        throw new Error(message);
       }
 
       await response.json();
@@ -190,7 +200,15 @@ export default function RegisterPage() {
       });
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.detail || 'Failed to resend code');
+        let message = 'Failed to resend code';
+        if (errorData.detail) {
+          message = errorData.detail;
+        } else if (errorData.error?.message) {
+          message = errorData.error.message;
+        } else if (errorData.error?.details?.length > 0) {
+          message = errorData.error.details.map(d => d.message).join('. ');
+        }
+        throw new Error(message);
       }
       setOtpDigits(['', '', '', '', '', '']);
       startExpiryTimer();
@@ -231,7 +249,15 @@ export default function RegisterPage() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.detail || 'OTP verification failed');
+        let message = 'OTP verification failed';
+        if (errorData.detail) {
+          message = errorData.detail;
+        } else if (errorData.error?.message) {
+          message = errorData.error.message;
+        } else if (errorData.error?.details?.length > 0) {
+          message = errorData.error.details.map(d => d.message).join('. ');
+        }
+        throw new Error(message);
       }
 
       const data = await response.json();

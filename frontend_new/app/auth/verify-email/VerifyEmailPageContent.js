@@ -137,7 +137,15 @@ function VerifyEmailPageContent() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.detail || 'OTP verification failed');
+        let message = 'OTP verification failed';
+        if (errorData.detail) {
+          message = errorData.detail;
+        } else if (errorData.error?.message) {
+          message = errorData.error.message;
+        } else if (errorData.error?.details?.length > 0) {
+          message = errorData.error.details.map(d => d.message).join('. ');
+        }
+        throw new Error(message);
       }
 
       const data = await response.json();

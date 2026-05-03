@@ -88,12 +88,41 @@ class UserCreate(UserBase):
 
     @validator("phone")
     def validate_phone(cls, v):
-        """Validate phone number format."""
-        phone_digits = "".join(filter(str.isdigit, v))
-        if len(phone_digits) == 10 and phone_digits[0] in "6789":
+        """Validate phone number format. Required for all users (SMS/WhatsApp ready).
+        Accepts: +91XXXXXXXXXX, 91XXXXXXXXXX, 0XXXXXXXXXX, XXXXXXXXXX, and formatted variants.
+        Normalizes to E.164 format: +91XXXXXXXXXX for Indian numbers.
+        """
+        # Strip all non-digit characters
+        digits = "".join(filter(str.isdigit, v))
+
+        # Normalize Indian numbers to E.164 format
+        if len(digits) == 10:
+            # Plain 10-digit Indian number: 9929986743
+            if digits[0] in "6789":
+                return f"+91{digits}"
+            raise ValueError(
+                "Invalid phone number format. Phone must start with 6/7/8/9."
+            )
+        elif len(digits) == 11 and digits.startswith("0"):
+            # With leading zero: 09929986743
+            if digits[1] in "6789":
+                return f"+91{digits[1:]}"
+            raise ValueError(
+                "Invalid phone number format. Phone must start with 6/7/8/9."
+            )
+        elif len(digits) == 12 and digits.startswith("91"):
+            # Country code without +: 919929986743 (from +91XXXXXXXXXX or 91XXXXXXXXXX)
+            if digits[2] in "6789":
+                return f"+{digits}"
+            raise ValueError(
+                "Invalid phone number format. Phone must start with 6/7/8/9."
+            )
+        elif 10 <= len(digits) <= 15:
+            # Other international number — store with + prefix
+            if not v.startswith("+"):
+                return f"+{digits}"
             return v
-        if 10 <= len(phone_digits) <= 15:
-            return v
+
         raise ValueError(
             "Invalid phone number format. Please enter a valid phone number."
         )

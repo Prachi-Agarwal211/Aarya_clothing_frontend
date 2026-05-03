@@ -43,6 +43,7 @@ class CartResponse(BaseModel):
     total: float = 0.0
     total_amount: Optional[float] = None  # Alias for total (for backward compat)
     item_count: int = 0
+    shipping_address: Optional[str] = ""  # Shipping address for order creation
     reservation_expires_at: Optional[datetime] = None  # UTC timestamp when earliest reservation expires
 
     class Config:

@@ -186,6 +186,31 @@ async def set_cart_delivery_state(
     return CartResponse(**cart)
 
 
+@router.post("/api/v1/cart/shipping-address", response_model=CartResponse)
+async def update_cart_shipping_address(
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """Update shipping address in cart - needed for order creation fallback."""
+    from pydantic import BaseModel
+    
+    class ShippingAddressUpdate(BaseModel):
+        shipping_address: str
+    
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON body")
+    
+    shipping_address = body.get("shipping_address", "")
+    user_id = current_user["user_id"]
+    
+    cart_service = CartService(db)
+    cart = cart_service.update_shipping_address(user_id, shipping_address)
+    return CartResponse(**cart)
+
+
 @router.post("/api/v1/cart/clear-expired")
 async def clear_expired_cart_items(
     db: Session = Depends(get_db),

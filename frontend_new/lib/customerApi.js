@@ -93,6 +93,12 @@ export const cartApi = {
       customer_gstin: customerGstin,
     }),
 
+  // Update shipping address in cart - needed for order creation fallback
+  updateShippingAddress: (shippingAddress) =>
+    commerceClient.post('/api/v1/cart/shipping-address', {
+      shipping_address: shippingAddress,
+    }),
+
   // Validate stock for all cart items before checkout
   validateStock: () =>
     commerceClient.post('/api/v1/checkout/validate'),

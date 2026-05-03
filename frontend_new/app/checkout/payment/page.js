@@ -321,8 +321,17 @@ export default function CheckoutPaymentPage() {
         return;
       }
 
-      const amountInPaise = Math.round((cart.total || 0) * 100);
+      // Update cart with shipping address for order creation fallback
       const addressString = sessionStorage.getItem('checkout_address_string');
+      if (addressString) {
+        try {
+          await cartApi.updateShippingAddress(addressString);
+        } catch (addrErr) {
+          logger.warn('Failed to update cart shipping address:', addrErr?.message);
+        }
+      }
+
+      const amountInPaise = Math.round((cart.total || 0) * 100);
       const cartSnapshot = cart.items.map(item => ({
         product_id: item.product_id,
         variant_id: item.variant_id,

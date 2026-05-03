@@ -259,6 +259,11 @@ class RazorpayClient:
             url = "https://api.razorpay.com/v1/payments/qr_codes"
             auth = (settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET)
             response = requests.post(url, json=qr_data, auth=auth, timeout=10)
+            
+            # If failed, log the error body for debugging
+            if response.status_code != 200:
+                logger.error(f"Razorpay QR Error [{response.status_code}]: {response.text}")
+                
             response.raise_for_status()
             qr_response = response.json()
 

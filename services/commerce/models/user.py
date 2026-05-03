@@ -39,19 +39,3 @@ class User(Base):
         onupdate=lambda: ist_naive(),
         nullable=False,
     )
-
-
-class UserProfile(Base):
-    __tablename__ = "user_profiles"
-
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, nullable=False, index=True)
-    full_name = Column(String(101), nullable=True)
-    phone = Column(String(20), nullable=True)
-    created_at = Column(DateTime, default=lambda: ist_naive(), nullable=False)
-    updated_at = Column(
-        DateTime,
-        default=lambda: ist_naive(),
-        onupdate=lambda: ist_naive(),
-        nullable=False,
-    )

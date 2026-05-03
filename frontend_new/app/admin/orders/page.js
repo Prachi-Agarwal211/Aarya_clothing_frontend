@@ -597,15 +597,41 @@ function BulkActionsBar({ count, busy, onShip, onDeliver, onCancel, onClear }) {
   );
 }
 
+function OrdersSkeleton() {
+  return (
+    <div className="space-y-6 animate-pulse">
+      {/* Header Skeleton */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div className="space-y-2">
+          <div className="h-8 bg-[#B76E79]/10 rounded-lg w-48" />
+          <div className="h-4 bg-[#B76E79]/10 rounded w-64" />
+        </div>
+        <div className="flex gap-2">
+          <div className="h-10 w-10 bg-[#B76E79]/10 rounded-xl" />
+          <div className="h-10 w-24 bg-[#B76E79]/10 rounded-xl" />
+          <div className="h-10 w-24 bg-[#B76E79]/10 rounded-xl" />
+        </div>
+      </div>
+
+      {/* Status Summary Skeleton */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {[...Array(4)].map((_, i) => (
+          <div key={i} className="h-24 bg-[#0B0608]/40 border border-[#B76E79]/15 rounded-xl" />
+        ))}
+      </div>
+
+      {/* Filters Skeleton */}
+      <div className="h-16 bg-[#0B0608]/40 border border-[#B76E79]/15 rounded-2xl" />
+
+      {/* Table Skeleton */}
+      <div className="bg-[#0B0608]/40 border border-[#B76E79]/15 rounded-2xl h-[600px]" />
+    </div>
+  );
+}
+
 export default function OrdersPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center">
-          <div className="animate-pulse text-[#8A6A5C]">Loading orders...</div>
-        </div>
-      }
-    >
+    <Suspense fallback={<OrdersSkeleton />}>
       <OrdersContent />
     </Suspense>
   );

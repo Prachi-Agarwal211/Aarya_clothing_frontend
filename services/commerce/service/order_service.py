@@ -19,7 +19,7 @@ from models.product import Product
 from models.inventory import Inventory
 from models.product_variant import ProductVariant
 from models.address import Address
-from models.user import User, UserProfile
+from models.user import User
 from service.inventory_service import InventoryService
 from service.cart_service import CartService
 from service.customer_activity_logger import log_customer_activity
@@ -497,6 +497,7 @@ class OrderService:
                 sku=cart_item.get("sku") or variant.sku,
                 size=variant.size or (inventory.size if inventory else None),
                 color=variant.color or (inventory.color if inventory else None),
+                color_hex=getattr(variant, 'color_hex', None) or (getattr(inventory, 'color_hex', None) if inventory else None),
                 image_url=full_image,
                 quantity=qty,
                 unit_price=unit_price,
@@ -852,6 +853,7 @@ class OrderService:
                 sku=sku,
                 size=item.get("size") or variant.size,
                 color=item.get("color") or variant.color,
+                color_hex=item.get("color_hex") or getattr(variant, 'color_hex', None),
                 image_url=full_image,
                 quantity=qty,
                 unit_price=unit_price,
@@ -1206,19 +1208,12 @@ class OrderService:
         users = self.db.query(User).filter(User.id.in_(user_ids)).all()
         user_map = {user.id: user for user in users}
 
-        # Fetch all user profiles in one query
-        profiles = (
-            self.db.query(UserProfile).filter(UserProfile.user_id.in_(user_ids)).all()
-        )
-        profile_map = {profile.user_id: profile for profile in profiles}
-
         # Enrich orders with customer info using pre-fetched data
         for order in orders:
             user = user_map.get(order.user_id)
             if user:
-                profile = profile_map.get(user.id)
-                if profile and profile.full_name:
-                    order.customer_name = profile.full_name
+                if getattr(user, 'full_name', None):
+                    order.customer_name = user.full_name
                 else:
                     order.customer_name = user.username
                 order.customer_email = user.email

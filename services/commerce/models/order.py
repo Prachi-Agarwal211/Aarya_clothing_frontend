@@ -147,6 +147,7 @@ class OrderItem(Base):
     sku          = Column(String(64),  nullable=False)
     size         = Column(String(16),  nullable=True)
     color        = Column(String(32),  nullable=True)
+    color_hex    = Column(String(7),   nullable=True)
     image_url    = Column(String(500), nullable=True)
 
     quantity     = Column(Integer,        nullable=False, default=1)

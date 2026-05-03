@@ -1,6 +1,7 @@
 """Global exception handler for payment service."""
 import logging
 import traceback
+from decimal import Decimal
 from fastapi import FastAPI, Request, HTTPException, status
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
@@ -44,14 +45,25 @@ class DatabaseException(PaymentServiceException):
     pass
 
 
+def _sanitize_for_json(obj):
+    """Recursively convert non-JSON-serializable types (Decimal, bytes) to safe values."""
+    if isinstance(obj, Decimal):
+        return float(obj)
+    if isinstance(obj, dict):
+        return {k: _sanitize_for_json(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_sanitize_for_json(item) for item in obj]
+    return obj
+
+
 def setup_exception_handlers(app: FastAPI):
     """Setup global exception handlers for the FastAPI app."""
-    
+
     @app.exception_handler(HTTPException)
     async def http_exception_handler(request: Request, exc: HTTPException):
         """Handle HTTP exceptions with consistent format."""
         logger.warning(f"HTTP {exc.status_code}: {exc.detail} - Path: {request.url.path}")
-        
+
         return JSONResponse(
             status_code=exc.status_code,
             content={
@@ -64,15 +76,15 @@ def setup_exception_handlers(app: FastAPI):
                 }
             }
         )
-    
+
     @app.exception_handler(RequestValidationError)
     async def validation_exception_handler(request: Request, exc: RequestValidationError):
         """Handle FastAPI validation errors."""
         logger.warning(f"Validation error: {exc.errors()} - Path: {request.url.path}")
-        
+
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            content={
+            content=_sanitize_for_json({
                 "error": {
                     "type": "validation_error",
                     "message": "Invalid request data",
@@ -81,17 +93,17 @@ def setup_exception_handlers(app: FastAPI):
                     "path": request.url.path,
                     "timestamp": time.time()
                 }
-            }
+            })
         )
-    
+
     @app.exception_handler(ValidationError)
     async def pydantic_validation_exception_handler(request: Request, exc: ValidationError):
         """Handle Pydantic validation errors."""
         logger.warning(f"Pydantic validation error: {exc.errors()} - Path: {request.url.path}")
-        
+
         return JSONResponse(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            content={
+            content=_sanitize_for_json({
                 "error": {
                     "type": "validation_error",
                     "message": "Data validation failed",
@@ -100,7 +112,7 @@ def setup_exception_handlers(app: FastAPI):
                     "path": request.url.path,
                     "timestamp": time.time()
                 }
-            }
+            })
         )
     
     @app.exception_handler(IntegrityError)

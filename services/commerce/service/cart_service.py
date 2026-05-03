@@ -334,6 +334,10 @@ class CartService:
         cart["sgst_amount"] = 0.0
         cart["igst_amount"] = 0.0
 
+        # Total = subtotal (no additional charges; prices are tax-inclusive)
+        cart["total"] = float(subtotal)
+        cart["total_amount"] = float(subtotal)
+
     def update_quantity(
         self,
         user_id: int,

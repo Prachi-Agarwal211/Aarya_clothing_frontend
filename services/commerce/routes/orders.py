@@ -107,6 +107,7 @@ def _enrich_order_response(order: Order) -> OrderResponse:
             "sku": item.sku,
             "size": item.size,
             "color": item.color,
+            "color_hex": item.color_hex or (getattr(item.variant, 'color_hex', None) if item.variant else None),
             "hsn_code": item.hsn_code,
             "gst_rate": item.gst_rate,
             "quantity": item.quantity,
@@ -598,6 +599,17 @@ def prepare_invoice_data(order: Order, db: Session) -> dict:
     # Tracking status
     tracking_status = order.status.value.replace("_", " ").title()
 
+    # Logo base64 (to ensure it loads in PDF)
+    import base64
+    logo_base64 = ""
+    try:
+        logo_path = "/app/static/logo.png"
+        if os.path.exists(logo_path):
+            with open(logo_path, "rb") as f:
+                logo_base64 = base64.b64encode(f.read()).decode("utf-8")
+    except Exception as e:
+        logger.warning(f"Failed to load invoice logo: {e}")
+
     return {
         "invoice_number": order.invoice_number or f"INV-{order.id}",
         "invoice_date": order.created_at.strftime("%d %B %Y"),
@@ -631,6 +643,7 @@ def prepare_invoice_data(order: Order, db: Session) -> dict:
         "estimated_delivery": estimated_delivery,
         "tracking_status": tracking_status,
         "generated_at": now_ist().strftime("%d %B %Y, %H:%M IST"),
+        "logo_base64": logo_base64,
     }
 
 

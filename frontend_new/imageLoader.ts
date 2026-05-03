@@ -87,6 +87,11 @@ export default function cloudflareLoader({
     return src;
   }
 
+  // Blob URLs (for local previews) should be returned as-is
+  if (src.startsWith('blob:')) {
+    return src;
+  }
+
   // Normalize src to a full URL if it's a relative path from R2
   let fullUrl = src;
   if (!src.startsWith('http')) {

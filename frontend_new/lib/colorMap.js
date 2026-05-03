@@ -1,75 +1,132 @@
-// Centralized color map for Indian clothing colors
-// Used by: ColorPicker, ProductDetail, ProductCard, AI Shopping
+/**
+ * Color map for Aarya Clothing
+ * Contains only the main 50+ prioritized colors
+ * Extended database moved to backend for auto-naming
+ */
 
 export const COLOR_MAP = {
-  'Black': '#000000',
-  'White': '#FFFFFF',
-  'Red': '#DC2626',
-  'Maroon': '#800000',
-  'Pink': '#EC4899',
-  'Rose': '#F43F5E',
-  'Peach': '#FFDAB9',
-  'Coral': '#FF7F50',
-  'Orange': '#F97316',
+  // --- Indian Clothing Specific (Prioritized) ---
+  'Mahendi': '#4A7C59',
   'Rust': '#B7410E',
   'Mustard': '#E3A849',
+  'Wine': '#722F37',
+  'Burgundy': '#800020',
+  'Cream': '#FFFDD0',
+  'Peach': '#FFDAB9',
+  'Coral': '#FF7F50',
   'Gold': '#FFD700',
-  'Yellow': '#EAB308',
-  'Lime Yellow': '#C5D94C',
-  'Lime': '#84CC16',
-  'Green': '#22C55E',
-  'Sea Green': '#2E8B57',
-  'Mahendi': '#4A7C59',
+  'Silver': '#C0C0C0',
   'Olive': '#808000',
   'Teal': '#14B8A6',
-  'Turquoise': '#40E0D0',
-  'Sky Blue': '#87CEEB',
-  'Blue': '#3B82F6',
-  'Navy': '#1E3A5F',
-  'Purple': '#A855F7',
   'Lavender': '#E6E6FA',
   'Lilac': '#C8A2C8',
   'Mauve': '#E0B0FF',
   'Magenta': '#FF00FF',
-  'Wine': '#722F37',
-  'Burgundy': '#800020',
-  'Brown': '#92400E',
-  'Beige': '#F5F5DC',
-  'Ivory': '#FFFFF0',
-  'Cream': '#FFFDD0',
-  'Grey': '#9CA3AF',
-  'Gray': '#9CA3AF',
-  'Silver': '#C0C0C0',
   'Charcoal': '#36454F',
   'Multicolor': '#FF6B6B',
+
+  // --- Standard Web Colors ---
+  'Black': '#000000',
+  'White': '#FFFFFF',
+  'Red': '#FF0000',
+  'Green': '#00FF00',
+  'Blue': '#0000FF',
+  'Yellow': '#FFFF00',
+  'Cyan': '#00FFFF',
+  'Aqua': '#00FFFF',
+  'Fuchsia': '#FF00FF',
+  'Pink': '#FFC0CB',
+  'Orange': '#FFA500',
+  'Purple': '#800080',
+  'Navy': '#000080',
+  'Maroon': '#800000',
+  'Beige': '#F5F5DC',
+  'Ivory': '#FFFFF0',
+  'Gray': '#808080',
+  'Grey': '#808080',
+  'Sky Blue': '#87CEEB',
+  'Royal Blue': '#4169E1',
+  'Sea Green': '#2E8B57',
+  'Spring Green': '#00FF7F',
+  'Turquoise': '#40E0D0',
+  'Indigo': '#4B0082',
+  'Violet': '#EE82EE',
+  'Brown': '#A52A2A',
+  'Crimson': '#DC143C',
+  'Dark Orange': '#FF8C00',
+  'Hot Pink': '#FF69B4',
+  'Lime': '#00FF00',
+  'Midnight Blue': '#191970',
+  'Orchid': '#DA70D6',
+  'Salmon': '#FA8072',
+  'Sienna': '#A0522D',
+  'Slate Blue': '#6A5ACD',
+  'Steel Blue': '#4682B4',
+  'Tan': '#D2B48C',
+  'Thistle': '#D8BFD8',
+  'Tomato': '#FF6347',
+  'Wheat': '#F5DEB3',
+  'Azure': '#F0FFFF',
+  'Misty Rose': '#FFE4E1',
+  'Old Lace': '#FDF5E6',
+  'Papaya Whip': '#FFEFD5',
+  'Sea Shell': '#FFF5EE',
+  'White Smoke': '#F5F5F5',
 };
 
-// Reverse lookup: hex -> name
-export const HEX_TO_NAME = Object.fromEntries(
-  Object.entries(COLOR_MAP).map(([name, hex]) => [hex, name])
-);
+/**
+ * Get hex code from color name (case-insensitive fuzzy match)
+ * Only searches the 50+ main colors in COLOR_MAP
+ */
+export function getHexFromName(name) {
+  if (!name) return null;
 
-// Get color name from hex or return hex
+  const nameLower = name.toLowerCase().trim();
+
+  // Exact match
+  if (COLOR_MAP[name]) {
+    return COLOR_MAP[name];
+  }
+
+  // Fuzzy match by checking if name is a hex code
+  const hexMatch = name.match(/^#([0-9A-F]{6})$/i);
+  if (hexMatch) {
+    return `#${hexMatch[1].toUpperCase()}`;
+  }
+
+  // Try to find partial match
+  for (const [colorName, hex] of Object.entries(COLOR_MAP)) {
+    if (colorName.toLowerCase().includes(nameLower)) {
+      return hex;
+    }
+    if (nameLower.includes(colorName.toLowerCase())) {
+      return hex;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Get color name from hex (exact match only)
+ * Only searches COLOR_MAP - uses backend for nearest match
+ */
 export function getColorName(hex) {
   if (!hex) return null;
-  const upper = hex.toUpperCase();
-  return HEX_TO_NAME[upper] || null;
+
+  const hexUpper = hex.toUpperCase().replace('#', '');
+
+  for (const [name, color] of Object.entries(COLOR_MAP)) {
+    if (color.replace('#', '').toUpperCase() === hexUpper) {
+      return name;
+    }
+  }
+
+  return null;
 }
 
-// Get hex from color name (case-insensitive fuzzy match)
-export function getHexFromName(name) {
-  if (!name) return '#888888';
-  const trimmed = name.trim();
-  // Exact match
-  if (COLOR_MAP[trimmed]) return COLOR_MAP[trimmed];
-  // Case-insensitive match
-  const lower = trimmed.toLowerCase();
-  for (const [key, hex] of Object.entries(COLOR_MAP)) {
-    if (key.toLowerCase() === lower) return hex;
-  }
-  // Fuzzy: if name contains a known color word
-  for (const [key, hex] of Object.entries(COLOR_MAP)) {
-    if (lower.includes(key.toLowerCase())) return hex;
-  }
-  return '#888888'; // Default gray fallback
-}
+/**
+ * Note: Extended color database (1500+ colors) has been moved to backend
+ * to reduce frontend bundle size and improve performance.
+ * Use the API endpoint /api/v1/products/variants/{id}/color-name for nearest match.
+ */

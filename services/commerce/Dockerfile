@@ -16,6 +16,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     g++ \
     curl \
     libpq-dev \
+    libpango-1.0-0 \
+    libharfbuzz0b \
+    libpangoft2-1.0-0 \
+    libffi-dev \
+    libjpeg-dev \
+    libopenjp2-7-dev \
+    shared-mime-info \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first for better caching
@@ -26,6 +33,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy shared modules first
 COPY shared/ /app/shared/
+
+# Copy templates and assets for PDF generation
+COPY services/core/templates/ /app/core/templates/
+COPY frontend_new/public/logo.png /app/static/logo.png
 
 # Copy application code
 COPY services/commerce/ .

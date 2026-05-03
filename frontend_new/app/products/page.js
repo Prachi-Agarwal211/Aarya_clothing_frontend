@@ -28,9 +28,15 @@ async function getInitialData(params) {
       collectionsApi.list()
     ]);
 
-    const products = Array.isArray(productsRes) ? productsRes : (productsRes?.items || productsRes?.products || []);
-    const collections = Array.isArray(collectionsRes) ? collectionsRes : (collectionsRes?.items || collectionsRes?.collections || []);
-    const total = productsRes?.total ?? products.length;
+    const products = Array.isArray(productsRes) 
+      ? productsRes 
+      : (productsRes?.items || productsRes?.products || productsRes?.hits || []);
+    
+    const collections = Array.isArray(collectionsRes) 
+      ? collectionsRes 
+      : (collectionsRes?.items || collectionsRes?.collections || []);
+    
+    const total = productsRes?.total ?? productsRes?.total_hits ?? products.length;
 
     return { products, collections, total };
   } catch (error) {

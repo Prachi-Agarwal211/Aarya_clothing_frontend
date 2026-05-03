@@ -529,6 +529,7 @@ services:
       - NEXT_PUBLIC_API_URL=http://nginx:80
       - NEXT_PUBLIC_INTERNAL_COMMERCE_URL=http://commerce:5002
       - NEXT_PUBLIC_R2_PUBLIC_URL=${R2_PUBLIC_URL:-https://pub-7846c786f7154610b57735df47899fa0.r2.dev}
+      - SECRET_KEY=${SECRET_KEY:?SECRET_KEY environment variable is required}
     expose:
       - "3000"
     depends_on:

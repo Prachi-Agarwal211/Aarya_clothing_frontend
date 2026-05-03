@@ -92,12 +92,6 @@ export default function ProductsContent({ initialFilters, initialData }) {
   }, [initialData]);
 
   const fetchProducts = useCallback(async (activeFilters, isRetry = false, attempt = 0) => {
-    // Skip first fetch if initialData matches current filters
-    if (activeFilters === initialFilters && initialData && !isRetry) {
-      console.log('[ProductsClient] Using initialData, skipping first fetch');
-      return;
-    }
-
     try {
       if (!isRetry) {
         setLoading(true);
@@ -121,8 +115,20 @@ export default function ProductsContent({ initialFilters, initialData }) {
       if (activeFilters.maxPrice) params.max_price = parseFloat(activeFilters.maxPrice);
 
       const data = await fetchProductsAPI(params);
-      const items = Array.isArray(data) ? data : (data?.items || data?.products || []);
-      const total = data?.total ?? items.length;
+      
+      // Robust data extraction
+      let items = [];
+      if (Array.isArray(data)) {
+        items = data;
+      } else if (data?.items) {
+        items = data.items;
+      } else if (data?.products) {
+        items = data.products;
+      } else if (data?.hits) {
+        items = data.hits;
+      }
+      
+      const total = data?.total ?? data?.total_hits ?? items.length;
 
       setProducts(items);
       setTotalProducts(total);
@@ -141,7 +147,7 @@ export default function ProductsContent({ initialFilters, initialData }) {
     } finally {
       setLoading(false);
     }
-  }, [initialData, initialFilters]);
+  }, []);
 
   useEffect(() => {
     fetchCollections();

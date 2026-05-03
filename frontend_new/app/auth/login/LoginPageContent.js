@@ -25,7 +25,7 @@ function LoginPageContent({ redirectUrl = '/products' }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const router = useRouter();
-  const { login, user, isAuthenticated } = useAuth();
+  const { login, user, isAuthenticated, loading } = useAuth();
   const logoUrl = useLogo();
   const loginOtpHref = `/auth/login-otp?redirect_url=${encodeURIComponent(redirectUrl)}`;
 
@@ -65,7 +65,7 @@ function LoginPageContent({ redirectUrl = '/products' }) {
     }
   };
 
-  if (isAuthenticated) {
+  if (isAuthenticated && !loading) {
     const role = user?.role || USER_ROLES.CUSTOMER;
     const target = redirectUrl && redirectUrl !== '/products' ? redirectUrl : getRedirectForRole(role);
     router.push(target);

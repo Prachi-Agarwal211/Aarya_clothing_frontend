@@ -139,6 +139,7 @@ async def internal_get_cart(
             "image": item.get("image"),
             "size": item.get("size"),
             "color": item.get("color"),
+            "color_hex": item.get("color_hex"),
             "hsn_code": item.get("hsn_code"),
             "gst_rate": item.get("gst_rate"),
         }
@@ -214,7 +215,8 @@ async def internal_create_order_from_payment(
                 "product_name": item.product_name,
                 "sku": item.sku,
                 "size": item.size,
-                "color": item.color,
+                "color": item.color or (getattr(item.variant, 'color', None) if item.variant else None),
+                "color_hex": item.color_hex or (getattr(item.variant, 'color_hex', None) if item.variant else None),
                 "quantity": item.quantity,
                 "unit_price": float(item.unit_price) if item.unit_price else 0,
                 "price": float(item.price) if item.price else 0,

@@ -87,9 +87,15 @@ export default function OrderDetailPage({ params }) {
   if (loading) return <Loader />;
   if (!order) return <NotFound />;
 
-  const o = order.order;
+  const o = order;
   const currentStatusIndex = STATUS_FLOW.indexOf(o.status?.toLowerCase());
   const paymentStatus = derivePaymentStatus(o);
+  const customer = {
+    id: o.user_id,
+    full_name: o.customer_name,
+    email: o.customer_email,
+    phone: o.customer_phone
+  };
 
   return (
     <div className="space-y-6">
@@ -109,12 +115,12 @@ export default function OrderDetailPage({ params }) {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
-          <ItemsCard items={order.items} total={o.total_amount} />
+          <ItemsCard items={order.items || []} total={o.total_amount} />
           <PaymentCard order={o} status={paymentStatus} />
         </div>
 
         <div className="space-y-6">
-          <CustomerCard customer={order.customer} />
+          <CustomerCard customer={customer} />
           <AddressCard address={o.shipping_address} />
           {o.tracking_number && ['shipped', 'delivered'].includes(o.status) && (
             <TrackingCard tracking={o.tracking_number} />
@@ -149,10 +155,36 @@ function derivePaymentStatus(o) {
 
 function Loader() {
   return (
-    <div className="flex items-center justify-center min-h-[60vh]">
-      <div className="text-center">
-        <div className="w-12 h-12 border-2 border-[#B76E79]/30 border-t-[#F2C29A] rounded-full animate-spin mx-auto mb-4" />
-        <p className="text-[#EAE0D5]/70">Loading order details...</p>
+    <div className="space-y-6 animate-pulse">
+      {/* Header Skeleton */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <div className="w-10 h-10 bg-[#B76E79]/10 rounded-xl" />
+          <div className="space-y-2">
+            <div className="h-8 bg-[#B76E79]/10 rounded-lg w-48" />
+            <div className="h-4 bg-[#B76E79]/10 rounded w-32" />
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <div className="h-10 w-24 bg-[#B76E79]/10 rounded-xl" />
+          <div className="h-10 w-32 bg-[#B76E79]/10 rounded-xl" />
+        </div>
+      </div>
+
+      {/* Timeline Skeleton */}
+      <div className="h-24 bg-[#0B0608]/40 border border-[#B76E79]/15 rounded-2xl" />
+
+      {/* Content Skeleton */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 space-y-6">
+          <div className="h-96 bg-[#0B0608]/40 border border-[#B76E79]/15 rounded-2xl" />
+          <div className="h-48 bg-[#0B0608]/40 border border-[#B76E79]/15 rounded-2xl" />
+        </div>
+        <div className="space-y-6">
+          <div className="h-48 bg-[#0B0608]/40 border border-[#B76E79]/15 rounded-2xl" />
+          <div className="h-48 bg-[#0B0608]/40 border border-[#B76E79]/15 rounded-2xl" />
+          <div className="h-64 bg-[#0B0608]/40 border border-[#B76E79]/15 rounded-2xl" />
+        </div>
       </div>
     </div>
   );
@@ -286,7 +318,15 @@ function ItemsCard({ items, total }) {
               </h3>
               <p className="text-sm text-[#EAE0D5]/60">
                 {item.size && <span>Size: {item.size}</span>}
-                {item.color && <span className="ml-2">Color: {item.color}</span>}
+                {item.color && (
+                  <span className="ml-2 inline-flex items-center gap-1.5">
+                    Color:
+                    {item.color_hex && (
+                      <span className="w-3 h-3 rounded-full border border-white/20 inline-block shrink-0" style={{ backgroundColor: item.color_hex }} />
+                    )}
+                    {item.color}
+                  </span>
+                )}
               </p>
             </div>
             <div className="text-right flex-shrink-0">

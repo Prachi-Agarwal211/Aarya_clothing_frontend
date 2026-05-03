@@ -125,7 +125,7 @@ def init_db():
     from models.return_request import ReturnRequest
     from models.order_tracking import OrderTracking
     from models.product_image import ProductImage
-    from models.user import User, UserProfile
+    from models.user import User
     Base.metadata.create_all(bind=engine)
     _ensure_users_phone_verified_column()
     _ensure_users_signup_verification_method_column()

@@ -29,7 +29,7 @@ router = APIRouter(tags=["Admin Users"])
 
 
 _SORT_COLUMNS = {
-    "full_name": "COALESCE(up.full_name, '')",
+    "full_name": "COALESCE(u.full_name, '')",
     "email": "u.email",
     "order_count": "COALESCE(order_stats.order_count, 0)",
     "total_spent": "COALESCE(order_stats.total_spent, 0)",
@@ -53,7 +53,7 @@ def _build_user_filters(
     if search:
         where.append(
             "(u.email ILIKE :search OR u.username ILIKE :search "
-            "OR up.full_name ILIKE :search)"
+            "OR u.full_name ILIKE :search)"
         )
         params["search"] = f"%{search}%"
     clause = "WHERE " + " AND ".join(where) if where else ""
@@ -85,13 +85,13 @@ async def list_users(
     query = f"""
         SELECT
             u.id, u.email, u.username,
-            COALESCE(up.full_name, '') as full_name,
-            COALESCE(up.phone, '') as phone,
+            COALESCE(u.full_name, '') as full_name,
+            COALESCE(u.phone, '') as phone,
             u.role, u.is_active, u.created_at,
             COALESCE(order_stats.order_count, 0) as order_count,
-            COALESCE(order_stats.total_spent, 0) as total_spent
+            COALESCE(order_stats.total_spent, 0) as total_spent,
+            u.first_name, u.last_name, u.email_verified, u.phone_verified
         FROM users u
-        LEFT JOIN user_profiles up ON u.id = up.user_id
         LEFT JOIN (
             SELECT user_id,
                    COUNT(*) as order_count,
@@ -118,6 +118,10 @@ async def list_users(
             "created_at": row[7],
             "order_count": row[8],
             "total_spent": float(row[9]),
+            "first_name": row[10],
+            "last_name": row[11],
+            "email_verified": row[12],
+            "phone_verified": row[13],
         }
         for row in rows
     ]
@@ -135,7 +139,6 @@ async def count_users(
     query = f"""
         SELECT COUNT(*)
         FROM users u
-        LEFT JOIN user_profiles up ON u.id = up.user_id
         {where_clause}
     """
     return {"count": db.execute(text(query), params).scalar()}
@@ -154,14 +157,14 @@ async def get_user(
         text(
             """
             SELECT u.id, u.email, u.username,
-                   COALESCE(up.full_name, '') as full_name,
-                   COALESCE(up.phone, '') as phone,
+                   COALESCE(u.full_name, '') as full_name,
+                   COALESCE(u.phone, '') as phone,
                    u.role, u.is_active, u.created_at, u.updated_at,
                    COALESCE(order_stats.order_count, 0) as order_count,
                    COALESCE(order_stats.total_spent, 0) as total_spent,
-                   order_stats.last_order_date
+                   order_stats.last_order_date,
+                   u.first_name, u.last_name, u.email_verified, u.phone_verified
             FROM users u
-            LEFT JOIN user_profiles up ON u.id = up.user_id
             LEFT JOIN (
                 SELECT user_id,
                        COUNT(*) as order_count,
@@ -191,6 +194,10 @@ async def get_user(
         "order_count": row[9],
         "total_spent": float(row[10]),
         "last_order_date": str(row[11]) if row[11] else None,
+        "first_name": row[12],
+        "last_name": row[13],
+        "email_verified": row[14],
+        "phone_verified": row[15],
     }
 
 

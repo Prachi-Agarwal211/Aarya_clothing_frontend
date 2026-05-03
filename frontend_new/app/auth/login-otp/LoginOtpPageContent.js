@@ -31,7 +31,7 @@ export default function LoginOtpPageContent({ redirectUrl = '/products' }) {
 
   const otpRefs = useRef([]);
   const router = useRouter();
-  const { login, user, isAuthenticated, setAuthStatus } = useAuth();
+  const { login, user, isAuthenticated, setAuthStatus, loading } = useAuth();
   const logoUrl = useLogo();
   const { smsOtpEnabled, whatsappEnabled } = useSiteConfig();
 
@@ -184,7 +184,7 @@ export default function LoginOtpPageContent({ redirectUrl = '/products' }) {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  if (isAuthenticated) {
+  if (isAuthenticated && !loading) {
     const role = user?.role || USER_ROLES.CUSTOMER;
     const target = redirectUrl && redirectUrl !== '/products' ? redirectUrl : getRedirectForRole(role);
     router.push(target);

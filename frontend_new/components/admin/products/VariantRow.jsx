@@ -4,26 +4,9 @@ import React from 'react';
 import Image from 'next/image';
 import { Trash2, X, Copy } from 'lucide-react';
 import ColorPicker from '@/components/ui/ColorPicker';
-import { getHexFromName } from '@/lib/colorMap';
 import DropZone from './DropZone';
+import { getHexFromName } from '@/lib/colorMap';
 
-/**
- * Inline-editable variant row used inside ProductForm.
- *
- * Variant shape (caller-owned):
- *   {
- *     id?           Existing DB id when editing, undefined when new.
- *     size, color, color_hex, sku
- *     quantity, low_stock_threshold
- *     is_active     defaults true on backend
- *     image_url     persisted variant image URL (when editing)
- *     image         { file, preview } for not-yet-uploaded files
- *   }
- *
- * `onCopyImageToColor` lets the user push the chosen image to every other
- * row that already shares the same color name — saves a lot of clicking
- * when you're adding S/M/L/XL of the same colorway.
- */
 export default function VariantRow({
   index,
   variant,
@@ -91,7 +74,7 @@ export default function VariantRow({
               onFiles={handleImagePicked}
               multiple={false}
               compact
-              label="+ image"
+              label="Add image"
               id={`variant-image-${index}`}
             />
           )}
@@ -111,22 +94,53 @@ export default function VariantRow({
               />
             </div>
             <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs text-[#EAE0D5]/50 block">Color</label>
+                {variant.color_hex && variant.id && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        const response = await fetch(`/api/v1/products/variants/${variant.id}/color-name`, {
+                          credentials: 'include'
+                        });
+                        if (response.ok) {
+                          const data = await response.json();
+                          if (data.name) update('color', data.name);
+                        }
+                      } catch (_err) {
+                        // Silently ignore — non-critical helper
+                      }
+                    }}
+                    className="text-[10px] text-[#B76E79] hover:text-[#F2C29A] transition-colors"
+                    title="Fetch correct color name from backend"
+                  >
+                    Refresh Name
+                  </button>
+                )}
+              </div>
               <ColorPicker
                 value={
                   variant.color_hex || (variant.color ? getHexFromName(variant.color) : null)
                 }
-                onChange={(hex, name) => {
+                onChange={(hex) => {
+                  // Only update hex - let user decide when to refresh name
                   onChange(index, {
                     ...variant,
-                    color: name || variant.color,
                     color_hex: hex,
                   });
                 }}
-                label="Color"
               />
-              {variant.color && (
-                <p className="text-[11px] text-[#EAE0D5]/50 mt-1">Name: {variant.color}</p>
-              )}
+              <div className="mt-1.5 space-y-1">
+                <label className="text-[10px] text-[#EAE0D5]/40 block uppercase">Color Label</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Royal Wine"
+                  value={variant.color || ''}
+                  onChange={(e) => update('color', e.target.value)}
+                  className="w-full px-2 py-1 bg-[#0B0608]/40 border border-[#B76E79]/10 rounded text-[#EAE0D5] placeholder-[#EAE0D5]/20 focus:outline-none focus:border-[#B76E79]/30 text-xs"
+                />
+              </div>
             </div>
           </div>
 

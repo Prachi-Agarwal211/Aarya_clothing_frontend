@@ -60,7 +60,6 @@ export function AuthProvider({ children }) {
       if (storedUser) {
         setUser(storedUser);
         setIsAuthenticated(true);
-        setLoading(false);
       }
 
       // Always verify cookie-backed session from backend. This is required

@@ -16,7 +16,7 @@ from .review             import Review
 from .order_tracking     import OrderTracking
 from .return_request     import ReturnRequest, ReturnReason, ReturnStatus
 from .audit_log          import AuditLog
-from .user               import User, UserProfile, UserRole
+from .user               import User, UserRole
 from .stock_reservation  import StockReservation, ReservationStatus
 from .chat               import ChatSession, ChatMessage
 
@@ -32,7 +32,7 @@ __all__ = [
     "Order", "OrderItem", "OrderStatus",
     "Address", "AddressType", "Review",
     "OrderTracking", "ReturnRequest", "ReturnReason", "ReturnStatus",
-    "AuditLog", "User", "UserProfile", "UserRole",
+    "AuditLog", "User", "UserRole",
     "StockReservation", "ReservationStatus",
     "ChatSession", "ChatMessage",
 ]

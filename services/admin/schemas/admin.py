@@ -74,6 +74,29 @@ class TopProductsAnalytics(BaseModel):
 # ==================== Orders ====================
 
 
+class OrderListItem(BaseModel):
+    id: int
+    user_id: Optional[int] = None
+    subtotal: float
+    shipping_cost: float
+    total_amount: float
+    payment_method: Optional[str] = None
+    status: str
+    tracking_number: Optional[str] = None
+    order_notes: Optional[str] = None
+    created_at: str
+    updated_at: str
+    customer_email: str
+    customer_name: str
+    customer_phone: str
+    invoice_number: Optional[str] = None
+    shipping_address: Optional[Any] = None
+    razorpay_payment_id: Optional[str] = None
+    order_number: str
+    items: List[Dict[str, Any]] = []
+    item_count: int = 0
+
+
 class OrderStatusUpdate(BaseModel):
     status: str
     pod_number: Optional[str] = (
@@ -228,9 +251,13 @@ class UserListItem(BaseModel):
     email: str
     username: str
     full_name: str
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
     phone: Optional[str] = None
     role: str
     is_active: bool
+    email_verified: bool = False
+    phone_verified: bool = False
     created_at: Optional[datetime] = None
     order_count: int = 0
     total_spent: float = 0

@@ -69,6 +69,9 @@ class BaseSettings(PydanticBaseSettings):
     COOKIE_HTTPONLY: bool = True
     COOKIE_SAMESITE: str = "lax"
 
+    # ==================== Internal Service Secret ====================
+    INTERNAL_SERVICE_SECRET: str = ""
+
     @property
     def is_development(self) -> bool:
         """Check if running in development mode."""

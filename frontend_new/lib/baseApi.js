@@ -1,5 +1,8 @@
 import logger from './logger';
 
+// Single in-flight refresh for the whole app
+let authRefreshSingleton = null;
+
 /**
  * Base API Client for Aarya Clothing
  *
@@ -12,7 +15,8 @@ import logger from './logger';
  * Token storage: localStorage + cookies (for middleware route protection)
  */
 
-// Token helpers — tokens are HttpOnly cookies set by the backend.
+
+ // Token helpers — tokens are HttpOnly cookies set by the backend.
 // These functions exist only for backward-compat; real auth uses credentials:'include'.
 
 /**
@@ -223,9 +227,6 @@ async function parseResponse(response) {
   }
 }
 
-// Single in-flight refresh for the whole app
-let authRefreshSingleton = null;
-
 // PERFORMANCE: Request Deduplication & In-Memory Cache
 // Prevents duplicate in-flight requests and caches GET responses for 2 seconds.
 const inflightRequests = new Map();
@@ -336,6 +337,43 @@ export class BaseApiClient {
   _buildPathWithParams(path, params = {}) {
     const queryString = buildQuery(params || {});
     return queryString ? `${path}?${queryString}` : path;
+  }
+
+  /**
+   * Private helper to attempt a silent token refresh using the HttpOnly refresh cookie.
+   * Uses a singleton pattern to prevent multiple simultaneous refresh requests.
+   */
+  async _tryRefreshToken() {
+    // Return existing promise if a refresh is already in progress
+    if (authRefreshSingleton) return authRefreshSingleton;
+
+    authRefreshSingleton = (async () => {
+      try {
+        const url = buildUrl(this.baseUrl, '/api/v1/auth/refresh');
+        const response = await fetch(url, {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+        });
+
+        if (response.ok) {
+          logger.info('Token refreshed successfully');
+          return true;
+        }
+
+        // If refresh fails, clear auth data as the session is truly dead
+        logger.warn('Token refresh failed, session expired');
+        clearAuthData();
+        return false;
+      } catch (e) {
+        logger.error('Error during token refresh:', e);
+        return false;
+      } finally {
+        authRefreshSingleton = null;
+      }
+    })();
+
+    return authRefreshSingleton;
   }
 
   _normalizePayloadAndOptions(payload, options = {}) {
@@ -502,28 +540,22 @@ export function getPaymentBaseUrl() {
   return getCoreBaseUrl();
 }
 
-/**
- * Lazy client factory - creates fresh BaseApiClient instances on each call.
- * This is critical for SSR because the URL must be resolved at request time,
- * not at module load time. In Next.js standalone output, environment variables
- * are available at runtime but the module is cached.
- * 
- * Usage: Instead of `commerceClient.get(...)`, use `getCommerceClient().get(...)`
- * Or import `commerceClient` which is now a getter that returns a fresh client.
- */
+export default BaseApiClient;
 
-// Proxy-based lazy clients that create fresh instances on each access
+// --- Lazy Client Proxy System ---
+// Creates fresh BaseApiClient instances on each method call to ensure 
+// URLs are resolved at request-time (critical for SSR stability).
+
 const createLazyClientHandler = (baseUrlGetter) => ({
   get: (_, prop) => {
     const client = new BaseApiClient(baseUrlGetter());
+    // Special case for .fetch() which is called directly on apiFetch alias
+    if (prop === 'fetch') return client.fetch.bind(client);
     return client[prop]?.bind(client);
   }
 });
 
-// Export lazy getters for all client types
 export const coreClient = new Proxy({}, createLazyClientHandler(getCoreBaseUrl));
 export const commerceClient = new Proxy({}, createLazyClientHandler(getCommerceBaseUrl));
 export const adminClient = new Proxy({}, createLazyClientHandler(getAdminBaseUrl));
 export const paymentClient = new Proxy({}, createLazyClientHandler(getPaymentBaseUrl));
-
-export default BaseApiClient;

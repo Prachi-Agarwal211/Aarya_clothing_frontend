@@ -1,4 +1,4 @@
-import { Metadata } from 'next';
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Truck, Clock, MapPin, Package, DollarSign, Headphones, AlertCircle, CheckCircle } from 'lucide-react';
 

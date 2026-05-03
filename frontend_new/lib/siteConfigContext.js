@@ -20,7 +20,7 @@
  */
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { getSiteConfig } from './api';
+import { landingApi } from './customerApi';
 import logger from './logger';
 
 // Create context with default values
@@ -54,7 +54,7 @@ export function SiteConfigProvider({ children }) {
       setIsLoading(true);
       setError(null);
 
-      const response = await getSiteConfig();
+      const response = await landingApi.getSiteConfig();
       if (response) {
         setConfig({
           logo: response.logo && response.logo.trim() !== '' ? response.logo : DEFAULT_CONFIG.logo,

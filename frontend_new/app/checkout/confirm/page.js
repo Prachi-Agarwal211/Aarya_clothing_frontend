@@ -315,6 +315,14 @@ export default function CheckoutConfirmPage() {
                   <p className="text-[#EAE0D5] text-sm font-medium truncate">{item.product_name}</p>
                   <div className="flex items-center gap-3 mt-0.5 text-xs text-[#EAE0D5]/50">
                     {item.size && <span>Size: {item.size}</span>}
+                    {item.color && (
+                      <span className="inline-flex items-center gap-1">
+                        {item.color_hex && (
+                          <span className="w-2.5 h-2.5 rounded-full border border-white/20 shrink-0" style={{ backgroundColor: item.color_hex }} />
+                        )}
+                        {item.color}
+                      </span>
+                    )}
                   </div>
                   <p className="text-xs text-[#EAE0D5]/50 mt-0.5">
                     {formatCurrency(item.unit_price || item.price)} × {item.quantity}

@@ -12,6 +12,7 @@ class PaymentMethod(str, Enum):
     RAZORPAY = "razorpay"
     CARD = "card"
     UPI = "upi"
+    UPI_QR = "upi_qr"
     NETBANKING = "netbanking"
     WALLET = "wallet"
 

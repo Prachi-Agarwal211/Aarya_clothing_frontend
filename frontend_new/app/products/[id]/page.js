@@ -17,17 +17,16 @@ export default async function Page({ params }) {
   const { id } = await params;
 
   try {
-    // Fetch in parallel for speed
-    const [productRes, reviewsRes] = await Promise.all([
-      // Try ID first, then slug
-      isNaN(id) 
-        ? productsApi.getBySlug(id) 
-        : productsApi.get(id).catch(() => productsApi.getBySlug(id)),
-      reviewsApi.list(id).catch(() => [])
-    ]);
+    // 1. Fetch product first to get the numeric ID
+    const productRes = await (isNaN(id) 
+      ? productsApi.getBySlug(id) 
+      : productsApi.get(id).catch(() => productsApi.getBySlug(id)));
 
     const product = productRes.product || productRes;
     if (!product) return notFound();
+
+    // 2. Fetch reviews using the numeric product ID
+    const reviewsRes = await reviewsApi.list(product.id).catch(() => []);
 
     // Transform reviews to array
     const reviews = Array.isArray(reviewsRes) 

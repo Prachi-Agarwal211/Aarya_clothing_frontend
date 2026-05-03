@@ -429,7 +429,14 @@ export default function OrdersPage() {
                               <p className="font-medium text-[#F2C29A] text-sm truncate">{item.product_name || 'Product'}</p>
                               <div className="mt-1 flex flex-wrap gap-2 text-xs text-[#EAE0D5]/60">
                                 {item.size && <span className="px-1.5 py-0.5 bg-[#7A2F57]/20 rounded">Size: {item.size}</span>}
-                                {item.color && <span className="px-1.5 py-0.5 bg-[#7A2F57]/20 rounded">Color: {item.color}</span>}
+                                {item.color && (
+                                  <span className="px-1.5 py-0.5 bg-[#7A2F57]/20 rounded inline-flex items-center gap-1">
+                                    {item.color_hex && (
+                                      <span className="w-2.5 h-2.5 rounded-full border border-white/20 shrink-0" style={{ backgroundColor: item.color_hex }} />
+                                    )}
+                                    {item.color}
+                                  </span>
+                                )}
                                 {item.sku && <span className="px-1.5 py-0.5 bg-[#7A2F57]/20 rounded font-mono">SKU: {item.sku}</span>}
                               </div>
                               <div className="mt-2 flex items-center gap-3 text-sm">

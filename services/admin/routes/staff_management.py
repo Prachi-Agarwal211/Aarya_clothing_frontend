@@ -487,9 +487,7 @@ async def delete_staff_account(
     # FK-safe ordering: dependents first, then the user row.
     for stmt in (
         "DELETE FROM staff_tasks WHERE assigned_to = :user_id",
-        "DELETE FROM user_sessions WHERE user_id = :user_id",
-        "DELETE FROM user_profiles WHERE user_id = :user_id",
-        "DELETE FROM user_auth WHERE user_id = :user_id",
+        "DELETE FROM sessions WHERE user_id = :user_id",
         "DELETE FROM users WHERE id = :user_id",
     ):
         db.execute(text(stmt), {"user_id": user_id})

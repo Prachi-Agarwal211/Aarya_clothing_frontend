@@ -1,4 +1,3 @@
-import { Metadata } from 'next';
 import { generateContactPageSchema, generateBreadcrumbSchema } from '@/lib/structuredData';
 import ContactPageClient from './ContactPageClient';
 

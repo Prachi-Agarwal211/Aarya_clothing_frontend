@@ -79,6 +79,7 @@ class OrderItemResponse(BaseModel):
     sku: Optional[str] = None
     size: Optional[str] = None
     color: Optional[str] = None
+    color_hex: Optional[str] = None
     hsn_code: Optional[str] = None
     gst_rate: Optional[float] = None
     quantity: int

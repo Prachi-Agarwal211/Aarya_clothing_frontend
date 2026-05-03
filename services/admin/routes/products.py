@@ -35,11 +35,19 @@ from schemas.admin import (
 from service.r2_service import r2_service
 from shared.auth_middleware import require_admin, require_staff
 from shared.time_utils import now_ist
+from shared.color_utils import get_nearest_color_name
 from utils.url_helpers import get_r2_public_url
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["Admin Products"])
+
+
+def _hex_to_color_name(hex_color: str) -> str:
+    """Convert hex color to human-readable name using nearest match."""
+    if not hex_color:
+        return None
+    return get_nearest_color_name(hex_color.strip())
 
 
 
@@ -806,6 +814,16 @@ async def admin_create_product_variant(
         raise HTTPException(
             status_code=400, detail=f"SKU '{data.sku}' already exists for this product"
         )
+    color_name = (data.color or "").strip()
+    color_hex = (data.color_hex or "").strip().upper() if data.color_hex else None
+    
+    # Auto-name if name is missing or looks like a hex/default
+    if not color_name or color_name in ("Default", "Custom") or color_name.startswith("#"):
+        if color_hex:
+            color_name = _hex_to_color_name(color_hex)
+        else:
+            color_name = "Default"
+
     result = db.execute(
         text("""
         INSERT INTO inventory (product_id, sku, size, color, color_hex,
@@ -817,8 +835,8 @@ async def admin_create_product_variant(
             "pid": pid,
             "sku": data.sku,
             "size": data.size,
-            "color": (data.color or "").strip() or (data.color_hex or "").strip() or "Default",
-            "color_hex": (data.color_hex or "").strip().upper() if data.color_hex else None,
+            "color": color_name,
+            "color_hex": color_hex,
             "qty": data.quantity,
             "low_stock_threshold": data.low_stock_threshold
             if data.low_stock_threshold is not None
@@ -866,12 +884,23 @@ async def admin_update_product_variant(
     if data.size is not None:
         sets.append("size = :size")
         params["size"] = data.size
-    if data.color is not None:
-        sets.append("color = :color")
-        params["color"] = (data.color or "").strip() or (data.color_hex or "").strip() or "Default"
-    if data.color_hex is not None:
+    
+    # Handle color naming logic
+    color_name = data.color.strip() if data.color is not None else None
+    color_hex = data.color_hex.strip().upper() if data.color_hex is not None else None
+    
+    # If hex is changing, but name is NOT provided or is a placeholder/hex, auto-resolve it
+    if color_hex is not None:
+        if not color_name or color_name in ("Default", "Custom") or color_name.startswith("#"):
+            color_name = _hex_to_color_name(color_hex)
+        
         sets.append("color_hex = :color_hex")
-        params["color_hex"] = (data.color_hex or "").strip().upper() or None
+        params["color_hex"] = color_hex
+
+    if color_name is not None:
+        sets.append("color = :color")
+        params["color"] = color_name or "Default"
+
     if data.quantity is not None:
         sets.append("quantity = :qty")
         params["qty"] = data.quantity

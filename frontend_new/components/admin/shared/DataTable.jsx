@@ -43,6 +43,7 @@ export default function DataTable({
   const [sortColumn, setSortColumn] = useState(null);
   const [sortDirection, setSortDirection] = useState('asc');
   const [internalPage, setInternalPage] = useState(1);
+  const [hasHorizontalScroll, setHasHorizontalScroll] = useState(false);
   const tableContainerRef = useRef(null);
 
   // Sync internal page with prop
@@ -60,7 +61,7 @@ export default function DataTable({
     const checkScroll = () => {
       if (tableContainerRef.current) {
         const { scrollWidth, clientWidth } = tableContainerRef.current;
-        setHorizontalScroll(scrollWidth > clientWidth);
+        setHasHorizontalScroll(scrollWidth > clientWidth);
       }
     };
 
@@ -88,7 +89,7 @@ export default function DataTable({
 
   // Handle page change
   const handlePageChange = (page) => {
-    setCurrentPage(page);
+    setInternalPage(page);
     if (serverSide && onPageChange) {
       onPageChange(page);
     }
@@ -142,7 +143,7 @@ export default function DataTable({
       >
         <div className="animate-pulse">
           <div className="h-12 bg-[#B76E79]/10 border-b border-[#B76E79]/15" />
-          {[...Array(5)].map((_, i) => (
+          {[...Array(pageSize)].map((_, i) => (
             <div key={i} className="h-14 border-b border-[#B76E79]/10 flex items-center px-4 gap-4">
               <div className="h-4 bg-[#B76E79]/10 rounded w-1/4" />
               <div className="h-4 bg-[#B76E79]/10 rounded w-1/3" />
@@ -182,7 +183,7 @@ export default function DataTable({
         tabIndex={0}
       >
         {/* Visual scroll indicator */}
-        {horizontalScroll && (
+        {hasHorizontalScroll && (
           <div
             className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-[#0B0608]/80 to-transparent pointer-events-none"
             aria-hidden="true"

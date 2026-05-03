@@ -45,16 +45,9 @@ export default function EditProductPage() {
     setLoadError('');
 
     try {
-      let product;
-      // The admin GET works with both slug and numeric id, but the public
-      // slug endpoint is faster and avoids an admin-permission round-trip
-      // when an admin hits the storefront URL directly.
-      try {
-        const res = await fetch(`/api/v1/products/slug/${slugOrId}`, { credentials: 'include' });
-        product = res.ok ? await res.json() : await productsApi.get(slugOrId);
-      } catch {
-        product = await productsApi.get(slugOrId);
-      }
+      // Use Admin API as primary source for editing — it returns full internal 
+      // fields (stock thresholds, inactive variants, etc.) that public API hides.
+      const product = await productsApi.get(slugOrId);
 
       const pid = product.id;
       setProductId(pid);
@@ -114,6 +107,8 @@ export default function EditProductPage() {
   }, [fetchProduct]);
 
   const persistVariants = async ({ variants, deletedVariantIds }) => {
+    const variantErrors = [];
+
     await Promise.allSettled(
       deletedVariantIds.map((id) => productsApi.deleteVariant(productId, id)),
     );
@@ -132,6 +127,7 @@ export default function EditProductPage() {
           );
           imageUrl = uploaded?.image_url || imageUrl;
         } catch (err) {
+          variantErrors.push(`Variant ${idx + 1} image upload failed`);
           logger.warn('[EditProduct] variant image upload failed', { idx, err });
         }
       }
@@ -139,8 +135,8 @@ export default function EditProductPage() {
       const payload = {
         sku: v.sku?.trim() || undefined,
         size: v.size || 'Free',
-        color: v.color?.trim() || v.color_hex || 'Default',
         color_hex: v.color_hex || null,
+        color: v.color?.trim() || null,
         quantity: parseInt(v.quantity, 10) || 0,
         low_stock_threshold: parseInt(v.low_stock_threshold, 10) || 10,
         is_active: v.is_active !== false,
@@ -157,9 +153,13 @@ export default function EditProductPage() {
           });
         }
       } catch (err) {
+        const detail = err?.data?.detail || err?.message || 'Unknown error';
+        variantErrors.push(`Variant ${idx + 1} (${v.size}/${v.color || 'no color'}): ${detail}`);
         logger.warn('[EditProduct] variant save failed', { idx, err });
       }
     }
+
+    return variantErrors;
   };
 
   const handleSubmit = async ({
@@ -223,12 +223,19 @@ export default function EditProductPage() {
         }
       }
 
-      await persistVariants({ variants, deletedVariantIds });
+      const variantErrors = await persistVariants({ variants, deletedVariantIds });
+
+      if (variantErrors.length > 0) {
+        setSubmitError(`Saved with warnings:\n${variantErrors.join('\n')}`);
+        await fetchProduct();
+        return;
+      }
 
       router.push('/admin/products');
     } catch (err) {
       logger.error('[EditProduct] save failed', err);
-      setSubmitError(err?.message || 'Failed to save product changes.');
+      const detail = err?.data?.detail || err?.message || 'Failed to save product changes.';
+      setSubmitError(detail);
     } finally {
       setSubmitting(false);
     }

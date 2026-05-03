@@ -2,7 +2,6 @@
 
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { Pipette, ChevronDown } from 'lucide-react';
-import { getColorName } from '@/lib/colorMap';
 
 /**
  * Professional HSL gradient color picker.
@@ -78,52 +77,53 @@ function hslToRgb(h, s, l) {
 
 function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
 
-// Derive a readable color name from hex
-function nameFromHex(hex) {
-  return getColorName(hex) || 'Custom';
-}
-
 export default function ColorPicker({ value, onChange, label = 'Color' }) {
-  // Parse incoming hex → hsl — recalculate when value changes
-  const initHsl = useMemo(() => {
-    if (!value) return { h: 0, s: 100, l: 50 };
-    const { r, g, b } = hexToRgb(value);
-    return rgbToHsl(r, g, b);
-  }, [value]); // Recompute when external value changes
-
-  const [hue, setHue] = useState(initHsl.h);
-  const [sat, setSat] = useState(initHsl.s);
-  const [lit, setLit] = useState(initHsl.l);
+  // --- State (must be declared before anything that reads them) ---
+  const [hue, setHue] = useState(0);
+  const [sat, setSat] = useState(100);
+  const [lit, setLit] = useState(50);
   const [opacity, setOpacity] = useState(100);
-  const [hexInput, setHexInput] = useState(value || '#000000');
+  const [hexInput, setHexInput] = useState('#000000');
   const [open, setOpen] = useState(false);
 
   const gradRef = useRef(null);
   const hueRef = useRef(null);
   const opacRef = useRef(null);
-  const dragging = useRef(null); // 'grad' | 'hue' | 'opac'
+  const dragging = useRef(null);
 
-  // Current fully-opaque hex from h,s,l
+  // Current fully-opaque hex from internal h,s,l state
   const currentHex = useMemo(() => {
     const { r, g, b } = hslToRgb(hue, sat, lit);
     return rgbToHex(r, g, b);
   }, [hue, sat, lit]);
 
-  // Sync hex input & notify parent whenever hsl changes
-  useEffect(() => {
-    setHexInput(currentHex);
-    if (onChange) onChange(currentHex, nameFromHex(currentHex));
-  }, [currentHex]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Parse incoming hex → hsl
+  const parseHex = useCallback((hex) => {
+    if (!hex) return { h: 0, s: 100, l: 50, hex: '#000000' };
+    const { r, g, b } = hexToRgb(hex);
+    return { ...rgbToHsl(r, g, b), hex };
+  }, []);
 
-  // Sync local HSL state when value prop changes externally (e.g., switching variants)
+  // Sync internal state when external 'value' prop changes
   useEffect(() => {
-    const { r, g, b } = hexToRgb(value);
-    const { h, s, l } = rgbToHsl(r, g, b);
-    setHue(h);
-    setSat(s);
-    setLit(l);
-    setHexInput(value);
-  }, [value]);
+    // BREAK THE LOOP: Only update local state if the prop value is actually different
+    // from our current local calculation. This prevents rounding errors from
+    // triggering infinite re-renders (jitter).
+    if (value && value.toUpperCase() !== currentHex.toUpperCase() && !dragging.current) {
+      const parsed = parseHex(value);
+      setHue(parsed.h);
+      setSat(parsed.s);
+      setLit(parsed.l);
+      setHexInput(value.toUpperCase());
+    }
+  }, [value, currentHex, parseHex]);
+
+  // Helper to notify parent ONLY on user action
+  const notifyParent = useCallback((hex) => {
+    if (onChange) {
+      onChange(hex);
+    }
+  }, [onChange]);
 
   // --- Gradient canvas pointer handling ---
   const handleGradPointer = useCallback((e) => {
@@ -131,25 +131,30 @@ export default function ColorPicker({ value, onChange, label = 'Color' }) {
     const rect = gradRef.current.getBoundingClientRect();
     const x = clamp((e.clientX - rect.left) / rect.width, 0, 1);
     const y = clamp((e.clientY - rect.top) / rect.height, 0, 1);
-    // x = saturation 0→100, y = lightness 100→0 (with hue factored in)
-    // Proper: s from 0→100 left→right, l from (100 - y*(100-0)) adjusted for hue
-    // Simplified standard: s=x*100, l=(1-y)*100 adjusted → use HSV-style mapping
-    // Actual Photoshop approach: s=x*100, v=(1-y)*100 → convert HSV→HSL
+    
     const sv = x * 100;
     const vv = (1 - y) * 100;
-    // HSV to HSL
     const ll = vv * (1 - sv / 200);
     const ss = ll === 0 || ll === 100 ? 0 : (vv - ll) / Math.min(ll, 100 - ll) * 100;
+    
     setSat(clamp(ss, 0, 100));
     setLit(clamp(ll, 0, 100));
-  }, []);
+    
+    // Immediate notification for real-time visual feedback
+    const { r, g, b } = hslToRgb(hue, ss, ll);
+    notifyParent(rgbToHex(r, g, b));
+  }, [hue, notifyParent]);
 
   const handleHuePointer = useCallback((e) => {
     if (!hueRef.current) return;
     const rect = hueRef.current.getBoundingClientRect();
     const x = clamp((e.clientX - rect.left) / rect.width, 0, 1);
-    setHue(x * 360);
-  }, []);
+    const newHue = x * 360;
+    setHue(newHue);
+    
+    const { r, g, b } = hslToRgb(newHue, sat, lit);
+    notifyParent(rgbToHex(r, g, b));
+  }, [sat, lit, notifyParent]);
 
   const handleOpacPointer = useCallback((e) => {
     if (!opacRef.current) return;
@@ -173,7 +178,9 @@ export default function ColorPicker({ value, onChange, label = 'Color' }) {
     else if (type === 'opac') handleOpacPointer(e);
   }, [handleGradPointer, handleHuePointer, handleOpacPointer]);
 
-  const onPointerUp = useCallback(() => { dragging.current = null; }, []);
+  const onPointerUp = useCallback(() => { 
+    dragging.current = null; 
+  }, []);
 
   // Hex input handler
   const handleHexInput = (e) => {
@@ -185,6 +192,7 @@ export default function ColorPicker({ value, onChange, label = 'Color' }) {
       const { r, g, b } = hexToRgb(h);
       const { h: hh, s, l } = rgbToHsl(r, g, b);
       setHue(hh); setSat(s); setLit(l);
+      notifyParent(h.toUpperCase());
     }
   };
 
@@ -340,6 +348,7 @@ export default function ColorPicker({ value, onChange, label = 'Color' }) {
                       const { r, g, b } = hexToRgb(hex);
                       const { h, s, l } = rgbToHsl(r, g, b);
                       setHue(h); setSat(s); setLit(l);
+                      notifyParent(hex.toUpperCase());
                     }}
                     className={`w-5 h-5 rounded-sm transition-transform hover:scale-125 ${
                       selected ? 'ring-2 ring-[#F2C29A] ring-offset-1 ring-offset-[#1a0d12]' : ''

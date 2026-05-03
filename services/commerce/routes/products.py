@@ -39,6 +39,7 @@ from search.meilisearch_client import (
 )
 from shared.auth_middleware import get_current_user, get_current_user_optional, require_admin, require_staff
 from shared.roles import is_staff, is_admin
+from shared.color_utils import get_nearest_color_name
 
 logger = logging.getLogger(__name__)
 
@@ -57,66 +58,18 @@ def _r2_url(path: str) -> str:
     return f"{r2_base}/{path.lstrip('/')}"
 
 
-# Common hex color to human-readable name mapping
-HEX_COLOR_TO_NAME = {
-    '#000000': 'Black',
-    '#FFFFFF': 'White',
-    '#DC2626': 'Red',
-    '#800000': 'Maroon',
-    '#EC4899': 'Pink',
-    '#F43F5E': 'Rose',
-    '#FFDAB9': 'Peach',
-    '#FF7F50': 'Coral',
-    '#F97316': 'Orange',
-    '#B7410E': 'Rust',
-    '#E3A849': 'Mustard',
-    '#FFD700': 'Gold',
-    '#EAB308': 'Yellow',
-    '#C5D94C': 'Lime Yellow',
-    '#84CC16': 'Lime',
-    '#22C55E': 'Green',
-    '#2E8B57': 'Sea Green',
-    '#4A7C59': 'Mahendi',
-    '#808000': 'Olive',
-    '#14B8A6': 'Teal',
-    '#40E0D0': 'Turquoise',
-    '#87CEEB': 'Sky Blue',
-    '#3B82F6': 'Blue',
-    '#1E3A5F': 'Navy',
-    '#A855F7': 'Purple',
-    '#E6E6FA': 'Lavender',
-    '#C8A2C8': 'Lilac',
-    '#E0B0FF': 'Mauve',
-    '#FF00FF': 'Magenta',
-    '#722F37': 'Wine',
-    '#800020': 'Burgundy',
-    '#92400E': 'Brown',
-    '#F5F5DC': 'Beige',
-    '#FFFFF0': 'Ivory',
-    '#FFFDD0': 'Cream',
-    '#9CA3AF': 'Grey',
-    '#C0C0C0': 'Silver',
-    '#36454F': 'Charcoal',
-    '#0A5C4A': 'Emerald Green',
-    '#2C2A5A': 'Navy Blue',
-    '#2F7F7A': 'Teal Green',
-}
-
-
 def _is_hex_color(value: str) -> bool:
     """Check if a string is a hex color code."""
     if not value:
         return False
-    import re
     return bool(re.match(r'^#[0-9a-fA-F]{6}$', value.strip()))
 
 
 def _hex_to_color_name(hex_color: str) -> str:
-    """Convert hex color to human-readable name."""
+    """Convert hex color to human-readable name using nearest match."""
     if not hex_color:
         return None
-    hex_upper = hex_color.strip().upper()
-    return HEX_COLOR_TO_NAME.get(hex_upper, None)
+    return get_nearest_color_name(hex_color.strip())
 
 
 def _resolve_variant_hex(inv) -> str:
@@ -137,26 +90,30 @@ def _resolve_display_color_name(color_value: Optional[str], color_hex: Optional[
     Return customer-friendly color labels.
 
     Priority:
-    1) Explicit non-hex color value from DB (e.g. "Wine")
-    2) Named lookup from color_hex
-    3) Named lookup from color_value when it itself is hex
-    4) Safe fallback
+    1) Explicit non-hex color value from DB (e.g. "Wine" or "Deep Blue")
+    2) Nearest neighbor match from color_hex
+    3) Nearest neighbor match from color_value (if it's a hex)
+    4) Safe fallback (never hits 'Custom' if possible)
     """
     if color_value:
         value = color_value.strip()
+        # If it's a real name (not hex), return it exactly as is (e.g. "Jaipur Ruby")
         if value and not _is_hex_color(value):
             return value
 
-    from_hex = _hex_to_color_name(color_hex or "")
-    if from_hex:
-        return from_hex
+    # Try resolving from the dedicated hex column
+    if color_hex:
+        name = _hex_to_color_name(color_hex)
+        if name:
+            return name
 
+    # Try resolving if the color name field itself contains a hex
     if color_value and _is_hex_color(color_value):
-        from_color_hex = _hex_to_color_name(color_value)
-        if from_color_hex:
-            return from_color_hex
+        name = _hex_to_color_name(color_value)
+        if name:
+            return name
 
-    return "Custom"
+    return "Default"
 
 
 def _enrich_images(images) -> list:
@@ -976,6 +933,31 @@ async def upload_product_image(
         )
 
 
+@router.get("/variants/{variant_id}/color-name")
+async def get_variant_color_name(
+    variant_id: int,
+    current_user: dict = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    """Get auto-named color from hex for a variant (admin only)."""
+    variant = db.query(Inventory).filter(Inventory.id == variant_id).first()
+    if not variant:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Variant not found"
+        )
+
+    # Auto-name from hex using backend function
+    color_name = _hex_to_color_name(variant.color_hex)
+
+    return {
+        "id": variant.id,
+        "name": color_name,
+        "hex": variant.color_hex,
+        "color": variant.color
+    }
+
+
 @router.delete("/{product_id}/images/{image_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_product_image(
     product_id: int,
@@ -988,22 +970,22 @@ async def delete_product_image(
         ProductImage.id == image_id,
         ProductImage.product_id == product_id
     ).first()
-    
+
     if not image:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Image not found"
         )
-    
+
     # Delete from R2
     try:
         await r2_service.delete_image(image.image_url)
     except Exception as e:
         logger.warning(f"Failed to delete image from R2: {e}")
-    
+
     # Delete from database
     db.delete(image)
     db.commit()
-    
+
     # Invalidate caches
     cache.invalidate_pattern("products:*")

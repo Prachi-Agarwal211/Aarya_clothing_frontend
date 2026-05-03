@@ -8,11 +8,9 @@ from shared.time_utils import ist_naive
 from typing import Optional, List
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Text, Enum, func
 from sqlalchemy.orm import relationship, Mapped, mapped_column
-from sqlalchemy.ext.declarative import declarative_base
+from database.database import Base
 from enum import Enum as PyEnum
 import bcrypt
-
-Base = declarative_base()
 
 class UserRole(str, PyEnum):
     """Unified user roles across all services"""
@@ -75,6 +73,11 @@ class User(Base):
         cascade="all, delete-orphan"
     )
     
+    verifications: Mapped[List["EmailVerification"]] = relationship(
+        "EmailVerification", back_populates="user",
+        cascade="all, delete-orphan"
+    )
+    
     def verify_password(self, password: str) -> bool:
         """Verify password against hashed password"""
         return bcrypt.checkpw(password.encode('utf-8'), self.hashed_password.encode('utf-8'))
@@ -99,35 +102,29 @@ class User(Base):
         return SimpleNamespace(
             phone=self.phone,
             full_name=self.full_name,
-            first_name=self.first_name,
-            last_name=self.last_name,
-            avatar_url=None,
-            bio=None,
-            date_of_birth=None,
-            gender=None,
         )
 
 class Address(Base):
-    """User shipping addresses - moved from commerce to core"""
+    """Addresses - moved from core to core (consolidated)"""
     __tablename__ = "addresses"
     
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    
-    full_name = Column(String(100), nullable=False)
-    phone = Column(String(20), nullable=False)
+    address_type = Column(String(20), default="shipping")
+    full_name = Column(String(100), nullable=True)
+    phone = Column(String(20), nullable=True)
     address_line1 = Column(String(255), nullable=False)
     address_line2 = Column(String(255), nullable=True)
-    city = Column(String(50), nullable=False)
-    state = Column(String(50), nullable=False)
-    postal_code = Column(String(20), nullable=False)
-    country = Column(String(50), nullable=False)
-    is_default = Column(Boolean, default=False, nullable=False)
+    city = Column(String(100), nullable=False)
+    state = Column(String(100), nullable=False)
+    pincode = Column(String(20), nullable=False)
+    country = Column(String(100), default="India")
+    is_default = Column(Boolean, default=False)
     
     user: Mapped["User"] = relationship("User", back_populates="addresses")
 
 class Review(Base):
-    """Product reviews - moved from commerce to core"""
+    """Reviews - moved from commerce to core"""
     __tablename__ = "reviews"
     
     id = Column(Integer, primary_key=True, index=True)
@@ -135,8 +132,8 @@ class Review(Base):
     product_id = Column(Integer, nullable=False)
     rating = Column(Integer, nullable=False)
     comment = Column(Text, nullable=True)
+    is_verified_purchase = Column(Boolean, default=False)
     created_at = Column(DateTime, server_default=func.now(), nullable=False)
-    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), nullable=False)
     
     user: Mapped["User"] = relationship("User", back_populates="reviews")
 

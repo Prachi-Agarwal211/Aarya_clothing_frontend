@@ -1,4 +1,4 @@
-import { Metadata } from 'next';
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Shield, CheckCircle, AlertCircle, Scale } from 'lucide-react';
 import { generateArticleSchema, generateBreadcrumbSchema } from '@/lib/structuredData';

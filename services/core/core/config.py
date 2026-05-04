@@ -90,6 +90,13 @@ class Settings(SharedBaseSettings):
     FAST2SMS_TEMPLATE_OFFER: str = "19574"          # offer_template
     FAST2SMS_TEMPLATE_PAYMENT: str = "19575"        # payment_completed
 
+    # ==================== Fast2SMS SMS API ====================
+    # Uses same FAST2SMS_API_KEY as WhatsApp
+    FAST2SMS_SMS_ROUTE: str = "dlt"
+    FAST2SMS_SMS_SENDER_ID: str = "AARYAC"
+    FAST2SMS_SMS_TEMPLATE_OTP: str = "214721"
+    FAST2SMS_SMS_FLASH: str = "1"
+
     @property
     def whatsapp_enabled(self) -> bool:
         """Check if Fast2SMS WhatsApp integration is enabled."""

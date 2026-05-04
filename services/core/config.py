@@ -83,6 +83,12 @@ class Settings(BaseSettings):
     FAST2SMS_TEMPLATE_OFFER: str = "19574"
     FAST2SMS_TEMPLATE_PAYMENT: str = "19575"
 
+    # ==================== Fast2SMS SMS API ====================
+    FAST2SMS_SMS_ROUTE: str = "dlt"
+    FAST2SMS_SMS_SENDER_ID: str = "AARYAC"
+    FAST2SMS_SMS_TEMPLATE_OTP: str = "214721"
+    FAST2SMS_SMS_FLASH: str = "1"
+
     # ==================== Password Reset Settings ====================
     PASSWORD_RESET_TOKEN_EXPIRE_HOURS: int = 24
     PASSWORD_RESET_RATE_LIMIT: int = 5

@@ -40,43 +40,12 @@ const ProductCard = ({ product, className, priority = false }) => {
   const productHandle = product.slug || id;
   const productHref = productHandle ? `/products/${productHandle}` : '/products';
 
-  // Detect if we're on landing page to change button text
-  // Check pathname AND hash fragment for hash-routed landing pages
-  const isLandingPage = typeof window !== 'undefined' && (
-    window.location.pathname === '/' ||
-    window.location.hash?.startsWith('#new-arrivals') ||
-    window.location.hash?.startsWith('#collections')
-  );
-  const addToCartButtonText = isLandingPage ? 'View Details' : 'Add to Cart';
-
+  // Always navigate to product page from hover — users must select size & color
   const handleAddToCart = async (productData) => {
-    // On landing page / new arrivals, navigate to product page for size selection
-    // This ensures customers select the correct size before adding to cart
-    if (isLandingPage) {
-      // Client-side navigation to product detail page where user can select size
-      router.push(productHref);
-      return;
-    }
-
-    // On product browsing pages, require authentication and add to cart
-    if (!isAuthenticated) {
-      const currentPath = window.location.pathname + window.location.search;
-      router.push(`/auth/login?redirect_url=${encodeURIComponent(currentPath)}`);
-      return;
-    }
-
-    try {
-      await addItem(
-        productData.id || id,
-        productData.quantity || 1,
-        productData.variantId ? { id: productData.variantId } : null
-      );
-      toast.success('Added to Cart', `${productData.name || name} has been added to your cart`);
-      openCart();
-    } catch (error) {
-      toast.error('Error', 'Failed to add item to cart');
-    }
+    router.push(productHref);
   };
+
+  const addToCartButtonText = 'View Details';
 
   return (
     <>
@@ -141,7 +110,7 @@ const ProductCard = ({ product, className, priority = false }) => {
                 handleAddToCart(product);
               }}
               className="p-4 bg-gradient-to-r from-[#EAE0D5] to-[#F2C29A] text-[#050203] rounded-full transform translate-y-6 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-500 delay-100 hover:shadow-[0_0_30px_rgba(242,194,154,0.5)] active:scale-95 flex items-center justify-center"
-              title={isLandingPage ? "View product details and select size" : "Add to cart"}
+              title="View product details and select size"
             >
               <ShoppingBag className="w-5 h-5" />
             </AddToCartButton>

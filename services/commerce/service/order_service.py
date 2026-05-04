@@ -980,7 +980,7 @@ class OrderService:
 
             # Resolve image URL and ensure it's a full R2 CDN URL
             raw_image = item.get("image") or variant.image_url
-            full_image = _make_full_image_url(raw_image) if raw_image else None
+            full_image = get_r2_public_url(raw_image) if raw_image else None
 
             order_item = OrderItem(
                 order_id=order.id,

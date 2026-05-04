@@ -199,6 +199,78 @@ async def create_razorpay_order(
             f"✓ Order created: id={order.get('id')} "
             f"amount={order.get('amount')} status={order.get('status')}"
         )
+
+        # CRITICAL FIX: Immediately create payment_transaction + pending_order
+        # so we don't lose cart data if webhook fails
+        try:
+            from models.payment import PaymentTransaction
+            from sqlalchemy import text as _text
+
+            # Create payment transaction with cart_snapshot backup
+            transaction = PaymentTransaction(
+                user_id=current_user.get('user_id'),
+                amount=Decimal(str(request.amount)) / Decimal('100'),
+                currency=request.currency,
+                payment_method='razorpay',
+                razorpay_order_id=order['id'],
+                status='pending',
+                gateway_response={
+                    'cart_snapshot': request.cart_snapshot or [],
+                    'shipping_address': request.shipping_address,
+                    'created_during': 'create-order',
+                }
+            )
+            db.add(transaction)
+            db.flush()
+            logger.info(f"✓ PaymentTransaction created: id={transaction.id} txn_id={transaction.transaction_id}")
+
+            # Create pending_order in commerce service immediately
+            if request.cart_snapshot and request.shipping_address:
+                import httpx
+                commerce_url = os.getenv("COMMERCE_SERVICE_URL", "http://commerce:5002")
+                internal_secret = os.getenv("INTERNAL_SERVICE_SECRET")
+                try:
+                    resp = httpx.post(
+                        f"{commerce_url}/api/v1/orders/internal/prepare",
+                        json={
+                            "user_id": current_user.get('user_id'),
+                            "cart_snapshot": request.cart_snapshot,
+                            "shipping_address": request.shipping_address,
+                            "total_amount": float(request.amount) / 100,
+                            "subtotal": float(request.notes.get("subtotal", request.amount)) / 100 if request.notes else float(request.amount) / 100,
+                            "discount_applied": float(request.notes.get("discount_applied", 0)) / 100 if request.notes else 0,
+                            "shipping_cost": float(request.notes.get("shipping_cost", 0)) / 100 if request.notes else 0,
+                        },
+                        headers={"X-Internal-Secret": internal_secret},
+                        timeout=5.0
+                    )
+                    if resp.status_code == 200:
+                        pending_data = resp.json()
+                        pending_id = pending_data.get("pending_order_id")
+                        transaction.gateway_response = {
+                            **transaction.gateway_response,
+                            "pending_order_id": pending_id,
+                        }
+                        # Update Razorpay order notes with pending_order_id for webhook recovery
+                        try:
+                            razorpay_client.update_order(order['id'], notes={
+                                **request.notes,
+                                "pending_order_id": str(pending_id),
+                            })
+                        except Exception as update_err:
+                            logger.warning(f"⚠ Could not update Razorpay order notes: {update_err}")
+                        logger.info(f"✓ PENDING_ORDER_PREPARED: id={pending_id} for user={current_user.get('user_id')}")
+                    else:
+                        logger.warning(f"⚠ Failed to prepare pending order: HTTP {resp.status_code}")
+                except Exception as e:
+                    logger.warning(f"⚠ Failed to create pending_order: {e}")
+
+            db.commit()
+        except Exception as e:
+            db.rollback()
+            logger.error(f"✗ Failed to create transaction/pending_order: {e}")
+            # Don't fail the whole request - Razorpay order is already created
+
         return RazorpayOrderResponse(**order)
 
     except Exception as e:

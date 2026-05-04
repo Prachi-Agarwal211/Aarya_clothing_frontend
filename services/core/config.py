@@ -74,6 +74,15 @@ class Settings(BaseSettings):
     WHATSAPP_TEMPLATE_ORDER_SHIPPED: str = "order_shipped"
     WHATSAPP_TEMPLATE_ORDER_DELIVERED: str = "order_delivered"
 
+    # ==================== Fast2SMS WhatsApp API ====================
+    FAST2SMS_API_KEY: Optional[str] = None
+    FAST2SMS_PHONE_NUMBER_ID: Optional[str] = None
+    FAST2SMS_TEMPLATE_AUTH_OTP: str = "19572"
+    FAST2SMS_TEMPLATE_OTP: str = "19576"
+    FAST2SMS_TEMPLATE_UPDATE_CASE: str = "19573"
+    FAST2SMS_TEMPLATE_OFFER: str = "19574"
+    FAST2SMS_TEMPLATE_PAYMENT: str = "19575"
+
     # ==================== Password Reset Settings ====================
     PASSWORD_RESET_TOKEN_EXPIRE_HOURS: int = 24
     PASSWORD_RESET_RATE_LIMIT: int = 5

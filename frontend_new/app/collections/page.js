@@ -3,11 +3,7 @@ import Image from 'next/image';
 import { ChevronRight } from 'lucide-react';
 import EnhancedHeader from '@/components/landing/EnhancedHeader';
 import Footer from '@/components/landing/Footer';
-import { collectionsApi } from '@/lib/customerApi';
 import { generateBreadcrumbSchema, generateItemListSchema } from '@/lib/structuredData';
-
-// Incremental Static Regeneration: Re-generate the page every hour
-export const revalidate = 3600;
 
 // SEO Metadata
 export const metadata = {
@@ -34,45 +30,35 @@ export const metadata = {
   },
 };
 
+// Force dynamic rendering
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 // Generate structured data
 function generateStructuredData(categories) {
   const breadcrumbSchema = generateBreadcrumbSchema([
     { name: 'Home', url: '/' },
     { name: 'Collections', url: '/collections' }
   ]);
-
+  
   const itemListSchema = generateItemListSchema(categories, 'Collection');
-
+  
   return {
     breadcrumbSchema,
     itemListSchema
   };
 }
 
-// Fetch collections data server-side with retry
+// Fetch collections data server-side using direct fetch
 async function getCollections() {
-  const MAX_RETRIES = 2;
-
-  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-    try {
-      const data = await collectionsApi.list();
-      const items = Array.isArray(data) ? data : (data?.items || data?.collections || []);
-      return items;
-    } catch (error) {
-      console.error(`[Collections] Fetch failed (attempt ${attempt + 1}/${MAX_RETRIES + 1}):`, error?.message || error);
-
-      if (attempt < MAX_RETRIES) {
-        // Wait before retry: 500ms, 1000ms
-        await new Promise(r => setTimeout(r, 500 * (attempt + 1)));
-        continue;
-      }
-
-      // All retries exhausted
-      return [];
-    }
+  try {
+    const data = await collectionsApi.list();
+    const items = Array.isArray(data) ? data : (data?.items || data?.collections || []);
+    return items;
+  } catch (error) {
+    console.error('[Collections] API call failed:', error?.message || error);
+    return [];
   }
-
-  return [];
 }
 
 export default async function CollectionsPage() {
@@ -95,7 +81,7 @@ export default async function CollectionsPage() {
 
       <div className="relative z-10 page-wrapper">
         <EnhancedHeader />
-
+        
         <div className="page-content">
           <div className="container mx-auto px-4 sm:px-6 md:px-8 pt-16 md:pt-20">
             {/* Breadcrumbs */}

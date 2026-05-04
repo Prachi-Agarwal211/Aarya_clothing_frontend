@@ -41,6 +41,9 @@ class RazorpayOrderRequest(BaseModel):
     currency: str = Field(default="INR", description="Currency code")
     receipt: Optional[str] = Field(None, max_length=40, description="Receipt ID (max 40 characters)")
     notes: Optional[Dict[str, str]] = None
+    # Snapshot fields for backup (prevents data loss if webhook fails)
+    cart_snapshot: Optional[List[Dict[str, Any]]] = None
+    shipping_address: Optional[str] = None
 
 
 class RazorpayOrderResponse(BaseModel):

@@ -673,18 +673,18 @@ class PaymentService:
                     .first()
                 )
 
-            # FIX: For QR code payments, also try matching by transaction_id
-            # (some systems use transaction_id as the payment reference)
-            if not transaction and payment_id and method in ["upi", "upi_qr"]:
-                transaction = (
-                    self.db.query(PaymentTransaction)
-                    .filter(
-                        PaymentTransaction.transaction_id == payment_id,
-                        PaymentTransaction.razorpay_payment_id.is_(None) | ""  # Empty in DB
+                # FIX: For QR code payments, also try matching by transaction_id
+                # (some systems use transaction_id as the payment reference)
+                if not transaction and payment_id and method in ["upi", "upi_qr"]:
+                    transaction = (
+                        self.db.query(PaymentTransaction)
+                        .filter(
+                            PaymentTransaction.transaction_id == payment_id,
+                            (PaymentTransaction.razorpay_payment_id.is_(None) | (PaymentTransaction.razorpay_payment_id == ""))
+                        )
+                        .with_for_update(nowait=True)
+                        .first()
                     )
-                    .with_for_update(nowait=True)
-                    .first()
-                )
 
             # For QR code payments, payment_id may not be available initially
             # FIX: Removed status == "pending" filter - check ALL QR transactions
@@ -724,6 +724,7 @@ class PaymentService:
                 
                 # FIX: Always update status to completed for captured/authorized payments
                 # (not just pending ones - webhooks can arrive out of order)
+                status = event_info.get("status", "captured")
                 if status in ["captured", "authorized", "completed"] and transaction.status != "completed":
                     transaction.status = "completed"
                     if not transaction.completed_at:
@@ -885,7 +886,12 @@ class PaymentService:
             raise HTTPException(status_code=500, detail="Payment capture handling failed")
 
     def _handle_payment_authorized(self, event_info: Dict[str, Any]):
-        """Handle payment authorized webhook — update transaction but don't create order yet."""
+        """Handle payment authorized webhook — update transaction AND create order immediately.
+
+        CRITICAL FIX: Embedded checkout (UPI collect) sends 'authorized' webhook FIRST,
+        then 'captured' webhook. We must create the order NOW, not wait for 'captured'
+        (which may fail or arrive out of order).
+        """
         try:
             payment_id = event_info.get("payment_id")
             razorpay_order_id = event_info.get("order_id")
@@ -930,11 +936,22 @@ class PaymentService:
                 if razorpay_order_id and not transaction.razorpay_order_id:
                     transaction.razorpay_order_id = razorpay_order_id
                 transaction.gateway_response = event_info
-                # Don't mark as completed yet — wait for captured
+                # CRITICAL: Create order NOW for embedded checkout
+                # (authorized comes before captured for UPI collect)
                 if transaction.status == "pending":
                     transaction.status = "authorized"
                 self.db.commit()
                 logger.info(f"WEBHOOK: Payment authorized: {payment_id} txn={transaction.transaction_id}")
+
+                # CRITICAL FIX: Create order immediately for embedded checkout
+                # (don't wait for captured webhook which may fail)
+                if method in ["upi", "card", "netbanking"] and not self._order_exists(transaction):
+                    logger.info(f"WEBHOOK: Creating order from authorized event for txn={transaction.transaction_id}")
+                    self._create_order_from_webhook(transaction, event_info)
+            else:
+                # No transaction found — try to recover from Razorpay API
+                logger.warning(f"WEBHOOK: No transaction found for authorized payment {payment_id}")
+                self._recover_transaction_from_razorpay(event_info)
         except Exception as e:
             self.db.rollback()
             logger.error(f"WEBHOOK_AUTHORIZED_FAILED: {str(e)}")
@@ -1191,6 +1208,57 @@ class PaymentService:
             logger.error(f"Failed to handle payment failed: {str(e)}")
             raise HTTPException(status_code=500, detail="Payment failure handling failed")
     
+    def _order_exists(self, transaction: PaymentTransaction) -> bool:
+        """Check if an order already exists for this transaction."""
+        try:
+            from sqlalchemy import text as _text
+            result = self.db.execute(_text("""
+                SELECT 1 FROM orders WHERE transaction_id = :txn_id LIMIT 1
+            """), {"txn_id": transaction.transaction_id}).first()
+            return result is not None
+        except Exception:
+            return False
+
+    def _recover_transaction_from_razorpay(self, event_info: Dict[str, Any]) -> None:
+        """Recover a missing transaction from Razorpay API (webhook failed to find it)."""
+        try:
+            from core.razorpay_client import get_razorpay_client
+            from shared.time_utils import ist_naive, now_ist
+            import os
+
+            payment_id = event_info.get("payment_id")
+            if not payment_id:
+                return
+
+            razorpay_client = get_razorpay_client()
+            payment = razorpay_client.fetch_payment(payment_id)
+            if not payment:
+                return
+
+            # Try to extract user_id from notes
+            notes = payment.get("notes", {})
+            user_id = notes.get("user_id")
+            if not user_id:
+                return
+
+            # Create transaction from Razorpay data
+            transaction = PaymentTransaction(
+                user_id=int(user_id),
+                amount=Decimal(str(payment.get("amount", 0))) / Decimal('100'),
+                currency=payment.get("currency", "INR"),
+                payment_method=payment.get("method", "razorpay"),
+                razorpay_payment_id=payment_id,
+                razorpay_order_id=payment.get("order_id"),
+                status="completed" if payment.get("status") == "captured" else "authorized",
+                completed_at=now_ist() if payment.get("status") == "captured" else None,
+                gateway_response={**payment, "recovered": True},
+            )
+            self.db.add(transaction)
+            self.db.commit()
+            logger.info(f"✓ RECOVERED transaction from Razorpay: txn={transaction.transaction_id}")
+        except Exception as e:
+            logger.error(f"✗ Failed to recover transaction: {e}")
+
     def _handle_refund_processed(self, event_info: Dict[str, Any]):
         """Handle refund processed webhook event."""
         try:

@@ -72,19 +72,30 @@ class Settings(SharedBaseSettings):
     WHATSAPP_PHONE_NUMBER_ID: Optional[str] = None
     WHATSAPP_WABA_ID: Optional[str] = None
     WHATSAPP_API_VERSION: str = "v20.0"
-    
+
     # Template Names (Must match exactly what you created in Meta Dashboard)
     WHATSAPP_TEMPLATE_OTP: str = "auth_otp"
     WHATSAPP_TEMPLATE_ORDER_CONFIRMED: str = "order_confirmation"
     WHATSAPP_TEMPLATE_ORDER_SHIPPED: str = "order_shipped"
     WHATSAPP_TEMPLATE_ORDER_DELIVERED: str = "order_delivered"
 
+    # ==================== Fast2SMS WhatsApp API ====================
+    # Preferred WhatsApp provider for Aarya Clothing
+    FAST2SMS_API_KEY: Optional[str] = None
+    FAST2SMS_PHONE_NUMBER_ID: Optional[str] = None
+    # Template message IDs from Fast2SMS dashboard (override via env vars)
+    FAST2SMS_TEMPLATE_AUTH_OTP: str = "19572"       # auth_otp template
+    FAST2SMS_TEMPLATE_OTP: str = "19576"            # otp_template (fallback)
+    FAST2SMS_TEMPLATE_UPDATE_CASE: str = "19573"    # update_regarding_case
+    FAST2SMS_TEMPLATE_OFFER: str = "19574"          # offer_template
+    FAST2SMS_TEMPLATE_PAYMENT: str = "19575"        # payment_completed
+
     @property
     def whatsapp_enabled(self) -> bool:
-        """Check if Meta WhatsApp integration is enabled."""
+        """Check if Fast2SMS WhatsApp integration is enabled."""
         return bool(
-            self.WHATSAPP_ACCESS_TOKEN and
-            self.WHATSAPP_PHONE_NUMBER_ID
+            self.FAST2SMS_API_KEY and
+            self.FAST2SMS_PHONE_NUMBER_ID
         )
 
     # ==================== Password Reset Settings ====================

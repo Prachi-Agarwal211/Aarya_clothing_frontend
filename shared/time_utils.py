@@ -32,8 +32,22 @@ def to_ist(dt: datetime) -> datetime:
 
 
 def ist_naive() -> datetime:
-    """Return current IST time as a naive datetime (for DB columns without tz)."""
-    return datetime.now(IST).replace(tzinfo=None)
+    """Return current IST time as a naive datetime (for DB columns without tz).
+
+    CRITICAL: The DB timezone is UTC (show timezone = 'Etc/UTC').
+    Naive datetimes written to the DB are interpreted as UTC.
+    So we must return a naive datetime that represents the CORRECT UTC time
+    (i.e., IST - 5:30), not the IST wall clock time.
+
+    Example:
+        IST wall clock = 11:53
+        UTC = 06:23
+        We must write 06:23 (naive) to the DB, not 11:53.
+    """
+    # Get current time in IST, convert to UTC, strip timezone
+    ist_now = datetime.now(IST)
+    utc_now = ist_now.astimezone(timezone.utc)
+    return utc_now.replace(tzinfo=None)
 
 
 def utc_now() -> datetime:

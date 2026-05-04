@@ -1,4 +1,4 @@
-"""Meta WhatsApp Cloud API Service for Aarya Clothing."""
+"""Fast2SMS WhatsApp API Service for Aarya Clothing."""
 
 import logging
 import re
@@ -12,207 +12,111 @@ logger = logging.getLogger(__name__)
 
 
 class WhatsAppService:
-    """Service for sending WhatsApp messages via Meta Cloud API."""
+    """Service for sending WhatsApp messages via Fast2SMS."""
 
     def __init__(self):
-        """Initialize Meta WhatsApp client."""
+        """Initialize Fast2SMS WhatsApp client."""
         if not settings.whatsapp_enabled:
-            logger.info("WhatsApp service is not configured. Set WHATSAPP_ACCESS_TOKEN and WHATSAPP_PHONE_NUMBER_ID.")
-            self.access_token = None
+            logger.info("WhatsApp service is not configured. Set FAST2SMS_API_KEY and FAST2SMS_PHONE_NUMBER_ID.")
+            self.api_key = None
             self.phone_number_id = None
             return
 
-        self.access_token = settings.WHATSAPP_ACCESS_TOKEN
-        self.phone_number_id = settings.WHATSAPP_PHONE_NUMBER_ID
-        self.api_version = settings.WHATSAPP_API_VERSION
-        self.base_url = f"https://graph.facebook.com/{self.api_version}/{self.phone_number_id}/messages"
-        logger.info("Meta WhatsApp service initialized successfully")
+        self.api_key = settings.FAST2SMS_API_KEY
+        self.phone_number_id = settings.FAST2SMS_PHONE_NUMBER_ID
+        self.base_url = "https://www.fast2sms.com/dev/whatsapp"
+        logger.info("Fast2SMS WhatsApp service initialized successfully")
 
     def _format_phone_number(self, phone: str) -> str:
-        """Format phone number for Meta API (must include country code, no +)."""
+        """Format phone number - remove non-digits, ensure country code."""
         phone = str(phone).strip()
-        # Remove any non-digit characters
         phone = re.sub(r'\D', '', phone)
-        
-        # If 10-digit Indian number, add 91
-        if len(phone) == 10:
-            return f"91{phone}"
-        
         return phone
 
     def send_template_message(
         self,
         to_phone: str,
-        template_name: str,
-        parameters: List[Dict[str, Any]],
-        language_code: str = "en",
-        button_parameters: Optional[List[Dict[str, Any]]] = None
+        template_message_id: str,
+        variables_values: str,
     ) -> Dict[str, Any]:
         """
-        Send a WhatsApp message using a Meta Approved Template.
+        Send a WhatsApp message using a Fast2SMS Approved Template.
+
+        Args:
+            to_phone: Recipient phone number
+            template_message_id: Fast2SMS message_id (e.g., "19572" for auth_otp)
+            variables_values: Pipe-separated values for template variables (e.g., "123456" or "John|2024-01-01|Update text")
         """
-        if not self.access_token:
-            logger.warning("[WhatsApp] WHATSAPP_ACCESS_TOKEN not configured")
-            return {"success": False, "error": "WhatsApp Access Token is missing."}
-            
+        if not self.api_key:
+            logger.warning("[WhatsApp] FAST2SMS_API_KEY not configured")
+            return {"success": False, "error": "Fast2SMS API Key is missing."}
+
         if not self.phone_number_id:
-            logger.warning("[WhatsApp] WHATSAPP_PHONE_NUMBER_ID not configured")
-            return {"success": False, "error": "WhatsApp Phone Number ID is missing."}
+            logger.warning("[WhatsApp] FAST2SMS_PHONE_NUMBER_ID not configured")
+            return {"success": False, "error": "Fast2SMS Phone Number ID is missing."}
 
         formatted_phone = self._format_phone_number(to_phone)
-        
-        components = [
-            {
-                "type": "body",
-                "parameters": parameters
-            }
-        ]
-        
-        if button_parameters:
-            components.append({
-                "type": "button",
-                "sub_type": "url",
-                "index": 0,
-                "parameters": button_parameters
-            })
 
-        payload = {
-            "messaging_product": "whatsapp",
-            "to": formatted_phone,
-            "type": "template",
-            "template": {
-                "name": template_name,
-                "language": {
-                    "code": language_code
-                },
-                "components": components
-            }
-        }
-
-        headers = {
-            "Authorization": f"Bearer {self.access_token}",
-            "Content-Type": "application/json"
-        }
+        url = (
+            f"{self.base_url}"
+            f"?authorization={self.api_key}"
+            f"&message_id={template_message_id}"
+            f"&phone_number_id={self.phone_number_id}"
+            f"&numbers={formatted_phone}"
+            f"&variables_values={variables_values}"
+        )
 
         try:
             with httpx.Client(timeout=30.0) as client:
-                response = client.post(
-                    self.base_url,
-                    json=payload,
-                    headers=headers
-                )
+                response = client.get(url)
 
                 if response.status_code not in (200, 201, 202):
-                    error_data = {}
-                    try:
-                        error_data = response.json()
-                    except:
-                        pass
-                    
-                    print(f"FULL ERROR RESPONSE: {response.text}")
-                    error_msg = error_data.get("error", {}).get("message", response.text)
+                    error_msg = response.text
                     logger.error(f"[WhatsApp] HTTP {response.status_code}: {error_msg}")
-                    
-                    if response.status_code == 401:
-                        return {"success": False, "error": "Invalid or expired WhatsApp Access Token."}
-                    
-                    return {"success": False, "error": f"WhatsApp API Error ({response.status_code}): {error_msg}"}
+                    return {"success": False, "error": f"Fast2SMS API Error ({response.status_code}): {error_msg}"}
 
                 result = response.json()
-                
-                if "messages" in result:
-                    message_id = result["messages"][0].get("id")
+
+                if result.get("return") is True:
+                    message_id = result.get("request_id", "")
                     logger.info(f"[WhatsApp] Message sent to {formatted_phone} (ID: {message_id})")
                     return {"success": True, "message_id": message_id}
                 else:
-                    logger.error(f"[WhatsApp] Unexpected response format: {result}")
-                    return {"success": False, "error": "Unexpected response format from WhatsApp API."}
+                    error_msg = result.get("message", "Unknown error")
+                    logger.error(f"[WhatsApp] API error: {error_msg}")
+                    return {"success": False, "error": error_msg}
 
         except httpx.ConnectError:
-            logger.error(f"[WhatsApp] Connection error to Meta API")
-            return {"success": False, "error": "Could not connect to WhatsApp API. Please check your internet connection."}
+            logger.error("[WhatsApp] Connection error to Fast2SMS API")
+            return {"success": False, "error": "Could not connect to Fast2SMS API. Please check your internet connection."}
         except Exception as e:
             logger.error(f"[WhatsApp] Exception sending to {formatted_phone}: {str(e)}")
             return {"success": False, "error": f"Internal error sending WhatsApp: {str(e)}"}
 
-    # --- Convenience Methods ---
-
     def send_otp(self, phone: str, otp_code: str) -> Dict[str, Any]:
-        """Send OTP via WhatsApp."""
-        # Meta Authentication templates with a 'Copy Code' button
-        # usually expect the same parameter for both the body and the button.
-        # Component index 0 is body, component index 1 is usually the button.
-        
-        formatted_phone = self._format_phone_number(phone)
-        
-        payload = {
-            "messaging_product": "whatsapp",
-            "to": formatted_phone,
-            "type": "template",
-            "template": {
-                "name": settings.WHATSAPP_TEMPLATE_OTP,
-                "language": {
-                    "code": "en"
-                },
-                "components": [
-                    {
-                        "type": "body",
-                        "parameters": [
-                            {"type": "text", "text": otp_code}
-                        ]
-                    },
-                    {
-                        "type": "button",
-                        "sub_type": "url",
-                        "index": 0,
-                        "parameters": [
-                            {"type": "text", "text": otp_code}
-                        ]
-                    }
-                ]
-            }
-        }
-
-        headers = {
-            "Authorization": f"Bearer {self.access_token}",
-            "Content-Type": "application/json"
-        }
-
-        try:
-            with httpx.Client(timeout=30.0) as client:
-                response = client.post(self.base_url, json=payload, headers=headers)
-                if response.status_code in (200, 201, 202):
-                    res_data = response.json()
-                    return {"success": True, "message_id": res_data["messages"][0].get("id")}
-                
-                logger.error(f"[WhatsApp OTP] Error {response.status_code}: {response.text}")
-                return {"success": False, "error": f"Meta API Error: {response.status_code}"}
-        except Exception as e:
-            logger.error(f"[WhatsApp OTP] Exception: {str(e)}")
-            return {"success": False, "error": str(e)}
+        """Send OTP via WhatsApp using Fast2SMS auth_otp template (message_id: 19572)."""
+        # Template 19572 (auth_otp) has 1 variable: Var1 = OTP code
+        return self.send_template_message(
+            to_phone=phone,
+            template_message_id=settings.FAST2SMS_TEMPLATE_AUTH_OTP,
+            variables_values=otp_code,
+        )
 
     def send_order_confirmation(self, phone: str, customer_name: str, order_number: str, total_amount: str) -> Dict[str, Any]:
         """Send order confirmation via WhatsApp."""
+        # Reuse update_regarding_case template (19573) with 3 variables
         return self.send_template_message(
             to_phone=phone,
-            template_name=settings.WHATSAPP_TEMPLATE_ORDER_CONFIRMED,
-            parameters=[
-                {"type": "text", "text": customer_name},
-                {"type": "text", "text": order_number},
-                {"type": "text", "text": total_amount}
-            ]
+            template_message_id=settings.FAST2SMS_TEMPLATE_UPDATE_CASE,
+            variables_values=f"{customer_name}|Order {order_number}|Your order total is ₹{total_amount}",
         )
 
     def send_order_shipped(self, phone: str, customer_name: str, order_number: str, tracking_url: str) -> Dict[str, Any]:
         """Send shipping notification via WhatsApp."""
         return self.send_template_message(
             to_phone=phone,
-            template_name=settings.WHATSAPP_TEMPLATE_ORDER_SHIPPED,
-            parameters=[
-                {"type": "text", "text": customer_name},
-                {"type": "text", "text": order_number},
-                {"type": "text", "text": tracking_url}
-            ]
+            template_message_id=settings.FAST2SMS_TEMPLATE_UPDATE_CASE,
+            variables_values=f"{customer_name}|Order {order_number}|Shipped! Track: {tracking_url}",
         )
 
 

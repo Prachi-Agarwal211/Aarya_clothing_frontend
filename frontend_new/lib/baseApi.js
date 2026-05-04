@@ -539,14 +539,16 @@ export function getCommerceBaseUrl() {
     return window.location.origin;
   }
   
-  // Server-side: use internal URL for direct service-to-service calls
-  if (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_INTERNAL_COMMERCE_URL) {
-    return process.env.NEXT_PUBLIC_INTERNAL_COMMERCE_URL.trim();
+  // Server-side (SSR): use env var if set (http://nginx:80 in Docker)
+  let serverUrl = '';
+  if (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_API_URL) {
+    serverUrl = process.env.NEXT_PUBLIC_API_URL.trim();
+  } else {
+    // Fallback: use nginx hostname directly
+    serverUrl = 'http://nginx';
   }
-
-  // SSR fallback: bypass nginx if gateway networking is flaky for server-side fetches
-  return 'http://commerce:5002';
   
+  return serverUrl;
 }
 
 export function getAdminBaseUrl() {

@@ -107,7 +107,7 @@ def process_email_outbox(batch_size: int = 50) -> dict:
                         "body_text": email.body_text,
                     }
                     success = core_notify_post(
-                        f"/internal/email/send",  # Or /internal/notifications/email-direct
+                        f"/email/send",  # Fixed: remove /internal (core_notify_post already adds it)
                         payload,
                     )
 

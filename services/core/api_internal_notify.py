@@ -9,6 +9,7 @@ import os
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException, status
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from core.config import settings
@@ -25,10 +26,18 @@ from service.order_notification_dispatch import (
     dispatch_order_delivered,
     dispatch_order_cancelled,
 )
+from service.email_service import email_service
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/internal", tags=["Internal — service-to-service"])
+
+
+class DirectEmailBody(BaseModel):
+    to_email: str
+    subject: str
+    body_html: str
+    body_text: Optional[str] = None
 
 
 def _verify_internal_secret(x_internal_secret: Optional[str]) -> None:
@@ -41,6 +50,27 @@ def _verify_internal_secret(x_internal_secret: Optional[str]) -> None:
         )
     if not x_internal_secret or not hmac.compare_digest(x_internal_secret, expected):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid internal secret")
+
+
+@router.post("/email/send")
+def send_direct_email(
+    body: DirectEmailBody,
+    x_internal_secret: Optional[str] = Header(None, alias="X-Internal-Secret"),
+):
+    """Simple endpoint for sending email directly from commerce email worker."""
+    _verify_internal_secret(x_internal_secret)
+    
+    try:
+        success = email_service.send(
+            to_email=body.to_email,
+            subject=body.subject,
+            html_content=body.body_html,
+            text_content=body.body_text,
+        )
+        return {"success": success}
+    except Exception as e:
+        logger.error(f"Direct email failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/notifications/order-confirmation")

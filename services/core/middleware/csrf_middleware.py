@@ -28,6 +28,8 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         "/api/v1/auth/forgot-password-otp",
         "/api/v1/auth/verify-reset-otp",
         "/api/v1/auth/resend-verification",
+        "/api/v1/internal/email/send",
+        "/api/v1/internal/notifications",
         "/api/vitals",
         "/docs",
         "/openapi.json",

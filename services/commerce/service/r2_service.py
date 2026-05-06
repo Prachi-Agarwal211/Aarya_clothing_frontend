@@ -4,8 +4,10 @@ import logging
 import boto3
 import uuid
 from typing import Optional, BinaryIO
+from io import BytesIO
 from botocore.config import Config
 from fastapi import UploadFile, HTTPException, status
+from starlette.datastructures import UploadFile as StarletteUploadFile
 
 from core.config import settings
 
@@ -337,6 +339,46 @@ class R2StorageService:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Failed to generate presigned URL: {str(e)}",
+            )
+
+    async def upload_file(
+        self,
+        file_content: BinaryIO,
+        filename: str,
+        content_type: str = "application/pdf",
+    ) -> str:
+        """Upload any file (PDF, etc) to R2 storage.
+        
+        Args:
+            file_content: BinaryIO/BytesIO containing the file data
+            filename: Full path/filename in R2 (e.g., 'invoices/INV-2026-000001.pdf')
+            content_type: MIME type (default: application/pdf)
+            
+        Returns:
+            The public URL of the uploaded file
+        """
+        if not self._client_initialized:
+            await self._ensure_client()
+            
+        try:
+            file_content.seek(0)
+            content = file_content.read()
+            
+            self.client.put_object(
+                Bucket=settings.R2_BUCKET_NAME,
+                Key=filename,
+                Body=content,
+                ContentType=content_type,
+            )
+            
+            if settings.R2_PUBLIC_URL:
+                return f"{settings.R2_PUBLIC_URL.rstrip('/')}/{filename}"
+            return f"https://{settings.R2_BUCKET_NAME}.{settings.R2_ACCOUNT_ID}.r2.cloudflarestorage.com/{filename}"
+        except Exception as e:
+            logger.error(f"Failed to upload file to R2: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to upload file: {str(e)}",
             )
 
 

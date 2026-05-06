@@ -428,6 +428,13 @@ async def generate_invoice(
             detail="Not authorized to access this invoice",
         )
 
+    # Check if invoice PDF already exists in R2
+    invoice_pdf_url = getattr(order, 'invoice_pdf_url', None)
+    if invoice_pdf_url:
+        # Return existing PDF from R2 (redirect for efficiency)
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url=invoice_pdf_url, status_code=302)
+
     # Prepare invoice data
     invoice_data = prepare_invoice_data(order, db)
 
@@ -436,6 +443,30 @@ async def generate_invoice(
 
     # Generate PDF
     pdf_buffer = generate_pdf_from_html(html_content)
+
+    # Upload to R2 if configured
+    pdf_url = None
+    try:
+        from service.r2_service import r2_service
+        from io import BytesIO
+        import uuid
+        
+        invoice_filename = f"invoices/{invoice_data['invoice_number']}.pdf"
+        
+        # Seek to start before upload
+        pdf_buffer.seek(0)
+        
+        pdf_url = await r2_service.upload_file(
+            pdf_buffer,
+            invoice_filename,
+            content_type="application/pdf"
+        )
+        
+        # Store URL in order record
+        order.invoice_pdf_url = pdf_url
+        db.commit()
+    except Exception as e:
+        logger.warning(f"Failed to upload invoice to R2: {e}")
 
     # Return as downloadable PDF
     filename = f"Invoice_{invoice_data['invoice_number']}.pdf"

@@ -6,6 +6,7 @@ Integrates with OrderService to enqueue emails after order events.
 """
 
 import logging
+import json
 from typing import Optional, Dict, Any
 from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
@@ -146,7 +147,7 @@ class EmailOutboxService:
                 subject=subject,
                 body_html=body_html,
                 body_text=body_text,
-                email_metadata={"attempts": 0, "metadata": metadata or {}},
+                email_metadata=json.dumps({"attempts": 0, "metadata": metadata or {}}),
                 attempts=0,
                 next_retry_at=next_retry,
                 status=EmailStatus.PENDING.value,

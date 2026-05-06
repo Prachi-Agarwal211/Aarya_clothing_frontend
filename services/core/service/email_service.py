@@ -36,7 +36,7 @@ class EmailService:
             self.password = os.getenv("SMTP_PASSWORD", "")
             self.use_tls = os.getenv("SMTP_TLS", "true").lower() == "true"
             self.from_email = os.getenv("EMAIL_FROM", "noreply@aaryaclothings.com")
-            self.from_name = os.getenv("EMAIL_FROM_NAME", "Aarya Clothings")
+            self.from_name = os.getenv("EMAIL_FROM_NAME", "Aarya Clothing")
         self._executor = ThreadPoolExecutor(max_workers=2)
     
     def _create_message(
@@ -278,7 +278,7 @@ class EmailService:
     
     def send_otp_email(self, to_email: str, otp_code: str, purpose: str = "verification") -> bool:
         """Send OTP verification email."""
-        subject = f"Your Verification Code - Aarya Clothings"
+        subject = f"Your Verification Code - Aarya Clothing"
         
         html_content = f"""
         <!DOCTYPE html>

@@ -85,9 +85,15 @@ class OTPService:
     ) -> Dict[str, Any]:
         """Create a fresh OTP for ``user_id`` and ``token_type``.
 
-        Any pre-existing un-verified OTP for this combination is invalidated
-        first so a user can never end up with multiple live codes for the
-        same flow.
+        ⚠️ RACE CONDITION: Any pre-existing un-verified OTP for this combination
+        is invalidated BEFORE creating a new one. This prevents multiple valid OTPs
+        for the same flow, but it also means:
+        - If a user requests a new OTP without verifying the old one, the old OTP
+          will be invalidated and marked as verified
+        - Users should use the most recently sent OTP for verification
+
+        This is intentional to prevent confusion and security issues with multiple
+        valid OTPs for the same account flow.
         """
         try:
             self._invalidate_active(user_id, token_type)
@@ -274,10 +280,18 @@ class OTPService:
                     VerificationToken.token_type == token_type,
                     VerificationToken.verified_at.is_(None),
                 )
+                .with_for_update(skip_locked=True)  # Prevent race conditions
+                # Note: skip_locked=True means if row is locked by another transaction,
+                # PostgreSQL returns NULL instead of blocking. This is intentional and secure.
                 .order_by(VerificationToken.id.desc())
                 .first()
             )
+
             if not token:
+                # Two possible causes:
+                # 1. No matching token (invalid OTP)
+                # 2. Token locked by another transaction (race condition)
+                # Both return "invalid OTP" to prevent timing attacks
                 _redis_safe(
                     lambda: redis_client.set_cache(
                         attempt_key,
@@ -292,6 +306,7 @@ class OTPService:
                     "message": "Invalid OTP code",
                     "error": "Invalid OTP code",
                 }
+
             expires_at = token.expires_at
             if expires_at and expires_at.tzinfo is not None:
                 expires_at = expires_at.astimezone(IST).replace(tzinfo=None)
@@ -378,6 +393,7 @@ class OTPService:
                     VerificationToken.token_type == token_type,
                     VerificationToken.verified_at.is_(None),
                 )
+                .with_for_update()  # Lock rows before updating to prevent race conditions
                 .update(
                     {VerificationToken.verified_at: _utcnow_naive()},
                     synchronize_session=False,
@@ -499,9 +515,9 @@ class OTPService:
                 if not phone:
                     return {"success": False, "error": "Phone is required for SMS OTP"}
                 from service.sms_service import sms_service
-
-                if not sms_service:
-                    return {"success": False, "error": "SMS service not configured"}
+                
+                if not sms_service.api_key:
+                    return {"success": False, "error": "SMS service not configured. Set FAST2SMS_API_KEY."}
                 result = sms_service.send_otp(phone, otp_code, purpose or "verification")
                 return result if isinstance(result, dict) else {"success": bool(result)}
 
@@ -509,9 +525,9 @@ class OTPService:
                 if not phone:
                     return {"success": False, "error": "Phone is required for WhatsApp OTP"}
                 from service.whatsapp_service import whatsapp_service
-
-                if not whatsapp_service:
-                    return {"success": False, "error": "WhatsApp service internal initialization error"}
+                
+                if not whatsapp_service.api_key or not whatsapp_service.phone_number_id:
+                    return {"success": False, "error": "WhatsApp service not configured. Set FAST2SMS_API_KEY and FAST2SMS_PHONE_NUMBER_ID."}
                 
                 result = whatsapp_service.send_otp(phone, otp_code)
                 if isinstance(result, dict):

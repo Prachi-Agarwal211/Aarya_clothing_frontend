@@ -159,10 +159,16 @@ class AuthService:
         if not valid:
             raise ValueError("; ".join(errors))
 
-        # Check for existing user by email or username
-        existing = self.db.query(User).filter(
-            or_(User.email == user_data.email, User.username == user_data.username)
-        ).first()
+        # Check for existing user by email, username, or phone
+        # Build OR conditions dynamically
+        or_conditions = [
+            User.email == user_data.email,
+            User.username == user_data.username,
+        ]
+        if user_data.phone and user_data.phone.strip():
+            or_conditions.append(User.phone == user_data.phone)
+        
+        existing = self.db.query(User).filter(or_(*or_conditions)).first()
 
         if existing:
             # Case 1: Already verified/active -> BLOCK (redirect to login)
@@ -173,14 +179,35 @@ class AuthService:
             
             # Case 2: Unverified -> RESUME FLOW (update and send fresh OTP)
             user = existing
+
+            # Check if phone is being changed to one that already exists on another verified user
+            new_phone = user_data.phone if user_data.phone and user_data.phone.strip() else None
+            if new_phone and new_phone != user.phone:
+                phone_exists = self.db.query(User).filter(
+                    User.phone == new_phone,
+                    User.id != user.id,
+                    User.is_active == True
+                ).first()
+                if phone_exists:
+                    raise ValueError("This phone number is already registered with a verified account. Please use a different number.")
+
             user.hashed_password = self.get_password_hash(user_data.password)
             user.signup_verification_method = getattr(user_data, "verification_method", "otp_email")
-            user.phone = getattr(user_data, "phone", user.phone)
+            user.phone = new_phone if new_phone else user.phone
             user.full_name = getattr(user_data, "full_name", user.full_name)
             user.updated_at = ist_naive()
             logger.info(f"[Auth] Resuming registration for unverified user {user.id}")
         else:
             # Case 3: Brand new user
+            # Validate phone is not already used by a verified account
+            if user_data.phone and user_data.phone.strip():
+                phone_exists = self.db.query(User).filter(
+                    User.phone == user_data.phone,
+                    User.is_active == True
+                ).first()
+                if phone_exists:
+                    raise ValueError("This phone number is already registered with a verified account. Please use a different number.")
+            
             user = User(
                 email=user_data.email,
                 username=user_data.username,
@@ -188,7 +215,7 @@ class AuthService:
                 role=getattr(user_data, "role", "customer"),
                 is_active=False,
                 email_verified=False,
-                phone=getattr(user_data, "phone", ""),
+                phone=user_data.phone,  # Simplified - Pydantic validation ensures phone is required
                 full_name=getattr(user_data, "full_name", None),
                 signup_verification_method=getattr(user_data, "verification_method", "otp_email"),
                 created_at=ist_naive(),
@@ -239,9 +266,11 @@ class AuthService:
         """Verify registration OTP and activate account."""
         from service.otp_service import OTPService
         otp_service = OTPService(db=self.db)
-        
-        # UNIFIED FIX: Use "registration" consistently across create and verify
-        otp_verify = otp_service.verify_otp(user_id=user_id, otp_code=otp_code, token_type="registration")
+
+        # IMPORTANT: Registration creates tokens with token_type="email_verification"
+        # (via _coerce_token_type("registration") -> "email_verification")
+        # NOT with token_type="registration"
+        otp_verify = otp_service.verify_otp(user_id=user_id, otp_code=otp_code, token_type="email_verification")
         if not otp_verify.get("success"):
             raise ValueError(otp_verify.get("error", "Invalid or expired OTP"))
 
@@ -474,6 +503,28 @@ class AuthService:
         user = _resolve_user_query(self.db, identifier)
         if not user: raise ValueError("Account not found")
 
+        # Verify OTP before changing password (CRITICAL FIX)
+        from service.otp_service import OTPService
+        otp_service = OTPService(db=self.db)
+        token_type = "password_reset"
+
+        # Get token type from otp_type parameter
+        from service.otp_service import _coerce_token_type
+        actual_token_type = _coerce_token_type(token_type)
+
+        verify = otp_service.verify_otp(
+            user_id=user.id,
+            otp_code=otp_code,
+            token_type=actual_token_type
+        )
+        if not verify.get("success"):
+            raise ValueError(verify.get("error", "Invalid or expired OTP"))
+
+        # Lock user to prevent concurrent password resets
+        self.db.refresh(user)
+        if user.account_locked_until and user.account_locked_until > ist_naive():
+            raise ValueError("Account is locked. Please try again later.")
+
         valid, errors = self.validate_password(new_password)
         if not valid: raise ValueError("; ".join(errors))
 
@@ -481,6 +532,11 @@ class AuthService:
         user.password_changed_at = ist_naive()
         user.updated_at = ist_naive()
         self.db.commit()
+
+        # Lock user again to prevent race condition
+        self.db.refresh(user)
+        if user.account_locked_until and user.account_locked_until > ist_naive():
+            raise ValueError("Account is locked. Please try again later.")
 
         # Logout all sessions after password change
         redis_client.set_cache(f"logout_all:{user.id}", str(int(ist_naive().timestamp())), ttl=86400 * 30)

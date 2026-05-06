@@ -19,7 +19,6 @@ class CSRFMiddleware(BaseHTTPMiddleware):
     # Routes that don't need CSRF protection (mostly purely public or internal)
     EXEMPT_ROUTES = [
         "/api/v1/auth/login",
-        "/api/v1/auth/logout",
         "/api/v1/auth/register",
         "/api/v1/auth/refresh",
         "/api/v1/auth/login-otp-request",
@@ -30,7 +29,6 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         "/api/v1/auth/verify-reset-otp",
         "/api/v1/auth/resend-verification",
         "/api/vitals",
-        "/health",
         "/docs",
         "/openapi.json",
         "/redoc",

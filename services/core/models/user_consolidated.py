@@ -36,7 +36,7 @@ class User(Base):
     first_name = Column(String(50), nullable=True)
     last_name = Column(String(50), nullable=True)
     full_name = Column(String(101), nullable=True)
-    phone = Column(String(20), unique=True, nullable=True)
+    phone = Column(String(20), unique=True, nullable=False)
     # Removed unused columns: avatar_url, date_of_birth
     
     # Core authentication fields

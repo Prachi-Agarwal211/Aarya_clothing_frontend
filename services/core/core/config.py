@@ -53,7 +53,7 @@ class Settings(SharedBaseSettings):
     SMTP_PASSWORD: str = ""
     SMTP_TLS: bool = True
     EMAIL_FROM: str = "noreply@aaryaclothings.com"
-    EMAIL_FROM_NAME: str = "Aarya Clothings"
+    EMAIL_FROM_NAME: str = "Aarya Clothing"
     # Async OTP email: queue in Redis + background worker (reduces API latency under load)
     EMAIL_OTP_USE_QUEUE: bool = True
     # SMTP transient failures — retries inside each send (queue worker uses this too)
@@ -112,11 +112,10 @@ class Settings(SharedBaseSettings):
 
     @property
     def sms_enabled(self) -> bool:
-        """Check if MSG91 SMS integration is enabled."""
+        """Check if Fast2SMS SMS integration is enabled."""
         return bool(
-            self.MSG91_AUTH_KEY and
-            self.MSG91_TEMPLATE_ID and
-            self.MSG91_SENDER_ID
+            self.FAST2SMS_API_KEY and
+            self.FAST2SMS_SMS_SENDER_ID
         )
     
     @property

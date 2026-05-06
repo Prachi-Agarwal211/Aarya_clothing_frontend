@@ -102,6 +102,40 @@ app.add_middleware(
     allow_headers=["Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin", "X-CSRF-Token"],
 )
 
+# Security Headers
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    """Add security headers to all responses."""
+    response = await call_next(request)
+
+    # Content Security Policy
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
+        "style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data: https:; "
+        "font-src 'self' data:; "
+        "connect-src 'self' https:; "
+        "frame-ancestors 'self'; "
+        "object-src 'none'; "
+        "base-uri 'self'; "
+        "form-action 'self'; "
+        "upgrade-insecure-requests"
+    )
+
+    # Additional security headers
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+
+    # HSTS (already set, but reinforce)
+    if not settings.is_development:
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains; preload"
+
+    return response
+
 # Prometheus metrics — /metrics endpoint for scraping
 try:
     from prometheus_fastapi_instrumentator import Instrumentator
@@ -371,21 +405,31 @@ async def register(
     http_request: Request,
     db: Session = Depends(get_db)
 ):
-    """Register endpoint with per-customer rate limiting (email/phone, not IP)."""
+    """Register endpoint with IP-based rate limiting (distributed attack protection)."""
     if not _should_bypass_local_rate_limit(http_request):
         try:
-            # Rate limit per customer identifier, NOT per-IP.
-            # Multiple users behind NAT/mobile networks share one IP —
-            # blocking by IP blocks ALL legitimate users on that network.
+            # IP-based rate limiting: protects against distributed brute force attacks
+            # 100 attempts per 5 minutes per IP (distributed protection)
+            client_ip = _get_client_ip(http_request)
+            ip_key = f'rate_limit:register_ip:{client_ip}'
+            ip_count = redis_client.get_cache(ip_key) or 0
+            if int(ip_count) >= 100:
+                raise HTTPException(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail='Too many registration attempts. Please try again in 5 minutes.'
+                )
+            redis_client.set_cache(ip_key, int(ip_count) + 1, ttl=300)
+
+            # Customer-based rate limiting: prevents per-account abuse
             customer_id = (user_data.email or user_data.phone or 'unknown').lower().strip()
-            limit_key = f'rate_limit:register:{customer_id}'
-            count = redis_client.get_cache(limit_key) or 0
-            if int(count) >= 5:
+            customer_key = f'rate_limit:register_customer:{customer_id}'
+            customer_count = redis_client.get_cache(customer_key) or 0
+            if int(customer_count) >= 5:
                 raise HTTPException(
                     status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                     detail='Too many registration attempts for this account. Please check your email for the OTP or try again in 1 hour.'
                 )
-            redis_client.set_cache(limit_key, int(count) + 1, ttl=3600)
+            redis_client.set_cache(customer_key, int(customer_count) + 1, ttl=3600)
         except HTTPException:
             raise
         except Exception as e:
@@ -549,10 +593,11 @@ async def send_verification_otp(
     (used when the user returns from login redirect and only has email in the form).
     """
     from service.otp_service import OTPService
-
+    
     otp_request_in = body
+    # For SMS/WhatsApp: allow email-only lookup to resolve phone number
     if (
-        body.otp_type == OTPType.SMS
+        body.otp_type in (OTPType.SMS, OTPType.WHATSAPP)
         and getattr(body, "email", None)
         and not getattr(body, "phone", None)
     ):
@@ -560,14 +605,14 @@ async def send_verification_otp(
         if not user or not user.phone:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Cannot send SMS code: account or phone number not found.",
+                detail=f"Cannot send {body.otp_type} code: account or phone number not found.",
             )
         otp_request_in = OTPSendRequest(
             phone=user.phone,
-            otp_type=OTPType.SMS,
+            otp_type=body.otp_type,
             purpose="registration",
         )
-
+    
     otp_service = OTPService(db)
     otp_request = otp_request_in.model_copy(update={"purpose": "registration"})
     try:
@@ -591,16 +636,19 @@ async def resend_verification(
     db: Session = Depends(get_db)
 ):
     """Resend OTP for verification (email OTP by default)."""
-    # Rate limiting
+    # Rate limiting: 7 OTP max per session with 30 min cooldown
+    # Use different rate keys for different OTP types to prevent key collision
     try:
-        limit_key = f"rate_limit:resend_verify:{email}"
-        count = redis_client.get_cache(limit_key) or 0
-        if int(count) >= 3: # Max 3 times per hour
+        rate_key = f"auth_rate_limit:resend:{email.lower()}"
+        attempts = redis_client.get_cache(rate_key) or 0
+
+        if int(attempts) >= 7:
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail="Too many resend requests. Please check your spam folder or try again later."
+                detail="Too many resend requests. Please wait 30 minutes before requesting another OTP."
             )
-        redis_client.set_cache(limit_key, int(count) + 1, ttl=3600)
+
+        redis_client.set_cache(rate_key, int(attempts) + 1, ttl=1800)  # 30 min cooldown
     except HTTPException:
         raise
     except Exception as e:
@@ -608,23 +656,23 @@ async def resend_verification(
 
     # Find user by email
     user = db.query(User).filter(User.email == email).first()
-    
+
     if not user:
         # Don't reveal if email exists or not
         return {"message": "If the email exists, a verification OTP has been sent"}
-    
+
     if user.email_verified:
         return {"message": "Email is already verified"}
-    
+
     # Get user's signup verification method, default to email OTP
     signup_method = getattr(user, "signup_verification_method", None) or "otp_email"
-    
+
     # Send OTP based on user's original signup method
     from service.otp_service import OTPService
     from schemas.otp import OTPSendRequest, OTPType
-    
+
     otp_service = OTPService(db)
-    
+
     # Map signup method to OTP type
     if signup_method == "otp_sms":
         if not user.phone:
@@ -661,7 +709,7 @@ async def resend_verification(
             otp_type=OTPType.EMAIL,
             purpose="registration"
         )
-    
+
     # Send OTP in background
     try:
         background_tasks.add_task(otp_service.send_otp, otp_request)
@@ -683,20 +731,32 @@ async def login(
     Login with username/email and password.
     Sets HTTP-Only cookies for 24-hour session.
     """
-    # Per-account rate limiting to prevent brute-force without blocking shared IPs.
-    # Keyed on the submitted identifier so attacks on a specific account do not
-    # punish other users behind the same NAT.
+    # IP-based rate limiting: protects against distributed brute force attacks
+    # 50 attempts per 5 minutes per IP (distributed protection)
     if not _should_bypass_local_rate_limit(http_request):
         try:
+            client_ip = _get_client_ip(http_request)
+            ip_key = f'rate_limit:login_ip:{client_ip}'
+            ip_count = redis_client.get_cache(ip_key) or 0
+            if int(ip_count) >= 50:
+                raise HTTPException(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail='Too many login attempts. Please try again in 5 minutes.'
+                )
+            redis_client.set_cache(ip_key, int(ip_count) + 1, ttl=300)
+
+            # Per-account rate limiting: prevents per-account abuse
+            # Keyed on the submitted identifier so attacks on a specific account do not
+            # punish other users behind the same NAT.
             account_id = (request.identifier or 'unknown').lower().strip()
-            limit_key = f'rate_limit:login:{account_id}'
-            count = redis_client.get_cache(limit_key) or 0
-            if int(count) >= settings.LOGIN_RATE_LIMIT:
+            account_key = f'rate_limit:login_account:{account_id}'
+            account_count = redis_client.get_cache(account_key) or 0
+            if int(account_count) >= settings.LOGIN_RATE_LIMIT:
                 raise HTTPException(
                     status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                     detail='Too many login attempts for this account. Please wait 5 minutes and try again.'
                 )
-            redis_client.set_cache(limit_key, int(count) + 1, ttl=settings.LOGIN_RATE_WINDOW)
+            redis_client.set_cache(account_key, int(account_count) + 1, ttl=settings.LOGIN_RATE_WINDOW)
         except HTTPException:
             raise
         except Exception as e:
@@ -788,17 +848,27 @@ async def login_otp_request(
         raise HTTPException(status_code=400, detail="identifier is required")
     otp_type = (payload.get("otp_type") or payload.get("channel") or "EMAIL").upper()
 
-    # Lightweight account-scoped throttle to prevent OTP-spam.
+    # Rate limiting: 7 OTP max per session with 30 min cooldown (PER OTP TYPE)
+    # Use different rate keys for different OTP types to prevent key collision
+    # login_otp_request: auth_rate_limit:login:{identifier}
+    # forgot_password_otp: auth_rate_limit:password_reset:{identifier}
     if not _should_bypass_local_rate_limit(http_request):
         try:
-            limit_key = f"rate_limit:login_otp_send:{identifier.lower()}"
-            count = redis_client.get_cache(limit_key) or 0
-            if int(count) >= 6:
+            # Use different rate keys for different OTP types
+            if otp_type in ("EMAIL", "SMS", "WHATSAPP"):
+                rate_key = f"auth_rate_limit:login:{identifier.lower()}"
+            else:
+                rate_key = f"auth_rate_limit:password_reset:{identifier.lower()}"
+
+            attempts = redis_client.get_cache(rate_key) or 0
+
+            if int(attempts) >= 7:
                 raise HTTPException(
                     status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                    detail="Too many OTP requests. Please wait a few minutes and try again.",
+                    detail="Too many OTP requests. Please wait 30 minutes before requesting another OTP."
                 )
-            redis_client.set_cache(limit_key, int(count) + 1, ttl=600)
+
+            redis_client.set_cache(rate_key, int(attempts) + 1, ttl=1800)  # 30 min cooldown
         except HTTPException:
             raise
         except Exception as exc:
@@ -827,6 +897,23 @@ async def login_otp_verify(
 ):
     if not request.otp_code:
         raise HTTPException(status_code=400, detail="otp_code is required")
+
+    # Rate limiting for OTP verification
+    identifier = request.identifier
+    try:
+        limit_key = f"rate_limit:verify_login_otp:{identifier}"
+        count = redis_client.get_cache(limit_key) or 0
+        if int(count) >= 5:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Too many verification attempts. Please wait 5 minutes and try again."
+            )
+        redis_client.set_cache(limit_key, int(count) + 1, ttl=300)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.warning(f"Rate limiting error (skipping): {e}")
+
     try:
         client_ip = http_request.client.host if http_request.client else None
         client_ua = http_request.headers.get("user-agent")
@@ -1105,24 +1192,31 @@ async def forgot_password_otp(
     identifier: email or phone number
     otp_type: "EMAIL" or "SMS"
     """
-    # Rate limiting
-    identifier = request_data.identifier  # Use identifier field
+    # Rate limiting: 7 OTP max per session with 30 min cooldown (PER OTP TYPE)
+    # Use different rate keys for different OTP types to prevent key collision
+    # login_otp_request: auth_rate_limit:login:{identifier}
+    # forgot_password_otp: auth_rate_limit:password_reset:{identifier}
+    identifier = request_data.identifier
+    otp_type = getattr(request_data, 'otp_type', 'SMS')
+
     try:
-        limit_key = f"rate_limit:pw_reset_otp:{identifier}"
-        count = redis_client.get_cache(limit_key) or 0
-        if int(count) >= settings.PASSWORD_RESET_RATE_LIMIT:
+        # Use different rate keys for different OTP types
+        rate_key = f"auth_rate_limit:password_reset:{identifier.lower()}"
+        attempts = redis_client.get_cache(rate_key) or 0
+
+        if int(attempts) >= 7:
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail=f"Too many reset requests. Please try again later."
+                detail="Too many OTP requests. Please wait 30 minutes before requesting another OTP."
             )
-        redis_client.set_cache(limit_key, int(count) + 1, ttl=settings.PASSWORD_RESET_RATE_WINDOW)
+
+        redis_client.set_cache(rate_key, int(attempts) + 1, ttl=1800)  # 30 min cooldown
     except HTTPException:
         raise
     except Exception as e:
         logger.warning(f"Rate limiting error (skipping): {e}")
 
     auth_service = AuthService(db)
-    otp_type = getattr(request_data, 'otp_type', 'SMS')
     try:
         result = auth_service.request_password_reset_otp(identifier, otp_type)
         logger.info(f"[AUTH] Password reset OTP requested identifier={identifier[:3]}***")
@@ -1142,30 +1236,106 @@ async def reset_password_with_otp(
     otp_code: 6-digit OTP code
     new_password: New password
     otp_type: "EMAIL" or "SMS"
+
+    SECURITY: Checks for pre-verified OTP (5 min window) from verify-reset-otp endpoint.
+    If already verified, skips redundant verification and changes password directly.
     """
     auth_service = AuthService(db)
+    from core.redis_client import redis_client
+    from shared.time_utils import now_ist
+
     try:
-        verification_key = (
-            f"password_reset_verified:{request_data.otp_type.lower()}:{request_data.identifier}"
-        )
+        # FIX: Check for pre-verified OTP first (avoids double verification)
+        # User may have verified OTP in verify-reset-otp endpoint before redirecting here
+        verification_key = f"password_reset_verified:{request_data.otp_type.lower()}:{request_data.identifier}"
         verification_data = redis_client.get_cache(verification_key, namespace="")
+
+        # If OTP was verified in verify-reset-otp, skip redundant verification
+        if verification_data and verification_data.get("verified") and verification_data.get("verified_at"):
+            # Verify data format
+            try:
+                verified_at = datetime.fromisoformat(verification_data.get("verified_at"))
+
+                # Check if verification is still valid (5 min window)
+                time_diff = (now_ist() - verified_at).total_seconds()
+                if time_diff < 300:  # 5 minutes
+                    # Pre-verified OTP is still valid - skip redundant verification
+                    logger.info(f"[Auth] Using pre-verified OTP for password reset - identifier={request_data.identifier[:3]}***")
+                    verification_data["pre_verified"] = True
+                else:
+                    # Pre-verified OTP expired - remove it and verify again
+                    logger.warning(f"[Auth] Pre-verified OTP expired - re-verifying - identifier={request_data.identifier[:3]}***")
+                    redis_client.delete_cache(verification_key, namespace="")
+                    verification_data = None
+            except Exception as e:
+                logger.warning(f"[Auth] Error parsing pre-verified OTP timestamp: {e}")
+                verification_data = None
+
+        # If no pre-verified OTP or it expired, verify OTP now
         if not verification_data:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="OTP verification expired or missing. Please verify OTP again.",
+            from service.otp_service import OTPService
+            otp_service = OTPService(db)
+            token_type = "password_reset"
+
+            # Resolve user first to get user_id
+            from service.auth_service import _resolve_user_query
+            user = _resolve_user_query(db, request_data.identifier)
+
+            if not user:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Account not found. Please check your credentials and try again."
+                )
+
+            # Verify the OTP code is valid
+            verify = otp_service.verify_otp(
+                user_id=user.id,
+                otp_code=request_data.otp_code,
+                token_type=token_type
             )
 
+            if not verify.get("success"):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=verify.get("error", "Invalid or expired OTP code. Please check your OTP and try again.")
+                )
+        else:
+            # Verify the identifier matches
+            if verification_data.get("identifier") != request_data.identifier:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Verification mismatch. Please verify OTP again."
+                )
+
+            # Resolve user for password change
+            from service.auth_service import _resolve_user_query
+            user = _resolve_user_query(db, request_data.identifier)
+            if not user:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Account not found. Please check your credentials and try again."
+                )
+
+        # Now change the password
         auth_service.reset_password_with_otp(
             request_data.identifier,
             request_data.otp_code,
             request_data.new_password,
             request_data.otp_type
         )
+
+        # Clean up verification timestamp after successful password reset
         redis_client.delete_cache(verification_key, namespace="")
+
         return {"message": "Password reset successfully. You can now login."}
     except ValueError as e:
         logger.error(f"[Auth Error] {str(e)}")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"[Auth Error] {str(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="An unexpected error occurred. Please try again later.")
 
 
 @app.post("/api/v1/auth/verify-reset-otp", status_code=status.HTTP_200_OK, tags=["Authentication"])
@@ -1190,6 +1360,23 @@ async def verify_reset_otp(
 
     auth_service = AuthService(db)
     otp_service = OTPService(db)
+
+    # Rate limiting for OTP verification (prevents brute force)
+    _ot = (request_data.otp_type or "EMAIL").upper()
+    identifier = request_data.identifier
+    try:
+        limit_key = f"rate_limit:verify_reset_otp:{identifier}"
+        count = redis_client.get_cache(limit_key) or 0
+        if int(count) >= 5:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Too many verification attempts. Please wait 5 minutes and try again."
+            )
+        redis_client.set_cache(limit_key, int(count) + 1, ttl=300)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.warning(f"Rate limiting error (skipping): {e}")
 
     # Create OTP verify request
     _ot = (request_data.otp_type or "EMAIL").upper()

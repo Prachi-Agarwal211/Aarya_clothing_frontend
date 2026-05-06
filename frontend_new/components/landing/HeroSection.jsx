@@ -45,16 +45,17 @@ const HeroSection = ({
   // Detect mobile for responsive image source
   const { isMobile } = useViewport();
 
-  // Auto-rotate slides with proper cleanup and scroll-based pause
+  // Auto-rotate slides with proper cleanup
   const nextSlide = useCallback(() => {
-    if (!isMountedRef.current) return;
+    if (!isMountedRef.current || !slides.length || slides.length < 2) return;
 
     const next = (currentSlide.current + 1) % slides.length;
-
     const outgoingSlide = slideRefs.current[currentSlide.current];
     const incomingSlide = slideRefs.current[next];
 
-    // Kill any existing animations on these slides
+    // Guard: ensure both refs exist before animation
+    if (!outgoingSlide || !incomingSlide) return;
+
     gsap.killTweensOf([outgoingSlide, incomingSlide]);
 
     // Create new animations and track them

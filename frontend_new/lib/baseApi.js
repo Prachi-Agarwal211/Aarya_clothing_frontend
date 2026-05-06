@@ -509,27 +509,21 @@ export class BaseApiClient {
  * @returns {string} Gateway base URL for `/api/v1/*` calls
  */
 export function getCoreBaseUrl() {
-  // Priority 1: Browser environment - use current origin (CSP compliant)
-  // If we are on port 3000 (dev), we need to hit port 80 (nginx)
+  // Browser: use current origin
   if (typeof window !== 'undefined') {
-    if (window.location.port === '3000') {
-      return `${window.location.protocol}//${window.location.hostname}`;
-    }
     return window.location.origin;
   }
 
-  // Priority 2: Server-side (SSR) - Use INTERNAL URL if provided
-  // This is critical for Docker networking (hitting 'http://nginx' instead of localhost)
-  if (typeof process !== 'undefined' && process.env?.NEXT_INTERNAL_API_URL) {
+  // Server-side (SSR): check for internal URL first
+  if (typeof process !== 'undefined' && process.env?.NEXT_INTERNAL_API_URL?.trim()) {
     return process.env.NEXT_INTERNAL_API_URL.trim();
   }
-
-  // Priority 3: Server-side (SSR) fallback to PUBLIC_API_URL
-  if (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_API_URL) {
+  
+  // Server-side fallback to public URL
+  if (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_API_URL?.trim()) {
     return process.env.NEXT_PUBLIC_API_URL.trim();
   }
 
-  // Priority 4: Relative URL fallback
   return '';
 }
 

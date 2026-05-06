@@ -35,14 +35,19 @@ const NewArrivals = ({
     const header = headerRef.current;
     if (!section) return;
 
+    // Skip animations if no products
+    if (!products || products.length === 0) return;
+
     // Narrow viewports: skip scrub timeline (scroll-linked work is expensive on phones)
     if (isMobile) {
       const cards = productRefs.current.filter(Boolean);
-      gsap.set([header, ...cards].filter(Boolean), {
-        opacity: 1,
-        y: 0,
-        scale: 1,
-      });
+      if (cards.length > 0) {
+        gsap.set([header, ...cards].filter(Boolean), {
+          opacity: 1,
+          y: 0,
+          scale: 1,
+        });
+      }
       return;
     }
 

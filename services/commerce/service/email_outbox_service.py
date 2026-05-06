@@ -173,17 +173,63 @@ class EmailOutboxService:
         """Build order confirmation email HTML."""
         items_html = ""
         for item in order.items:
+            # Build item details: Name + Size + Color
+            item_details = item.product_name
+            details_parts = []
+            if item.size:
+                details_parts.append(f"Size: {item.size}")
+            if item.color:
+                details_parts.append(f"Color: {item.color}")
+            if item.sku:
+                details_parts.append(f"SKU: {item.sku}")
+            
+            details_str = " | ".join(details_parts) if details_parts else ""
+            
             items_html += f"""
             <tr style="border-bottom: 1px solid rgba(183, 110, 121, 0.2);">
-                <td style="padding: 12px 0; color: #EAE0D5;">
-                    <strong style="color: #F2C29A;">{item.product_name}</strong>
-                    {f'<br><span style="color: #B76E79; font-size: 13px;">Size: {item.size}</span>' if item.size else ""}
-                    {f'<span style="color: #B76E79; font-size: 13px;"> | Color: {item.color}</span>' if item.color else ""}
+                <td style="padding: 15px 10px; color: #EAE0D5;">
+                    <strong style="color: #F2C29A; font-size: 16px;">{item.product_name}</strong>
+                    {f'<br><span style="color: #B76E79; font-size: 13px;">{details_str}</span>' if details_str else ""}
                 </td>
-                <td style="padding: 12px 0; color: #EAE0D5; text-align: center;">{item.quantity}</td>
-                <td style="padding: 12px 0; color: #F2C29A; text-align: right;">₹{float(item.price):.2f}</td>
+                <td style="padding: 15px 10px; color: #EAE0D5; text-align: center;">{item.quantity}</td>
+                <td style="padding: 15px 10px; color: #F2C29A; text-align: right; font-weight: bold;">₹{float(item.price):.0f}</td>
             </tr>
             """
+        
+        # Calculate totals nicely (no GST breakdown if 0)
+        subtotal_display = f"₹{float(order.subtotal):.0f}"
+        shipping_display = "FREE" if float(order.shipping_cost) == 0 else f"₹{float(order.shipping_cost):.0f}"
+        total_display = f"₹{float(order.total_amount):.0f}"
+        
+        # Parse shipping address for better display
+        shipping_display_html = order.shipping_address or "Not provided"
+        try:
+            import json
+            addr = json.loads(order.shipping_address) if order.shipping_address else {}
+            if isinstance(addr, dict):
+                name = addr.get('name', '')
+                address = addr.get('address', '')
+                city = addr.get('city', '')
+                state = addr.get('state', '')
+                pincode = addr.get('pincode', '')
+                phone = addr.get('phone', '')
+                
+                addr_lines = [name]
+                if address:
+                    addr_lines.append(address)
+                city_line = []
+                if city:
+                    city_line.append(city)
+                if state:
+                    city_line.append(state)
+                if pincode:
+                    city_line.append(pincode)
+                if city_line:
+                    addr_lines.append(", ".join(city_line))
+                shipping_display_html = "<br>".join(addr_lines)
+        except:
+            pass
+        
         estimated_delivery = (order.created_at + timedelta(days=7)).strftime(
             "%B %d, %Y"
         )
@@ -219,15 +265,14 @@ class EmailOutboxService:
                 </table>
                 
                 <div style="background: #1a1a1a; padding: 15px; border-radius: 5px; margin-top: 20px;">
-                    <p style="margin: 5px 0;">Subtotal: <span style="color: #F2C29A;">₹{float(order.subtotal):.2f}</span></p>
-                    <p style="margin: 5px 0;">Shipping: <span style="color: #F2C29A;">₹{float(order.shipping_cost):.2f}</span></p>
-                    <p style="margin: 5px 0;">GST: <span style="color: #F2C29A;">₹{float(order.gst_amount):.2f}</span></p>
+                    <p style="margin: 5px 0;">Subtotal: <span style="color: #F2C29A;">{subtotal_display}</span></p>
+                    <p style="margin: 5px 0;">Shipping: <span style="color: #F2C29A;">{shipping_display}</span></p>
                     <p style="margin: 5px 0; font-size: 18px; border-top: 1px solid #B76E79; padding-top: 10px;">
-                        Total: <span style="color: #F2C29A; font-weight: bold;">₹{float(order.total_amount):.2f}</span>
+                        Total: <span style="color: #F2C29A; font-weight: bold;">{total_display}</span>
                     </p>
                 </div>
                 
-                <p style="margin-top: 20px;"><strong>Shipping Address:</strong><br>{order.shipping_address}</p>
+                <p style="margin-top: 20px;"><strong>Shipping Address:</strong><br>{shipping_display_html}</p>
                 <p><strong>Payment Method:</strong> {order.payment_method.upper() if order.payment_method else "ONLINE"}</p>
                 
                 <div style="background: linear-gradient(135deg, #B76E79, #8B4557); padding: 15px; text-align: center; border-radius: 5px; margin-top: 30px;">

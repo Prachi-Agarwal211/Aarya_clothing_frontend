@@ -275,12 +275,16 @@ const EnhancedHeader = () => {
                   </button>
                 </>
               ) : (
-                <Link
-                  href={`/auth/login?redirect_url=${encodeURIComponent(pathname)}`}
+                <button
+                  onClick={() => {
+                    console.log('[Sign In] Click detected, navigating to:', `/auth/login?redirect_url=${encodeURIComponent(pathname)}`);
+                    window.location.href = `/auth/login?redirect_url=${encodeURIComponent(pathname)}`;
+                  }}
                   className="text-[#EAE0D5]/80 hover:text-[#F2C29A] text-sm font-medium transition-colors duration-300 flex items-center"
+                  type="button"
                 >
                   Sign In
-                </Link>
+                </button>
               )}
               <div className="relative">
                 <label htmlFor="search-input" className="sr-only">
@@ -457,14 +461,18 @@ const EnhancedHeader = () => {
               </>
             ) : (
               <div className="flex flex-col items-center gap-4 mt-2">
-                <Link
-                  href={`/auth/login?redirect_url=${encodeURIComponent(pathname)}`}
-                  onClick={() => setIsMobileMenuOpen(false)}
+                <button
+                  onClick={() => {
+                    console.log('[Sign In Mobile] Click detected');
+                    setIsMobileMenuOpen(false);
+                    window.location.href = `/auth/login?redirect_url=${encodeURIComponent(pathname)}`;
+                  }}
                   className="text-[#EAE0D5]/80 hover:text-[#F2C29A] text-xl transition-colors duration-300"
                   style={{ fontFamily: 'Cinzel, serif' }}
+                  type="button"
                 >
                   Sign In
-                </Link>
+                </button>
               </div>
             )}
             <button

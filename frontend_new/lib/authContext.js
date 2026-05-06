@@ -56,21 +56,19 @@ export function AuthProvider({ children }) {
       setAuthError(null);
       const storedUser = getStoredUser();
 
-      // Pre-set from local storage to reduce flicker while we verify with backend.
-      if (storedUser) {
-        setUser(storedUser);
-        setIsAuthenticated(true);
-      }
-
-      // Always verify cookie-backed session from backend. This is required
-      // because login flows may set HttpOnly cookies without writing localStorage.
+      // Verify with backend FIRST - don't trust localStorage stale data
+      // This prevents showing "Profile" briefly before it clears to "Sign In"
       try {
         const userData = await apiFetch('/api/v1/users/me');
+        // Backend session valid - use backend user data (authoritative)
         setUser(userData);
         setIsAuthenticated(true);
+        // Sync localStorage with fresh backend data
         localStorage.setItem('user', JSON.stringify(userData));
       } catch (err) {
+        // Backend session expired or invalid
         logger.warn('Backend session verification failed:', err.message);
+        // Clear stale localStorage data - authoritative source says invalid
         clearAuthData();
         clearStoredTokens();
         setUser(null);

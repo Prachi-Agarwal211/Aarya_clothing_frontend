@@ -553,13 +553,21 @@ def prepare_invoice_data(order: Order, db: Session) -> dict:
         ]
         shipping_address = "\n".join([line for line in address_lines if line])
         billing_address = shipping_address  # Same as shipping for simplicity
-    except (AttributeError, KeyError, TypeError):
+    except (AttributeError, KeyError, TypeError, json.JSONDecodeError):
         # Failed to parse shipping address — use fallback
         customer_name = "Customer"
         customer_phone = "NA"
         customer_email = "NA"
-        shipping_address = order.shipping_address
-        billing_address = order.shipping_address
+        # Try to parse from plain text address format "Name, address, phone"
+        plain_addr = str(order.shipping_address or "")
+        if "Phone:" in plain_addr:
+            parts = plain_addr.split("Phone:")
+            customer_name = parts[0].strip().split(",")[0].strip() if parts[0] else "Customer"
+            customer_phone = parts[1].strip().split(",")[0].strip() if len(parts) > 1 else "NA"
+        else:
+            customer_name = "Customer"
+        shipping_address = plain_addr
+        billing_address = plain_addr
 
     # Calculate totals
     total_taxable_value = sum(item["taxable_value"] for item in items)

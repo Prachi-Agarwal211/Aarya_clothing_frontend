@@ -838,16 +838,24 @@ class OrderService:
         """
         from sqlalchemy import text as _text
 
+        # CRITICAL FIX: Handle NULL transaction_id - use payment_id/razorpay_order_id directly
+        # This happens when payment service didn't set transaction_id before calling
+        lookup_id = payment_id
+        if not lookup_id and razorpay_order_id:
+            lookup_id = razorpay_order_id
+        if not lookup_id:
+            raise HTTPException(status_code=400, detail="payment_id or razorpay_order_id is required")
+
         # Idempotency: Check if order already exists for this payment — WITH row lock to prevent races
         existing = (
             self.db.query(Order)
-            .filter(Order.transaction_id == payment_id, Order.user_id == user_id)
+            .filter(Order.transaction_id == lookup_id, Order.user_id == user_id)
             .with_for_update(nowait=True)
             .first()
         )
         if existing:
             logger.info(
-                f"Order already exists for payment {payment_id}, returning existing order {existing.id}"
+                f"Order already exists for payment {lookup_id}, returning existing order {existing.id}"
             )
             return existing
 

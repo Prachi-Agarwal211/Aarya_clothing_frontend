@@ -1091,6 +1091,9 @@ class PaymentService:
 
         This is the CRITICAL reliability path that prevents silent failures.
         We prioritize the pending_order_id snapshot created during checkout initiation.
+        
+        FIX: Added idempotency check using razorpay_payment_id to prevent race conditions
+        when webhook is called multiple times for the same payment.
         """
         try:
             import httpx
@@ -1103,7 +1106,20 @@ class PaymentService:
                 logger.error("INTERNAL_SERVICE_SECRET not configured — cannot create order from webhook")
                 return
 
-            # Extract metadata
+            # CRITICAL FIX: Set transaction_id BEFORE calling commerce for idempotency
+            # transaction.transaction_id may be NULL but razorpay_payment_id is always set
+            # This ensures commerce service can check for existing order properly
+            if not transaction.transaction_id and transaction.razorpay_payment_id:
+                transaction.transaction_id = transaction.razorpay_payment_id
+                self.db.commit()
+                logger.info(f"WEBHOOK: Set transaction_id={transaction.transaction_id} for idempotency")
+
+            # CRITICAL FIX: Check if order already exists before calling commerce
+            # This prevents race condition when webhook is called multiple times
+            if self._order_exists(transaction):
+                order_id = transaction.order_id
+                logger.warning(f"WEBHOOK: Order already exists for payment {transaction.razorpay_payment_id}, skipping creation")
+                return
             notes = event_info.get("notes", {})
             pending_order_id = notes.get("pending_order_id")
             

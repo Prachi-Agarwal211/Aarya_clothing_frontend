@@ -50,11 +50,14 @@ async def list_orders(
     where_clause = "WHERE " + " AND ".join(where) if where else ""
 
     # Using raw SQL for efficient joining and data mapping
+    # Convert timestamps to IST for display (properly handle UTC -> IST conversion)
     rows = db.execute(
         text(f"""
         SELECT o.id, o.user_id, o.subtotal, o.shipping_cost,
                o.total_amount, o.payment_method, o.status, o.tracking_number,
-               o.order_notes, o.created_at, o.updated_at,
+               o.order_notes, 
+               (o.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') as created_at_ist,
+               (o.updated_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata') as updated_at_ist,
                u.email as customer_email, COALESCE(u.full_name, u.username) as customer_name,
                COALESCE(u.phone, '') as customer_phone,
                o.invoice_number, o.shipping_address, o.razorpay_payment_id
@@ -152,8 +155,8 @@ async def list_orders(
             "status": r[6],
             "tracking_number": r[7],
             "order_notes": r[8],
-            "created_at": str(r[9]),
-            "updated_at": str(r[10]),
+            "created_at": r[9].isoformat() if r[9] else None,
+            "updated_at": r[10].isoformat() if r[10] else None,
             "customer_email": email or "Guest",
             "customer_name": name or "Guest Customer",
             "customer_phone": phone or "-",

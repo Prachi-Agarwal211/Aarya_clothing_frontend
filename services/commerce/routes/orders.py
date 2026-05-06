@@ -629,10 +629,12 @@ def prepare_invoice_data(order: Order, db: Session) -> dict:
     transaction_id = order.transaction_id or "NA"
     card_last4 = "0000"  # Would extract from payment details
 
-    # Estimated delivery (7 days from order date)
+    # Estimated delivery (7 days from order date) - convert to IST first
     from datetime import timedelta
-
-    estimated_delivery = (order.created_at + timedelta(days=7)).strftime("%d %B %Y")
+    from zoneinfo import ZoneInfo
+    
+    ist_created_at = order.created_at.astimezone(ZoneInfo("Asia/Kolkata")) if order.created_at.tzinfo else order.created_at
+    estimated_delivery = (ist_created_at + timedelta(days=7)).strftime("%d %B %Y")
 
     # Tracking status
     tracking_status = order.status.value.replace("_", " ").title()
@@ -650,7 +652,7 @@ def prepare_invoice_data(order: Order, db: Session) -> dict:
 
     return {
         "invoice_number": order.invoice_number or f"INV-{order.id}",
-        "invoice_date": order.created_at.strftime("%d %B %Y"),
+        "invoice_date": ist_created_at.strftime("%d %B %Y"),
         "order_number": f"#{order.id}",
         "payment_method": order.payment_method.value
         if hasattr(order.payment_method, "value")

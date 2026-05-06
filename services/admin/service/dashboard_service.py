@@ -6,11 +6,12 @@ internal tooling read from one source of truth. Time bucketing uses
 align with the merchant's local calendar (IST), not UTC.
 """
 
-from datetime import timedelta
+from datetime import timedelta, datetime, timezone
 from typing import Any, Dict, List
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
+from zoneinfo import ZoneInfo
 
 from shared.time_utils import now_ist
 
@@ -36,7 +37,14 @@ class AdminDashboardService:
         now = now_ist()
         start = now - timedelta(days=cfg["days"])
 
-        params = {"start_date": start.replace(tzinfo=None)}
+        # Use IST for date filtering (convert to naive for SQL)
+        start_ist_midnight = start.replace(hour=0, minute=0, second=0, microsecond=0)
+        
+        # Convert IST to UTC for SQL query (since DB stores UTC)
+        from datetime import timezone
+        start_utc = start_ist_midnight.astimezone(timezone.utc).replace(tzinfo=None)
+        
+        params = {"start_date": start_utc}
 
         period_revenue = (
             self.db.execute(
@@ -131,7 +139,9 @@ class AdminDashboardService:
                 "order_number": r.order_number,
                 "total_amount": float(r.total_amount or 0),
                 "status": r.status,
-                "created_at": r.created_at.isoformat() if r.created_at else None,
+                # Convert to IST for display
+                "created_at": (r.created_at.replace(tzinfo=timezone.utc).astimezone(ZoneInfo("Asia/Kolkata")).isoformat() 
+                              if r.created_at else None) if hasattr(r, 'created_at') else None,
                 "customer_name": r.full_name or r.email or "Guest",
             }
             for r in recent

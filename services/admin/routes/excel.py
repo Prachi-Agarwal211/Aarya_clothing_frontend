@@ -8,6 +8,7 @@ Heavy lifting (workbook parsing, building, normalisation) is delegated to
 from __future__ import annotations
 
 import io
+from datetime import datetime
 from typing import Optional
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
@@ -256,11 +257,35 @@ async def excel_orders_export(
     user: dict = Depends(require_staff),
 ):
     where, params = ["1=1"], {}
+    
+    # Convert dates from IST to UTC for queries
     if from_date:
-        where.append("DATE(o.created_at) >= :from_date")
+        # from_date is IST date string, convert to UTC
+        from datetime import timezone
+        from zoneinfo import ZoneInfo
+        IST = ZoneInfo("Asia/Kolkata")
+        try:
+            from_dt = datetime.strptime(from_date, "%Y-%m-%d").replace(tzinfo=IST)
+            from_utc = from_dt.astimezone(timezone.utc).replace(tzinfo=None)
+            where.append("(o.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata')::date >= :from_date")
+            params["from_date"] = from_utc.date()
+        except:
+            where.append("DATE(o.created_at) >= :from_date")
+            params["from_date"] = from_date
         params["from_date"] = from_date
     if to_date:
-        where.append("DATE(o.created_at) <= :to_date")
+        # to_date is IST date string, convert to UTC  
+        from datetime import timezone
+        from zoneinfo import ZoneInfo
+        IST = ZoneInfo("Asia/Kolkata")
+        try:
+            to_dt = datetime.strptime(to_date, "%Y-%m-%d").replace(hour=23, minute=59, second=59, tzinfo=IST)
+            to_utc = to_dt.astimezone(timezone.utc).replace(tzinfo=None)
+            where.append("(o.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata')::date <= :to_date")
+            params["to_date"] = to_utc.date()
+        except:
+            where.append("DATE(o.created_at) <= :to_date")
+            params["to_date"] = to_date
         params["to_date"] = to_date
     if status:
         where.append("o.status = :status")

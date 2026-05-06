@@ -173,10 +173,19 @@ async def staff_dashboard(
         ).scalar()
         or 0
     )
+    
+    # Use IST for "today" - get today's IST midnight converted to UTC
+    from datetime import timezone
+    from zoneinfo import ZoneInfo
+    IST = ZoneInfo("Asia/Kolkata")
+    now = datetime.now(IST)
+    today_ist_midnight = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    today_utc = today_ist_midnight.astimezone(timezone.utc).replace(tzinfo=None)
+    
     today_orders = (
         db.execute(
             text("SELECT COUNT(*) FROM orders WHERE created_at >= :t"),
-            {"t": today},
+            {"t": today_utc},
         ).scalar()
         or 0
     )

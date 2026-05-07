@@ -741,7 +741,17 @@ class PaymentService:
                     transaction.razorpay_order_id = razorpay_order_id
                 
                 # FIX: Always update gateway_response with full event info
+                # BUT preserve critical metadata set during checkout initiation
+                # that the event_info doesn't have (pending_order_id, cart_snapshot,
+                # shipping_address, created_during)
+                original_gateway = {}
+                if isinstance(transaction.gateway_response, dict):
+                    for key in ["pending_order_id", "cart_snapshot", "shipping_address", "created_during"]:
+                        if key in transaction.gateway_response:
+                            original_gateway[key] = transaction.gateway_response[key]
                 transaction.gateway_response = event_info
+                if original_gateway:
+                    transaction.gateway_response["_checkout_meta"] = original_gateway
                 
                 # FIX: Always update status to completed for captured/authorized payments
                 # (not just pending ones - webhooks can arrive out of order)
@@ -956,7 +966,15 @@ class PaymentService:
                     transaction.razorpay_payment_id = payment_id
                 if razorpay_order_id and not transaction.razorpay_order_id:
                     transaction.razorpay_order_id = razorpay_order_id
+                # Preserve checkout metadata before overwriting gateway_response
+                original_gateway = {}
+                if isinstance(transaction.gateway_response, dict):
+                    for key in ["pending_order_id", "cart_snapshot", "shipping_address", "created_during"]:
+                        if key in transaction.gateway_response:
+                            original_gateway[key] = transaction.gateway_response[key]
                 transaction.gateway_response = event_info
+                if original_gateway:
+                    transaction.gateway_response["_checkout_meta"] = original_gateway
                 # CRITICAL: Create order NOW for embedded checkout
                 # (authorized comes before captured for UPI collect)
                 if transaction.status == "pending":
@@ -1004,7 +1022,15 @@ class PaymentService:
             if transaction:
                 if razorpay_order_id and not transaction.razorpay_order_id:
                     transaction.razorpay_order_id = razorpay_order_id
+                # Preserve checkout metadata
+                original_gateway = {}
+                if isinstance(transaction.gateway_response, dict):
+                    for key in ["pending_order_id", "cart_snapshot", "shipping_address", "created_during"]:
+                        if key in transaction.gateway_response:
+                            original_gateway[key] = transaction.gateway_response[key]
                 transaction.gateway_response = event_info
+                if original_gateway:
+                    transaction.gateway_response["_checkout_meta"] = original_gateway
                 if transaction.status == "pending":
                     transaction.status = "completed"
                     transaction.completed_at = ist_naive()
@@ -1143,18 +1169,26 @@ class PaymentService:
                 return
             notes = event_info.get("notes", {})
             pending_order_id = notes.get("pending_order_id")
-            
+
             # Fallback to transaction metadata
             if not pending_order_id and transaction.gateway_response and isinstance(transaction.gateway_response, dict):
-                pending_order_id = transaction.gateway_response.get("pending_order_id")
+                # Check _checkout_meta first (preserved from original gateway_response)
+                checkout_meta = transaction.gateway_response.get("_checkout_meta", {})
+                if isinstance(checkout_meta, dict):
+                    pending_order_id = checkout_meta.get("pending_order_id")
+                if not pending_order_id:
+                    pending_order_id = transaction.gateway_response.get("pending_order_id")
 
             # Fallback: If no pending_order_id, try to use snapshot from transaction first (most accurate)
             pending_order_data = {}
             if not pending_order_id and transaction.gateway_response and isinstance(transaction.gateway_response, dict):
-                if transaction.gateway_response.get("shipping_address"):
+                # Check _checkout_meta first
+                checkout_meta = transaction.gateway_response.get("_checkout_meta", {})
+                checkout_source = checkout_meta if isinstance(checkout_meta, dict) and checkout_meta.get("shipping_address") else transaction.gateway_response
+                if checkout_source.get("shipping_address"):
                     pending_order_data = {
-                        "shipping_address": transaction.gateway_response.get("shipping_address"),
-                        "cart_snapshot": transaction.gateway_response.get("cart_snapshot", []),
+                        "shipping_address": checkout_source.get("shipping_address"),
+                        "cart_snapshot": checkout_source.get("cart_snapshot", []),
                         "subtotal": float(transaction.amount),
                         "total_amount": float(transaction.amount),
                     }

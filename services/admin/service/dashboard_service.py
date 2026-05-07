@@ -32,25 +32,38 @@ class AdminDashboardService:
     def _period_config(self, period: str) -> Dict[str, Any]:
         return PERIODS.get(period, PERIODS["daily"])
 
-    def get_overview(self, period: str = "daily") -> Dict[str, Any]:
+    def _period_start_utc(self, period: str) -> datetime:
+        """Return the UTC start datetime for a given period.
+
+        For 'daily': start of today in IST converted to UTC (midnight today IST).
+        For 'weekly': start of today IST minus 6 days → covers last 7 full days.
+        For 'monthly': start of today IST minus 29 days → covers last 30 full days.
+
+        Returns a naive UTC datetime suitable for SQL WHERE clauses
+        comparing against UTC-stored timestamps.
+        """
         cfg = self._period_config(period)
         now = now_ist()
-        start = now - timedelta(days=cfg["days"])
+        # Today's midnight in IST
+        today_midnight_ist = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        # Go back N-1 days from today midnight to get the start
+        start_ist = today_midnight_ist - timedelta(days=cfg["days"] - 1)
+        # Convert to UTC (naive for SQL)
+        start_utc = start_ist.astimezone(timezone.utc).replace(tzinfo=None)
+        return start_utc
 
-        # Use IST for date filtering (convert to naive for SQL)
-        start_ist_midnight = start.replace(hour=0, minute=0, second=0, microsecond=0)
-        
-        # Convert IST to UTC for SQL query (since DB stores UTC)
-        from datetime import timezone
-        start_utc = start_ist_midnight.astimezone(timezone.utc).replace(tzinfo=None)
-        
+    def get_overview(self, period: str = "daily") -> Dict[str, Any]:
+        start_utc = self._period_start_utc(period)
         params = {"start_date": start_utc}
 
+        # ── Period-specific (filtered by date) ──
+        # Revenue from all non-cancelled orders in the period window
         period_revenue = (
             self.db.execute(
                 text(
                     "SELECT COALESCE(SUM(total_amount), 0) FROM orders "
-                    "WHERE created_at >= :start_date AND status NOT IN ('cancelled')"
+                    "WHERE created_at >= :start_date "
+                    "AND status NOT IN ('cancelled')"
                 ),
                 params,
             ).scalar()
@@ -59,8 +72,35 @@ class AdminDashboardService:
 
         period_orders = (
             self.db.execute(
-                text("SELECT COUNT(*) FROM orders WHERE created_at >= :start_date"),
+                text(
+                    "SELECT COUNT(*) FROM orders "
+                    "WHERE created_at >= :start_date "
+                    "AND status NOT IN ('cancelled')"
+                ),
                 params,
+            ).scalar()
+            or 0
+        )
+
+        # ── All-time totals (no date filter) ──
+        # Total = all non-cancelled orders (confirmed + shipped + delivered).
+        # Confirmed orders are paid and awaiting shipment — they count as real business.
+        total_revenue_all = (
+            self.db.execute(
+                text(
+                    "SELECT COALESCE(SUM(total_amount), 0) FROM orders "
+                    "WHERE status NOT IN ('cancelled')"
+                ),
+            ).scalar()
+            or 0
+        )
+
+        total_orders_all = (
+            self.db.execute(
+                text(
+                    "SELECT COUNT(*) FROM orders "
+                    "WHERE status NOT IN ('cancelled')"
+                ),
             ).scalar()
             or 0
         )
@@ -149,8 +189,8 @@ class AdminDashboardService:
 
         return {
             "period": period,
-            "total_revenue": float(period_revenue),
-            "total_orders": period_orders,
+            "total_revenue": float(total_revenue_all),
+            "total_orders": total_orders_all,
             "total_customers": total_customers,
             "total_products": total_products,
             "pending_orders": pending_orders,
@@ -173,7 +213,7 @@ class AdminDashboardService:
         """
         cfg = self._period_config(period)
         bucket = cfg["bucket"]
-        start = now_ist() - timedelta(days=cfg["days"])
+        start_utc = self._period_start_utc(period)
 
         rows = self.db.execute(
             text(
@@ -191,7 +231,7 @@ class AdminDashboardService:
                 ORDER BY bucket ASC
                 """
             ),
-            {"bucket": bucket, "start_date": start.replace(tzinfo=None)},
+            {"bucket": bucket, "start_date": start_utc},
         ).fetchall()
 
         return [
@@ -206,8 +246,7 @@ class AdminDashboardService:
     def get_top_products(
         self, period: str = "monthly", limit: int = 10
     ) -> List[Dict[str, Any]]:
-        cfg = self._period_config(period)
-        start = now_ist() - timedelta(days=cfg["days"])
+        start_utc = self._period_start_utc(period)
 
         rows = self.db.execute(
             text(
@@ -228,7 +267,7 @@ class AdminDashboardService:
                 LIMIT :limit
                 """
             ),
-            {"start_date": start.replace(tzinfo=None), "limit": limit},
+            {"start_date": start_utc, "limit": limit},
         ).fetchall()
 
         return [
@@ -245,8 +284,7 @@ class AdminDashboardService:
     def get_top_customers(
         self, period: str = "monthly", limit: int = 10
     ) -> List[Dict[str, Any]]:
-        cfg = self._period_config(period)
-        start = now_ist() - timedelta(days=cfg["days"])
+        start_utc = self._period_start_utc(period)
 
         rows = self.db.execute(
             text(
@@ -266,7 +304,7 @@ class AdminDashboardService:
                 LIMIT :limit
                 """
             ),
-            {"start_date": start.replace(tzinfo=None), "limit": limit},
+            {"start_date": start_utc, "limit": limit},
         ).fetchall()
 
         return [

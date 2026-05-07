@@ -123,14 +123,15 @@ async def get_revenue_analytics(
 ):
     """Daily revenue trend for the chosen window."""
     days = {"7d": 7, "30d": 30, "90d": 90, "1y": 365}[period]
-    since = now_ist() - timedelta(days=days)
+    since_ist = now_ist() - timedelta(days=days)
+    since_utc = since_ist.replace(tzinfo=None) - timedelta(hours=5, minutes=30)
     rows = db.execute(
         text(
             "SELECT DATE(created_at) AS day, COALESCE(SUM(total_amount), 0), COUNT(*) "
-            "FROM orders WHERE created_at >= :since AND status != 'cancelled' "
+            "FROM orders WHERE created_at >= :since AND status NOT IN ('cancelled') "
             "GROUP BY DATE(created_at) ORDER BY day"
         ),
-        {"since": since},
+        {"since": since_utc},
     ).fetchall()
     period_data = [
         RevenueData(period=str(r[0]), revenue=float(r[1]), orders=r[2]) for r in rows
@@ -214,8 +215,11 @@ async def get_top_selling_products(
     user: dict = Depends(require_admin),
 ):
     """Top selling products by units sold over the chosen window."""
+    from shared.time_utils import now_ist
+
     days = {"7d": 7, "30d": 30, "90d": 90, "1y": 365}.get(period, 30)
-    since = now_ist() - timedelta(days=days)
+    since_ist = now_ist() - timedelta(days=days)
+    since_utc = since_ist.replace(tzinfo=None) - timedelta(hours=5, minutes=30)
     rows = db.execute(
         text(
             "SELECT oi.product_id, COALESCE(p.name, 'Unknown'), "
@@ -223,11 +227,11 @@ async def get_top_selling_products(
             "FROM order_items oi "
             "LEFT JOIN products p ON p.id = oi.product_id "
             "JOIN orders o ON o.id = oi.order_id "
-            "WHERE o.created_at >= :since AND o.status != 'cancelled' "
+            "WHERE o.created_at >= :since AND o.status NOT IN ('cancelled') "
             "GROUP BY oi.product_id, p.name "
             "ORDER BY SUM(oi.quantity) DESC LIMIT :lim"
         ),
-        {"since": since.replace(tzinfo=None), "lim": limit},
+        {"since": since_utc, "lim": limit},
     ).fetchall()
     products = [
         TopProduct(

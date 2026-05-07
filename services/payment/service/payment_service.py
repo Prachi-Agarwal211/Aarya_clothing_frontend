@@ -235,6 +235,27 @@ class PaymentService:
             if not transaction:
                 raise ValueError("Transaction not found")
             
+            # ── Webhook-first race condition ──
+            # Razorpay webhook (payment.captured) may have already processed this
+            # transaction and created the order. Return success gracefully instead
+            # of raising an error that would confuse the user.
+            if transaction.status == "completed":
+                logger.info(
+                    f"VERIFY_ALREADY_COMPLETED: txn={transaction_id} "
+                    f"payment={razorpay_payment_id} — webhook processed first, returning success"
+                )
+                return PaymentResponse(
+                    success=True,
+                    transaction_id=transaction.transaction_id,
+                    status=PaymentStatus.COMPLETED,
+                    message="Payment already verified",
+                    amount=transaction.amount,
+                    currency=transaction.currency,
+                    payment_method=PaymentMethod(transaction.payment_method),
+                    razorpay_payment_id=transaction.razorpay_payment_id,
+                    gateway_response=transaction.gateway_response or {},
+                )
+            
             if transaction.status != "pending":
                 raise ValueError(f"Transaction already {transaction.status}")
             
@@ -1127,9 +1148,20 @@ class PaymentService:
             if not pending_order_id and transaction.gateway_response and isinstance(transaction.gateway_response, dict):
                 pending_order_id = transaction.gateway_response.get("pending_order_id")
 
-            # Fallback: If no pending_order_id, try to fetch current cart (legacy/failsafe)
+            # Fallback: If no pending_order_id, try to use snapshot from transaction first (most accurate)
             pending_order_data = {}
-            if not pending_order_id:
+            if not pending_order_id and transaction.gateway_response and isinstance(transaction.gateway_response, dict):
+                if transaction.gateway_response.get("shipping_address"):
+                    pending_order_data = {
+                        "shipping_address": transaction.gateway_response.get("shipping_address"),
+                        "cart_snapshot": transaction.gateway_response.get("cart_snapshot", []),
+                        "subtotal": float(transaction.amount),
+                        "total_amount": float(transaction.amount),
+                    }
+                    logger.info(f"WEBHOOK: Recovered address from transaction metadata for user {transaction.user_id}")
+
+            # Fallback: If still no address, try to fetch current cart (legacy/failsafe)
+            if not pending_order_id and not pending_order_data.get("shipping_address"):
                 try:
                     with httpx.Client(timeout=10.0) as client:
                         cart_response = client.get(
@@ -1225,12 +1257,36 @@ class PaymentService:
             raise HTTPException(status_code=500, detail="Payment failure handling failed")
     
     def _order_exists(self, transaction: PaymentTransaction) -> bool:
-        """Check if an order already exists for this transaction."""
+        """Check if an order already exists for this transaction.
+
+        Checks multiple possible identifiers to prevent duplicate order creation
+        when webhooks arrive before the transaction_id is fully populated.
+        """
         try:
             from sqlalchemy import text as _text
-            result = self.db.execute(_text("""
-                SELECT 1 FROM orders WHERE transaction_id = :txn_id LIMIT 1
-            """), {"txn_id": transaction.transaction_id}).first()
+
+            # Try multiple identifiers in a single query
+            payment_id = transaction.razorpay_payment_id
+            order_id = transaction.razorpay_order_id
+            txn_id = transaction.transaction_id
+
+            conditions = []
+            params = {}
+            if txn_id:
+                conditions.append("transaction_id = :txn_id")
+                params["txn_id"] = txn_id
+            if payment_id:
+                conditions.append("razorpay_payment_id = :payment_id")
+                params["payment_id"] = payment_id
+            if order_id:
+                conditions.append("razorpay_order_id = :order_id")
+                params["order_id"] = order_id
+
+            if not conditions:
+                return False
+
+            sql = f"SELECT 1 FROM orders WHERE {' OR '.join(conditions)} LIMIT 1"
+            result = self.db.execute(_text(sql), params).first()
             return result is not None
         except Exception:
             return False

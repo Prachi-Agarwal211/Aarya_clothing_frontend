@@ -231,7 +231,7 @@ async def create_razorpay_order(
                 internal_secret = os.getenv("INTERNAL_SERVICE_SECRET")
                 try:
                     resp = httpx.post(
-                        f"{commerce_url}/api/v1/orders/internal/prepare",
+                        f"{commerce_url}/api/v1/orders/internal/orders/prepare",
                         json={
                             "user_id": current_user.get('user_id'),
                             "cart_snapshot": request.cart_snapshot,

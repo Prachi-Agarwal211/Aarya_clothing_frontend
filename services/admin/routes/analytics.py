@@ -31,7 +31,8 @@ async def get_product_performance(
 ):
     """Detailed product performance: views, orders, revenue, conversion."""
     days = {"7d": 7, "30d": 30, "90d": 90, "1y": 365}[period]
-    since = now_ist() - timedelta(days=days)
+    since_ist = now_ist() - timedelta(days=days)
+    since_utc = since_ist.replace(tzinfo=None) - timedelta(hours=5, minutes=30)
     rows = db.execute(
         text("""
         SELECT p.id, p.name, 
@@ -54,7 +55,7 @@ async def get_product_performance(
             JOIN inventory inv ON inv.id = oi.inventory_id
             JOIN products p ON p.id = inv.product_id
             JOIN orders o ON o.id = oi.order_id
-            WHERE o.created_at >= :since AND o.status != 'cancelled'
+            WHERE o.created_at >= :since AND o.status NOT IN ('cancelled')
             GROUP BY p.id
         ) s ON s.product_id = p.id
         LEFT JOIN (
@@ -65,7 +66,7 @@ async def get_product_performance(
         GROUP BY p.id, p.name, p.base_price, s.total_sold, s.total_revenue, s.order_count, r.avg_rating, r.review_count
         ORDER BY total_revenue DESC LIMIT :lim
     """),
-        {"since": since, "lim": limit},
+        {"since": since_utc, "lim": limit},
     ).fetchall()
 
     products = [
@@ -95,7 +96,8 @@ async def get_detailed_customer_analytics(
 ):
     """Detailed customer analytics: LTV, segments, acquisition trends."""
     days = {"7d": 7, "30d": 30, "90d": 90, "1y": 365}[period]
-    since = now_ist() - timedelta(days=days)
+    since_ist = now_ist() - timedelta(days=days)
+    since_utc = since_ist.replace(tzinfo=None) - timedelta(hours=5, minutes=30)
 
     # Registration trend by day
     reg_trend = db.execute(
@@ -104,7 +106,7 @@ async def get_detailed_customer_analytics(
         FROM users WHERE role = 'customer' AND created_at >= :since
         GROUP BY DATE(created_at) ORDER BY day
     """),
-        {"since": since},
+        {"since": since_utc},
     ).fetchall()
 
     # Top customers by spend
@@ -112,11 +114,11 @@ async def get_detailed_customer_analytics(
         text("""
         SELECT u.id, u.username, u.email, COUNT(o.id) as orders, SUM(o.total_amount) as total_spent
         FROM users u JOIN orders o ON o.user_id = u.id
-        WHERE o.status != 'cancelled' AND o.created_at >= :since
+        WHERE o.status NOT IN ('cancelled') AND o.created_at >= :since
         GROUP BY u.id, u.username, u.email
         ORDER BY total_spent DESC LIMIT 10
     """),
-        {"since": since},
+        {"since": since_utc},
     ).fetchall()
 
     # Customer segments
@@ -125,7 +127,7 @@ async def get_detailed_customer_analytics(
             text("""
         SELECT AVG(total) FROM (
             SELECT SUM(total_amount) as total FROM orders
-            WHERE status != 'cancelled'
+            WHERE status NOT IN ('cancelled')
             GROUP BY user_id
         ) sub
     """)
@@ -137,7 +139,7 @@ async def get_detailed_customer_analytics(
         db.execute(
             text("""
         SELECT COUNT(DISTINCT user_id) FROM orders
-        WHERE status != 'cancelled'
+        WHERE status NOT IN ('cancelled')
         GROUP BY user_id HAVING SUM(total_amount) > :threshold
     """),
             {"threshold": float(avg_ltv) * 2},

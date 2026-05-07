@@ -102,17 +102,26 @@ export default function OrdersPage() {
 
   const handleDownloadInvoice = async (orderId, invoiceNumber) => {
     try {
+      console.log('[Invoice] Downloading invoice for order:', orderId, invoiceNumber);
+
       const response = await fetch(`/api/v1/orders/${orderId}/invoice`, {
         method: 'GET',
         credentials: 'include',
       });
 
+      console.log('[Invoice] Response status:', response.status);
+      console.log('[Invoice] Response ok:', response.ok);
+
       if (!response.ok) {
-        throw new Error('Failed to download invoice');
+        const errorData = await response.json().catch(() => ({}));
+        console.error('[Invoice] Error response:', errorData);
+        throw new Error(errorData.detail || errorData.message || 'Failed to download invoice');
       }
 
       // Create blob and download
       const blob = await response.blob();
+      console.log('[Invoice] Blob created, size:', blob.size);
+
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -121,16 +130,20 @@ export default function OrdersPage() {
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
+
+      console.log('[Invoice] Download successful');
     } catch (error) {
-      logError('ProfileOrders', 'downloading invoice', error, { 
+      console.error('[Invoice] Download failed:', error);
+      logError('ProfileOrders', 'downloading invoice', error, {
         orderId,
         invoiceNumber
       });
       showAlert(getErrorMessage(error, 'download invoice', {
         authMsg: 'Your session has expired. Please log in again.',
         permissionMsg: 'You do not have permission to download this invoice.',
-        notFoundMsg: 'Invoice not found.',
-        networkMsg: 'Cannot connect to server. Please check your connection.'
+        notFoundMsg: 'Invoice not found. Please try again later.',
+        networkMsg: 'Cannot connect to server. Please check your connection.',
+        serverMsg: 'Failed to generate invoice. This order may have incomplete data.'
       }), 'error');
     }
   };

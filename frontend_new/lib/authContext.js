@@ -198,7 +198,14 @@ export function AuthProvider({ children }) {
       setIsAuthenticated(false);
       clearStoredTokens();
       clearAuthData();
-      
+
+      // CRITICAL: Clear localStorage user data to prevent stale user display
+      try {
+        localStorage.removeItem('user');
+      } catch (userErr) {
+        logger.warn('Failed to clear user from localStorage:', userErr);
+      }
+
       // Reset logout flag after state is cleared
       isLoggingOutRef.current = false;
     }

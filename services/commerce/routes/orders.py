@@ -409,76 +409,86 @@ async def generate_invoice(
     from jinja2 import Environment, FileSystemLoader
     from weasyprint import HTML
 
-    order_service = _get_order_service(db)
-
-    # Get order
-    order = order_service.get_order_by_id(order_id)
-    if not order:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Order not found"
-        )
-
-    # Check authorization (user can only access their own orders, admin can access all)
-    user_id = current_user.get("user_id")
-    is_admin = current_user.get("is_admin", False)
-
-    if order.user_id != user_id and not is_admin:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to access this invoice",
-        )
-
-    # Check if invoice PDF already exists in R2
-    invoice_pdf_url = getattr(order, 'invoice_pdf_url', None)
-    if invoice_pdf_url:
-        # Return existing PDF from R2 (redirect for efficiency)
-        from fastapi.responses import RedirectResponse
-        return RedirectResponse(url=invoice_pdf_url, status_code=302)
-
-    # Prepare invoice data
-    invoice_data = prepare_invoice_data(order, db)
-
-    # Render HTML template
-    html_content = render_invoice_template(invoice_data)
-
-    # Generate PDF
-    pdf_buffer = generate_pdf_from_html(html_content)
-
-    # Upload to R2 if configured
-    pdf_url = None
     try:
-        from service.r2_service import r2_service
-        from io import BytesIO
-        import uuid
-        
-        invoice_filename = f"invoices/{invoice_data['invoice_number']}.pdf"
-        
-        # Seek to start before upload
-        pdf_buffer.seek(0)
-        
-        pdf_url = await r2_service.upload_file(
+        order_service = _get_order_service(db)
+
+        # Get order
+        order = order_service.get_order_by_id(order_id)
+        if not order:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Order not found"
+            )
+
+        # Check authorization (user can only access their own orders, admin can access all)
+        user_id = current_user.get("user_id")
+        is_admin = current_user.get("is_admin", False)
+
+        if order.user_id != user_id and not is_admin:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not authorized to access this invoice",
+            )
+
+        # Check if invoice PDF already exists in R2
+        invoice_pdf_url = getattr(order, 'invoice_pdf_url', None)
+        if invoice_pdf_url:
+            # Return existing PDF from R2 (redirect for efficiency)
+            from fastapi.responses import RedirectResponse
+            return RedirectResponse(url=invoice_pdf_url, status_code=302)
+
+        # Prepare invoice data
+        invoice_data = prepare_invoice_data(order, db)
+
+        # Render HTML template
+        html_content = render_invoice_template(invoice_data)
+
+        # Generate PDF
+        pdf_buffer = generate_pdf_from_html(html_content)
+
+        # Upload to R2 if configured
+        pdf_url = None
+        try:
+            from service.r2_service import r2_service
+            from io import BytesIO
+            import uuid
+
+            invoice_filename = f"invoices/{invoice_data['invoice_number']}.pdf"
+
+            # Seek to start before upload
+            pdf_buffer.seek(0)
+
+            pdf_url = await r2_service.upload_file(
+                pdf_buffer,
+                invoice_filename,
+                content_type="application/pdf"
+            )
+
+            # Store URL in order record
+            order.invoice_pdf_url = pdf_url
+            db.commit()
+        except Exception as e:
+            logger.warning(f"Failed to upload invoice to R2: {e}")
+
+        # Return as downloadable PDF
+        filename = f"Invoice_{invoice_data['invoice_number']}.pdf"
+
+        return StreamingResponse(
             pdf_buffer,
-            invoice_filename,
-            content_type="application/pdf"
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f"attachment; filename={filename}",
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+            },
         )
-        
-        # Store URL in order record
-        order.invoice_pdf_url = pdf_url
-        db.commit()
     except Exception as e:
-        logger.warning(f"Failed to upload invoice to R2: {e}")
+        # Log the full error for debugging
+        logger.error(f"Failed to generate invoice for order {order_id}: {str(e)}", exc_info=True)
 
-    # Return as downloadable PDF
-    filename = f"Invoice_{invoice_data['invoice_number']}.pdf"
-
-    return StreamingResponse(
-        pdf_buffer,
-        media_type="application/pdf",
-        headers={
-            "Content-Disposition": f"attachment; filename={filename}",
-            "Cache-Control": "no-cache, no-store, must-revalidate",
-        },
-    )
+        # Return a user-friendly error message
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate invoice. Please try again later. Error: {str(e)}"
+        )
 
 
 def prepare_invoice_data(order: Order, db: Session) -> dict:
@@ -537,6 +547,16 @@ def prepare_invoice_data(order: Order, db: Session) -> dict:
             )
         )
 
+        # FIX: Handle product not found or missing category gracefully
+        if not product:
+            hsn_code = "6204"  # Default HSN for clothing (women's suits/ensembles)
+            product_name = item.product_name or f"Product {item.product_id}"
+        elif not product.category:
+            hsn_code = "6204"  # Default HSN for clothing (women's suits/ensembles)
+            product_name = product.name
+        else:
+            product_name = product.name
+
         # Calculate item totals (discount is at order level, not item level)
         unit_price = (
             float(item.unit_price)
@@ -550,7 +570,7 @@ def prepare_invoice_data(order: Order, db: Session) -> dict:
 
         items.append(
             {
-                "name": item.product_name,
+                "name": product_name,
                 "size": item.size or "NA",
                 "color": item.color or "NA",
                 "hsn_code": hsn_code,

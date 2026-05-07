@@ -376,7 +376,7 @@ export default function TermsOfServicePage() {
               </p>
               <div className="p-6 rounded-xl bg-[#F2C29A]/5 border border-[#F2C29A]/10">
                 <p className="text-[#EAE0D5] mb-2"><strong>Email:</strong> support@aaryaclothing.com</p>
-                <p className="text-[#EAE0D5] mb-2"><strong>Phone:</strong> +91-XXXXXXXXXX</p>
+                <p className="text-[#EAE0D5] mb-2"><strong>Phone:</strong> +91 7300186757</p>
                 <p className="text-[#EAE0D5]"><strong>Address:</strong> [Registered Office Address], India</p>
               </div>
             </div>

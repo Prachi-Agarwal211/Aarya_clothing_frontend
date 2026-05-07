@@ -116,58 +116,6 @@ export default function ShippingPolicyPage() {
             </div>
           </section>
 
-          {/* Section 3 */}
-          <section className="mb-10">
-            <h2 className="text-xl sm:text-2xl text-[#EAE0D5] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
-              <Truck className="w-6 h-6 text-[#F2C29A]" />
-              Delivery Time
-            </h2>
-            <div className="space-y-4 text-[#EAE0D5]/70 leading-relaxed pl-4">
-              <p>
-                After dispatch, delivery times vary based on your location:
-              </p>
-              
-              <div className="space-y-3 mt-4">
-                <div className="p-4 rounded-xl bg-[#F2C29A]/5 border border-[#F2C29A]/10 flex justify-between items-center">
-                  <div>
-                    <p className="text-[#EAE0D5] font-medium">Metro Cities</p>
-                    <p className="text-xs text-[#EAE0D5]/60">Delhi, Mumbai, Bangalore, Chennai, Hyderabad, etc.</p>
-                  </div>
-                  <p className="text-[#F2C29A] font-medium">2-4 Business Days</p>
-                </div>
-                
-                <div className="p-4 rounded-xl bg-[#F2C29A]/5 border border-[#F2C29A]/10 flex justify-between items-center">
-                  <div>
-                    <p className="text-[#EAE0D5] font-medium">Tier 1 & 2 Cities</p>
-                    <p className="text-xs text-[#EAE0D5]/60">Major cities and state capitals</p>
-                  </div>
-                  <p className="text-[#F2C29A] font-medium">3-5 Business Days</p>
-                </div>
-                
-                <div className="p-4 rounded-xl bg-[#F2C29A]/5 border border-[#F2C29A]/10 flex justify-between items-center">
-                  <div>
-                    <p className="text-[#EAE0D5] font-medium">Tier 3 Cities & Towns</p>
-                    <p className="text-xs text-[#EAE0D5]/60">Smaller towns and rural areas</p>
-                  </div>
-                  <p className="text-[#F2C29A] font-medium">5-7 Business Days</p>
-                </div>
-                
-                <div className="p-4 rounded-xl bg-[#F2C29A]/5 border border-[#F2C29A]/10 flex justify-between items-center">
-                  <div>
-                    <p className="text-[#EAE0D5] font-medium">Remote Locations</p>
-                    <p className="text-xs text-[#EAE0D5]/60">North East, J&K, Ladakh, etc.</p>
-                  </div>
-                  <p className="text-[#F2C29A] font-medium">7-10 Business Days</p>
-                </div>
-              </div>
-
-              <p className="text-sm">
-                <strong className="text-[#EAE0D5]">Total Delivery Time:</strong> 3-7 business days (processing + shipping) 
-                for most locations. Remote areas may take up to 10-12 business days.
-              </p>
-            </div>
-          </section>
-
           {/* Section 4 */}
           <section className="mb-10">
             <h2 className="text-xl sm:text-2xl text-[#EAE0D5] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
@@ -190,35 +138,6 @@ export default function ShippingPolicyPage() {
               </p>
             </div>
           </section>
-
-          {/* Section 5 */}
-          <section className="mb-10">
-            <h2 className="text-xl sm:text-2xl text-[#EAE0D5] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
-              <Package className="w-6 h-6 text-[#F2C29A]" />
-              Order Tracking
-            </h2>
-            <div className="space-y-4 text-[#EAE0D5]/70 leading-relaxed pl-4">
-              <p>
-                Once your order is dispatched, you will receive:
-              </p>
-              <ul className="list-disc list-inside space-y-2 ml-4">
-                <li>Email notification with tracking number and courier details</li>
-                <li>SMS with tracking link to your registered mobile number</li>
-                <li>Access to tracking information in your account dashboard</li>
-              </ul>
-              <p>
-                You can track your order by clicking the tracking link or visiting the courier partner's 
-                website and entering your tracking number.
-              </p>
-              <div className="p-5 rounded-xl bg-[#F2C29A]/10 border border-[#F2C29A]/20 mt-4">
-                <p className="text-[#EAE0D5] text-sm">
-                  <strong className="text-[#F2C29A]">Pro Tip:</strong> Save your tracking number for easy reference. 
-                  You can also contact our customer support team with your order number for tracking assistance.
-                </p>
-              </div>
-            </div>
-          </section>
-
 
           {/* Section 7 */}
           <section className="mb-10">
@@ -284,8 +203,7 @@ export default function ShippingPolicyPage() {
               <div className="p-5 rounded-xl bg-[#F2C29A]/10 border border-[#F2C29A]/20 mt-4">
                 <p className="text-[#EAE0D5] text-sm">
                   <strong className="text-[#F2C29A]">Reshipment:</strong> If you request reshipment, we will dispatch 
-                  your order again at no additional cost. If you prefer a refund, it will be processed within 
-                  5-7 business days after we receive the returned package.
+                  your order again at no additional cost. For refund requests, our team will contact you with further details.
                 </p>
               </div>
             </div>
@@ -329,7 +247,7 @@ export default function ShippingPolicyPage() {
                   <strong className="text-[#F2C29A]">Customer Support:</strong> support@aaryaclothing.com
                 </p>
                 <p className="text-[#EAE0D5]">
-                  <strong className="text-[#F2C29A]">Phone:</strong> +91-XXXXXXXXXX
+                  <strong className="text-[#F2C29A]">Phone:</strong> +91 7300186757
                 </p>
                 <p className="text-[#EAE0D5]">
                   <strong className="text-[#F2C29A]">Hours:</strong> Monday - Saturday, 10 AM - 7 PM IST

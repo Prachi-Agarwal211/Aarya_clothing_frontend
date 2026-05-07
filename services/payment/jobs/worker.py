@@ -81,9 +81,8 @@ def start_worker():
             name=WORKER_NAME,
             connection=redis_conn,
         )
-        # Log every 60 seconds that we're still alive
+        # Never quit on idle — this is a daemon
         worker.work(
-            max_idle_seconds=0,  # never quit on idle
             logging_level="INFO",
         )
 

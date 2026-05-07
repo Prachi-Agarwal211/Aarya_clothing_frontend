@@ -70,46 +70,6 @@ export default function ReturnRefundPolicyPage() {
             </div>
           </section>
 
-          {/* Section 1 */}
-          <section className="mb-10">
-            <h2 className="text-xl sm:text-2xl text-[#EAE0D5] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
-              <CheckCircle className="w-6 h-6 text-[#F2C29A]" />
-              Eligible Returns
-            </h2>
-            <div className="space-y-4 text-[#EAE0D5]/70 leading-relaxed pl-4">
-              <p>We accept returns only under the following circumstances:</p>
-              <ul className="space-y-3 ml-4">
-                <li className="flex items-start gap-3">
-                  <div className="w-6 h-6 rounded-full bg-[#F2C29A]/20 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <span className="text-xs text-[#F2C29A]">✓</span>
-                  </div>
-                  <div>
-                    <strong className="text-[#EAE0D5]">Damaged Products:</strong>
-                    <p>Items that arrive with visible damage, tears, stains, or manufacturing defects</p>
-                  </div>
-                </li>
-                <li className="flex items-start gap-3">
-                  <div className="w-6 h-6 rounded-full bg-[#F2C29A]/20 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <span className="text-xs text-[#F2C29A]">✓</span>
-                  </div>
-                  <div>
-                    <strong className="text-[#EAE0D5]">Defective Products:</strong>
-                    <p>Items with functional issues, faulty zippers, broken embellishments, or poor stitching</p>
-                  </div>
-                </li>
-                <li className="flex items-start gap-3">
-                  <div className="w-6 h-6 rounded-full bg-[#F2C29A]/20 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <span className="text-xs text-[#F2C29A]">✓</span>
-                  </div>
-                  <div>
-                    <strong className="text-[#EAE0D5]">Wrong Product:</strong>
-                    <p>Items that do not match your order (wrong design, color, size, or product)</p>
-                  </div>
-                </li>
-              </ul>
-            </div>
-          </section>
-
           {/* Section 2 */}
           <section className="mb-10">
             <h2 className="text-xl sm:text-2xl text-[#EAE0D5] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
@@ -261,29 +221,18 @@ export default function ReturnRefundPolicyPage() {
           <section className="mb-10">
             <h2 className="text-xl sm:text-2xl text-[#EAE0D5] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
               <Clock className="w-6 h-6 text-[#F2C29A]" />
-              Refund Timeline
+              Refund Process
             </h2>
             <div className="space-y-4 text-[#EAE0D5]/70 leading-relaxed pl-4">
-              <p>Once your return is approved and processed:</p>
-              <div className="space-y-3 mt-4">
-                <div className="p-4 rounded-xl bg-[#F2C29A]/5 border border-[#F2C29A]/10">
-                  <p className="text-sm text-[#EAE0D5]">
-                    <strong className="text-[#F2C29A]">Refund Processing:</strong> 3-7 business days after return approval
-                  </p>
-                </div>
-                <div className="p-4 rounded-xl bg-[#F2C29A]/5 border border-[#F2C29A]/10">
-                  <p className="text-sm text-[#EAE0D5]">
-                    <strong className="text-[#F2C29A]">Bank Processing:</strong> 7-12 business days (varies by bank)
-                  </p>
-                </div>
-                <div className="p-4 rounded-xl bg-[#F2C29A]/5 border border-[#F2C29A]/10">
-                  <p className="text-sm text-[#EAE0D5]">
-                    <strong className="text-[#F2C29A]">Total Time:</strong> 8-15 business days from return receipt
-                  </p>
-                </div>
+              <p>Once your return is approved and the product is received:</p>
+              <div className="p-5 rounded-xl bg-[#F2C29A]/10 border border-[#F2C29A]/20 mt-4">
+                <p className="text-[#EAE0D5]">
+                  Our team will review the returned product and contact you with updates on your refund or exchange. 
+                  The refund will be processed to your original payment method after verification.
+                </p>
               </div>
               <p>
-                Refunds are issued to the original payment method used for the purchase. All refunds are processed within 5-7 business days after the return is verified.
+                For any questions about your refund status, please contact our customer support with your order number.
               </p>
             </div>
           </section>
@@ -326,7 +275,7 @@ export default function ReturnRefundPolicyPage() {
                   <strong className="text-[#F2C29A]">Customer Support:</strong> support@aaryaclothing.com
                 </p>
                 <p className="text-[#EAE0D5]">
-                  <strong className="text-[#F2C29A]">Phone:</strong> +91-XXXXXXXXXX
+                  <strong className="text-[#F2C29A]">Phone:</strong> +91 7300186757
                 </p>
               </div>
             </div>

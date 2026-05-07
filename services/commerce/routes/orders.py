@@ -710,6 +710,7 @@ def prepare_invoice_data(order: Order, db: Session) -> dict:
 def render_invoice_template(data: dict) -> str:
     """Render invoice HTML template with data."""
     import os
+    from jinja2 import Environment, FileSystemLoader
 
     # Get template path
     template_dir = os.path.join(os.path.dirname(__file__), "..", "core", "templates")

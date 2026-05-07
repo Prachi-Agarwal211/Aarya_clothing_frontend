@@ -4,6 +4,7 @@ import { ChevronRight } from 'lucide-react';
 import EnhancedHeader from '@/components/landing/EnhancedHeader';
 import Footer from '@/components/landing/Footer';
 import { generateBreadcrumbSchema, generateItemListSchema } from '@/lib/structuredData';
+import { collectionsApi } from '@/lib/customerApi';
 
 // SEO Metadata
 export const metadata = {

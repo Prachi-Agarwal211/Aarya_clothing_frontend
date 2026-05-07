@@ -109,6 +109,12 @@ class Order(Base):
     shipped_at = Column(DateTime, nullable=True)
     delivered_at = Column(DateTime, nullable=True)
     
+    # Pending order reference (links to pending_orders.id for webhook recovery)
+    pending_order_id = Column(Integer, nullable=True, index=True)
+    
+    # Invoice PDF URL (R2 storage link, set after successful PDF generation)
+    invoice_pdf_url = Column(Text, nullable=True)
+    
     # Relationships
     items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
     shipping_address_ref = relationship("Address", foreign_keys=[shipping_address_id], backref="shipping_orders")

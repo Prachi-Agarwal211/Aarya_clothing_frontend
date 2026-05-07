@@ -726,6 +726,47 @@ def render_invoice_template(data: dict) -> str:
 
 def generate_pdf_from_html(html_content: str) -> BytesIO:
     """Generate PDF from HTML content using WeasyPrint."""
+    import pydyf
+
+    # MONKEY-PATCH: pydyf 0.12.1 is missing features that weasyprint 60.1 needs.
+    # These were added to pydyf's development version but never released to PyPI.
+
+    # 1. PDF.__init__ needs to accept version and identifier (weasyprint passes them)
+    # Also store them as attributes since other code reads pdf.version / pdf.identifier
+    _orig_pdf_init = pydyf.PDF.__init__
+
+    def _patched_pdf_init(self, version=None, identifier=None):
+        _orig_pdf_init(self)
+        self.version = pydyf._to_bytes(version or b'1.7')
+        if identifier is not None:
+            self.identifier = pydyf._to_bytes(identifier)
+        else:
+            self.identifier = None
+
+    pydyf.PDF.__init__ = _patched_pdf_init
+
+    # 2. Stream.transform() — weasyprint calls super().transform(a,b,c,d,e,f)
+    # which should append a 'cm' (concatenate matrix) PDF operator
+    def _patched_transform(self, a=1, b=0, c=0, d=1, e=0, f=0):
+        self.stream.append(b' '.join((
+            pydyf._to_bytes(a), pydyf._to_bytes(b), pydyf._to_bytes(c),
+            pydyf._to_bytes(d), pydyf._to_bytes(e), pydyf._to_bytes(f), b'cm')))
+
+    pydyf.Stream.transform = _patched_transform
+
+    # 3. Stream.text_matrix() — weasyprint calls stream.text_matrix(*matrix.values)
+    # The PDF operator is 'Tm' (set text matrix)
+    def _patched_text_matrix(self, a, b, c, d, e, f):
+        self.stream.append(b' '.join((
+            pydyf._to_bytes(a), pydyf._to_bytes(b), pydyf._to_bytes(c),
+            pydyf._to_bytes(d), pydyf._to_bytes(e), pydyf._to_bytes(f), b'Tm')))
+
+    pydyf.Stream.text_matrix = _patched_text_matrix
+
+    # 4. Stream.color_space() — weasyprint calls stream.color_space('Pattern')
+    # pydyf has set_color_space() but weasyprint calls color_space()
+    pydyf.Stream.color_space = pydyf.Stream.set_color_space
+
     from weasyprint import HTML
 
     # Create PDF

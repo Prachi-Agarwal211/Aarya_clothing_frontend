@@ -749,6 +749,13 @@ class PaymentService:
                     for key in ["pending_order_id", "cart_snapshot", "shipping_address", "created_during"]:
                         if key in transaction.gateway_response:
                             original_gateway[key] = transaction.gateway_response[key]
+                    # Also preserve any nested _checkout_meta from a previous handler run
+                    if "_checkout_meta" in transaction.gateway_response:
+                        existing_meta = transaction.gateway_response["_checkout_meta"]
+                        if isinstance(existing_meta, dict):
+                            for key in ["pending_order_id", "cart_snapshot", "shipping_address", "created_during"]:
+                                if key in existing_meta and key not in original_gateway:
+                                    original_gateway[key] = existing_meta[key]
                 transaction.gateway_response = event_info
                 if original_gateway:
                     transaction.gateway_response["_checkout_meta"] = original_gateway
@@ -972,6 +979,13 @@ class PaymentService:
                     for key in ["pending_order_id", "cart_snapshot", "shipping_address", "created_during"]:
                         if key in transaction.gateway_response:
                             original_gateway[key] = transaction.gateway_response[key]
+                    # Also preserve any nested _checkout_meta from a previous handler run
+                    if "_checkout_meta" in transaction.gateway_response:
+                        existing_meta = transaction.gateway_response["_checkout_meta"]
+                        if isinstance(existing_meta, dict):
+                            for key in ["pending_order_id", "cart_snapshot", "shipping_address", "created_during"]:
+                                if key in existing_meta and key not in original_gateway:
+                                    original_gateway[key] = existing_meta[key]
                 transaction.gateway_response = event_info
                 if original_gateway:
                     transaction.gateway_response["_checkout_meta"] = original_gateway
@@ -1028,6 +1042,13 @@ class PaymentService:
                     for key in ["pending_order_id", "cart_snapshot", "shipping_address", "created_during"]:
                         if key in transaction.gateway_response:
                             original_gateway[key] = transaction.gateway_response[key]
+                    # Also preserve any nested _checkout_meta from a previous handler run
+                    if "_checkout_meta" in transaction.gateway_response:
+                        existing_meta = transaction.gateway_response["_checkout_meta"]
+                        if isinstance(existing_meta, dict):
+                            for key in ["pending_order_id", "cart_snapshot", "shipping_address", "created_during"]:
+                                if key in existing_meta and key not in original_gateway:
+                                    original_gateway[key] = existing_meta[key]
                 transaction.gateway_response = event_info
                 if original_gateway:
                     transaction.gateway_response["_checkout_meta"] = original_gateway
@@ -1176,21 +1197,42 @@ class PaymentService:
                 checkout_meta = transaction.gateway_response.get("_checkout_meta", {})
                 if isinstance(checkout_meta, dict):
                     pending_order_id = checkout_meta.get("pending_order_id")
+                    if not pending_order_id:
+                        # Check nested _checkout_meta (2nd handler preservation)
+                        nested_meta = checkout_meta.get("_checkout_meta", {})
+                        if isinstance(nested_meta, dict):
+                            pending_order_id = nested_meta.get("pending_order_id")
                 if not pending_order_id:
                     pending_order_id = transaction.gateway_response.get("pending_order_id")
 
             # Fallback: If no pending_order_id, try to use snapshot from transaction first (most accurate)
             pending_order_data = {}
             if not pending_order_id and transaction.gateway_response and isinstance(transaction.gateway_response, dict):
-                # Check _checkout_meta first
+                # Check _checkout_meta first (preserved from original gateway_response)
                 checkout_meta = transaction.gateway_response.get("_checkout_meta", {})
-                checkout_source = checkout_meta if isinstance(checkout_meta, dict) and checkout_meta.get("shipping_address") else transaction.gateway_response
+                if isinstance(checkout_meta, dict):
+                    if checkout_meta.get("shipping_address"):
+                        checkout_source = checkout_meta
+                    else:
+                        # Nested _checkout_meta — happens when 2 webhook handlers overwrote
+                        nested_meta = checkout_meta.get("_checkout_meta", {})
+                        if isinstance(nested_meta, dict) and nested_meta.get("shipping_address"):
+                            checkout_source = nested_meta
+                        else:
+                            checkout_source = transaction.gateway_response
+                else:
+                    checkout_source = transaction.gateway_response
                 if checkout_source.get("shipping_address"):
                     pending_order_data = {
                         "shipping_address": checkout_source.get("shipping_address"),
                         "cart_snapshot": checkout_source.get("cart_snapshot", []),
                         "subtotal": float(transaction.amount),
                         "total_amount": float(transaction.amount),
+                        "shipping_cost": 0,
+                        "gst_amount": 0,
+                        "cgst_amount": 0,
+                        "sgst_amount": 0,
+                        "igst_amount": 0,
                     }
                     logger.info(f"WEBHOOK: Recovered address from transaction metadata for user {transaction.user_id}")
 
@@ -1209,6 +1251,11 @@ class PaymentService:
                                 "shipping_address": cart_data.get("shipping_address", ""),
                                 "subtotal": float(transaction.amount),
                                 "total_amount": float(transaction.amount),
+                                "shipping_cost": 0,
+                                "gst_amount": 0,
+                                "cgst_amount": 0,
+                                "sgst_amount": 0,
+                                "igst_amount": 0,
                             }
                 except Exception as e:
                     logger.warning(f"WEBHOOK_CART_FETCH_ERROR: {e}")

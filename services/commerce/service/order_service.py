@@ -987,7 +987,8 @@ class OrderService:
             line_total = unit_price * qty
 
             # Resolve image URL and ensure it's a full R2 CDN URL
-            raw_image = item.get("image") or variant.image_url
+            # Frontend sends 'image_url' in cart_snapshot; also check 'image' for backward compat
+            raw_image = item.get("image_url") or item.get("image") or variant.resolved_image_url or variant.image_url
             full_image = get_r2_public_url(raw_image) if raw_image else None
 
             order_item = OrderItem(

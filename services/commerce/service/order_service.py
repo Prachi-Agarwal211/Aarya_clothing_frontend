@@ -132,7 +132,6 @@ class OrderService:
             discount_applied=discount_applied,
             shipping_cost=shipping_cost,
             shipping_address=shipping_address,
-            billing_address=shipping_address,
             status=OrderStatus.CONFIRMED,
             payment_method=payment_method,
             transaction_id=transaction_id,
@@ -462,32 +461,52 @@ class OrderService:
         # Compute stored_transaction_id BEFORE the idempotency check that uses it
         stored_transaction_id = transaction_id or razorpay_order_id
 
-        # Check for existing order with same transaction_id (idempotency)
-        # Row-level lock serializes concurrent duplicate requests for the same payment
+        # BUG FIX: Check for existing order by qr_code_id or razorpay_payment_id as well.
+        # The primary idempotency check on (transaction_id, user_id) can miss orders
+        # created by the webhook path when the frontend arrives at /checkout/confirm
+        # with a qr_code_id but no transaction_id yet.
+        existing_order = None
         try:
-            existing_order = (
-                self.db.query(Order)
-                .filter(
-                    Order.transaction_id == stored_transaction_id,
-                    Order.user_id == user_id,
+            # 1. Primary check — by transaction_id (covers normal Razorpay checkout)
+            if stored_transaction_id:
+                existing_order = (
+                    self.db.query(Order)
+                    .filter(
+                        Order.transaction_id == stored_transaction_id,
+                        Order.user_id == user_id,
+                    )
+                    .with_for_update(nowait=True)
+                    .first()
                 )
-                .with_for_update(nowait=True)
-                .first()
-            )
+            # 2. QR fallback — check by razorpay_payment_id
+            if not existing_order and qr_code_id:
+                existing_order = (
+                    self.db.query(Order)
+                    .filter(
+                        Order.razorpay_payment_id.isnot(None),
+                        Order.razorpay_payment_id != "",
+                        Order.user_id == user_id,
+                    )
+                    .order_by(Order.created_at.desc())
+                    .first()
+                )
+                if existing_order:
+                    # Double-check: same user and recent (within 5 min).
+                    # created_at is naive, now_ist() is aware — make both naive
+                    from datetime import timedelta
+                    from datetime import timezone as dt_tz
+                    now_naive = now_ist().replace(tzinfo=None)
+                    age = now_naive - existing_order.created_at
+                    if age > timedelta(minutes=5):
+                        existing_order = None
         except OperationalError:
             self.db.rollback()
-            existing_order = (
-                self.db.query(Order)
-                .filter(
-                    Order.transaction_id == stored_transaction_id,
-                    Order.user_id == user_id,
-                )
-                .first()
-            )
+            existing_order = None
 
         if existing_order:
             logger.info(
-                f"Duplicate order attempt detected for user {user_id} with transaction {stored_transaction_id}"
+                f"Duplicate order attempt detected for user {user_id} "
+                f"transaction={stored_transaction_id} qr_code_id={qr_code_id}"
             )
             # Return existing order instead of creating duplicate
             return self.get_order_by_id(existing_order.id)

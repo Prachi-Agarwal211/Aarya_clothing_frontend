@@ -296,7 +296,9 @@ async def excel_orders_export(
         text(
             "SELECT o.invoice_number, o.id AS order_id, o.status, "
             "       o.payment_method AS payment_status, COALESCE(u.full_name, u.username) AS customer_name, "
-            "       u.email AS customer_email, o.total_amount, o.subtotal, "
+            "       u.email AS customer_email, u.phone AS customer_phone, "
+            "       o.shipping_address, o.courier_name, o.tracking_number, "
+            "       o.total_amount, o.subtotal, "
             "       o.gst_amount AS tax_amount, o.shipping_cost AS shipping_amount, o.created_at, "
             "       oi.product_name, oi.sku, oi.size, oi.color, oi.quantity, "
             "       oi.unit_price, oi.line_total "
@@ -319,6 +321,10 @@ async def excel_orders_export(
             "payment_status": m["payment_status"],
             "customer_name": m["customer_name"],
             "customer_email": m["customer_email"],
+            "customer_phone": m["customer_phone"] or "",
+            "shipping_address": m["shipping_address"] or "",
+            "courier_name": m["courier_name"] or "",
+            "tracking_number": m["tracking_number"] or "",
             "total_amount": float(m["total_amount"] or 0),
             "subtotal": float(m["subtotal"] or 0),
             "tax_amount": float(m["tax_amount"] or 0),

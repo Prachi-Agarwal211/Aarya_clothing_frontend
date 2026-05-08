@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -21,6 +21,7 @@ const ensureFullUrl = (url) => {
 };
 
 const ProductCard = ({ product, className, priority = false }) => {
+  const [imageError, setImageError] = useState(false);
   // Support both old shape {id,name,price,image,category,isNew,originalPrice}
   // and new DB-driven shape {id,name,price,mrp,image_url,collection_name,is_new_arrival,discount_percentage}
   const id = product.id;
@@ -74,17 +75,25 @@ const ProductCard = ({ product, className, priority = false }) => {
           )}
 
           {/* Product Image - Optimized with proper loading strategy */}
-          <Image
-            src={ensureFullUrl(image)}
-            alt={name}
-            fill
-            sizes="(max-width: 640px) 280px, (max-width: 1024px) 320px, 360px"
-            className="object-cover transition-all duration-700 group-hover:scale-110 group-hover:brightness-110"
-            priority={priority}
-            quality={75}
-            placeholder="blur"
-            blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k="
-          />
+          {imageError ? (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#1A1A1A] text-[#B76E79]/30 gap-2">
+              <ShoppingBag className="w-10 h-10 opacity-30" />
+              <span className="text-[10px] text-[#EAE0D5]/20">Unavailable</span>
+            </div>
+          ) : (
+            <Image
+              src={ensureFullUrl(image)}
+              alt={name}
+              fill
+              sizes="(max-width: 640px) 280px, (max-width: 1024px) 320px, 360px"
+              className="object-cover transition-all duration-700 group-hover:scale-110 group-hover:brightness-110"
+              priority={priority}
+              quality={75}
+              placeholder="blur"
+              blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k="
+              onError={() => setImageError(true)}
+            />
+          )}
 
           {/* Mobile: subtle gradient at bottom for add-to-cart (NO blur, NO full overlay) */}
           <div className="absolute bottom-0 left-0 right-0 z-20 flex items-end p-3 lg:hidden">

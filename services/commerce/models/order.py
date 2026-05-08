@@ -49,6 +49,7 @@ class Order(Base):
     
     # Pricing
     subtotal = Column(Numeric(10, 2), nullable=False)
+    discount_applied = Column(Numeric(10, 2), default=0)
     shipping_cost = Column(Numeric(10, 2), default=0)
     
     # GST breakdown

@@ -26,7 +26,7 @@ export default function StaffOrdersPage() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [status, setStatus] = useState(searchParams.get('status') || '');
+  const [status, setStatus] = useState(searchParams.get('status') || 'confirmed');
   const [search, setSearch] = useState('');
   const [pagination, setPagination] = useState({
     page: 1,

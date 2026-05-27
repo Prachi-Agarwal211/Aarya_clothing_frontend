@@ -327,7 +327,7 @@ export default function LoginOtpPageContent({ redirectUrl = '/products' }) {
               </p>
             </div>
 
-            <div className="flex justify-center gap-2 mb-2">
+            <div className="flex justify-center gap-1.5 sm:gap-2 mb-2">
               {otpDigits.map((digit, index) => (
                 <input
                   key={index}
@@ -340,7 +340,7 @@ export default function LoginOtpPageContent({ redirectUrl = '/products' }) {
                   value={digit}
                   onChange={(e) => handleOtpDigit(index, e.target.value)}
                   onKeyDown={(e) => handleOtpKeyDown(index, e)}
-                  className="w-11 h-12 text-center text-lg font-bold border-2 border-[#B76E79]/30 bg-[#0B0608]/60 text-[#F2C29A] rounded-lg focus:border-[#F2C29A] focus:outline-none"
+                  className="w-9 sm:w-11 h-12 text-center text-lg font-bold border-2 border-[#B76E79]/30 bg-[#0B0608]/60 text-[#F2C29A] rounded-lg focus:border-[#F2C29A] focus:outline-none"
                 />
               ))}
             </div>

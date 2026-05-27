@@ -41,6 +41,24 @@
     padding-left: max(1rem, env(safe-area-inset-left));
     padding-right: max(1rem, env(safe-area-inset-right));
   }
+
+  /* dvh fallback for older browsers */
+  .h-dvh-fallback {
+    height: 100vh;
+    height: 100dvh;
+  }
+
+  .min-h-dvh-fallback {
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+}
+
+/* Prevent iOS Safari zoom on input focus — set minimum 16px on mobile form elements */
+@media screen and (max-width: 768px) {
+  input, select, textarea, button {
+    font-size: max(16px, 1rem);
+  }
 }
 
 /* Font loading is now handled by next/font/google in layout.js */

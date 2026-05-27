@@ -420,7 +420,7 @@ export default function CheckoutConfirmPage() {
           </div>
 
           {/* Invoice Meta */}
-          <div className="grid grid-cols-2 gap-4 mb-6 p-4 bg-[#7A2F57]/10 rounded-xl text-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6 p-4 bg-[#7A2F57]/10 rounded-xl text-sm">
             <div>
               <p className="text-[#EAE0D5]/50 text-xs mb-0.5">Invoice Number</p>
               <p className="text-[#F2C29A] font-mono font-semibold">{order.invoice_number || `INV-${order.id}`}</p>

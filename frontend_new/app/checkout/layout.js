@@ -79,7 +79,7 @@ export default function CheckoutLayout({ children }) {
                           {isCompleted ? <Check className="w-5 h-5" /> : <span>{idx + 1}</span>}
                         </div>
                         <span className={cn(
-                          "transition-colors duration-300 text-[10px] sm:text-xs text-center leading-tight",
+                          "transition-colors duration-300 text-[11px] sm:text-xs text-center leading-tight",
                           isActive || isCompleted ? "text-[#F2C29A]" : "text-[#EAE0D5]/30"
                         )}>
                           {step.name}

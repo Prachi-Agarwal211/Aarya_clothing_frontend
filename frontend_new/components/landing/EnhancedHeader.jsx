@@ -327,22 +327,42 @@ const EnhancedHeader = () => {
               </button>
             </div>
 
-            {/* Mobile Menu Button */}
-            <button
-              ref={mobileMenuButtonRef}
-              className="md:hidden relative z-50 text-[#EAE0D5] hover:text-[#F2C29A] min-h-[44px] min-w-[44px] flex items-center justify-center"
-              onClick={toggleMobileMenu}
-              aria-expanded={isMobileMenuOpen}
-              aria-controls="mobile-menu"
-              aria-label={isMobileMenuOpen ? 'Close menu' : 'Open menu'}
-              type="button"
-            >
-              {isMobileMenuOpen ? (
-                <X className="w-6 h-6" aria-hidden="true" />
-              ) : (
-                <Menu className="w-6 h-6" aria-hidden="true" />
-              )}
-            </button>
+            {/* Mobile Actions */}
+            <div className="md:hidden flex items-center">
+              <button
+                id="cart-button-mobile"
+                suppressHydrationWarning
+                onClick={handleCartClick}
+                className="relative text-[#EAE0D5] hover:text-[#F2C29A] transition-colors duration-300 min-h-[44px] min-w-[44px] flex items-center justify-center mr-1"
+                aria-label={`Shopping cart with ${itemCount} items`}
+                type="button"
+              >
+                <ShoppingBag className="w-5 h-5" aria-hidden="true" />
+                {itemCount > 0 && (
+                  <span 
+                    className="absolute top-1 right-1 bg-[#7A2F57] text-[#EAE0D5] text-[10px] w-4 h-4 rounded-full flex items-center justify-center"
+                    aria-label={`${itemCount} items in cart`}
+                  >
+                    {itemCount > 9 ? '9+' : itemCount}
+                  </span>
+                )}
+              </button>
+              <button
+                ref={mobileMenuButtonRef}
+                className="relative z-50 text-[#EAE0D5] hover:text-[#F2C29A] min-h-[44px] min-w-[44px] flex items-center justify-center"
+                onClick={toggleMobileMenu}
+                aria-expanded={isMobileMenuOpen}
+                aria-controls="mobile-menu"
+                aria-label={isMobileMenuOpen ? 'Close menu' : 'Open menu'}
+                type="button"
+              >
+                {isMobileMenuOpen ? (
+                  <X className="w-6 h-6" aria-hidden="true" />
+                ) : (
+                  <Menu className="w-6 h-6" aria-hidden="true" />
+                )}
+              </button>
+            </div>
           </div>
         </div>
       </header>

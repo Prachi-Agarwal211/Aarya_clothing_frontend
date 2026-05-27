@@ -309,7 +309,7 @@ const HeroSection = ({
             <div className="w-16 h-[1px] bg-gradient-to-l from-transparent to-[#B76E79]/50" />
           </div>
           <p
-            className="text-white text-sm sm:text-base md:text-lg tracking-[0.3em] uppercase font-light drop-shadow-[0_2px_10px_rgba(242,194,154,0.2)]"
+            className="text-white text-sm sm:text-base md:text-lg tracking-[0.2em] sm:tracking-[0.3em] uppercase font-light drop-shadow-[0_2px_10px_rgba(242,194,154,0.2)] px-2"
             style={{ fontFamily: 'Cinzel, serif' }}
           >
             {tagline}

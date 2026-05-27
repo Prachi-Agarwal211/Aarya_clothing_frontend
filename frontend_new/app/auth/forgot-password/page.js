@@ -519,7 +519,7 @@ export default function ForgotPasswordPage() {
                   disabled={isVerifying || otpExpired}
                   aria-label={`Digit ${i + 1} of 6`}
                   className={[
-                    'w-9 h-11 sm:w-10 sm:h-12 text-center text-lg sm:text-xl font-bold font-mono rounded-lg border-2 transition-all duration-200 outline-none',
+                    'w-8 sm:w-10 h-11 sm:h-12 text-center text-lg sm:text-xl font-bold font-mono rounded-lg border-2 transition-all duration-200 outline-none',
                     'bg-[#0B0608]/60 text-[#F2C29A] caret-[#F2C29A]',
                     digit ? 'border-[#F2C29A]/60 bg-[#7A2F57]/20' : 'border-[#B76E79]/30',
                     otpExpired ? 'opacity-50 cursor-not-allowed' : 'focus:border-[#F2C29A] focus:bg-[#7A2F57]/15 focus:shadow-[0_0_0_3px_rgba(242,194,154,0.1)]',

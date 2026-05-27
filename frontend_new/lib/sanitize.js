@@ -1,9 +1,9 @@
-'use client';
-
 /**
  * Input Sanitization Utility for Aarya Clothing
  * 
  * Uses DOMPurify to sanitize user inputs and prevent XSS attacks.
+ * NOT marked 'use client' — the server-side fallback (regex-based)
+ * handles SSR calls, while DOMPurify kicks in on the browser.
  * 
  * Usage:
  * ```js

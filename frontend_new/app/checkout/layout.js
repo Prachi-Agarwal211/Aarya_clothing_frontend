@@ -112,7 +112,7 @@ export default function CheckoutLayout({ children }) {
                               src={item.image}
                               alt={item.name || item.product_name}
                               fill
-                              className="object-cover transition-transform group-hover:scale-110"
+                              className="object-contain transition-transform group-hover:scale-105"
                               sizes="64px"
                             />
                           ) : (

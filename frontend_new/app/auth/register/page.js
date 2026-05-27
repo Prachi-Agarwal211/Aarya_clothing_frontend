@@ -427,41 +427,55 @@ export default function RegisterPage() {
             </button>
           </div>
 
-          <div className="luxury-input-wrapper h-11 sm:h-12 rounded-xl relative group flex items-center px-4">
-            <Mail className="w-4 h-4 sm:w-5 sm:h-5 text-[#B76E79] group-focus-within:text-[#F2C29A] transition-colors duration-300 shrink-0" aria-hidden="true" />
-            <Input
-              id="email"
-              name="email"
-              type="email"
-              autoComplete="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="Email address"
-              variant="minimal"
-              className="h-full pl-3 sm:pl-4 text-[#EAE0D5] placeholder:text-[#8A6A5C] text-sm sm:text-base"
-            />
+          <div className="relative">
+            <div className="luxury-input-wrapper h-11 sm:h-12 rounded-xl relative group flex items-center px-4">
+              <Mail className="w-4 h-4 sm:w-5 sm:h-5 text-[#B76E79] group-focus-within:text-[#F2C29A] transition-colors duration-300 shrink-0" aria-hidden="true" />
+              <Input
+                id="email"
+                name="email"
+                type="email"
+                autoComplete="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Email address *"
+                variant="minimal"
+                className="h-full pl-3 sm:pl-4 text-[#EAE0D5] placeholder:text-[#8A6A5C] text-sm sm:text-base"
+              />
+            </div>
           </div>
 
-          <div className="luxury-input-wrapper h-11 sm:h-12 rounded-xl relative group flex items-center px-4">
-            <Smartphone className="w-4 h-4 sm:w-5 sm:h-5 text-[#B76E79] group-focus-within:text-[#F2C29A] transition-colors duration-300 shrink-0" aria-hidden="true" />
-            <Input
-              id="phone"
-              name="phone"
-              type="tel"
-              autoComplete="tel"
-              required
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="Phone number"
-              variant="minimal"
-              className="h-full pl-3 sm:pl-4 text-[#EAE0D5] placeholder:text-[#8A6A5C] text-sm sm:text-base"
-            />
+          <div className="relative">
+            <div className="luxury-input-wrapper h-11 sm:h-12 rounded-xl relative group flex items-center px-4">
+              <Smartphone className="w-4 h-4 sm:w-5 sm:h-5 text-[#B76E79] group-focus-within:text-[#F2C29A] transition-colors duration-300 shrink-0" aria-hidden="true" />
+              <Input
+                id="phone"
+                name="phone"
+                type="tel"
+                autoComplete="tel"
+                required
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="Phone number * (e.g. +919XXXXXXXXX or 9XXXXXXXXX)"
+                variant="minimal"
+                className="h-full pl-3 sm:pl-4 text-[#EAE0D5] placeholder:text-[#8A6A5C] text-sm sm:text-base"
+              />
+            </div>
+            <p className="text-[#EAE0D5]/40 text-[10px] mt-1 px-1">
+              Required for OTP delivery. Enter with or without country code.
+            </p>
           </div>
 
           {password && confirmPassword && password !== confirmPassword && (
             <p className="text-sm text-red-300">Passwords do not match.</p>
           )}
+
+          <div className="bg-[#7A2F57]/10 border border-[#B76E79]/20 rounded-lg p-3">
+            <p className="text-[#EAE0D5]/70 text-xs leading-relaxed">
+              <strong className="text-[#F2C29A]">Both email and phone number are required.</strong>
+              {' '}Your email is used for order confirmations and account recovery. Your phone number allows OTP delivery via SMS or WhatsApp for secure login.
+            </p>
+          </div>
 
           <div className="space-y-2">
             <p className="text-[#EAE0D5]/60 text-[10px] uppercase tracking-widest">Verification method</p>

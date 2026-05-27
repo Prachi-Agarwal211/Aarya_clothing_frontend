@@ -4,7 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter, usePathname } from 'next/navigation';
-import { Search, ShoppingBag, User, Menu, X, LayoutDashboard } from 'lucide-react';
+import { Search, ShoppingBag, User, Menu, X, LayoutDashboard, LogOut } from 'lucide-react';
 import { getRedirectForRole } from '@/lib/roles';
 import { cn } from '@/lib/utils';
 import { useCart } from '@/lib/cartContext';
@@ -61,7 +61,7 @@ const EnhancedHeader = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
   const { itemCount, toggleCart } = useCart();
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, logout } = useAuth();
   const tickingRef = useRef(false);
   const pathname = usePathname();
   const router = useRouter();
@@ -457,6 +457,19 @@ const EnhancedHeader = () => {
                   type="button"
                 >
                   <User className="w-6 h-6" aria-hidden="true" />
+                </button>
+                {/* Mobile Logout */}
+                <button
+                  onClick={async () => {
+                    setIsMobileMenuOpen(false);
+                    await logout();
+                    router.push('/');
+                  }}
+                  className="text-[#B76E79] hover:text-[#F2C29A] min-h-[44px] min-w-[44px] flex items-center justify-center transition-colors duration-300"
+                  aria-label="Logout"
+                  type="button"
+                >
+                  <LogOut className="w-6 h-6" aria-hidden="true" />
                 </button>
               </>
             ) : (

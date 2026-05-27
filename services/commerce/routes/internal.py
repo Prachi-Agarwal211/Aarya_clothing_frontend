@@ -8,8 +8,10 @@ impersonating a user.
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 import secrets
+import uuid
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
@@ -43,6 +45,45 @@ def verify_internal_secret(x_internal_secret: Optional[str] = Header(None)) -> b
             detail="Invalid internal service secret",
         )
     return True
+
+
+# ==================== Distributed Lock Helpers ====================
+
+
+def _acquire_order_lock(lock_key: str, ttl: int = 30) -> Optional[str]:
+    """
+    Acquire a distributed Redis lock for order creation.
+
+    Uses the underlying Redis client's SET NX EX pattern for atomicity.
+    Returns a token string if acquired, None if not (lock held by another process).
+    """
+    try:
+        token = str(uuid.uuid4())
+        result = redis_client.client.set(lock_key, token, nx=True, ex=ttl)
+        return token if result else None
+    except Exception as e:
+        logger.warning(f"LOCK_ACQUIRE_ERROR: key={lock_key} error={e}")
+        return None
+
+
+def _release_order_lock(lock_key: str, token: str) -> None:
+    """
+    Release a distributed Redis lock safely.
+
+    Uses a Lua script to only delete the key if the token matches
+    (prevents releasing a lock held by another process).
+    """
+    try:
+        script = """
+        if redis.call("GET", KEYS[1]) == ARGV[1] then
+            return redis.call("DEL", KEYS[1])
+        else
+            return 0
+        end
+        """
+        redis_client.client.eval(script, 1, lock_key, token)
+    except Exception as e:
+        logger.warning(f"LOCK_RELEASE_ERROR: key={lock_key} error={e}")
 
 
 @router.post("/api/v1/internal/orders/{order_id}/reservation/confirm")
@@ -240,11 +281,42 @@ async def internal_create_order_from_payment(
             status_code=400, detail="user_id and payment_id are required"
         )
 
+    # ── DISTRIBUTED LOCK by payment_id ──
+    # Prevents duplicate order creation when Razorpay fires multiple webhooks
+    # for the same payment (e.g. payment.authorized + payment.captured),
+    # or when the recovery job runs concurrently with a webhook.
+    lock_key = f"order:lock:{payment_id}"
+    lock_token = _acquire_order_lock(lock_key, ttl=30)
+
+    if not lock_token:
+        # Lock held by another webhook — wait and try to find the existing order
+        for attempt in range(5):
+            logger.info(f"LOCK_WAIT: attempt {attempt + 1}/5 for payment={payment_id}")
+            await asyncio.sleep(0.5)
+            existing = db.execute(text("""
+                SELECT id FROM orders 
+                WHERE transaction_id = :payment_id 
+                   OR razorpay_payment_id = :payment_id
+                   OR razorpay_order_id = :razorpay_order_id
+                LIMIT 1
+            """), {
+                "payment_id": payment_id,
+                "razorpay_order_id": razorpay_order_id or ""
+            }).fetchone()
+            if existing:
+                logger.info(f"LOCK_WAIT_RESOLVED: order {existing[0]} found after {attempt + 1} attempts")
+                return {"found": True, "order_id": existing[0]}
+        logger.error(f"LOCK_TIMEOUT: payment={payment_id} after 5 attempts")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Order is being processed from another payment notification.",
+        )
+
     order_service = OrderService(db)
 
     try:
         logger.info(f"INTERNAL_ORDER_CREATE: user={user_id} payment={payment_id} pending_id={pending_order_id}")
-        
+
         if pending_order_id:
             order = order_service.create_order_from_pending_id(
                 pending_id=pending_order_id,
@@ -261,10 +333,10 @@ async def internal_create_order_from_payment(
             )
         else:
             raise HTTPException(status_code=400, detail="pending_order_id or pending_order_data is required")
-        logger.info(
-            f"INTERNAL_ORDER_CREATE_SUCCESS: order_id={order.id} user={user_id}"
-        )
 
+        logger.info(f"INTERNAL_ORDER_CREATE_SUCCESS: order_id={order.id} user={user_id}")
+
+        # Build items with image data
         items_data = []
         for item in order.items:
             item_dict = {
@@ -283,15 +355,14 @@ async def internal_create_order_from_payment(
             if item.product_id:
                 primary_img = (
                     db.query(ProductImage)
-                    .filter(
-                        ProductImage.product_id == item.product_id,
-                        ProductImage.is_primary.is_(True),
-                    )
+                    .filter(ProductImage.product_id == item.product_id, ProductImage.is_primary.is_(True))
                     .first()
                 )
                 if primary_img:
                     item_dict["image_url"] = primary_img.image_url
             items_data.append(item_dict)
+
+        _release_order_lock(lock_key, lock_token)
 
         return {
             "success": True,
@@ -301,26 +372,84 @@ async def internal_create_order_from_payment(
                 "user_id": order.user_id,
                 "total_amount": float(order.total_amount),
                 "status": order.status,
-                "created_at": order.created_at.isoformat()
-                if order.created_at
-                else None,
+                "created_at": order.created_at.isoformat() if order.created_at else None,
                 "items": items_data,
             },
         }
     except ValueError as exc:
-        logger.error(
-            f"INTERNAL_ORDER_CREATE_VALIDATION_ERROR: user={user_id} error={exc}"
-        )
+        _release_order_lock(lock_key, lock_token)
+        logger.error(f"INTERNAL_ORDER_CREATE_VALIDATION_ERROR: user={user_id} error={exc}")
         raise HTTPException(status_code=400, detail=str(exc))
     except HTTPException:
+        _release_order_lock(lock_key, lock_token)
         raise
     except Exception as exc:
-        logger.error(
-            f"INTERNAL_ORDER_CREATE_ERROR: user={user_id} error={exc}", exc_info=True
-        )
+        _release_order_lock(lock_key, lock_token)
+        logger.error(f"INTERNAL_ORDER_CREATE_ERROR: user={user_id} error={exc}", exc_info=True)
         raise HTTPException(
             status_code=500, detail=f"Internal order creation failed: {exc}"
         )
+
+
+@router.post(
+    "/api/v1/internal/orders/{order_id}/link-payment-details",
+    tags=["Internal - Payment Recovery"],
+)
+async def internal_link_payment_details(
+    order_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    _: bool = Depends(verify_internal_secret),
+):
+    """
+    Link payment transaction details to an order.
+
+    Called by the payment service after creating an order via webhook,
+    to set the internal transaction_id and payment gateway fields that
+    the commerce service doesn't know at order-creation time.
+
+    Replaces raw SQL ``UPDATE orders`` from the payment service,
+    respecting the cross-service boundary.
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON body")
+
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Order {order_id} not found",
+        )
+
+    transaction_id = body.get("transaction_id")
+    razorpay_payment_id = body.get("razorpay_payment_id")
+    razorpay_order_id = body.get("razorpay_order_id")
+    payment_method = body.get("payment_method")
+
+    if transaction_id:
+        order.transaction_id = transaction_id
+    if razorpay_payment_id:
+        order.razorpay_payment_id = razorpay_payment_id
+    if razorpay_order_id:
+        order.razorpay_order_id = razorpay_order_id
+    if payment_method:
+        order.payment_method = payment_method
+
+    db.commit()
+    logger.info(
+        f"ORDER_LINKED_PAYMENT: order_id={order_id} "
+        f"txn_id={transaction_id} payment={razorpay_payment_id} "
+        f"razorpay_order={razorpay_order_id}"
+    )
+    return {
+        "success": True,
+        "order_id": order_id,
+        "transaction_id": order.transaction_id,
+        "razorpay_payment_id": order.razorpay_payment_id,
+        "razorpay_order_id": order.razorpay_order_id,
+    }
 
 
 @router.get(

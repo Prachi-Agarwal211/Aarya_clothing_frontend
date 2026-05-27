@@ -424,7 +424,11 @@ class OTPService:
         if email:
             clauses.append(User.email == email.lower())
         if phone:
-            clauses.append(User.phone == phone)
+            # Normalise phone to E.164 so stored +9199XXXXXXXX matches
+            # whatever format the caller sent (91…, 0…, or bare 10-digit).
+            from shared.phone_utils import normalize_phone_safe
+            norm_phone = normalize_phone_safe(phone)
+            clauses.append(User.phone == (norm_phone or phone))
         user = self.db.query(User.id).filter(or_(*clauses)).first()
         return user[0] if user else None
 

@@ -172,7 +172,7 @@ async def get_landing_all(db: Session = Depends(get_db)):
 
         # Group images by device variant
         laptop_images = [i for i in hero_images if not i.get("device") or i["device"] == "laptop"]
-        phone_images = [i for i in hero_images if i.get("device") == "phone"]
+        phone_images = [i for i in hero_images if i.get("device") in ("phone", "mobile")]
 
         # Build slides: pair laptop + phone images by index
         slides = []

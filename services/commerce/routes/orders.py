@@ -10,6 +10,7 @@ Order management endpoints:
 - Invoice generation (GST-compliant)
 """
 
+import asyncio
 import logging
 import os
 from typing import List, Optional
@@ -21,6 +22,7 @@ from io import BytesIO
 
 from database.database import get_db
 from models.order import Order, OrderStatus
+from models.pending_order import PendingOrder
 from models.address import Address
 from schemas.order import OrderResponse, SetDeliveryState
 from service.order_service import OrderService
@@ -47,25 +49,46 @@ def _r2_url(path: str) -> str:
 # ==================== Helper Functions ====================
 
 
-def _fetch_payment_from_razorpay_direct(payment_id: str) -> dict:
+async def _verify_payment_captured(payment_id: str, razorpay_order_id: str) -> dict:
     """
-    Fetch payment details directly from Razorpay API using HMAC-SHA256.
+    Single verification path: verify payment is captured.
 
-    This is a fallback when the Payment Service is unavailable.
-    Uses the same HMAC verification approach as the payment service.
+    Tries Payment Service API first. Falls back to direct Razorpay API
+    if the payment service is unreachable.
 
     Args:
-        payment_id: Razorpay payment ID (e.g., pay_xxx)
+        payment_id: Razorpay payment ID (pay_xxx)
+        razorpay_order_id: Razorpay order ID (order_xxx)
 
     Returns:
-        Payment details dict with 'status' field
+        Payment details dict with 'status' field.
 
     Raises:
-        HTTPException: If payment fetch fails
+        HTTPException: If payment is not captured or verification fails.
     """
-    from core.config import settings
+    import httpx as _httpx
+    from core.config import settings as _settings
 
-    if not settings.RAZORPAY_KEY_ID or not settings.RAZORPAY_KEY_SECRET:
+    # Path 1: Payment Service API
+    payment_service_url = os.getenv("PAYMENT_SERVICE_URL", "http://payment:5003")
+    try:
+        async with _httpx.AsyncClient(timeout=5.0) as client:
+            verify_resp = await client.post(
+                f"{payment_service_url}/api/v1/payments/razorpay/verify-signature",
+                json={
+                    "razorpay_order_id": razorpay_order_id,
+                    "razorpay_payment_id": payment_id,
+                    "razorpay_signature": "",  # recovery path — verify status, not signature
+                },
+            )
+        if verify_resp.status_code == 200:
+            logger.info(f"Payment verified via Payment Service API: {payment_id}")
+            return {"status": "captured", "id": payment_id, "verified_by": "payment_service"}
+    except _httpx.RequestError:
+        logger.warning(f"Payment Service unavailable, falling back to direct Razorpay API")
+
+    # Path 2: Direct Razorpay API
+    if not _settings.RAZORPAY_KEY_ID or not _settings.RAZORPAY_KEY_SECRET:
         logger.warning("Razorpay credentials not configured, cannot fetch payment")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -73,14 +96,20 @@ def _fetch_payment_from_razorpay_direct(payment_id: str) -> dict:
         )
 
     try:
-        # Use Razorpay Python SDK directly
         import razorpay
-
         client = razorpay.Client(
-            auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET)
+            auth=(_settings.RAZORPAY_KEY_ID, _settings.RAZORPAY_KEY_SECRET)
         )
         payment_details = client.payment.fetch(payment_id)
+        if payment_details.get("status") != "captured":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Payment not captured. Status: {payment_details.get('status')}",
+            )
+        logger.info(f"Payment verified via direct Razorpay API: {payment_id}")
         return payment_details
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Failed to fetch payment from Razorpay: {e}")
         raise HTTPException(
@@ -208,98 +237,19 @@ async def recover_order_from_payment(
     )
 
     try:
-        # Step 1: Verify payment with Razorpay via Payment Service API
-        payment_service_url = os.getenv("PAYMENT_SERVICE_URL", "http://payment:5003")
-
-        try:
-            verify_resp = httpx.post(
-                f"{payment_service_url}/api/v1/payments/razorpay/verify-signature",
-                json={
-                    "razorpay_order_id": razorpay_order_id,
-                    "razorpay_payment_id": payment_id,
-                    "razorpay_signature": "",  # We don't have signature, will fetch from Razorpay
-                },
-                timeout=5.0,
-            )
-
-            if verify_resp.status_code == 200:
-                logger.info(f"Payment verified via Payment Service API: {payment_id}")
-            else:
-                # Payment service verification failed - try direct Razorpay API call
-                logger.warning(
-                    f"Payment Service verification failed (status {verify_resp.status_code}), trying direct Razorpay API"
-                )
-                payment_details = _fetch_payment_from_razorpay_direct(payment_id)
-                if payment_details.get("status") != "captured":
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail=f"Payment not captured. Status: {payment_details.get('status')}",
-                    )
-                logger.info(f"Payment verified via direct Razorpay API: {payment_id}")
-        except httpx.RequestError as http_err:
-            # Payment service unavailable - fall back to direct Razorpay API
-            logger.warning(
-                f"Payment Service unavailable: {http_err}, using direct Razorpay API"
-            )
-            payment_details = _fetch_payment_from_razorpay_direct(payment_id)
-            if payment_details.get("status") != "captured":
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Payment not captured. Status: {payment_details.get('status')}",
-                )
-            logger.info(f"Payment verified via direct Razorpay API: {payment_id}")
+        # Step 1: Single verification path — tries Payment Service API,
+        # falls back to direct Razorpay API
+        await _verify_payment_captured(payment_id, razorpay_order_id)
 
         # Step 2: Check if order already exists for this payment
-        from models.order import Order
-
-        existing_order = (
-            db.query(Order)
-            .filter(Order.transaction_id == payment_id, Order.user_id == user_id)
-            .first()
-        )
-
+        existing_order = order_service.find_order_by_payment(user_id, payment_id)
         if existing_order:
             logger.info(
                 f"Order already exists: {existing_order.id} for payment {payment_id}"
             )
             return _enrich_order_response(existing_order)
 
-        # Step 3: Create order with recovered payment data
-        logger.info(f"Creating recovered order for user {user_id} payment {payment_id}")
-
-        # Get user's cart to recreate order
-        from service.cart_service import CartService
-
-        cart_service = CartService(db)
-        cart = cart_service.get_cart(user_id)
-
-        if not cart or not cart.get("items"):
-            # Cart was already cleared, create minimal order
-            logger.warning(
-                f"No cart found for user {user_id}, creating minimal order record"
-            )
-            # Create a minimal order record for tracking
-            order = Order(
-                user_id=user_id,
-                transaction_id=payment_id,
-                payment_method="razorpay",
-                razorpay_payment_id=payment_id,
-                razorpay_order_id=razorpay_order_id,
-                subtotal=0,
-                shipping_cost=0,
-                gst_amount=0,
-                total_amount=0,
-                status=OrderStatus.CONFIRMED,
-                shipping_address="Recovered order - address data not available",
-                order_notes="Order recovered from successful payment. Contact support for details.",
-            )
-            db.add(order)
-            db.commit()
-            db.refresh(order)
-
-            logger.info(f"Minimal order created: {order.id} for payment {payment_id}")
-            return _enrich_order_response(order)
-
+        # Step 3: Resolve address
         resolved_address_id = address_id
         if not resolved_address_id:
             preferred = (
@@ -323,15 +273,58 @@ async def recover_order_from_payment(
                 detail="No delivery address on file. Add an address in your account, then retry recovery with ?address_id=…",
             )
 
-        # Full order recovery with cart items (payment proven above; skip HMAC re-check)
-        order = order_service.create_order(
+        # Step 4: Register payment (snapshots cart, creates pending_order)
+        result = order_service.register_payment(
             user_id=user_id,
-            address_id=resolved_address_id,
-            payment_method="razorpay",
             transaction_id=payment_id,
             razorpay_order_id=razorpay_order_id,
-            payment_already_verified=True,
+            payment_signature="",
+            address_id=resolved_address_id,
+            skip_signature_verification=True,  # verified directly with Razorpay above
         )
+
+        if result["status"] == "order_exists":
+            order = result["order"]
+            logger.info(
+                f"ORDER_RECOVER_EXISTS: order_id={order.id} payment_id={payment_id}"
+            )
+            return _enrich_order_response(order)
+
+        # Step 5: Wait briefly for webhook to process, then try to find the order
+        logger.info(f"ORDER_RECOVER_WAIT: waiting for webhook to create order for payment {payment_id}")
+        for attempt in range(3):
+            await asyncio.sleep(1)
+            order = order_service.find_order_by_payment(user_id, payment_id)
+            if order:
+                logger.info(
+                    f"ORDER_RECOVER_SUCCESS: order_id={order.id} payment_id={payment_id} "
+                    f"(found after {attempt + 1}s)"
+                )
+                return _enrich_order_response(order)
+
+        # Step 6: Webhook didn't arrive — trigger immediate order creation
+        logger.info(f"ORDER_RECOVER_DIRECT: creating order directly for payment {payment_id}")
+        pending = db.query(PendingOrder).filter(
+            PendingOrder.id == result["pending_order_id"],
+            PendingOrder.user_id == user_id,
+        ).first()
+
+        if pending:
+            order = order_service.create_order_from_pending_id(
+                pending_id=result["pending_order_id"],
+                transaction_id=payment_id,
+                payment_method="razorpay",
+            )
+        else:
+            # Pending order expired or was consumed — try data-based recovery
+            raise HTTPException(
+                status_code=status.HTTP_202_ACCEPTED,
+                detail=(
+                    f"Payment verified. Order is being created. "
+                    f"Please check your orders page in a few seconds. "
+                    f"Payment ID: {payment_id}"
+                ),
+            )
 
         logger.info(
             f"ORDER_RECOVER_SUCCESS: order_id={order.id} payment_id={payment_id}"

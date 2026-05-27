@@ -55,7 +55,8 @@ export default function SearchClient({ initialQuery, initialData, initialFilters
   }, [collections.length]);
 
   const doSearch = useCallback(async (q, pg, srt, cid, minP, maxP) => {
-    // Skip initial fetch if we have SSR data and filters haven't changed
+    // Skip initial fetch only if SSR data contains actual products
+    // (initialData being a truthy empty object would trap the page in 'no results' forever)
     const isInitialParams = 
       q === initialQuery &&
       pg === initialFilters?.page &&
@@ -64,7 +65,7 @@ export default function SearchClient({ initialQuery, initialData, initialFilters
       minP === (initialFilters?.min_price || '') &&
       maxP === (initialFilters?.max_price || '');
 
-    if (isInitialParams && initialData) {
+    if (isInitialParams && initialData && initialData?.products?.length > 0) {
       return;
     }
 
@@ -76,33 +77,31 @@ export default function SearchClient({ initialQuery, initialData, initialFilters
     
     try {
       setLoading(true);
-      const [sortField, sortOrder] = (srt || 'created_at:desc').split(':');
+      
+      // Map frontend sort option to Meilisearch sort_by
+      const sortByMap = {
+        'created_at:desc': 'newest',
+        'base_price:asc': 'price_low',
+        'base_price:desc': 'price_high',
+        'average_rating:desc': 'popular',
+      };
+      const sortBy = sortByMap[srt] || 'newest';
+      
       const params = {
-        search: q.trim(),
-        page: pg,
+        skip: (pg - 1) * PAGE_SIZE,
         limit: PAGE_SIZE,
-        sort: sortField,
-        order: sortOrder || 'desc',
+        sort_by: sortBy,
       };
       if (cid) params.category_id = parseInt(cid);
       if (minP) params.min_price = parseFloat(minP);
       if (maxP) params.max_price = parseFloat(maxP);
 
-      const data = await productsApi.list(params);
+      // Use dedicated search endpoint instead of browse
+      const data = await productsApi.search(q.trim(), params);
       
-      // Robust data extraction
-      let items = [];
-      if (Array.isArray(data)) {
-        items = data;
-      } else if (data?.items) {
-        items = data.items;
-      } else if (data?.products) {
-        items = data.products;
-      } else if (data?.hits) {
-        items = data.hits;
-      }
-      
-      const totalCount = data?.total ?? data?.total_hits ?? items.length;
+      // Search endpoint returns { hits, total, ... }
+      const items = data?.hits || [];
+      const totalCount = data?.total ?? items.length;
       
       setProducts(items);
       setTotal(totalCount);
@@ -154,7 +153,7 @@ export default function SearchClient({ initialQuery, initialData, initialFilters
         <EnhancedHeader />
 
         <div className="page-content">
-          <div className="container mx-auto px-4 sm:px-6 md:px-8 header-spacing">
+          <div className="container mx-auto px-4 sm:px-6 md:px-8 header-spacing pb-bottom-nav">
 
             {/* Breadcrumb */}
             <nav className="flex items-center gap-2 text-sm text-[#EAE0D5]/50 mb-6">
@@ -332,7 +331,7 @@ export default function SearchClient({ initialQuery, initialData, initialFilters
                       href={`/products/${product.slug || product.id}`}
                       className="group bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl overflow-hidden hover:border-[#B76E79]/30 hover:shadow-[0_0_30px_rgba(183,110,121,0.08)] transition-all duration-300"
                     >
-                      <div className="relative aspect-[3/4] overflow-hidden">
+                      <div className="relative aspect-[3/4] overflow-hidden bg-[#1A1A1A]">
                         {(product.primary_image || product.image_url) ? (
                           <Image
                             src={product.primary_image || product.image_url}

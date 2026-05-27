@@ -68,6 +68,16 @@ export default function ProductsContent({ initialFilters, initialData }) {
   const [error, setError] = useState(null);
   const [showFilters, setShowFilters] = useState(false);
 
+  // Body scroll lock when mobile filter sidebar is open
+  useEffect(() => {
+    if (showFilters) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [showFilters]);
+
   const [filters, setFilters] = useState(initialFilters || {
     collection_id: '',
     minPrice: '',
@@ -252,10 +262,19 @@ export default function ProductsContent({ initialFilters, initialData }) {
             </div>
 
             <div className="flex gap-6">
+              {/* Mobile filter backdrop */}
+              {showFilters && (
+                <div
+                  className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm md:hidden"
+                  onClick={() => setShowFilters(false)}
+                  aria-hidden="true"
+                />
+              )}
+
               {/* Filters Sidebar */}
               <aside className={`
-                ${showFilters ? 'block' : 'hidden md:block'}
-                md:w-64 flex-shrink-0 space-y-4
+                ${showFilters ? 'fixed inset-0 z-50 md:relative md:inset-auto' : 'hidden md:block'}
+                md:w-64 flex-shrink-0 space-y-4 p-4 md:p-0 bg-[#050203] md:bg-transparent overflow-y-auto
               `}>
                 {/* Mobile close button */}
                 {showFilters && (

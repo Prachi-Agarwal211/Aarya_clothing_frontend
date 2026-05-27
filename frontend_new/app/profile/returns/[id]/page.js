@@ -268,7 +268,7 @@ export default function ReturnDetailsPage() {
                           src={img}
                           alt={`Evidence image ${idx + 1}`}
                           fill
-                          className="object-cover"
+                          className="object-contain"
                           sizes="80px"
                         />
                       </div>

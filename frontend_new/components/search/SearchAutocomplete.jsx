@@ -307,7 +307,7 @@ export default function SearchAutocomplete({
                                         <img
                                             src={product.image}
                                             alt={product.name}
-                                            className="w-12 h-12 object-cover rounded-md flex-shrink-0 bg-gray-100"
+                                            className="w-12 h-12 object-contain p-0.5 rounded-md flex-shrink-0 bg-gray-100"
                                             loading="lazy"
                                         />
                                     ) : (

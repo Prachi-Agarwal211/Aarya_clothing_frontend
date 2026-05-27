@@ -205,10 +205,9 @@ export default function LoginOtpPageContent({ redirectUrl = '/products' }) {
       </div>
 
       <div className="text-center mb-4 sm:mb-5 space-y-1 animate-fade-in-up-delay">
-        <h2 className="text-xl sm:text-2xl text-white/90 font-body">Login with OTP</h2>
-        <p className="text-[#8A6A5C] text-xs sm:text-sm uppercase tracking-[0.15em] font-light">
-          Passwordless sign in
-        </p>
+        <h2 className="text-xl sm:text-2xl text-white/90 font-body">Login with OTP</h2>          <p className="text-[#8A6A5C] text-xs sm:text-sm uppercase tracking-[0.15em] font-light">
+            Passwordless sign in via email/SMS/WhatsApp
+          </p>
       </div>
 
       {error && (
@@ -285,6 +284,10 @@ export default function LoginOtpPageContent({ redirectUrl = '/products' }) {
                 className="h-full pl-3 sm:pl-4 text-[#EAE0D5] placeholder:text-[#8A6A5C] text-sm sm:text-base"
               />
             </div>
+
+            <p className="text-[#EAE0D5]/40 text-[10px] px-1">
+              You must have an account first. If you don't, <Link href="/auth/register" className="text-[#C27A4E] hover:text-[#F2C29A]">create one here</Link>.
+            </p>
 
             <label htmlFor="remember-me-otp" className="flex items-center gap-2 text-sm text-[#EAE0D5]/85 cursor-pointer">
               <span className="checkbox-wrapper">
@@ -381,7 +384,7 @@ export default function LoginOtpPageContent({ redirectUrl = '/products' }) {
         )}
       </div>
 
-      <div className="w-full mt-6 sm:mt-8">
+      <div className="w-full mt-6 sm:mt-8 space-y-1">
         <p className="text-center text-[#8A6A5C] text-xs sm:text-sm tracking-wide">
           <Link href={`/auth/login?redirect_url=${encodeURIComponent(redirectUrl)}`} className="text-[#C27A4E] hover:text-[#F2C29A] transition-colors mr-2 uppercase text-xs font-bold tracking-widest">
             Password login
@@ -390,6 +393,9 @@ export default function LoginOtpPageContent({ redirectUrl = '/products' }) {
           <Link href="/auth/register" className="text-[#C27A4E] hover:text-[#F2C29A] transition-colors ml-2 uppercase text-xs font-bold tracking-widest">
             Create account
           </Link>
+        </p>
+        <p className="text-center text-[#EAE0D5]/40 text-[10px] uppercase tracking-wider">
+          Need both email &amp; phone to register
         </p>
       </div>
     </div>

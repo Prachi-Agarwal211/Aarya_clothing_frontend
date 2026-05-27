@@ -185,13 +185,13 @@ export default function CartDrawer() {
                   }`}
                 >
                   {/* Image */}
-                  <div className="w-20 h-24 bg-[#7A2F57]/10 rounded-lg overflow-hidden flex-shrink-0 relative">
+                  <div className="w-20 h-24 bg-[#1A1A1A] rounded-lg overflow-hidden flex-shrink-0 relative">
                     {item.image && item.image !== '' ? (
                       <Image
                         src={item.image}
                         alt={item.name}
                         fill
-                        className="object-cover"
+                        className="object-contain p-1"
                         sizes="80px"
                       />
                     ) : (

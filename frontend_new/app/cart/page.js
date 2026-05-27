@@ -207,14 +207,14 @@ function CartPage() {
                       <div className="col-span-12 md:col-span-6 flex gap-4">
                         <Link
                           href={`/products/${item.product_id}`}
-                          className="relative w-24 h-28 bg-[#7A2F57]/10 rounded-xl overflow-hidden flex-shrink-0"
+                          className="relative w-24 h-28 bg-[#1A1A1A] rounded-xl overflow-hidden flex-shrink-0"
                         >
                           {item.image && item.image !== '' ? (
                             <Image
                               src={item.image}
                               alt={item.name}
                               fill
-                              className="object-cover"
+                              className="object-contain"
                               sizes="96px"
                             />
                           ) : (

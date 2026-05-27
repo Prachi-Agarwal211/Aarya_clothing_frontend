@@ -12,12 +12,12 @@ def get_r2_public_url(image_url: str | None) -> str:
     """Return a fully-qualified R2 URL for ``image_url``.
 
     - Empty / ``None`` -> empty string (caller decides how to render).
-    - Already absolute (``http://``/``https://``) -> returned unchanged.
+    - Already absolute (``http://``/``https://``) or root-relative (``/``) -> returned unchanged.
     - Relative path -> joined onto ``settings.R2_PUBLIC_URL``.
     """
     if not image_url:
         return ""
-    if image_url.startswith("http://") or image_url.startswith("https://"):
+    if image_url.startswith("http://") or image_url.startswith("https://") or image_url.startswith("/"):
         return image_url
     r2_base = (settings.R2_PUBLIC_URL or "").rstrip("/")
     if not r2_base:

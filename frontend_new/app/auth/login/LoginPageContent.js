@@ -86,10 +86,9 @@ function LoginPageContent({ redirectUrl = '/products' }) {
       </div>
 
       <div className="text-center mb-4 sm:mb-5 space-y-1 animate-fade-in-up-delay">
-        <h2 className="text-xl sm:text-2xl text-white/90 font-body">Sign in to your account</h2>
-        <p className="text-[#8A6A5C] text-xs sm:text-sm uppercase tracking-[0.15em] font-light">
-          Welcome back
-        </p>
+        <h2 className="text-xl sm:text-2xl text-white/90 font-body">Sign in to your account</h2>          <p className="text-[#8A6A5C] text-xs sm:text-sm uppercase tracking-[0.15em] font-light">
+            Sign in using password
+          </p>
       </div>
 
       <form className="w-full space-y-3 sm:space-y-3.5 animate-fade-in-up-delay" onSubmit={handlePasswordLogin} noValidate>
@@ -176,16 +175,19 @@ function LoginPageContent({ redirectUrl = '/products' }) {
           href={loginOtpHref}
           className="w-full inline-flex items-center justify-center h-11 sm:h-12 rounded-xl border border-[#B76E79]/30 text-[#EAE0D5]/90 hover:text-[#F2C29A] hover:border-[#F2C29A]/50 transition-all duration-300"
         >
-          Login with OTP instead
+          Login with OTP instead (no password needed)
         </Link>
       </div>
 
-      <div className="w-full mt-6 sm:mt-8">
+      <div className="w-full mt-4 sm:mt-5 space-y-2">
         <p className="text-center text-[#8A6A5C] text-xs sm:text-sm tracking-wide">
           New here?{' '}
           <Link href="/auth/register" className="text-[#C27A4E] hover:text-[#F2C29A] transition-colors ml-1 uppercase text-sm font-bold tracking-widest">
             Create account
           </Link>
+        </p>
+        <p className="text-center text-[#EAE0D5]/40 text-[10px] uppercase tracking-wider">
+          Need both email &amp; phone to register
         </p>
       </div>
     </div>

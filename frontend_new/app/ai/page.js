@@ -152,7 +152,7 @@ function ProductCard({ product: p, isAdminUser }) {
   return (
     <div className="group flex flex-col bg-[#0F0810] border border-[#B76E79]/15 rounded-2xl overflow-hidden hover:border-[#B76E79]/50 hover:shadow-lg hover:shadow-[#B76E79]/10 transition-all duration-300">
       {/* Image — clickable to product page */}
-      <Link href={`/products/${p.id}`} className="block relative aspect-[3/4] bg-[#180F14] overflow-hidden">
+      <Link href={`/products/${p.id}`} className="block relative aspect-[3/4] bg-[#1A1A1A] overflow-hidden">
         {p.image ? (
           <Image
             src={p.image}

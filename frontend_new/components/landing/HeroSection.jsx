@@ -239,7 +239,7 @@ const HeroSection = ({
     >
       {/* Slides - Full viewport */}
       {slides.map((slide, index) => {
-        const imgSrc = getSlideImage(slide);
+            const imgSrc = getSlideImage(slide);
         return (
           <div
             key={index}

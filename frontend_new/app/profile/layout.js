@@ -117,6 +117,19 @@ export default function ProfileLayout({ children }) {
                     </Link>
                   );
                 })}
+                {/* Mobile Logout Button */}
+                <button
+                  onClick={handleLogout}
+                  disabled={isLoggingOut}
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium whitespace-nowrap transition-colors ${
+                    isLoggingOut
+                      ? 'opacity-50 cursor-not-allowed bg-[#B76E79]/20 text-[#B76E79] border border-[#B76E79]/40'
+                      : 'bg-[#0B0608]/60 text-[#B76E79]/80 border border-[#B76E79]/15 hover:text-[#F2C29A] hover:border-[#B76E79]/40'
+                  }`}
+                >
+                  <LogOut className={`w-3.5 h-3.5 ${isLoggingOut ? 'animate-pulse' : ''}`} />
+                  {isLoggingOut ? 'Logging out...' : 'Logout'}
+                </button>
               </div>
             </div>
 

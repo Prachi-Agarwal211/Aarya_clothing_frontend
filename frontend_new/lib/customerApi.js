@@ -112,8 +112,23 @@ export const invoicesApi = {
 
 // ==================== Orders API ====================
 export const ordersApi = {
-  create: (data) =>
+  /**
+   * Register a successful payment and snapshot the cart for async order creation.
+   * Returns { status: 'payment_registered', payment_id, pending_order_id } or
+   * { status: 'success', order } if order already existed (webhook processed first).
+   *
+   * Does NOT create the order — the Razorpay webhook is the single source of truth.
+   * Poll getByPayment() to wait for order creation.
+   */
+  registerPayment: (data) =>
     commerceClient.post('/api/v1/orders', data),
+
+  /**
+   * Polling: returns the order created for a payment, or { found: false }.
+   * The confirm page polls this every 2 seconds after registering a payment.
+   */
+  getByPayment: (paymentId) =>
+    commerceClient.get(`/api/v1/orders/by-payment/${paymentId}`),
 
   list: (params = {}) =>
     commerceClient.get('/api/v1/orders', params),

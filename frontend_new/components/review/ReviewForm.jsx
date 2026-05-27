@@ -285,7 +285,7 @@ export default function ReviewForm({ productId, onSuccess, onCancel }) {
                   <img
                     src={preview}
                     alt={`Preview ${index + 1}`}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-contain p-0.5"
                   />
                   <button
                     type="button"

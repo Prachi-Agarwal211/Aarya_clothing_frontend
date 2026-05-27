@@ -78,7 +78,7 @@ export default function RelatedProducts({ productId, collectionId }) {
                   className="group"
                 >
                   <div className="bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl overflow-hidden hover:border-[#B76E79]/30 hover:shadow-[0_0_30px_rgba(183,110,121,0.1)] transition-all duration-300">
-                    <div className="relative aspect-[3/4] overflow-hidden">
+                    <div className="relative aspect-[3/4] overflow-hidden bg-[#1A1A1A]">
                       {(product.primary_image || product.image_url) ? (
                         <Image
                           src={product.primary_image || product.image_url}

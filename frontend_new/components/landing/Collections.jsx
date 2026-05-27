@@ -229,7 +229,7 @@ const CollectionCard = ({ category, size = 'medium', index }) => {
               src={ensureFullUrl(category.image_url || category.image)}
               alt={category.name || 'Collection'}
               fill
-              className="object-top object-cover transition-transform duration-700 group-hover:scale-110"
+              className="object-cover transition-transform duration-700 group-hover:scale-110"
             />
           ) : (
             <div className="w-full h-full bg-[#1A1114] flex items-center justify-center transform group-hover:scale-105 transition-transform duration-700 ease-out">

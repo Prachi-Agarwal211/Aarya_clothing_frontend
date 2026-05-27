@@ -434,6 +434,10 @@ export default function ForgotPasswordPage() {
               6-digit code to your {verificationMethod === 'otp_email' ? 'email' : 'phone'}.
             </p>
 
+            <p className="text-[#EAE0D5]/30 text-[9px] uppercase tracking-wider text-center">
+              Tip: Use the same email or phone you registered with
+            </p>
+
             <Button
               type="submit"
               disabled={isSubmitting}

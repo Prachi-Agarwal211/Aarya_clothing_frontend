@@ -46,6 +46,7 @@ from middleware.csrf_middleware import CSRFMiddleware
 from shared.request_id_middleware import RequestIDMiddleware
 from shared.error_responses import register_error_handlers
 from shared.time_utils import now_ist
+from shared.phone_utils import normalize_phone_safe
 
 
 # ==================== Lifespan ====================
@@ -536,14 +537,17 @@ async def verify_otp_registration(
         f"otp_type: {body.otp_type}"
     )
 
-    # Resolve user by email or phone - strictly avoiding NULL matching
+    # Resolve user by email or phone — normalise phone to E.164 first
+    # so it doesn't matter whether the frontend sends +91, 91, 0, or plain.
+    resolved_phone = normalize_phone_safe(phone) if phone else None
+
     query = db.query(User)
-    if email and phone:
-        query = query.filter(or_(User.email == email.lower(), User.phone == phone))
+    if email and resolved_phone:
+        query = query.filter(or_(User.email == email.lower(), User.phone == resolved_phone))
     elif email:
         query = query.filter(User.email == email.lower())
-    elif phone:
-        query = query.filter(User.phone == phone)
+    elif resolved_phone:
+        query = query.filter(User.phone == resolved_phone)
     else:
         raise HTTPException(status_code=400, detail="Identifier (email or phone) is required.")
 
@@ -1470,7 +1474,9 @@ async def update_current_user(
 
     update_data = profile_data.model_dump(exclude_unset=True)
     if "phone" in update_data:
-        user.phone = update_data.get("phone")
+        # Normalise phone to E.164 before saving so lookups work
+        raw_phone = update_data.get("phone", "")
+        user.phone = normalize_phone_safe(raw_phone) or raw_phone
     if "full_name" in update_data:
         full_name = (update_data.get("full_name") or "").strip()
         user.full_name = full_name or None

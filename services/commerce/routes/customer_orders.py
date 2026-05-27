@@ -48,22 +48,25 @@ router = APIRouter(tags=["Orders"])
 
 @router.post(
     "/api/v1/orders",
-    response_model=OrderResponse,
-    status_code=status.HTTP_201_CREATED,
+    status_code=status.HTTP_202_ACCEPTED,
 )
-async def create_order(
+async def register_payment(
     order_data: OrderCreate,
     request: Request,
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user),
 ):
     """
-    Create an order from the user's cart.
+    Register a successful payment and snapshot the cart for async order creation.
 
-    Rate-limited to 10 orders per user per minute. Publishes an
-    ``ORDER_CREATED`` event on the event bus so downstream services
-    (notifications, analytics) can react asynchronously; failure to
-    publish is logged but does not roll the order back.
+    This endpoint does NOT create the order — it verifies the payment signature,
+    snapshots the cart as a pending order, and returns immediately.
+
+    The actual order is created asynchronously by the Razorpay webhook handler.
+    The frontend should poll ``GET /api/v1/orders/by-payment/{payment_id}``
+    until the order appears (typically within 2–15 seconds).
+
+    Rate-limited to 10 registration attempts per user per minute.
     """
     if not check_rate_limit(
         request,
@@ -74,57 +77,56 @@ async def create_order(
     ):
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Too many order creation attempts. Please try again later.",
+            detail="Too many attempts. Please try again later.",
         )
 
     order_service = OrderService(db)
-    try:
-        order = order_service.create_order(
-            user_id=current_user["user_id"],
-            shipping_address=order_data.shipping_address,
-            address_id=order_data.address_id,
-            order_notes=order_data.notes or order_data.order_notes,
-            transaction_id=order_data.transaction_id or order_data.payment_id,
-            payment_method=order_data.payment_method,
-            razorpay_order_id=order_data.razorpay_order_id,
-            payment_signature=order_data.razorpay_signature,
-            qr_code_id=order_data.qr_code_id,
-            pending_order_id=order_data.pending_order_id,
-        )
-    except ValueError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(exc),
-        )
+    result = order_service.register_payment(
+        user_id=current_user["user_id"],
+        transaction_id=order_data.transaction_id or order_data.payment_id,
+        razorpay_order_id=order_data.razorpay_order_id,
+        payment_signature=order_data.razorpay_signature,
+        address_id=order_data.address_id,
+        order_notes=order_data.notes or order_data.order_notes,
+        pending_order_id=order_data.pending_order_id,
+        qr_code_id=order_data.qr_code_id,
+    )
 
-    event_bus = getattr(request.app.state, "event_bus", None)
-    if event_bus and order:
-        try:
-            event_data = {
-                "order_id": order.id,
-                "order_number": order.invoice_number,
-                "user_id": current_user["user_id"],
-                "total_amount": float(order.total_amount),
-                "shipping_address": order_data.shipping_address,
-                "status": order.status.value,
-            }
-            await event_bus.publish(
-                Event(
-                    event_type=EventType.ORDER_CREATED,
-                    aggregate_id=str(order.id),
-                    aggregate_type="order",
-                    data=event_data,
-                    metadata={"source": "commerce_service"},
-                )
-            )
-        except Exception as exc:
-            logger.warning(
-                "Failed to publish order created event for order %s: %s",
-                order.id,
-                exc,
-            )
+    # If order already existed (webhook processed first), return 200 with order
+    if result["status"] == "order_exists":
+        return {"status": "success", "order": result["order"]}
 
-    return order
+    return {
+        "status": "payment_registered",
+        "payment_id": result["payment_id"],
+        "pending_order_id": result["pending_order_id"],
+    }
+
+
+@router.get(
+    "/api/v1/orders/by-payment/{payment_id}",
+    response_model=Optional[OrderResponse],
+)
+async def get_order_by_payment(
+    payment_id: str,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Polling endpoint: returns the order created for a payment, or null.
+
+    Called by the checkout confirmation page after registering a payment.
+    Returns the full order once the webhook creates it, or ``{"found": false}``
+    if the webhook hasn't processed the payment yet.
+    """
+    order_service = OrderService(db)
+    order = order_service.find_order_by_payment(
+        user_id=current_user["user_id"],
+        payment_id=payment_id,
+    )
+    if order:
+        return order
+    return {"found": False, "payment_id": payment_id}
 
 
 @router.get("/api/v1/orders", response_model=List[OrderResponse])

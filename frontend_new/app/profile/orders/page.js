@@ -317,7 +317,7 @@ export default function OrdersPage() {
                             src={item.image_url || item.product_image || item.image}
                             alt={item.product_name || item.name || ''}
                             fill
-                            className="object-cover"
+                            className="object-contain"
                             sizes="48px"
                             onError={(e) => { e.currentTarget.style.display = 'none'; }}
                           />
@@ -419,7 +419,7 @@ export default function OrdersPage() {
                                   src={item.image_url}
                                   alt={item.product_name || 'Product'}
                                   fill
-                                  className="object-cover"
+                                  className="object-contain"
                                   sizes="64px"
                                   onError={(e) => {
                                     e.currentTarget.style.display = 'none';

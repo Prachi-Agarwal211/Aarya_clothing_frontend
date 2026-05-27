@@ -5,14 +5,14 @@ from typing import Optional, Dict, Any, List
 from shared.time_utils import ist_naive
 from decimal import Decimal
 from sqlalchemy.orm import Session
-from fastapi import HTTPException, status
 import logging
 import json
 import os
+import uuid
+import httpx
 
 logger = logging.getLogger(__name__)
 from sqlalchemy import and_, or_
-import uuid
 
 from core.config import settings
 from core.razorpay_client import get_razorpay_client
@@ -21,6 +21,44 @@ from schemas.payment import (
     PaymentRequest, PaymentResponse, PaymentStatus, PaymentMethod,
     RefundRequest, RefundResponse, RefundStatus, TransactionHistoryRequest
 )
+from exception_handler import (
+    InvalidSignatureError, TransactionNotFoundError, OrderCreationError,
+    PaymentGatewayException, TransactionException, WebhookException,
+    DatabaseException,
+)
+
+
+# ==================== Payment-Audit & Checkout-Metadata Helpers ====================
+
+
+def _preserve_checkout_meta(transaction, new_gateway_response):
+    """
+    Preserve critical checkout metadata (pending_order_id, cart_snapshot, shipping_address)
+    before overwriting gateway_response with a webhook event.
+
+    Webhook events (payment.captured, etc.) don't contain cart snapshot data that was
+    set during checkout initiation. This helper extracts that metadata from the old
+    gateway_response and re-attaches it under '_checkout_meta' so it survives the
+    round-trip through multiple webhook handlers.
+
+    Called from: _handle_payment_captured, _handle_payment_authorized, _handle_order_paid
+    """
+    preserved_keys = ["pending_order_id", "cart_snapshot", "shipping_address", "created_during"]
+    meta = {}
+    if isinstance(transaction.gateway_response, dict):
+        for key in preserved_keys:
+            if key in transaction.gateway_response:
+                meta[key] = transaction.gateway_response[key]
+        # Recurse into existing _checkout_meta (multiple handler passes)
+        existing = transaction.gateway_response.get("_checkout_meta", {})
+        if isinstance(existing, dict):
+            for key in preserved_keys:
+                if key in existing and key not in meta:
+                    meta[key] = existing[key]
+    transaction.gateway_response = new_gateway_response
+    if meta:
+        transaction.gateway_response["_checkout_meta"] = meta
+
 
 
 def _audit_payment_event(db: Session, event_type: str, success: bool, **kwargs):
@@ -122,11 +160,11 @@ class PaymentService:
                 
         except ValueError as e:
             self.db.rollback()
-            raise HTTPException(status_code=400, detail=str(e))
+            raise TransactionException(str(e))
         except Exception as e:
             self.db.rollback()
             logger.error(f"Failed to create payment transaction: {str(e)}")
-            raise HTTPException(status_code=500, detail="Payment processing failed")
+            raise PaymentGatewayException("Payment processing failed")
     
     def _process_razorpay_payment(self, transaction: PaymentTransaction, 
                                  request: PaymentRequest) -> PaymentResponse:
@@ -149,7 +187,6 @@ class PaymentService:
             # If we have a cart snapshot, prepare a pending order in commerce
             if request.cart_snapshot and request.shipping_address:
                 try:
-                    import httpx
                     commerce_url = os.environ.get("COMMERCE_SERVICE_URL", "http://commerce:5002")
                     internal_secret = os.environ.get("INTERNAL_SERVICE_SECRET")
                     
@@ -203,121 +240,149 @@ class PaymentService:
         except Exception as e:
             self.db.rollback()
             logger.error(f"Failed to process Razorpay payment: {str(e)}")
-            raise HTTPException(status_code=500, detail="Payment processing failed")
+            raise PaymentGatewayException("Payment processing failed")
     
     async def verify_payment(self, transaction_id: str, 
                      razorpay_payment_id: str,
                      razorpay_signature: str) -> PaymentResponse:
         """
         Verify and complete a payment transaction.
-        
-        Uses SELECT FOR UPDATE to lock the transaction row during verification,
-        preventing double-capture from concurrent webhook + client verify calls.
-        On success, confirms stock reservation via commerce service.
-        On failure, releases the reservation.
-        
+
+        ARCHITECTURE: Network I/O is performed OUTSIDE the database row lock.
+        1. Verify HMAC signature (local computation, no lock)
+        2. Fetch payment details from Razorpay API (network, no lock)
+        3. Acquire row lock (brief, for status update only)
+        4. Notify commerce service (network, after lock released)
+
+        This prevents the database connection pool from being exhausted when
+        external APIs experience latency.
+
         Args:
             transaction_id: Transaction ID
             razorpay_payment_id: Razorpay payment ID
             razorpay_signature: Razorpay signature
-            
+
         Returns:
             Payment verification response
         """
-        try:
-            from sqlalchemy import text
-            
-            # Lock the transaction row to prevent concurrent verification
-            transaction = self.db.query(PaymentTransaction).filter(
-                PaymentTransaction.transaction_id == transaction_id
-            ).with_for_update(nowait=True).first()
-            
-            if not transaction:
-                raise ValueError("Transaction not found")
-            
-            # ── Webhook-first race condition ──
-            # Razorpay webhook (payment.captured) may have already processed this
-            # transaction and created the order. Return success gracefully instead
-            # of raising an error that would confuse the user.
-            if transaction.status == "completed":
-                logger.info(
-                    f"VERIFY_ALREADY_COMPLETED: txn={transaction_id} "
-                    f"payment={razorpay_payment_id} — webhook processed first, returning success"
-                )
-                return PaymentResponse(
-                    success=True,
-                    transaction_id=transaction.transaction_id,
-                    status=PaymentStatus.COMPLETED,
-                    message="Payment already verified",
-                    amount=transaction.amount,
-                    currency=transaction.currency,
-                    payment_method=PaymentMethod(transaction.payment_method),
-                    razorpay_payment_id=transaction.razorpay_payment_id,
-                    gateway_response=transaction.gateway_response or {},
-                )
-            
-            if transaction.status != "pending":
-                raise ValueError(f"Transaction already {transaction.status}")
-            
-            # Verify payment signature
-            razorpay_client = get_razorpay_client()
-            is_valid = razorpay_client.verify_payment(
-                transaction.razorpay_order_id,
-                razorpay_payment_id,
-                razorpay_signature
+        # ── Step 1: Find transaction (NO LOCK — read only) ──
+        transaction = self.db.query(PaymentTransaction).filter(
+            PaymentTransaction.transaction_id == transaction_id
+        ).first()
+
+        if not transaction:
+            raise TransactionNotFoundError(transaction_id)
+
+        # ── Webhook-first race condition ──
+        if transaction.status == "completed":
+            logger.info(
+                f"VERIFY_ALREADY_COMPLETED: txn={transaction_id} "
+                f"payment={razorpay_payment_id} — webhook processed first, returning success"
             )
-            
-            if not is_valid:
-                transaction.status = "failed"
-                self.db.commit()
-                
-                # Release stock reservation on failed verification
-                await self._notify_commerce_reservation(
-                    transaction.order_id, action="release"
-                )
-                
-                raise ValueError("Invalid payment signature")
-            
-            # Fetch payment details from Razorpay
-            payment_details = razorpay_client.fetch_payment(razorpay_payment_id)
-            
-            # Update transaction — row is still locked
-            transaction.razorpay_payment_id = razorpay_payment_id
-            transaction.razorpay_signature = razorpay_signature
-            transaction.status = "completed" if payment_details.get("status") == "captured" else "failed"
-            transaction.gateway_response = payment_details
-            transaction.completed_at = ist_naive()
-            
-            self.db.commit()
-            
-            # Confirm or release stock reservation based on payment outcome
-            if transaction.status == "completed":
-                await self._notify_commerce_reservation(
-                    transaction.order_id, action="confirm"
-                )
-            else:
-                await self._notify_commerce_reservation(
-                    transaction.order_id, action="release"
-                )
-            
             return PaymentResponse(
-                success=transaction.status == "completed",
+                success=True,
                 transaction_id=transaction.transaction_id,
-                status=PaymentStatus.COMPLETED if transaction.status == "completed" else PaymentStatus.FAILED,
-                message="Payment verified successfully" if transaction.status == "completed" else "Payment verification failed",
+                status=PaymentStatus.COMPLETED,
+                message="Payment already verified",
                 amount=transaction.amount,
                 currency=transaction.currency,
                 payment_method=PaymentMethod(transaction.payment_method),
-                razorpay_payment_id=razorpay_payment_id,
-                gateway_response=payment_details
+                razorpay_payment_id=transaction.razorpay_payment_id,
+                gateway_response=transaction.gateway_response or {},
             )
-            
-        except ValueError as e:
-            raise HTTPException(status_code=400, detail=str(e))
+
+        if transaction.status != "pending":
+            raise TransactionException(f"Transaction already {transaction.status}")
+
+        # ── Step 2: Verify signature (LOCAL HMAC — no network, no lock) ──
+        razorpay_client = get_razorpay_client()
+        is_valid = razorpay_client.verify_payment(
+            transaction.razorpay_order_id,
+            razorpay_payment_id,
+            razorpay_signature
+        )
+
+        if not is_valid:
+            # Brief lock to update failed status
+            txn_locked = self.db.query(PaymentTransaction).filter(
+                PaymentTransaction.transaction_id == transaction_id
+            ).with_for_update(nowait=True).first()
+            if txn_locked and txn_locked.status == "pending":
+                txn_locked.status = "failed"
+                self.db.commit()
+            await self._notify_commerce_reservation(
+                transaction.order_id, action="release"
+            )
+            raise InvalidSignatureError()
+
+        # ── Step 3: Fetch payment from Razorpay API (NETWORK I/O — NO LOCK) ──
+        try:
+            payment_details = razorpay_client.fetch_payment(razorpay_payment_id)
         except Exception as e:
+            logger.error(f"Failed to fetch payment details from Razorpay: {e}")
+            raise PaymentGatewayException(f"Failed to fetch payment: {str(e)}")
+
+        # ── Step 4: Acquire row lock (brief write only) ──
+        txn_locked = self.db.query(PaymentTransaction).filter(
+            PaymentTransaction.transaction_id == transaction_id
+        ).with_for_update(nowait=True).first()
+
+        if not txn_locked:
+            raise TransactionNotFoundError(transaction_id)
+
+        # Double-check status — webhook may have completed it while we were fetching
+        if txn_locked.status == "completed":
+            self.db.rollback()  # Release lock
+            logger.info(
+                f"VERIFY_ALREADY_COMPLETED (after fetch): txn={transaction_id} "
+                f"payment={razorpay_payment_id}"
+            )
+            return PaymentResponse(
+                success=True,
+                transaction_id=txn_locked.transaction_id,
+                status=PaymentStatus.COMPLETED,
+                message="Payment already verified",
+                amount=txn_locked.amount,
+                currency=txn_locked.currency,
+                payment_method=PaymentMethod(txn_locked.payment_method),
+                razorpay_payment_id=txn_locked.razorpay_payment_id,
+                gateway_response=txn_locked.gateway_response or {},
+            )
+
+        if txn_locked.status != "pending":
             self.db.rollback()
-            logger.error(f"Payment verification failed: {str(e)}")
-            raise HTTPException(status_code=500, detail="Payment verification failed")
+            raise TransactionException(f"Transaction already {txn_locked.status}")
+
+        # Update transaction — lock held briefly for this write
+        txn_locked.razorpay_payment_id = razorpay_payment_id
+        txn_locked.razorpay_signature = razorpay_signature
+        txn_locked.status = "completed" if payment_details.get("status") == "captured" else "failed"
+        txn_locked.gateway_response = payment_details
+        txn_locked.completed_at = ist_naive()
+
+        self.db.commit()  # Lock released after commit
+
+        # ── Step 5: Notify commerce (OUTSIDE lock) ──
+        if txn_locked.status == "completed":
+            await self._notify_commerce_reservation(
+                txn_locked.order_id, action="confirm"
+            )
+        else:
+            await self._notify_commerce_reservation(
+                txn_locked.order_id, action="release"
+            )
+
+        return PaymentResponse(
+            success=txn_locked.status == "completed",
+            transaction_id=txn_locked.transaction_id,
+            status=PaymentStatus.COMPLETED if txn_locked.status == "completed" else PaymentStatus.FAILED,
+            message="Payment verified successfully" if txn_locked.status == "completed" else "Payment verification failed",
+            amount=txn_locked.amount,
+            currency=txn_locked.currency,
+            payment_method=PaymentMethod(txn_locked.payment_method),
+            razorpay_payment_id=razorpay_payment_id,
+            gateway_response=payment_details
+        )
     
     async def _notify_commerce_reservation(self, order_id: int, action: str = "confirm"):
         """
@@ -331,7 +396,6 @@ class PaymentService:
             action: 'confirm' or 'release'
         """
         try:
-            import httpx
             commerce_url = f"http://commerce:5002/api/v1/internal/orders/{order_id}/reservation/{action}"
             internal_secret = getattr(settings, 'INTERNAL_SERVICE_SECRET', None)
             if not internal_secret:
@@ -388,7 +452,7 @@ class PaymentService:
             
         except Exception as e:
             logger.error(f"Failed to get payment status: {str(e)}")
-            raise HTTPException(status_code=500, detail="Failed to retrieve payment status")
+            raise TransactionException("Failed to retrieve payment status")
     
     def refund_payment(self, request: RefundRequest) -> RefundResponse:
         """
@@ -448,10 +512,13 @@ class PaymentService:
                 gateway_response=refund_details
             )
             
+        except ValueError as e:
+            self.db.rollback()
+            raise TransactionException(str(e))
         except Exception as e:
             self.db.rollback()
             logger.error(f"Refund failed: {str(e)}")
-            raise HTTPException(status_code=500, detail="Refund processing failed")
+            raise PaymentGatewayException("Refund processing failed")
     
     def get_transaction_history(self, request: TransactionHistoryRequest) -> List[Dict[str, Any]]:
         """
@@ -509,7 +576,7 @@ class PaymentService:
             
         except Exception as e:
             logger.error(f"Failed to get transaction history: {str(e)}")
-            raise HTTPException(status_code=500, detail="Failed to retrieve transaction history")
+            raise DatabaseException("Failed to retrieve transaction history")
 
     def count_transaction_history(self, request: TransactionHistoryRequest) -> int:
         """Count total transactions matching the current history filters."""
@@ -537,7 +604,7 @@ class PaymentService:
             return query.count()
         except Exception as e:
             logger.error(f"Failed to count transaction history: {str(e)}")
-            raise HTTPException(status_code=500, detail="Failed to count transaction history")
+            raise DatabaseException("Failed to count transaction history")
     
     def get_available_payment_methods(self) -> List[Dict[str, Any]]:
         """
@@ -562,7 +629,7 @@ class PaymentService:
             
         except Exception as e:
             logger.error(f"Failed to get payment methods: {str(e)}")
-            raise HTTPException(status_code=500, detail="Failed to retrieve payment methods")
+            raise DatabaseException("Failed to retrieve payment methods")
     
     def process_webhook_event(self, webhook_data: Dict[str, Any]) -> bool:
         """
@@ -655,18 +722,20 @@ class PaymentService:
             if 'webhook_event' in locals():
                 webhook_event.processing_error = str(e)
                 self.db.commit()
-            raise Exception(f"Webhook processing failed: {str(e)}")
+            raise WebhookException(f"Webhook processing failed: {str(e)}")
     
     def _handle_payment_captured(self, event_info: Dict[str, Any]):
         """Handle payment captured webhook event.
 
-        CRITICAL: This method now creates the order in commerce service if it doesn't exist.
-        This is the primary reliability mechanism that prevents silent payment failures.
-        
-        FIX: Removed early return for non-pending transactions. Now always attempts to
-        create order if it doesn't exist, regardless of transaction status.
-        FIX: QR code matching now checks all statuses, not just pending.
-        FIX: Added fallback matching for transactions with empty razorpay_payment_id.
+        CRITICAL: This is the primary reliability mechanism — creates the order in
+        commerce service if it doesn't exist yet. Never returns early for non-pending
+        transactions; always checks if order exists and creates if missing.
+
+        Transaction-finding strategy (in order):
+        1. By razorpay_order_id (most reliable — set at checkout initiation)
+        2. By razorpay_payment_id (set after payment completes)
+        3. By transaction_id (QR/UPI fallback where payment_id may be delayed)
+        4. By QR code + amount matching (QR payments where no ID was set)
         """
         try:
             payment_id = event_info.get("payment_id")
@@ -675,9 +744,8 @@ class PaymentService:
             qr_code_id = event_info.get("qr_code_id")
             method = event_info.get("method", "")
 
-            # Serialize with client verify: lock the transaction row while applying capture.
-            # FIX: Use nowait=True to fail fast if another webhook holds the lock (prevents timeout cascade).
-            # Session uses autocommit=False (see payment database.SessionLocal) so FOR UPDATE applies.
+            # ── Find transaction (4 strategies, in order of reliability) ──
+            # Strategy 1: By razorpay_order_id (set at checkout initiation)
             transaction = None
             if razorpay_order_id:
                 transaction = (
@@ -686,6 +754,8 @@ class PaymentService:
                     .with_for_update(nowait=True)
                     .first()
                 )
+
+            # Strategy 2: By razorpay_payment_id (set after payment)
             if not transaction and payment_id:
                 transaction = (
                     self.db.query(PaymentTransaction)
@@ -694,74 +764,51 @@ class PaymentService:
                     .first()
                 )
 
-                # FIX: For QR code payments, also try matching by transaction_id
-                # (some systems use transaction_id as the payment reference)
-                if not transaction and payment_id and method in ["upi", "upi_qr"]:
-                    transaction = (
-                        self.db.query(PaymentTransaction)
-                        .filter(
-                            PaymentTransaction.transaction_id == payment_id,
-                            (PaymentTransaction.razorpay_payment_id.is_(None) | (PaymentTransaction.razorpay_payment_id == ""))
-                        )
-                        .with_for_update(nowait=True)
-                        .first()
+            # Strategy 3: By transaction_id (QR/UPI — payment may use transaction_id as reference)
+            if not transaction and payment_id and method in ["upi", "upi_qr"]:
+                transaction = (
+                    self.db.query(PaymentTransaction)
+                    .filter(
+                        PaymentTransaction.transaction_id == payment_id,
+                        PaymentTransaction.razorpay_payment_id.is_(None) | (PaymentTransaction.razorpay_payment_id == ""),
                     )
+                    .with_for_update(nowait=True)
+                    .first()
+                )
 
-            # For QR code payments, payment_id may not be available initially
-            # FIX: Removed status == "pending" filter - check ALL QR transactions
-            if not transaction:
-                if amount_paise:
-                    amount_rupees = Decimal(str(amount_paise)) / Decimal('100')
-                    query = self.db.query(PaymentTransaction).filter(
-                        # PaymentTransaction.status == "pending",  # FIX: Removed to catch completed transactions
-                        PaymentTransaction.payment_method == "upi_qr",
-                        PaymentTransaction.amount == amount_rupees,
-                    )
-                    if qr_code_id:
-                        query = query.filter(PaymentTransaction.razorpay_qr_code_id == qr_code_id)
-                    # FIX: Also filter by user_id from notes if available
-                    user_id_from_notes = event_info.get("user_id") or (event_info.get("payload", {}).get("payment", {}).get("entity", {}).get("notes", {}).get("user_id"))
-                    if user_id_from_notes:
-                        query = query.filter(PaymentTransaction.user_id == int(user_id_from_notes))
-                    transaction = (
-                        query.with_for_update(nowait=True)
-                        .order_by(PaymentTransaction.created_at.desc())
-                        .first()
-                    )
+            # Strategy 4: By QR + amount matching (QR payments where no payment_id was set yet)
+            if not transaction and amount_paise and method == "upi_qr":
+                amount_rupees = Decimal(str(amount_paise)) / Decimal('100')
+                query = self.db.query(PaymentTransaction).filter(
+                    PaymentTransaction.payment_method == "upi_qr",
+                    PaymentTransaction.amount == amount_rupees,
+                )
+                if qr_code_id:
+                    query = query.filter(PaymentTransaction.razorpay_qr_code_id == qr_code_id)
+                user_id_from_notes = (
+                    event_info.get("user_id")
+                    or (event_info.get("payload", {}).get("payment", {}).get("entity", {}).get("notes", {}).get("user_id"))
+                )
+                if user_id_from_notes:
+                    query = query.filter(PaymentTransaction.user_id == int(user_id_from_notes))
+                transaction = (
+                    query.with_for_update(nowait=True)
+                    .order_by(PaymentTransaction.created_at.desc())
+                    .first()
+                )
 
-            # CRITICAL FIX: Don't return early for non-pending transactions!
-            # Check if order already exists first. If not, we still need to create it.
+            # ── Process transaction ──
             if transaction:
-                # Update transaction with payment_id from webhook (if we have it)
+                # Update transaction metadata from webhook
                 if payment_id and not transaction.razorpay_payment_id:
                     transaction.razorpay_payment_id = payment_id
-                
-                # Update other fields from webhook
                 if razorpay_order_id and not transaction.razorpay_order_id:
                     transaction.razorpay_order_id = razorpay_order_id
-                
-                # FIX: Always update gateway_response with full event info
-                # BUT preserve critical metadata set during checkout initiation
-                # that the event_info doesn't have (pending_order_id, cart_snapshot,
-                # shipping_address, created_during)
-                original_gateway = {}
-                if isinstance(transaction.gateway_response, dict):
-                    for key in ["pending_order_id", "cart_snapshot", "shipping_address", "created_during"]:
-                        if key in transaction.gateway_response:
-                            original_gateway[key] = transaction.gateway_response[key]
-                    # Also preserve any nested _checkout_meta from a previous handler run
-                    if "_checkout_meta" in transaction.gateway_response:
-                        existing_meta = transaction.gateway_response["_checkout_meta"]
-                        if isinstance(existing_meta, dict):
-                            for key in ["pending_order_id", "cart_snapshot", "shipping_address", "created_during"]:
-                                if key in existing_meta and key not in original_gateway:
-                                    original_gateway[key] = existing_meta[key]
-                transaction.gateway_response = event_info
-                if original_gateway:
-                    transaction.gateway_response["_checkout_meta"] = original_gateway
-                
-                # FIX: Always update status to completed for captured/authorized payments
-                # (not just pending ones - webhooks can arrive out of order)
+
+                # Preserve checkout metadata before overwriting gateway_response
+                _preserve_checkout_meta(transaction, event_info)
+
+                # Update transaction status
                 status = event_info.get("status", "captured")
                 if status in ["captured", "authorized", "completed"] and transaction.status != "completed":
                     transaction.status = "completed"
@@ -769,125 +816,60 @@ class PaymentService:
                         transaction.completed_at = ist_naive()
                 elif status in ["failed", "rejected"] and transaction.status != "failed":
                     transaction.status = "failed"
-                
-                self.db.commit()
 
-                # FIX: Always check if order exists and create if not
-                from sqlalchemy import text as _text
-                
-                # Check 1: Order linked by transaction_id (from commerce service recovery path)
-                existing_order = self.db.execute(_text("""
-                    SELECT id FROM orders 
-                    WHERE transaction_id = :payment_id AND user_id = :user_id
-                """), {
-                    "payment_id": transaction.razorpay_payment_id or event_info.get("payment_id"),
-                    "user_id": transaction.user_id
-                }).fetchone()
-                
-                # Check 2: Order linked by order_id (normal path)
-                if not existing_order and transaction.order_id:
-                    existing_order = self.db.execute(_text("""
-                        SELECT id FROM orders WHERE id = :order_id
-                    """), {"order_id": transaction.order_id}).fetchone()
-                
-                # Check 3: Order linked by internal transaction_id
-                if not existing_order:
-                    existing_order = self.db.execute(_text("""
-                        SELECT id FROM orders 
-                        WHERE transaction_id = :txn_id AND user_id = :user_id
-                    """), {
-                        "txn_id": transaction.transaction_id,
-                        "user_id": transaction.user_id
-                    }).fetchone()
-                
-                if not existing_order:
-                    # Order doesn't exist - create it!
+                self.db.flush()
+
+                # ── Check if order exists; create if not ──
+                if not self._order_exists(transaction):
                     logger.info(
-                        f"WEBHOOK_ORDER_CHECK: No order found for txn={transaction.transaction_id} "
-                        f"user={transaction.user_id} status={transaction.status} - creating order"
+                        f"WEBHOOK_ORDER_CHECK: No order for txn={transaction.transaction_id} "
+                        f"user={transaction.user_id} — creating from webhook"
                     )
                     self._create_order_from_webhook(transaction, event_info)
-                    
-                    # After creating order, update it with our transaction_id and razorpay details
-                    # The commerce service created order with transaction_id = payment_id
-                    # We need to also set it to link with our internal transaction_id
-                    if transaction.order_id and transaction.razorpay_payment_id:
-                        self.db.execute(_text("""
-                            UPDATE orders 
-                            SET transaction_id = :internal_txn_id,
-                                razorpay_payment_id = :razorpay_payment_id,
-                                razorpay_order_id = :razorpay_order_id,
-                                payment_method = COALESCE(payment_method, :payment_method)
-                            WHERE id = :order_id
-                        """), {
-                            "internal_txn_id": transaction.transaction_id,
-                            "razorpay_payment_id": transaction.razorpay_payment_id,
-                            "razorpay_order_id": transaction.razorpay_order_id or event_info.get("order_id"),
-                            "payment_method": transaction.payment_method,
-                            "order_id": transaction.order_id
-                        })
-                        self.db.commit()
-                        logger.info(
-                            f"WEBHOOK_ORDER_UPDATED: order_id={transaction.order_id} "
-                            f"txn_id={transaction.transaction_id} payment={transaction.razorpay_payment_id}"
-                        )
                 else:
                     logger.info(
-                        f"WEBHOOK_ORDER_CHECK: Order already exists for txn={transaction.transaction_id} "
+                        f"WEBHOOK_ORDER_CHECK: Order exists for txn={transaction.transaction_id} "
                         f"user={transaction.user_id}"
                     )
-                    
-                # CRITICAL FIX: Also update existing order with razorpay payment details
+
+                # Link payment details to order via commerce API (best-effort)
                 if transaction.order_id:
-                    self.db.execute(_text("""
-                        UPDATE orders 
-                        SET razorpay_payment_id = COALESCE(razorpay_payment_id, :razorpay_payment_id),
-                            razorpay_order_id = COALESCE(razorpay_order_id, :razorpay_order_id),
-                            transaction_id = COALESCE(transaction_id, :transaction_id),
-                            payment_method = COALESCE(payment_method, :payment_method)
-                        WHERE id = :order_id
-                    """), {
-                        "order_id": transaction.order_id,
-                        "razorpay_payment_id": transaction.razorpay_payment_id or event_info.get("payment_id"),
-                        "razorpay_order_id": transaction.razorpay_order_id or event_info.get("order_id"),
-                        "transaction_id": transaction.transaction_id,
-                        "payment_method": transaction.payment_method
-                    })
-                    self.db.commit()
+                    self._link_payment_to_order(
+                        order_id=transaction.order_id,
+                        transaction_id=transaction.transaction_id,
+                        razorpay_payment_id=transaction.razorpay_payment_id or event_info.get("payment_id"),
+                        razorpay_order_id=transaction.razorpay_order_id or event_info.get("order_id"),
+                        payment_method=transaction.payment_method,
+                    )
             else:
-                # FIX: If no transaction found at all, try to create one on-the-fly for Razorpay orders
-                # This handles cases where frontend failed to create transaction
+                # ── No transaction found — on-the-fly recovery ──
+                # This handles edge cases where the frontend failed to create a transaction
+                # before redirecting to Razorpay (rare, but possible).
                 if payment_id and method in ["upi", "card", "netbanking"]:
                     logger.warning(
                         f"WEBHOOK_NO_TRANSACTION: payment_id={payment_id} order_id={razorpay_order_id} "
-                        f"method={method} - attempting to find user from webhook data"
+                        f"method={method} — attempting recovery from webhook data"
                     )
-                    # Try to extract user info from webhook
-                    user_id = None
-                    email = None
-                    notes = event_info.get("notes", {}) if isinstance(event_info.get("notes"), dict) else {}
+                    notes = event_info.get("notes", {})
                     if isinstance(notes, str):
                         import json
                         try:
                             notes = json.loads(notes)
                         except:
                             notes = {}
-                    
+
                     user_id = notes.get("user_id") or event_info.get("user_id")
                     if user_id:
                         user_id = int(user_id)
-                        email = notes.get("email") or event_info.get("email")
-                        
-                        # Find or create user
                         from sqlalchemy import text as _text
-                        user = self.db.execute(_text("""
-                            SELECT id, email FROM users WHERE id = :user_id
-                        """), {"user_id": user_id}).fetchone()
-                        
+                        user = self.db.execute(
+                            _text("SELECT id FROM users WHERE id = :user_id"),
+                            {"user_id": user_id},
+                        ).fetchone()
+
                         if user:
-                            # Create transaction on-the-fly
-                            from models.payment import PaymentTransaction as PT
-                            transaction = PT(
+                            amount_rupees = Decimal(str(amount_paise)) / Decimal('100') if amount_paise else Decimal('0')
+                            transaction = PaymentTransaction(
                                 user_id=user_id,
                                 amount=amount_rupees,
                                 currency="INR",
@@ -902,26 +884,23 @@ class PaymentService:
                             self.db.add(transaction)
                             self.db.flush()
                             logger.info(
-                                f"WEBHOOK_CREATED_TRANSACTION: txn_id={payment_id} user_id={user_id} "
-                                f"amount={amount_rupees}"
+                                f"WEBHOOK_RECOVERED_TRANSACTION: txn_id={payment_id} user_id={user_id}"
                             )
                             self._create_order_from_webhook(transaction, event_info)
-                            self.db.commit()
+                            self.db.flush()
                         else:
                             logger.error(
-                                f"WEBHOOK_NO_USER: payment_id={payment_id} user_id={user_id} - "
-                                f"user not found in database"
+                                f"WEBHOOK_RECOVER_NO_USER: payment_id={payment_id} user_id={user_id}"
                             )
                     else:
                         logger.error(
-                            f"WEBHOOK_NO_USER_ID: payment_id={payment_id} - cannot identify user "
-                            f"from webhook data"
+                            f"WEBHOOK_RECOVER_NO_USER_ID: payment_id={payment_id}"
                         )
 
         except Exception as e:
             self.db.rollback()
-            logger.error(f"Failed to handle payment capture: {str(e)}")
-            raise HTTPException(status_code=500, detail="Payment capture handling failed")
+            logger.error(f"WEBHOOK_CAPTURE_FAILED: {str(e)}", exc_info=True)
+            raise WebhookException("Payment capture handling failed")
 
     def _handle_payment_authorized(self, event_info: Dict[str, Any]):
         """Handle payment authorized webhook — update transaction AND create order immediately.
@@ -973,27 +952,12 @@ class PaymentService:
                     transaction.razorpay_payment_id = payment_id
                 if razorpay_order_id and not transaction.razorpay_order_id:
                     transaction.razorpay_order_id = razorpay_order_id
-                # Preserve checkout metadata before overwriting gateway_response
-                original_gateway = {}
-                if isinstance(transaction.gateway_response, dict):
-                    for key in ["pending_order_id", "cart_snapshot", "shipping_address", "created_during"]:
-                        if key in transaction.gateway_response:
-                            original_gateway[key] = transaction.gateway_response[key]
-                    # Also preserve any nested _checkout_meta from a previous handler run
-                    if "_checkout_meta" in transaction.gateway_response:
-                        existing_meta = transaction.gateway_response["_checkout_meta"]
-                        if isinstance(existing_meta, dict):
-                            for key in ["pending_order_id", "cart_snapshot", "shipping_address", "created_during"]:
-                                if key in existing_meta and key not in original_gateway:
-                                    original_gateway[key] = existing_meta[key]
-                transaction.gateway_response = event_info
-                if original_gateway:
-                    transaction.gateway_response["_checkout_meta"] = original_gateway
+                _preserve_checkout_meta(transaction, event_info)
                 # CRITICAL: Create order NOW for embedded checkout
                 # (authorized comes before captured for UPI collect)
                 if transaction.status == "pending":
                     transaction.status = "authorized"
-                self.db.commit()
+                self.db.flush()
                 logger.info(f"WEBHOOK: Payment authorized: {payment_id} txn={transaction.transaction_id}")
 
                 # CRITICAL FIX: Create order immediately for embedded checkout
@@ -1036,29 +1000,14 @@ class PaymentService:
             if transaction:
                 if razorpay_order_id and not transaction.razorpay_order_id:
                     transaction.razorpay_order_id = razorpay_order_id
-                # Preserve checkout metadata
-                original_gateway = {}
-                if isinstance(transaction.gateway_response, dict):
-                    for key in ["pending_order_id", "cart_snapshot", "shipping_address", "created_during"]:
-                        if key in transaction.gateway_response:
-                            original_gateway[key] = transaction.gateway_response[key]
-                    # Also preserve any nested _checkout_meta from a previous handler run
-                    if "_checkout_meta" in transaction.gateway_response:
-                        existing_meta = transaction.gateway_response["_checkout_meta"]
-                        if isinstance(existing_meta, dict):
-                            for key in ["pending_order_id", "cart_snapshot", "shipping_address", "created_during"]:
-                                if key in existing_meta and key not in original_gateway:
-                                    original_gateway[key] = existing_meta[key]
-                transaction.gateway_response = event_info
-                if original_gateway:
-                    transaction.gateway_response["_checkout_meta"] = original_gateway
+                _preserve_checkout_meta(transaction, event_info)
                 if transaction.status == "pending":
                     transaction.status = "completed"
                     transaction.completed_at = ist_naive()
                 elif transaction.status != "completed":
                     transaction.status = "completed"
                     transaction.completed_at = ist_naive()
-                self.db.commit()
+                self.db.flush()
                 
                 # Ensure order is linked
                 if transaction.order_id and not transaction.transaction_id:
@@ -1092,7 +1041,7 @@ class PaymentService:
                         if not transaction.razorpay_qr_code_id:
                             transaction.razorpay_qr_code_id = qr_code_id
                         transaction.gateway_response = event_info
-                        self.db.commit()
+                        self.db.flush()
                         logger.info(f"WEBHOOK: QR created: {qr_code_id}")
 
             elif event_info["event_type"] == "qr_code.credited":
@@ -1134,19 +1083,10 @@ class PaymentService:
                     if transaction.status != "completed":
                         transaction.status = "completed"
                         transaction.completed_at = ist_naive()
-                    self.db.commit()
+                    self.db.flush()
                     
                     # Check if order exists and create if not
-                    from sqlalchemy import text as _text
-                    existing_order = self.db.execute(_text("""
-                        SELECT id FROM orders 
-                        WHERE transaction_id = :txn_id AND user_id = :user_id
-                    """), {
-                        "txn_id": transaction.transaction_id,
-                        "user_id": transaction.user_id
-                    }).fetchone()
-
-                    if not existing_order:
+                    if not self._order_exists(transaction):
                         self._create_order_from_webhook(transaction, event_info)
                         
                     logger.info(f"WEBHOOK: QR credited: {qr_code_id} payment={payment_id}")
@@ -1164,9 +1104,6 @@ class PaymentService:
         when webhook is called multiple times for the same payment.
         """
         try:
-            import httpx
-            import os
-
             commerce_url = os.getenv("COMMERCE_SERVICE_URL", "http://commerce:5002")
             internal_secret = os.getenv("INTERNAL_SERVICE_SECRET")
 
@@ -1179,7 +1116,7 @@ class PaymentService:
             # This ensures commerce service can check for existing order properly
             if not transaction.transaction_id and transaction.razorpay_payment_id:
                 transaction.transaction_id = transaction.razorpay_payment_id
-                self.db.commit()
+                self.db.flush()
                 logger.info(f"WEBHOOK: Set transaction_id={transaction.transaction_id} for idempotency")
 
             # CRITICAL FIX: Check if order already exists before calling commerce
@@ -1286,7 +1223,7 @@ class PaymentService:
                     result = response.json()
                     order_id = result.get("order_id")
                     transaction.order_id = order_id
-                    self.db.commit()
+                    self.db.flush()
                     logger.info(f"✓ WEBHOOK_ORDER_CREATED: order_id={order_id}")
                     
                     # AUDIT: Log successful order creation from webhook
@@ -1311,6 +1248,12 @@ class PaymentService:
                         error_message=f"Commerce service returned {response.status_code}",
                         error_details={"status": response.status_code, "body": response.text[:1000]},
                     )
+                    # RAISE so webhook endpoint returns 500 → Razorpay retries
+                    raise OrderCreationError(
+                        f"Commerce service returned {response.status_code}: {response.text[:500]}"
+                    )
+        except OrderCreationError:
+            raise
         except Exception as e:
             logger.error(f"✗ WEBHOOK_ORDER_CREATE_ERROR: {str(e)}", exc_info=True)
             _audit_payment_event(
@@ -1319,6 +1262,7 @@ class PaymentService:
                 user_id=transaction.user_id,
                 error_message=str(e),
             )
+            raise OrderCreationError(str(e))
     
     def _handle_payment_failed(self, event_info: Dict[str, Any]):
         """Handle payment failed webhook event."""
@@ -1331,11 +1275,11 @@ class PaymentService:
             if transaction and transaction.status == "pending":
                 transaction.status = "failed"
                 transaction.gateway_response = event_info
-                self.db.commit()
+                self.db.flush()
                 
         except Exception as e:
             logger.error(f"Failed to handle payment failed: {str(e)}")
-            raise HTTPException(status_code=500, detail="Payment failure handling failed")
+            raise WebhookException("Payment failure handling failed")
     
     def _order_exists(self, transaction: PaymentTransaction) -> bool:
         """Check if an order already exists for this transaction.
@@ -1407,10 +1351,76 @@ class PaymentService:
                 gateway_response={**payment, "recovered": True},
             )
             self.db.add(transaction)
-            self.db.commit()
+            self.db.flush()
             logger.info(f"✓ RECOVERED transaction from Razorpay: txn={transaction.transaction_id}")
         except Exception as e:
             logger.error(f"✗ Failed to recover transaction: {e}")
+
+    def _link_payment_to_order(
+        self,
+        order_id: int,
+        transaction_id: Optional[str] = None,
+        razorpay_payment_id: Optional[str] = None,
+        razorpay_order_id: Optional[str] = None,
+        payment_method: Optional[str] = None,
+    ) -> bool:
+        """
+        Link payment transaction details to an order via the commerce service.
+
+        Replaces raw SQL ``UPDATE orders`` from the payment service, respecting
+        the cross-service boundary. Uses the commerce internal API instead of
+        directly modifying the orders table.
+
+        Args:
+            order_id: Commerce order ID
+            transaction_id: Internal payment transaction ID
+            razorpay_payment_id: Razorpay payment ID
+            razorpay_order_id: Razorpay order ID
+            payment_method: Payment method (e.g., "razorpay")
+
+        Returns:
+            True if successful, False otherwise (best-effort)
+        """
+        if not order_id:
+            return False
+        try:
+            commerce_url = os.environ.get("COMMERCE_SERVICE_URL", "http://commerce:5002")
+            internal_secret = os.environ.get("INTERNAL_SERVICE_SECRET")
+            if not internal_secret:
+                logger.error("INTERNAL_SERVICE_SECRET not configured — cannot link payment to order")
+                return False
+
+            payload = {}
+            if transaction_id:
+                payload["transaction_id"] = transaction_id
+            if razorpay_payment_id:
+                payload["razorpay_payment_id"] = razorpay_payment_id
+            if razorpay_order_id:
+                payload["razorpay_order_id"] = razorpay_order_id
+            if payment_method:
+                payload["payment_method"] = payment_method
+
+            with httpx.Client(timeout=10.0) as client:
+                response = client.post(
+                    f"{commerce_url}/api/v1/internal/orders/{order_id}/link-payment-details",
+                    json=payload,
+                    headers={"X-Internal-Secret": internal_secret},
+                )
+                if response.status_code == 200:
+                    logger.info(
+                        f"ORDER_LINKED_PAYMENT: order_id={order_id} "
+                        f"txn_id={transaction_id} payment={razorpay_payment_id}"
+                    )
+                    return True
+                else:
+                    logger.error(
+                        f"ORDER_LINK_PAYMENT_FAILED: order_id={order_id} "
+                        f"status={response.status_code} response={response.text[:500]}"
+                    )
+                    return False
+        except Exception as e:
+            logger.error(f"ORDER_LINK_PAYMENT_ERROR: order_id={order_id} error={e}")
+            return False
 
     def _handle_refund_processed(self, event_info: Dict[str, Any]):
         """Handle refund processed webhook event."""
@@ -1423,9 +1433,9 @@ class PaymentService:
             if transaction:
                 transaction.refund_status = "completed"
                 transaction.gateway_response = event_info
-                self.db.commit()
+                self.db.flush()
 
         except Exception as e:
             logger.error(f"Failed to handle refund processed: {str(e)}")
-            raise HTTPException(status_code=500, detail="Refund processing handling failed")
+            raise WebhookException("Refund processing handling failed")
 

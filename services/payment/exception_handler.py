@@ -45,6 +45,25 @@ class DatabaseException(PaymentServiceException):
     pass
 
 
+class InvalidSignatureError(PaymentServiceException):
+    """Raised when payment HMAC signature verification fails."""
+    def __init__(self, message: str = "Invalid payment signature"):
+        super().__init__(message, error_code="INVALID_SIGNATURE")
+
+
+class TransactionNotFoundError(TransactionException):
+    """Raised when a transaction cannot be found."""
+    def __init__(self, transaction_id: str = None):
+        msg = f"Transaction not found: {transaction_id}" if transaction_id else "Transaction not found"
+        super().__init__(msg, error_code="TRANSACTION_NOT_FOUND")
+
+
+class OrderCreationError(PaymentGatewayException):
+    """Raised when order creation via commerce service fails."""
+    def __init__(self, message: str = "Failed to create order from webhook"):
+        super().__init__(message, error_code="ORDER_CREATION_FAILED")
+
+
 def _sanitize_for_json(obj):
     """Recursively convert non-JSON-serializable types (Decimal, bytes) to safe values."""
     if isinstance(obj, Decimal):
@@ -188,10 +207,14 @@ def setup_exception_handlers(app: FastAPI):
         
         if isinstance(exc, PaymentGatewayException):
             status_code = status.HTTP_502_BAD_GATEWAY
+        elif isinstance(exc, InvalidSignatureError):
+            status_code = status.HTTP_402_PAYMENT_REQUIRED
+        elif isinstance(exc, TransactionNotFoundError):
+            status_code = status.HTTP_404_NOT_FOUND
         elif isinstance(exc, TransactionException):
             status_code = status.HTTP_400_BAD_REQUEST
         elif isinstance(exc, WebhookException):
-            status_code = status.HTTP_400_BAD_REQUEST
+            status_code = status.HTTP_502_BAD_GATEWAY
         elif isinstance(exc, DatabaseException):
             status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
         

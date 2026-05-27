@@ -454,6 +454,7 @@ async def search_products(
     category_id: Optional[int] = None,
     min_price: Optional[float] = None,
     max_price: Optional[float] = None,
+    sort_by: Optional[str] = Query(None, regex="^(newest|price_low|price_high|popular|name_asc|name_desc)$"),
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=100),
     db: Session = Depends(get_db),
@@ -467,6 +468,7 @@ async def search_products(
         category_id=category_id,
         min_price=min_price,
         max_price=max_price,
+        sort_by=sort_by,
         offset=skip,
         limit=limit,
     )

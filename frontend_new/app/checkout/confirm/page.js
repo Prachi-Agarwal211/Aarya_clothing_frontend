@@ -1,13 +1,16 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { CheckCircle, Package, Truck, MapPin, ChevronRight, ShoppingBag, AlertCircle, Receipt, Printer } from 'lucide-react';
+import { CheckCircle, Package, Truck, MapPin, Clock, AlertCircle, ShoppingBag, Receipt, Printer, Loader2 } from 'lucide-react';
 import { ordersApi } from '@/lib/customerApi';
 import { useCart } from '@/lib/cartContext';
 import { useAuth } from '@/lib/authContext';
 import logger from '@/lib/logger';
+
+const POLL_INTERVAL = 2000; // 2 seconds
+const POLL_TIMEOUT = 60000; // 60 seconds max wait
 
 export default function CheckoutConfirmPage() {
   const router = useRouter();
@@ -15,17 +18,24 @@ export default function CheckoutConfirmPage() {
   const { user, isAuthenticated, loading: authLoading } = useAuth();
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [polling, setPolling] = useState(false);
   const [error, setError] = useState(null);
-  const isCreatingRef = useRef(false); // Prevent concurrent order creation (useRef avoids stale closure bug)
-  const mountedRef = useRef(false); // Prevent state updates after unmount
+  const [paymentRegistered, setPaymentRegistered] = useState(false);
+  const [paymentId, setPaymentId] = useState(null);
+  const isRegisteringRef = useRef(false);
+  const mountedRef = useRef(false);
+  const pollTimerRef = useRef(null);
 
   // Cleanup on unmount
   useEffect(() => {
     mountedRef.current = true;
-    return () => { mountedRef.current = false; };
+    return () => {
+      mountedRef.current = false;
+      if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
+    };
   }, []);
 
-  // CRITICAL FIX: Store URL payment params to sessionStorage on mount IMMEDIATELY —
+  // CRITICAL: Store URL payment params to sessionStorage on mount IMMEDIATELY —
   // before any auth check or redirect. This prevents params from being lost if
   // the user gets redirected to login and comes back.
   useEffect(() => {
@@ -39,15 +49,84 @@ export default function CheckoutConfirmPage() {
     if (urlOrderId && urlOrderId !== 'null') sessionStorage.setItem('razorpay_order_id', urlOrderId);
     if (urlSignature && urlSignature !== 'null') sessionStorage.setItem('payment_signature', urlSignature);
     if (urlQrCodeId && urlQrCodeId !== 'null') sessionStorage.setItem('qr_code_id', urlQrCodeId);
-  }, []); // Empty deps — runs once on mount
+  }, []);
 
-  // Redirect if not authenticated — wait for auth loading to complete first
+  // Redirect if not authenticated
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
       router.push('/auth/login?redirect_url=/checkout/confirm');
     }
   }, [authLoading, isAuthenticated, router]);
 
+  // Poll for order by payment_id
+  const pollForOrder = useCallback(async (pid) => {
+    const startTime = Date.now();
+
+    const poll = async () => {
+      if (!mountedRef.current) return;
+
+      try {
+        const result = await ordersApi.getByPayment(pid);
+
+        // Check if we got an order (has id field) vs { found: false }
+        if (result && (result.id || result.order_id)) {
+          const foundOrder = result.order || result;
+          if (mountedRef.current) {
+            setOrder(foundOrder);
+            setPolling(false);
+            setLoading(false);
+            sessionStorage.setItem('order_created', foundOrder?.id || 'done');
+            // Clear cart & session on success
+            try {
+              await clearCart();
+            } catch (cartErr) {
+              logger.warn('Failed to clear cart:', cartErr.message);
+            }
+            sessionStorage.removeItem('checkout_address_id');
+            sessionStorage.removeItem('payment_id');
+            sessionStorage.removeItem('razorpay_order_id');
+            sessionStorage.removeItem('payment_signature');
+            sessionStorage.removeItem('qr_code_id');
+            sessionStorage.removeItem('pending_order_id');
+          }
+          return;
+        }
+
+        // Order not yet created — check timeout
+        if (Date.now() - startTime >= POLL_TIMEOUT) {
+          if (mountedRef.current) {
+            setError(
+              'Your payment was successful, but order creation is taking longer than expected. ' +
+              'Please check your orders page in a few minutes. ' +
+              'Payment ID: ' + pid
+            );
+            setPolling(false);
+            setLoading(false);
+          }
+          return;
+        }
+
+        // Poll again
+        pollTimerRef.current = setTimeout(poll, POLL_INTERVAL);
+      } catch (pollErr) {
+        logger.warn('Poll error, retrying:', pollErr?.message);
+        if (Date.now() - startTime < POLL_TIMEOUT && mountedRef.current) {
+          pollTimerRef.current = setTimeout(poll, POLL_INTERVAL);
+        } else if (mountedRef.current) {
+          setError(
+            'Unable to confirm your order status. Please check your orders page. ' +
+            'Payment ID: ' + pid
+          );
+          setPolling(false);
+          setLoading(false);
+        }
+      }
+    };
+
+    poll();
+  }, [clearCart]);
+
+  // Main effect: register payment then poll
   useEffect(() => {
     if (authLoading || !isAuthenticated) return;
 
@@ -66,49 +145,32 @@ export default function CheckoutConfirmPage() {
       return;
     }
 
-    createOrder();
+    registerAndPoll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, isAuthenticated]);
 
-  const createOrder = async () => {
-    // Prevent concurrent order creation calls
-    if (isCreatingRef.current) {
-      logger.warn('Order creation already in progress - ignoring duplicate call');
-      return;
-    }
-
-    isCreatingRef.current = true;
+  const registerAndPoll = async () => {
+    if (isRegisteringRef.current) return;
+    isRegisteringRef.current = true;
 
     try {
       setLoading(true);
       setError(null);
 
       const addressId = sessionStorage.getItem('checkout_address_id');
-
-      // Read payment params from sessionStorage (stored on mount, survives login redirect)
-      const paymentId = sessionStorage.getItem('payment_id');           // pay_xxx
-      const razorpayOrderId = sessionStorage.getItem('razorpay_order_id'); // order_xxx
-      const paymentSignature = sessionStorage.getItem('payment_signature'); // HMAC sig
+      const txnId = sessionStorage.getItem('payment_id');
+      const razorpayOrderId = sessionStorage.getItem('razorpay_order_id');
+      const paymentSignature = sessionStorage.getItem('payment_signature');
       const qrCodeId = sessionStorage.getItem('qr_code_id');
 
-      // Idempotency guard: prevent double-order on page refresh
-      const alreadyCreated = sessionStorage.getItem('order_created');
-      if (alreadyCreated && alreadyCreated !== 'error') {
-        try {
-          const existing = await ordersApi.getById(parseInt(alreadyCreated));
-          if (existing) setOrder(existing.order || existing);
-        } catch (_) { /* non-fatal */ }
-        setLoading(false);
-        return;
-      }
-
+      // Validate we have enough info
       if (!addressId) {
         setError('Missing delivery address. Please start checkout again.');
         setTimeout(() => router.push('/checkout'), 3000);
         return;
       }
 
-      if (!qrCodeId && (!paymentId || !razorpayOrderId || !paymentSignature)) {
+      if (!qrCodeId && (!txnId || !razorpayOrderId || !paymentSignature)) {
         setError(
           'Payment information missing. For card/UPI checkout we need payment id, order id, and signature. Please complete payment again.',
         );
@@ -116,73 +178,83 @@ export default function CheckoutConfirmPage() {
         return;
       }
 
-      const orderPayload = {
+      const payload = {
         address_id: parseInt(addressId),
         payment_method: 'razorpay',
-        transaction_id: paymentId || undefined,
+        transaction_id: txnId || undefined,
         razorpay_order_id: razorpayOrderId || undefined,
         razorpay_signature: paymentSignature || undefined,
-        pending_order_id: sessionStorage.getItem('pending_order_id') ? parseInt(sessionStorage.getItem('pending_order_id')) : undefined,
+        pending_order_id: sessionStorage.getItem('pending_order_id')
+          ? parseInt(sessionStorage.getItem('pending_order_id'))
+          : undefined,
       };
-
-      if (qrCodeId) orderPayload.qr_code_id = qrCodeId;
+      if (qrCodeId) payload.qr_code_id = qrCodeId;
 
       logger.info(
-        `Creating order: payment_method=razorpay transaction_id=${paymentId || 'N/A'} ` +
+        `Registering payment: transaction_id=${txnId || 'N/A'} ` +
         `razorpay_order_id=${razorpayOrderId || 'N/A'} qr_code_id=${qrCodeId || 'N/A'}`
       );
 
-      // Create order — backend verifies payment before recording
-      const orderData = await ordersApi.create(orderPayload);
+      // ── STEP 1: Register the payment (signature verify + cart snapshot) ──
+      const result = await ordersApi.registerPayment(payload);
+      logger.info('Payment registration result:', result);
 
-      const createdOrder = orderData.order || orderData;
-      setOrder(createdOrder);
-
-      // Mark order as created to prevent double-order on refresh
-      sessionStorage.setItem('order_created', createdOrder?.id || 'done');
-
-      // Clear cart and session
-      try {
-        await clearCart();
-      } catch (cartErr) {
-        logger.warn('Failed to clear cart after order creation:', cartErr.message);
+      // Check if order already existed (webhook processed first)
+      if (result?.status === 'success' && result?.order) {
+        const existingOrder = result.order;
+        setOrder(existingOrder);
+        setLoading(false);
+        sessionStorage.setItem('order_created', existingOrder?.id || 'done');
+        try { await clearCart(); } catch (e) { /* non-fatal */ }
+        sessionStorage.removeItem('checkout_address_id');
+        sessionStorage.removeItem('payment_id');
+        sessionStorage.removeItem('razorpay_order_id');
+        sessionStorage.removeItem('payment_signature');
+        sessionStorage.removeItem('qr_code_id');
+        sessionStorage.removeItem('pending_order_id');
+        return;
       }
-      sessionStorage.removeItem('checkout_address_id');
-      sessionStorage.removeItem('payment_id');
-      sessionStorage.removeItem('razorpay_order_id');
-      sessionStorage.removeItem('payment_signature');
-      sessionStorage.removeItem('qr_code_id');
-      sessionStorage.removeItem('pending_order_id');
+
+      // ── STEP 2: Payment registered — start polling for order ──
+      const pid = result?.payment_id || txnId;
+      if (!pid) {
+        setError('Payment registration succeeded but no payment ID was returned.');
+        setLoading(false);
+        return;
+      }
+
+      setPaymentId(pid);
+      setPaymentRegistered(true);
+      setPolling(true);
+
+      // Start polling
+      pollForOrder(pid);
+
     } catch (err) {
-      logger.error('Error creating order:', err);
-      // Clear the idempotency guard so the user can retry
+      logger.error('Error registering payment:', err);
       sessionStorage.removeItem('order_created');
-      
+
       const detail = err?.response?.data?.detail || err?.data?.detail || err?.message || '';
-      const paymentId = sessionStorage.getItem('payment_id') || 'N/A';
-      
-      // ✅ IMPROVED: Better error messages with payment ID for support reference
+      const pid = sessionStorage.getItem('payment_id') || 'N/A';
+
       if (detail.toLowerCase().includes('stock') || detail.toLowerCase().includes('inventory') || detail.toLowerCase().includes('unavailable')) {
-        setError('Sorry, one or more items in your order are now out of stock. Your payment was successful but order could not be created. Please contact support with Payment ID: ' + paymentId);
+        setError('Sorry, one or more items in your order are now out of stock. Your payment was successful but order could not be created. Please contact support with Payment ID: ' + pid);
       } else if (detail.toLowerCase().includes('payment') || detail.toLowerCase().includes('signature') || detail.toLowerCase().includes('verification')) {
-        setError('Payment verification failed. If money was deducted, please contact support with Payment ID: ' + paymentId + '. We will recover your order.');
+        setError('Payment verification failed. If money was deducted, please contact support with Payment ID: ' + pid + '. We will recover your order.');
       } else if (detail.toLowerCase().includes('cart')) {
-        setError('Order created but cart could not be cleared. Please refresh the page. Your order is confirmed.');
+        setError('Cart issue. Please try checkout again or contact support.');
       } else if (detail.toLowerCase().includes('address')) {
         setError('Address issue. Please try checkout again or contact support.');
       } else {
         setError(
-          'Order creation failed. Payment ID: ' + paymentId + 
+          'Payment registration failed. Payment ID: ' + pid +
           '. If money was deducted, contact support at support@aaryaclothing.com with this Payment ID.'
         );
       }
-      
-      // Don't clear payment params on error - user might need them for support
-      // Only clear address
       sessionStorage.removeItem('checkout_address_id');
-    } finally {
-      isCreatingRef.current = false;
       setLoading(false);
+    } finally {
+      isRegisteringRef.current = false;
     }
   };
 
@@ -195,14 +267,75 @@ export default function CheckoutConfirmPage() {
     }).format(amount || 0);
   };
 
-  if (loading) {
+  // Show polling / processing state
+  if (loading && polling) {
     return (
-      <div className="flex items-center justify-center py-16">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#B76E79]"></div>
+      <div className="flex flex-col items-center justify-center py-16 space-y-4">
+        <Loader2 className="w-12 h-12 text-[#B76E79] animate-spin" />
+        <p className="text-[#EAE0D5]/70 text-lg">Confirming your payment and creating order...</p>
+        <p className="text-[#EAE0D5]/50 text-sm">This should take just a few seconds</p>
       </div>
     );
   }
 
+  if (loading && paymentRegistered && !order) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 space-y-4">
+        <div className="w-16 h-16 rounded-full bg-[#7A2F57]/30 flex items-center justify-center">
+          <Clock className="w-8 h-8 text-[#B76E79] animate-pulse" />
+        </div>
+        <h3 className="text-lg font-semibold text-[#F2C29A]">Payment Confirmed!</h3>
+        <p className="text-[#EAE0D5]/70 text-center max-w-md">
+          Your payment was successful. We are now creating your order — this usually takes a few seconds.
+        </p>
+        <div className="w-8 h-8 border-2 border-[#B76E79] border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  // Show loading spinner
+  if (loading && !paymentRegistered) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#B76E79]" />
+      </div>
+    );
+  }
+
+  // Show error with retry
+  if (error && !order) {
+    return (
+      <div className="space-y-6">
+        <div className="p-8 bg-[#0B0608]/40 backdrop-blur-md border border-red-500/20 rounded-2xl text-center">
+          <div className="w-20 h-20 mx-auto mb-6 bg-red-500/20 rounded-full flex items-center justify-center">
+            <AlertCircle className="w-10 h-10 text-red-400" />
+          </div>
+          <h2 className="text-xl font-bold text-red-400 mb-2">Something went wrong</h2>
+          <p className="text-[#EAE0D5]/70 mb-4">{error}</p>
+          <button
+            onClick={() => {
+              setError(null);
+              setLoading(true);
+              registerAndPoll();
+            }}
+            className="px-6 py-2 bg-gradient-to-r from-[#7A2F57] to-[#B76E79] text-white rounded-xl hover:opacity-90 transition-opacity"
+          >
+            Try Again
+          </button>
+        </div>
+        <div className="p-4 bg-[#7A2F57]/10 border border-[#B76E79]/10 rounded-xl text-center">
+          <p className="text-sm text-[#EAE0D5]/70">
+            If the problem persists, contact us at{' '}
+            <a href="mailto:support@aaryaclothing.com" className="text-[#B76E79] hover:text-[#F2C29A]">
+              support@aaryaclothing.com
+            </a>
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Order confirmed — show success page ──
   return (
     <div className="space-y-6">
       {/* Success Message */}
@@ -335,7 +468,7 @@ export default function CheckoutConfirmPage() {
             ))}
           </div>
 
-          {/* Cost Breakdown - Simplified */}
+          {/* Cost Breakdown */}
           <div className="space-y-2 pt-4 border-t border-[#B76E79]/10 text-sm">
             <div className="flex justify-between pt-3 border-t border-[#B76E79]/10 text-base font-bold">
               <span className="text-[#F2C29A]">Total Paid</span>

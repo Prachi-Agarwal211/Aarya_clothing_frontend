@@ -9,11 +9,14 @@ from decimal import Decimal
 from datetime import datetime
 from time import monotonic
 import logging
+import uuid
+import time as _time
 
 from shared.time_utils import ist_naive, now_ist
 from shared.storage.utils import get_r2_public_url
 
 from core.config import settings
+from core.redis_client import redis_client
 from models.order import Order, OrderItem, OrderStatus
 from models.pending_order import PendingOrder
 from models.user import User
@@ -21,7 +24,6 @@ from models.product import Product
 from models.inventory import Inventory
 from models.product_variant import ProductVariant
 from models.address import Address
-from models.user import User
 from service.inventory_service import InventoryService
 from service.cart_service import CartService
 from service.customer_activity_logger import log_customer_activity
@@ -29,6 +31,149 @@ from service.email_outbox_service import EmailOutboxService
 from schemas.order import OrderCreate, OrderUpdate
 
 logger = logging.getLogger(__name__)
+
+
+# ==================== Distributed Lock for Order Creation ====================
+
+_ORDER_LOCK_PREFIX = "order_lock:"
+_ORDER_LOCK_TTL = 15  # seconds
+_ORDER_LOCK_RETRY_INTERVAL = 0.1  # 100ms
+_ORDER_LOCK_TIMEOUT = 10.0  # max wait seconds
+
+
+def _acquire_order_lock(lock_value: str, timeout: float = _ORDER_LOCK_TIMEOUT) -> Optional[str]:
+    """
+    Acquire a distributed Redis lock for order creation by payment_id.
+
+    Uses SET NX EX to atomically create the lock with a TTL.
+    Retries every 100ms until timeout (default 10s).
+
+    Returns:
+        Lock token (UUID string) if acquired, None if timed out.
+    """
+    if not lock_value:
+        return None
+    lock_token = str(uuid.uuid4())
+    lock_key = f"{_ORDER_LOCK_PREFIX}{lock_value}"
+    deadline = _time.monotonic() + timeout
+    rc = getattr(redis_client, "client", None)
+    if rc is None:
+        return lock_token  # No Redis — degraded mode, allow through
+    while _time.monotonic() < deadline:
+        acquired = rc.set(lock_key, lock_token, nx=True, ex=_ORDER_LOCK_TTL)
+        if acquired:
+            return lock_token
+        _time.sleep(_ORDER_LOCK_RETRY_INTERVAL)
+    return None
+
+
+def _release_order_lock(lock_value: str, lock_token: Optional[str]):
+    """Release distributed order lock atomically via Lua script."""
+    if not lock_token or not lock_value:
+        return
+    lock_key = f"{_ORDER_LOCK_PREFIX}{lock_value}"
+    rc = getattr(redis_client, "client", None)
+    if rc is None:
+        return
+    script = """
+    if redis.call('GET', KEYS[1]) == ARGV[1] then
+        return redis.call('DEL', KEYS[1])
+    else
+        return 0
+    end
+    """
+    try:
+        rc.eval(script, 1, lock_key, lock_token)
+    except Exception as e:
+        logger.warning(f"Order lock release failed for {lock_value}: {e}")
+
+
+def _find_existing_order(
+    db: Session,
+    user_id: int,
+    transaction_id: Optional[str] = None,
+    razorpay_order_id: Optional[str] = None,
+    pending_order_id: Optional[int] = None,
+    qr_code_id: Optional[str] = None,
+) -> Optional[Order]:
+    """
+    Idempotency check — find existing order by any of the known identifiers.
+
+    Checks in order of specificity:
+    1. transaction_id + user_id (most reliable — UniqueConstraint enforced)
+    2. razorpay_order_id + user_id (webhook path may have different transaction_id)
+    3. pending_order_id (recovery path)
+    4. razorpay_payment_id + user_id (QR-based fallback, within 5 min window)
+
+    This is called under a distributed Redis lock, so concurrent calls from
+    the frontend and webhook paths cannot both miss.
+    """
+    from datetime import timedelta
+    from datetime import timezone as dt_tz
+    from sqlalchemy import or_
+
+    try:
+        conditions = []
+
+        # 1. By transaction_id (pay_xxx — most common)
+        if transaction_id:
+            conditions.append(
+                (Order.transaction_id == transaction_id)
+                & (Order.user_id == user_id)
+            )
+
+        # 2. By razorpay_order_id (order_xxx — webhook path recovery)
+        if razorpay_order_id:
+            conditions.append(
+                (Order.razorpay_order_id == razorpay_order_id)
+                & (Order.user_id == user_id)
+            )
+
+        # 3. By pending_order_id (links order to the pending snapshot)
+        if pending_order_id:
+            conditions.append(Order.pending_order_id == pending_order_id)
+
+        # If any conditions exist, try to find a match
+        if conditions:
+            combined = conditions[0]
+            for c in conditions[1:]:
+                combined = combined | c
+
+            existing = (
+                db.query(Order)
+                .filter(combined)
+                .with_for_update(nowait=True)
+                .order_by(Order.created_at.desc())
+                .first()
+            )
+            if existing:
+                return existing
+
+        # 4. QR fallback — check by razorpay_payment_id within 5 min
+        if qr_code_id:
+            qr_existing = (
+                db.query(Order)
+                .filter(
+                    Order.razorpay_payment_id.isnot(None),
+                    Order.razorpay_payment_id != "",
+                    Order.user_id == user_id,
+                )
+                .order_by(Order.created_at.desc())
+                .first()
+            )
+            if qr_existing:
+                now_naive = now_ist().replace(tzinfo=None)
+                age = now_naive - qr_existing.created_at
+                if age <= timedelta(minutes=5):
+                    return qr_existing
+
+    except OperationalError:
+        db.rollback()
+    except Exception as e:
+        logger.warning(f"_find_existing_order error: {e}")
+        db.rollback()
+
+    return None
 
 
 def sync_invoice_sequence(db: Session) -> None:
@@ -183,44 +328,97 @@ class OrderService:
         transaction_id: str,
         payment_method: str = "razorpay",
     ) -> Order:
-        """Create order from a pending order snapshot (webhook recovery)."""
-        pending = self.db.query(PendingOrder).filter(PendingOrder.id == pending_id).first()
-        if not pending:
-            raise ValueError(f"Pending order {pending_id} not found")
+        """Create order from a pending order snapshot (webhook recovery).
 
-        # Double check idempotency
-        existing = (
-            self.db.query(Order)
-            .filter(Order.pending_order_id == pending_id)
-            .first()
-        )
-        if existing:
-            logger.info(f"Order already exists for pending_id {pending_id}: {existing.id}")
-            return existing
+        Uses distributed Redis lock on the payment_id to prevent race with
+        the frontend order creation path (create_order). On IntegrityError
+        from concurrent duplicate, falls back to finding the existing order.
+        """
+        # ── DISTRIBUTED LOCK ──
+        lock_value = transaction_id
+        lock_token = _acquire_order_lock(lock_value)
+        if not lock_token:
+            raise ValueError(f"Could not acquire lock for pending order {pending_id}")
 
-        order = self._create_order_from_snapshot(
-            user_id=pending.user_id,
-            cart_items=pending.cart_snapshot,
-            shipping_address=pending.shipping_address,
-            total_amount=pending.total_amount,
-            subtotal=pending.subtotal,
-            payment_method=payment_method,
-            transaction_id=transaction_id,
-            razorpay_order_id=pending.razorpay_order_id,
-            pending_order_id=pending.id,
-            discount_applied=pending.discount_applied,
-            shipping_cost=pending.shipping_cost,
-            order_notes=pending.order_notes,
-        )
+        try:
+            pending = self.db.query(PendingOrder).filter(PendingOrder.id == pending_id).first()
+            if not pending:
+                raise ValueError(f"Pending order {pending_id} not found")
 
-        # Update pending status
-        pending.status = "order_created"
-        pending.order_id = order.id
-        pending.transaction_id = transaction_id
-        pending.order_created_at = now_ist()
-        self.db.commit()
+            # Double check idempotency under lock
+            existing = (
+                self.db.query(Order)
+                .filter(Order.pending_order_id == pending_id)
+                .first()
+            )
+            if existing:
+                logger.info(f"Order already exists for pending_id {pending_id}: {existing.id}")
+                return existing
 
-        return order
+            # Also check by transaction_id (race from frontend path)
+            existing_by_txn = (
+                self.db.query(Order)
+                .filter(
+                    Order.transaction_id == transaction_id,
+                    Order.user_id == pending.user_id,
+                )
+                .first()
+            )
+            if existing_by_txn:
+                logger.info(
+                    f"Order already exists for transaction {transaction_id} "
+                    f"(pending_id={pending_id}): {existing_by_txn.id}"
+                )
+                # Link pending order to existing order
+                pending.status = "order_created"
+                pending.order_id = existing_by_txn.id
+                pending.transaction_id = transaction_id
+                pending.order_created_at = now_ist()
+                self.db.commit()
+                return existing_by_txn
+
+            order = self._create_order_from_snapshot(
+                user_id=pending.user_id,
+                cart_items=pending.cart_snapshot,
+                shipping_address=pending.shipping_address,
+                total_amount=pending.total_amount,
+                subtotal=pending.subtotal,
+                payment_method=payment_method,
+                transaction_id=transaction_id,
+                razorpay_order_id=pending.razorpay_order_id,
+                pending_order_id=pending.id,
+                discount_applied=pending.discount_applied,
+                shipping_cost=pending.shipping_cost,
+                order_notes=pending.order_notes,
+            )
+
+            # Update pending status
+            pending.status = "order_created"
+            pending.order_id = order.id
+            pending.transaction_id = transaction_id
+            pending.order_created_at = now_ist()
+            self.db.commit()
+
+            return order
+
+        except IntegrityError as ie:
+            self.db.rollback()
+            logger.warning(
+                f"PENDING_ORDER_RACE_RECOVER: pending_id={pending_id} "
+                f"transaction={transaction_id} {ie}"
+            )
+            ordered = (
+                self.db.query(Order)
+                .filter(
+                    Order.transaction_id == transaction_id,
+                )
+                .first()
+            )
+            if ordered:
+                return ordered
+            raise ValueError(f"Duplicate order detected for pending_id {pending_id}, contact support")
+        finally:
+            _release_order_lock(lock_value, lock_token)
 
     def get_user_orders(
         self,
@@ -266,25 +464,66 @@ class OrderService:
 
         return query.first()
 
-    def create_order(
+    def register_payment(
         self,
         user_id: int,
-        shipping_address: Optional[str] = None,
+        transaction_id: Optional[str] = None,
+        razorpay_order_id: Optional[str] = None,
+        payment_signature: Optional[str] = None,
         address_id: Optional[int] = None,
         order_notes: Optional[str] = None,
-        transaction_id: Optional[str] = None,
-        payment_method: str = "razorpay",
-        payment_signature: Optional[str] = None,
-        razorpay_order_id: Optional[str] = None,
-        qr_code_id: Optional[str] = None,
-        payment_already_verified: bool = False,
         pending_order_id: Optional[int] = None,
-    ) -> Order:
+        qr_code_id: Optional[str] = None,
+        skip_signature_verification: bool = False,
+    ) -> Dict[str, Any]:
         """
-        Create order from user's cart.
+        Register a successful payment and snapshot the cart for webhook order creation.
+
+        This is the ONLY frontend-facing order creation entry point. It does NOT
+        create the order — it verifies the payment signature, snapshots the cart
+        as a pending_order, and returns. The actual order is created asynchronously
+        by the Razorpay webhook handler (the single source of truth).
+
+        The frontend should poll ``GET /api/v1/orders/by-payment/{transaction_id}``
+        until the order appears.
+
+        Supports two payment methods:
+        1. **Standard Razorpay Checkout** (requires ``transaction_id``, ``razorpay_order_id``,
+           and ``payment_signature`` for HMAC verification).
+        2. **UPI QR Code** (uses ``qr_code_id`` instead — QR payments are verified via
+           webhook polling, not HMAC signature, so signature verification is skipped).
+
+        Args:
+            transaction_id: Razorpay payment ID (pay_xxx) — optional for QR codes
+            razorpay_order_id: Razorpay order ID (order_xxx) — optional for QR codes
+            payment_signature: HMAC signature — optional for QR codes
+            qr_code_id: Razorpay QR code ID (qr_xxx) — for UPI QR code payments
+            skip_signature_verification: When True, skips signature verification.
+                Used by admin recovery path and QR codes.
+
+        Returns:
+            Dict with status, payment_id, and pending_order_id.
         """
-        # Resolve address
-        final_shipping_address = shipping_address
+        is_qr = bool(qr_code_id)
+
+        # 1. Validate inputs
+        if not transaction_id and not is_qr:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Payment ID or QR code ID is required",
+            )
+
+        # QR codes skip signature verification (no HMAC — verified via webhook polling)
+        effective_skip = skip_signature_verification or is_qr
+        if not effective_skip:
+            if not payment_signature or not razorpay_order_id:
+                raise HTTPException(
+                    status_code=status.HTTP_402_PAYMENT_REQUIRED,
+                    detail="Payment signature and Razorpay order ID are required",
+                )
+
+        # 2. Resolve address
+        final_shipping_address = None
         if address_id:
             address = (
                 self.db.query(Address)
@@ -295,8 +534,6 @@ class OrderService:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND, detail="Address not found"
                 )
-
-            # Construct address string
             parts = [
                 address.full_name,
                 address.address_line1,
@@ -305,526 +542,164 @@ class OrderService:
                 f"Phone: {address.phone}",
             ]
             final_shipping_address = ", ".join([p for p in parts if p])
-
         if not final_shipping_address:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Shipping address is required",
             )
 
-        # Get cart
-        cart = self.cart_service.get_cart(user_id)
+        # 3. Check if order already exists (webhook processed it before our call)
+        existing = _find_existing_order(self.db, user_id, transaction_id, razorpay_order_id)
+        if existing:
+            logger.info(
+                f"REGISTER_PAYMENT_ORDER_EXISTS: user={user_id} payment={transaction_id} order={existing.id}"
+            )
+            return {
+                "status": "order_exists",
+                "payment_id": transaction_id,
+                "order_id": existing.id,
+                "order": existing,
+            }
 
+        # 4. Verify Razorpay payment signature (skip if recovery path already did this)
+        if not skip_signature_verification:
+            logger.info(
+                f"PAYMENT_VERIFY_START: user={user_id} payment_id={transaction_id} "
+                f"razorpay_order_id={razorpay_order_id} sig_len={len(payment_signature)}"
+            )
+            try:
+                import httpx as _httpx
+                import os as _os
+
+                payment_service_url = _os.getenv(
+                    "PAYMENT_SERVICE_URL", "http://payment:5003"
+                )
+                resp = _httpx.post(
+                    f"{payment_service_url}/api/v1/payments/razorpay/verify-signature",
+                    json={
+                        "razorpay_order_id": razorpay_order_id,
+                        "razorpay_payment_id": transaction_id,
+                        "razorpay_signature": payment_signature,
+                    },
+                    timeout=5.0,
+                )
+                if resp.status_code != 200:
+                    logger.error(
+                        f"PAYMENT_VERIFY_FAILED: user={user_id} payment_id={transaction_id} "
+                        f"status={resp.status_code} response={resp.text[:200]}"
+                    )
+                    raise HTTPException(
+                        status_code=status.HTTP_402_PAYMENT_REQUIRED,
+                        detail="Payment verification failed — signature invalid",
+                    )
+                logger.info(
+                    f"✓ PAYMENT_VERIFIED: user={user_id} payment_id={transaction_id} "
+                    f"order_id={razorpay_order_id}"
+                )
+            except HTTPException:
+                raise
+            except Exception as _e:
+                logger.error(
+                    f"PAYMENT_VERIFY_ERROR: user={user_id} payment_id={transaction_id} "
+                    f"error={str(_e)}", exc_info=True
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_402_PAYMENT_REQUIRED,
+                    detail="Payment verification unavailable — please contact support",
+                )
+        else:
+            logger.info(
+                f"PAYMENT_VERIFY_SKIPPED: user={user_id} payment_id={transaction_id} "
+                f"— recovery path pre-verified payment"
+            )
+
+
+        # 5. Snapshot cart as pending_order (if not already created by payment service)
+        cart = self.cart_service.get_cart(user_id)
         if not cart.get("items") or len(cart["items"]) == 0:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST, detail="Cart is empty"
             )
 
-        # Verify Razorpay payment before committing the order.
-        # transaction_id = razorpay payment_id (pay_xxx)
-        # razorpay_order_id = razorpay order_id (order_xxx)
-        # payment_signature = HMAC signature from Razorpay handler
-        # qr_code_id = for UPI QR payments (no signature needed, payment already completed)
-        if payment_method == "razorpay":
-            # Recovery / webhook path: payment proven by caller (Razorpay API or prior verify)
-            if payment_already_verified:
-                if not transaction_id:
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail="Payment ID is required",
-                    )
-                logger.info(
-                    "PAYMENT_VERIFY_SKIP: user=%s payment_id=%s (already_verified=True)",
-                    user_id,
-                    transaction_id,
-                )
-            # For QR code payments, payment is already verified via QR status polling
-            # No transaction_id or signature needed — just verify the QR code is paid
-            elif qr_code_id:
-                logger.info(
-                    f"PAYMENT_VERIFY_START (QR): user={user_id} qr_code_id={qr_code_id}"
-                )
-                try:
-                    import httpx as _httpx
-                    import os as _os
+        if pending_order_id:
+            # Pending order was created by payment service during checkout initiation
+            pending = self.db.query(PendingOrder).filter(
+                PendingOrder.id == pending_order_id,
+                PendingOrder.user_id == user_id,
+            ).first()
+            if not pending:
+                logger.warning(f"Pending order {pending_order_id} not found — creating new snapshot")
+                pending = None
+        else:
+            pending = None
 
-                    payment_service_url = _os.getenv(
-                        "PAYMENT_SERVICE_URL", "http://payment:5003"
-                    )
-                    resp = _httpx.post(
-                        f"{payment_service_url}/api/v1/payments/razorpay/qr-status/{qr_code_id}",
-                        timeout=15.0,
-                    )
-                    if resp.status_code != 200:
-                        raise HTTPException(
-                            status_code=status.HTTP_402_PAYMENT_REQUIRED,
-                            detail="QR payment verification failed",
-                        )
-                    qr_data = resp.json()
-                    qr_status = qr_data.get("status", "")
-                    # Razorpay returns "closed" for single-use paid QR codes
-                    if qr_status == "closed":
-                        qr_status = "paid"
-                    if qr_status != "paid":
-                        raise HTTPException(
-                            status_code=status.HTTP_402_PAYMENT_REQUIRED,
-                            detail=f"QR payment not completed. Status: {qr_data.get('status')}",
-                        )
-                    # Store the Razorpay payment_id from QR status for the transaction record
-                    transaction_id = qr_data.get("payment_id") or transaction_id
-                    logger.info(
-                        f"✓ PAYMENT_VERIFIED (QR): user={user_id} payment_id={transaction_id} "
-                        f"qr_code_id={qr_code_id}"
-                    )
-                except HTTPException:
-                    raise
-                except Exception as _e:
-                    logger.error(
-                        f"PAYMENT_VERIFY_ERROR (QR): user={user_id} qr_code_id={qr_code_id} "
-                        f"error={str(_e)}",
-                        exc_info=True,
-                    )
-                    raise HTTPException(
-                        status_code=status.HTTP_402_PAYMENT_REQUIRED,
-                        detail="QR payment verification unavailable — cannot create order",
-                    )
-            else:
-                # Standard Razorpay checkout — verify HMAC signature
-                if not transaction_id:
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail="Payment ID is required for Razorpay orders",
-                    )
-                if not payment_signature or not razorpay_order_id:
-                    raise HTTPException(
-                        status_code=status.HTTP_402_PAYMENT_REQUIRED,
-                        detail="Payment signature and Razorpay order ID are required",
-                    )
+        if not pending:
+            pending = self.create_pending_order(
+                user_id=user_id,
+                cart_snapshot=cart.get("items", []),
+                shipping_address=final_shipping_address,
+                total_amount=Decimal(str(cart.get("total", 0))),
+                subtotal=Decimal(str(cart.get("subtotal", 0))),
+                address_id=address_id,
+                razorpay_order_id=razorpay_order_id,
+                discount_applied=Decimal(str(cart.get("discount_amount", 0))),
+                shipping_cost=Decimal(str(cart.get("shipping", 0))),
+            )
+            pending_order_id = pending.id
+            logger.info(f"REGISTER_PAYMENT_CREATED_PENDING: id={pending.id} user={user_id}")
 
-                logger.info(
-                    f"PAYMENT_VERIFY_START: user={user_id} payment_id={transaction_id} "
-                    f"razorpay_order_id={razorpay_order_id} sig_len={len(payment_signature) if payment_signature else 0}"
-                )
+        # 6. Mark pending order as payment_confirmed
+        pending.status = "payment_confirmed"
+        pending.transaction_id = transaction_id
+        pending.razorpay_order_id = razorpay_order_id
+        self.db.commit()
 
-                try:
-                    import httpx as _httpx
-                    import os as _os
-
-                    payment_service_url = _os.getenv(
-                        "PAYMENT_SERVICE_URL", "http://payment:5003"
-                    )
-                    verify_start = monotonic()
-
-                    resp = _httpx.post(
-                        f"{payment_service_url}/api/v1/payments/razorpay/verify-signature",
-                        json={
-                            "razorpay_order_id": razorpay_order_id,
-                            "razorpay_payment_id": transaction_id,
-                            "razorpay_signature": payment_signature,
-                        },
-                        timeout=5.0,  # Reduced for high concurrency - fast failure
-                    )
-
-                    verify_duration = monotonic() - verify_start
-                    logger.info(
-                        f"PAYMENT_VERIFY_RESPONSE: user={user_id} status={resp.status_code} "
-                        f"duration={verify_duration}s response={resp.text[:200]}"
-                    )
-
-                    if resp.status_code != 200:
-                        logger.error(
-                            f"PAYMENT_VERIFY_FAILED: user={user_id} payment_id={transaction_id} "
-                            f"status={resp.status_code} response={resp.text[:200]}"
-                        )
-                        raise HTTPException(
-                            status_code=status.HTTP_402_PAYMENT_REQUIRED,
-                            detail="Payment verification failed — signature invalid",
-                        )
-
-                    logger.info(
-                        f"✓ PAYMENT_VERIFIED: user={user_id} payment_id={transaction_id} "
-                        f"order_id={razorpay_order_id}"
-                    )
-                except HTTPException:
-                    raise
-                except Exception as _e:
-                    logger.error(
-                        f"PAYMENT_VERIFY_ERROR: user={user_id} payment_id={transaction_id} "
-                        f"error={str(_e)}",
-                        exc_info=True,
-                    )
-                    raise HTTPException(
-                        status_code=status.HTTP_402_PAYMENT_REQUIRED,
-                        detail="Payment verification unavailable — cannot create order",
-                    )
-
-        # Compute stored_transaction_id BEFORE the idempotency check that uses it
-        stored_transaction_id = transaction_id or razorpay_order_id
-
-        # BUG FIX: Check for existing order by qr_code_id or razorpay_payment_id as well.
-        # The primary idempotency check on (transaction_id, user_id) can miss orders
-        # created by the webhook path when the frontend arrives at /checkout/confirm
-        # with a qr_code_id but no transaction_id yet.
-        existing_order = None
+        # Release stock reservations — let the webhook re-deduct
+        # (reservations from cart_service.confirm_cart_for_checkout will be
+        #  automatically released when the cart TTL expires; the webhook
+        #  deducts stock at order-creation time)
         try:
-            # 1. Primary check — by transaction_id (covers normal Razorpay checkout)
-            if stored_transaction_id:
-                existing_order = (
-                    self.db.query(Order)
-                    .filter(
-                        Order.transaction_id == stored_transaction_id,
-                        Order.user_id == user_id,
-                    )
-                    .with_for_update(nowait=True)
-                    .first()
-                )
-            # 2. QR fallback — check by razorpay_payment_id
-            if not existing_order and qr_code_id:
-                existing_order = (
-                    self.db.query(Order)
-                    .filter(
-                        Order.razorpay_payment_id.isnot(None),
-                        Order.razorpay_payment_id != "",
-                        Order.user_id == user_id,
-                    )
-                    .order_by(Order.created_at.desc())
-                    .first()
-                )
-                if existing_order:
-                    # Double-check: same user and recent (within 5 min).
-                    # created_at is naive, now_ist() is aware — make both naive
-                    from datetime import timedelta
-                    from datetime import timezone as dt_tz
-                    now_naive = now_ist().replace(tzinfo=None)
-                    age = now_naive - existing_order.created_at
-                    if age > timedelta(minutes=5):
-                        existing_order = None
-        except OperationalError:
-            self.db.rollback()
-            existing_order = None
-
-        if existing_order:
-            logger.info(
-                f"Duplicate order attempt detected for user {user_id} "
-                f"transaction={stored_transaction_id} qr_code_id={qr_code_id}"
-            )
-            # Return existing order instead of creating duplicate
-            return self.get_order_by_id(existing_order.id)
-
-        # Confirm all reservations are still valid
-        try:
-            self.cart_service.confirm_cart_for_checkout(user_id)
-        except Exception as e:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-
-        # Calculate subtotal from DB prices (never trust cached cart prices)
-        # BATCH FIX: Fetch all products & inventories in 2 queries instead of 2*N
-        product_ids = [ci["product_id"] for ci in cart["items"]]
-        skus = [ci["sku"] for ci in cart["items"] if ci.get("sku")]
-        products_map = {
-            p.id: p
-            for p in self.db.query(Product).filter(Product.id.in_(product_ids)).all()
-        }
-        inventory_map = {}
-        variant_map: Dict[str, ProductVariant] = {}
-        if skus:
-            inventory_map = {
-                inv.sku: inv
-                for inv in self.db.query(Inventory)
-                .filter(Inventory.sku.in_(skus))
-                .all()
-            }
-            # OrderItem.variant_id is a NOT NULL FK to product_variants — look up by SKU
-            # in the canonical variants table so the order_items insert can satisfy the FK.
-            variant_map = {
-                v.sku: v
-                for v in self.db.query(ProductVariant)
-                .filter(ProductVariant.sku.in_(skus))
-                .all()
-            }
-
-        subtotal = Decimal(0)
-        for cart_item in cart["items"]:
-            db_inventory = inventory_map.get(cart_item.get("sku"))
-            db_product = products_map.get(cart_item["product_id"])
-            if not db_product:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Product '{cart_item.get('name', cart_item['product_id'])}' no longer exists",
-                )
-            authoritative_price = Decimal(
-                str(
-                    db_inventory.effective_price
-                    if db_inventory
-                    else float(db_product.base_price)
-                )
-            )
-            subtotal += authoritative_price * cart_item["quantity"]
-
-        # Retrieve cart GST fields (calculated by CartService._recalculate_cart)
-        gst_amount = Decimal(str(cart.get("gst_amount", 0) or 0))
-        cgst_amount = Decimal(str(cart.get("cgst_amount", 0) or 0))
-        sgst_amount = Decimal(str(cart.get("sgst_amount", 0) or 0))
-        igst_amount = Decimal(str(cart.get("igst_amount", 0) or 0))
-        delivery_state = cart.get("delivery_state") or ""
-        customer_gstin = cart.get("customer_gstin") or None
-
-        # Calculate totals including shipping from cart
-        shipping_cost = Decimal(str(cart.get("shipping", 0) or 0))
-        total_amount = subtotal + shipping_cost + gst_amount
-
-        # Generate sequential invoice number: INV-YYYY-NNNNNN
-        # Uses a DB sequence — no mid-transaction commit to avoid gaps
-        from datetime import datetime as _dt
-        from sqlalchemy import text as _text
-
-        year = _dt.now().year
-
-        seq_val = self.db.execute(
-            _text("SELECT nextval('invoice_number_seq')")
-        ).scalar()
-        invoice_number = f"INV-{year}-{seq_val:06d}"
-
-        # All orders start as CONFIRMED immediately.
-        # For Razorpay: payment is verified before reaching this point.
-        initial_status = OrderStatus.CONFIRMED
-
-        # Create order
-        # transaction_id stores the Razorpay payment_id (pay_xxx) — the actual payment identifier.
-        # razorpay_order_id (order_xxx) is used only for verification and not stored separately.
-        # NOTE: stored_transaction_id was already computed above (before idempotency check).
-        order = Order(
-            user_id=user_id,
-            transaction_id=stored_transaction_id,
-            payment_method=payment_method,
-            invoice_number=invoice_number,
-            subtotal=subtotal,
-            shipping_cost=shipping_cost,
-            gst_amount=gst_amount,
-            cgst_amount=cgst_amount,
-            sgst_amount=sgst_amount,
-            igst_amount=igst_amount,
-            place_of_supply=delivery_state,
-            customer_gstin=customer_gstin,
-            total_amount=total_amount,
-            status=initial_status,
-            shipping_address=final_shipping_address,
-            order_notes=order_notes,
-            pending_order_id=pending_order_id,
-            # Razorpay payment details
-            razorpay_order_id=razorpay_order_id,
-            razorpay_payment_id=transaction_id
-            if payment_method == "razorpay"
-            else None,
-        )
-
-        self.db.add(order)
-        self.db.flush()  # Get order ID
-
-        # Create order items — reuse already-fetched maps (no additional DB queries)
-        for cart_item in cart["items"]:
-            product = products_map.get(cart_item["product_id"])
-            inventory = inventory_map.get(cart_item.get("sku"))
-            variant = variant_map.get(cart_item.get("sku"))
-
-            if not variant:
-                # Cannot create an order_item without a product_variants FK.
-                self.db.rollback()
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=(
-                        f"Variant for SKU '{cart_item.get('sku')}' "
-                        f"({cart_item.get('name')}) is no longer available."
-                    ),
-                )
-
-            unit_price = Decimal(str(cart_item["price"]))
-            qty = int(cart_item["quantity"])
-            line_total = unit_price * qty
-
-            # Resolve image: use cart item's image (already full URL from product list) or variant's image.
-            # Ensure we store a full R2 CDN URL for frontend display.
-            raw_image = cart_item.get("image") or variant.image_url
-            full_image = get_r2_public_url(raw_image) if raw_image else None
-
-            order_item = OrderItem(
-                order_id=order.id,
-                product_id=cart_item["product_id"],
-                variant_id=variant.id,
-                product_name=cart_item["name"],
-                sku=cart_item.get("sku") or variant.sku,
-                size=variant.size or (inventory.size if inventory else None),
-                color=variant.color or (inventory.color if inventory else None),
-                color_hex=getattr(variant, 'color_hex', None) or (getattr(inventory, 'color_hex', None) if inventory else None),
-                image_url=full_image,
-                quantity=qty,
-                unit_price=unit_price,
-                line_total=line_total,
-            )
-
-            self.db.add(order_item)
-
-            # SIMPLE: Deduct stock atomically - no reservations needed
-            if cart_item.get("sku"):
-                try:
-                    self.inventory_service.deduct_stock(
-                        sku=cart_item["sku"],
-                        quantity=cart_item["quantity"],
-                        order_id=order.id,
-                    )
-                except Exception as e:
-                    # If deduction fails, rollback the entire order
-                    self.db.rollback()
-                    logger.error(f"Failed to deduct stock for {cart_item['sku']}: {e}")
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail=f"Failed to process stock for {cart_item.get('name', cart_item['sku'])}. Please try again.",
-                    )
-
-        # Commit everything atomically: order, order_items, stock deductions.
-        # IntegrityError: concurrent duplicate submit with same (user_id, transaction_id) —
-        # return the other transaction's order (idempotent success).
-        try:
-            self.db.commit()
-            self.db.refresh(order)
-        except IntegrityError as ie:
-            self.db.rollback()
-            logger.warning(
-                f"ORDER_CREATE_RACE_RECOVER: user={user_id} transaction={stored_transaction_id} {ie}"
-            )
-            dup = (
-                self.db.query(Order)
-                .filter(
-                    Order.transaction_id == stored_transaction_id,
-                    Order.user_id == user_id,
-                )
-                .first()
-            )
-            if dup:
-                return self.get_order_by_id(dup.id)
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Order could not be placed due to a conflict. Please check your orders or retry.",
-            )
-
-        # CRITICAL: Create payment transaction record for audit trail and webhook tracking
-        # This ensures we have a complete payment history even if webhooks fail
-        if payment_method == "razorpay" and transaction_id:
-            try:
-                from sqlalchemy import text as _text
-
-                logger.info(
-                    f"PAYMENT_TRANSACTION_CREATE: order={order.id} user={user_id} "
-                    f"payment_id={transaction_id} order_id={razorpay_order_id}"
-                )
-
-                # Insert payment transaction record
-                self.db.execute(
-                    _text("""
-                        INSERT INTO payment_transactions (
-                            order_id, user_id, amount, currency, payment_method,
-                            razorpay_order_id, razorpay_payment_id, razorpay_signature,
-                            status, created_at, completed_at, transaction_id
-                        ) VALUES (
-                            :order_id, :user_id, :amount, 'INR', 'razorpay',
-                            :razorpay_order_id, :razorpay_payment_id, :signature,
-                            'completed', NOW(), NOW(), :transaction_id
-                        )
-                        ON CONFLICT (transaction_id) DO NOTHING
-                    """),
-                    {
-                        "order_id": order.id,
-                        "user_id": user_id,
-                        "amount": order.total_amount,
-                        "razorpay_order_id": razorpay_order_id or "",
-                        "razorpay_payment_id": transaction_id,
-                        "signature": payment_signature or "",
-                        "transaction_id": transaction_id,
-                    },
-                )
-                self.db.commit()
-                logger.info(
-                    f"✓ PAYMENT_TRANSACTION_CREATED: order={order.id} "
-                    f"transaction_id={transaction_id}"
-                )
-            except Exception as payment_err:
-                # Log error but don't fail the order - payment transaction is secondary
-                logger.error(
-                    f"⚠ FAILED to create payment transaction for order {order.id}: {payment_err}"
-                )
-                # Don't rollback - order is already committed successfully
-
-        # For QR payments, the transaction was already created in the payment service
-        # with order_id=NULL. Update it with the order_id and mark as completed.
-        if qr_code_id:
-            try:
-                from sqlalchemy import text as _text
-
-                logger.info(
-                    f"PAYMENT_TRANSACTION_UPDATE (QR): order={order.id} user={user_id} "
-                    f"qr_code_id={qr_code_id} transaction_id={transaction_id}"
-                )
-
-                self.db.execute(
-                    _text("""
-                        UPDATE payment_transactions
-                        SET order_id = :order_id,
-                            status = 'completed',
-                            completed_at = NOW()
-                        WHERE razorpay_qr_code_id = :qr_code_id
-                          AND status = 'pending'
-                    """),
-                    {
-                        "order_id": order.id,
-                        "qr_code_id": qr_code_id,
-                    },
-                )
-                self.db.commit()
-                logger.info(
-                    f"✓ PAYMENT_TRANSACTION_UPDATED (QR): order={order.id} "
-                    f"qr_code_id={qr_code_id}"
-                )
-            except Exception as payment_err:
-                logger.error(
-                    f"⚠ FAILED to update QR payment transaction for order {order.id}: {payment_err}"
-                )
-                # Don't fail the order - transaction update is secondary
-
-        # AFTER commit: Clear Redis cart (best effort, non-critical)
-        # Order is already committed with reservations confirmed
-        try:
-            self.cart_service.clear_cart(user_id, release_reservations=False)
-            logger.info(f"✓ Cart cleared for user {user_id} after order {order.id}")
+            self.cart_service.clear_cart(user_id, release_reservations=True)
+            logger.info(f"✓ Cart cleared after payment registration for user {user_id}")
         except Exception as cart_err:
-            logger.error(
-                f"⚠ FAILED to clear cart for user {user_id} after order {order.id}: {cart_err}"
-            )
-            # Add note to order that cart clear failed (for debugging)
-            if order.order_notes:
-                order.order_notes += f" [Cart clear failed: {str(cart_err)}]"
-            else:
-                order.order_notes = f"Cart clear failed: {str(cart_err)}"
-            self.db.commit()
-            # Don't re-throw - order is already committed with reservations confirmed
+            logger.warning(f"Failed to clear cart after payment registration: {cart_err}")
 
-        # Enqueue order confirmation email (fire-and-forget, async outbox)
-        try:
-            user = self.db.query(User).filter(User.id == user_id).first()
-            if user and user.email:
-                self.email_service.enqueue_order_confirmation(
-                    order.id, user_id, order, user
-                )
-            else:
-                logger.warning(
-                    f"No email for user {user_id}, skipping order confirmation"
-                )
-        except Exception as e:
-            logger.error(
-                f"Failed to enqueue order confirmation email for order {order.id}: {e}"
-            )
-            # Non-critical - continue
+        logger.info(
+            f"✓ REGISTER_PAYMENT_SUCCESS: user={user_id} payment={transaction_id} "
+            f"pending_id={pending_order_id}"
+        )
+        return {
+            "status": "payment_registered",
+            "payment_id": transaction_id,
+            "pending_order_id": pending_order_id,
+        }
 
-        return order
+    def find_order_by_payment(
+        self,
+        user_id: int,
+        payment_id: str,
+    ) -> Optional[Order]:
+        """
+        Find an order by payment identifier.
+
+        Checks transaction_id, razorpay_payment_id, and razorpay_order_id
+        to cover all identifier placements (standard + QR code payments).
+
+        Called by the frontend polling endpoint after payment registration.
+        """
+        order = (
+            self.db.query(Order)
+            .filter(
+                (Order.transaction_id == payment_id)
+                | (Order.razorpay_payment_id == payment_id)
+                | (Order.razorpay_order_id == payment_id)
+            )
+            .filter(Order.user_id == user_id)
+            .first()
+        )
+        if order:
+            return self.get_order_by_id(order.id)
+        return None
 
     def create_order_from_pending_order(
         self,
@@ -840,6 +715,10 @@ class OrderService:
         This is the critical recovery path: when payment succeeds but the frontend
         never called the normal order creation endpoint. The webhook handler calls
         this method to guarantee order creation.
+
+        Uses distributed Redis lock on payment_id to prevent race with the
+        frontend create_order() path. DB-level IntegrityError at commit time
+        falls back to finding the existing order.
 
         Args:
             pending_order_data: Cart snapshot and order details from pending_orders table
@@ -865,240 +744,241 @@ class OrderService:
         if not lookup_id:
             raise HTTPException(status_code=400, detail="payment_id or razorpay_order_id is required")
 
-        # Idempotency: Check if order already exists for this payment — WITH row lock to prevent races
-        existing = (
-            self.db.query(Order)
-            .filter(Order.transaction_id == lookup_id, Order.user_id == user_id)
-            .with_for_update(nowait=True)
-            .first()
-        )
-        if existing:
-            logger.info(
-                f"Order already exists for payment {lookup_id}, returning existing order {existing.id}"
+        # ── DISTRIBUTED LOCK ──
+        lock_value = payment_id or razorpay_order_id
+        lock_token = _acquire_order_lock(lock_value)
+        if not lock_token:
+            # Lock timed out — try to find existing order
+            dup = _find_existing_order(self.db, user_id, payment_id, razorpay_order_id)
+            if dup:
+                return dup
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Order is being processed from another payment notification.",
             )
-            return existing
 
-        # Also check by razorpay_order_id
-        if razorpay_order_id:
-            existing_by_razorpay = (
+        try:
+            # Idempotency: Check if order already exists for this payment — WITH row lock to prevent races
+            existing = (
                 self.db.query(Order)
-                .filter(
-                    Order.razorpay_order_id == razorpay_order_id,
-                    Order.user_id == user_id,
-                )
+                .filter(Order.transaction_id == lookup_id, Order.user_id == user_id)
                 .with_for_update(nowait=True)
                 .first()
             )
-            if existing_by_razorpay:
+            if existing:
                 logger.info(
-                    f"Order already exists for razorpay_order {razorpay_order_id}, returning {existing_by_razorpay.id}"
+                    f"Order already exists for payment {lookup_id}, returning existing order {existing.id}"
                 )
-                return existing_by_razorpay
+                return existing
 
-        # Extract cart items from pending_order snapshot
-        cart_items = pending_order_data.get(
-            "cart_snapshot", pending_order_data.get("cart_items", [])
-        )
+            # Also check by razorpay_order_id
+            if razorpay_order_id:
+                existing_by_razorpay = (
+                    self.db.query(Order)
+                    .filter(
+                        Order.razorpay_order_id == razorpay_order_id,
+                        Order.user_id == user_id,
+                    )
+                    .with_for_update(nowait=True)
+                    .first()
+                )
+                if existing_by_razorpay:
+                    logger.info(
+                        f"Order already exists for razorpay_order {razorpay_order_id}, returning {existing_by_razorpay.id}"
+                    )
+                    return existing_by_razorpay
 
-        # Extract order data
-        shipping_address = pending_order_data.get("shipping_address")
-
-        subtotal = Decimal(str(pending_order_data.get("subtotal", 0)))
-        shipping_cost = Decimal(str(pending_order_data.get("shipping_cost", 0)))
-        gst_amount = Decimal(str(pending_order_data.get("gst_amount", 0)))
-        cgst_amount = Decimal(str(pending_order_data.get("cgst_amount", 0)))
-        sgst_amount = Decimal(str(pending_order_data.get("sgst_amount", 0)))
-        igst_amount = Decimal(str(pending_order_data.get("igst_amount", 0)))
-        total_amount = Decimal(str(pending_order_data.get("total_amount", 0)))
-        order_notes = pending_order_data.get("order_notes", "")
-        delivery_state = pending_order_data.get("delivery_state", "")
-        customer_gstin = pending_order_data.get("customer_gstin")
-
-        # RECOVERY PATH: If cart was already cleared, create a minimal order
-        # This happens when payment succeeded but order creation failed and cart was cleared
-        created_minimal = False
-        if not cart_items:
-            logger.warning(
-                f"RECOVERY_MINIMAL_ORDER: user={user_id} payment={payment_id} "
-                f"— no cart items available (cart was cleared). Creating minimal order."
+            # Extract cart items from pending_order snapshot
+            cart_items = pending_order_data.get(
+                "cart_snapshot", pending_order_data.get("cart_items", [])
             )
-            cart_items = [
-                {
+
+            # Extract order data
+            shipping_address = pending_order_data.get("shipping_address")
+
+            subtotal = Decimal(str(pending_order_data.get("subtotal", 0)))
+            shipping_cost = Decimal(str(pending_order_data.get("shipping_cost", 0)))
+            gst_amount = Decimal(str(pending_order_data.get("gst_amount", 0)))
+            cgst_amount = Decimal(str(pending_order_data.get("cgst_amount", 0)))
+            sgst_amount = Decimal(str(pending_order_data.get("sgst_amount", 0)))
+            igst_amount = Decimal(str(pending_order_data.get("igst_amount", 0)))
+            total_amount = Decimal(str(pending_order_data.get("total_amount", 0)))
+            order_notes = pending_order_data.get("order_notes", "")
+            delivery_state = pending_order_data.get("delivery_state", "")
+            customer_gstin = pending_order_data.get("customer_gstin")
+
+            # RECOVERY PATH: If cart was already cleared, create a minimal order
+            created_minimal = False
+            if not cart_items:
+                logger.warning(
+                    f"RECOVERY_MINIMAL_ORDER: user={user_id} payment={payment_id} "
+                    f"— no cart items available. Creating minimal order."
+                )
+                cart_items = [{
                     "product_id": None,
                     "name": "Order recovered from payment",
                     "price": float(total_amount),
                     "quantity": 1,
                     "unit_price": float(total_amount),
                     "sku": None,
-                    "size": None,
-                    "color": None,
-                    "hsn_code": None,
-                    "gst_rate": None,
-                }
-            ]
-            created_minimal = True
+                }]
+                created_minimal = True
 
-        if not shipping_address:
-            shipping_address = "Address to be confirmed — contact customer support for delivery details"
-            if not created_minimal:
-                order_notes = f"{order_notes} [ADDRESS MISSING — RECOVERY]".strip()
+            if not shipping_address:
+                shipping_address = "Address to be confirmed — contact customer support for delivery details"
+                if not created_minimal:
+                    order_notes = f"{order_notes} [ADDRESS MISSING — RECOVERY]".strip()
 
-        # Generate invoice number — no setval/commit, just nextval like normal path
-        year = now_ist().year
-        seq_val = self.db.execute(
-            _text("SELECT nextval('invoice_number_seq')")
-        ).scalar()
-        invoice_number = f"INV-{year}-{seq_val:06d}"
+            # Generate invoice number
+            year = now_ist().year
+            seq_val = self.db.execute(
+                _text("SELECT nextval('invoice_number_seq')")
+            ).scalar()
+            invoice_number = f"INV-{year}-{seq_val:06d}"
 
-        # Create the order
-        order = Order(
-            user_id=user_id,
-            transaction_id=payment_id,
-            payment_method=pending_order_data.get("payment_method", "razorpay"),
-            invoice_number=invoice_number,
-            subtotal=subtotal,
-            shipping_cost=shipping_cost,
-            gst_amount=gst_amount,
-            cgst_amount=cgst_amount,
-            sgst_amount=sgst_amount,
-            igst_amount=igst_amount,
-            place_of_supply=delivery_state,
-            customer_gstin=customer_gstin,
-            total_amount=total_amount,
-            status=OrderStatus.CONFIRMED,
-            shipping_address=shipping_address,
-            order_notes=f"{order_notes} [CREATED FROM WEBHOOK/RECOVERY]".strip()
-            if order_notes
-            else "[CREATED FROM WEBHOOK/RECOVERY]",
-            razorpay_order_id=razorpay_order_id,
-            razorpay_payment_id=payment_id,
-        )
-
-        self.db.add(order)
-        self.db.flush()
-
-        # Create order items from cart snapshot
-        for item in cart_items:
-            product_id = item.get("product_id")
-            sku = item.get("sku")
-
-            # Look up variant (inventory) from DB
-            variant = None
-            if sku:
-                variant = self.db.query(Inventory).filter(Inventory.sku == sku).first()
-
-            if not variant:
-                self.db.rollback()
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=(
-                        f"Variant for SKU '{sku}' "
-                        f"({item.get('name', 'Unknown product')}) is no longer available."
-                    ),
-                )
-
-            # Resolve product_id: use provided or fall back to variant's product
-            if not product_id:
-                product_id = variant.product_id
-
-            unit_price = Decimal(str(item.get("unit_price", item.get("price", 0))))
-            qty = int(item.get("quantity", 1))
-            line_total = unit_price * qty
-
-            # Resolve image URL and ensure it's a full R2 CDN URL
-            # Frontend sends 'image_url' in cart_snapshot; also check 'image' for backward compat
-            raw_image = item.get("image_url") or item.get("image") or variant.resolved_image_url or variant.image_url
-            full_image = get_r2_public_url(raw_image) if raw_image else None
-
-            order_item = OrderItem(
-                order_id=order.id,
-                product_id=product_id,
-                variant_id=variant.id,
-                product_name=item.get(
-                    "name", item.get("product_name", "Unknown Product")
-                ),
-                sku=sku,
-                size=item.get("size") or variant.size,
-                color=item.get("color") or variant.color,
-                color_hex=item.get("color_hex") or getattr(variant, 'color_hex', None),
-                image_url=full_image,
-                quantity=qty,
-                unit_price=unit_price,
-                line_total=line_total,
+            # Create the order
+            order = Order(
+                user_id=user_id,
+                transaction_id=payment_id,
+                payment_method=pending_order_data.get("payment_method", "razorpay"),
+                invoice_number=invoice_number,
+                subtotal=subtotal,
+                shipping_cost=shipping_cost,
+                gst_amount=gst_amount,
+                cgst_amount=cgst_amount,
+                sgst_amount=sgst_amount,
+                igst_amount=igst_amount,
+                place_of_supply=delivery_state,
+                customer_gstin=customer_gstin,
+                total_amount=total_amount,
+                status=OrderStatus.CONFIRMED,
+                shipping_address=shipping_address,
+                order_notes=f"{order_notes} [CREATED FROM WEBHOOK/RECOVERY]".strip()
+                if order_notes
+                else "[CREATED FROM WEBHOOK/RECOVERY]",
+                razorpay_order_id=razorpay_order_id,
+                razorpay_payment_id=payment_id,
             )
-            self.db.add(order_item)
 
-            # SIMPLE: Deduct stock atomically - no reservations needed
-            try:
-                self.inventory_service.deduct_stock(
-                    sku=sku, quantity=qty, order_id=order.id
-                )
-            except Exception as e:
-                self.db.rollback()
-                logger.error(
-                    f"Failed to deduct stock for {sku} in webhook recovery: {e}"
-                )
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Failed to process stock for {item.get('name', sku)}. Order cannot be created.",
-                )
+            self.db.add(order)
+            self.db.flush()
 
-        self.db.commit()
-        self.db.refresh(order)
+            # Create order items from cart snapshot
+            for item in cart_items:
+                product_id = item.get("product_id")
+                sku = item.get("sku")
 
-        # Create payment transaction record
-        try:
-            self.db.execute(
-                _text("""
-                    INSERT INTO payment_transactions (
-                        order_id, user_id, amount, currency, payment_method,
-                        razorpay_order_id, razorpay_payment_id, razorpay_signature,
-                        status, created_at, completed_at, transaction_id
-                    ) VALUES (
-                        :order_id, :user_id, :amount, 'INR', 'razorpay',
-                        :razorpay_order_id, :razorpay_payment_id, :signature,
-                        'completed', NOW(), NOW(), :transaction_id
+                variant = None
+                if sku:
+                    variant = self.db.query(Inventory).filter(Inventory.sku == sku).first()
+
+                if not variant:
+                    self.db.rollback()
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Variant for SKU '{sku}' is no longer available.",
                     )
-                    ON CONFLICT (transaction_id) DO NOTHING
-                """),
-                {
-                    "order_id": order.id,
-                    "user_id": user_id,
-                    "amount": order.total_amount,
-                    "razorpay_order_id": razorpay_order_id or "",
-                    "razorpay_payment_id": payment_id,
-                    "signature": payment_signature or "",
-                    "transaction_id": payment_id,
-                },
-            )
-            self.db.commit()
-            logger.info(
-                f"✓ PAYMENT_TRANSACTION_CREATED (webhook): order={order.id} payment={payment_id}"
-            )
-        except Exception as e:
-            logger.error(f"⚠ Failed to create payment transaction (webhook): {e}")
 
-        # Enqueue order confirmation email (fire-and-forget)
-        try:
-            user = self.db.query(User).filter(User.id == user_id).first()
-            if user and user.email:
-                self.email_service.enqueue_order_confirmation(
-                    order.id, user_id, order, user
-                )
-            else:
-                logger.warning(
-                    f"No email for user {user_id}, skipping order confirmation (webhook)"
-                )
-        except Exception as e:
-            logger.error(
-                f"Failed to enqueue webhook order confirmation email for order {order.id}: {e}"
-            )
-            # Non-critical - order already committed
+                if not product_id:
+                    product_id = variant.product_id
 
-        logger.info(
-            f"✓ ORDER CREATED FROM WEBHOOK/RECOVERY: order_id={order.id} user={user_id} payment={payment_id}"
-        )
-        return order
+                unit_price = Decimal(str(item.get("unit_price", item.get("price", 0))))
+                qty = int(item.get("quantity", 1))
+                raw_image = item.get("image_url") or item.get("image") or variant.resolved_image_url or variant.image_url
+                full_image = get_r2_public_url(raw_image) if raw_image else None
+
+                order_item = OrderItem(
+                    order_id=order.id,
+                    product_id=product_id,
+                    variant_id=variant.id,
+                    product_name=item.get("name", "Unknown Product"),
+                    sku=sku,
+                    size=item.get("size") or variant.size,
+                    color=item.get("color") or variant.color,
+                    color_hex=item.get("color_hex") or getattr(variant, 'color_hex', None),
+                    image_url=full_image,
+                    quantity=qty,
+                    unit_price=unit_price,
+                    line_total=unit_price * qty,
+                )
+                self.db.add(order_item)
+
+                try:
+                    self.inventory_service.deduct_stock(sku=sku, quantity=qty, order_id=order.id)
+                except Exception as e:
+                    self.db.rollback()
+                    logger.error(f"Failed to deduct stock for {sku}: {e}")
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"Failed to process stock for {item.get('name', sku)}.",
+                    )
+
+            try:
+                self.db.commit()
+                self.db.refresh(order)
+            except IntegrityError as ie:
+                self.db.rollback()
+                logger.warning(f"WEBHOOK_ORDER_RACE_RECOVER: user={user_id} payment={payment_id} {ie}")
+                dup = _find_existing_order(self.db, user_id, payment_id, razorpay_order_id)
+                if dup:
+                    return dup
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Order already exists for this payment.",
+                )
+
+            # Create payment transaction record (best-effort)
+            try:
+                self.db.execute(
+                    _text("""
+                        INSERT INTO payment_transactions (
+                            order_id, user_id, amount, currency, payment_method,
+                            razorpay_order_id, razorpay_payment_id, razorpay_signature,
+                            status, created_at, completed_at, transaction_id
+                        ) VALUES (
+                            :order_id, :user_id, :amount, 'INR', 'razorpay',
+                            :razorpay_order_id, :razorpay_payment_id, :signature,
+                            'completed', NOW(), NOW(), :transaction_id
+                        )
+                        ON CONFLICT (transaction_id) DO NOTHING
+                    """),
+                    {
+                        "order_id": order.id,
+                        "user_id": user_id,
+                        "amount": order.total_amount,
+                        "razorpay_order_id": razorpay_order_id or "",
+                        "razorpay_payment_id": payment_id,
+                        "signature": payment_signature or "",
+                        "transaction_id": payment_id,
+                    },
+                )
+                self.db.commit()
+            except Exception as e:
+                logger.error(f"⚠ Payment transaction insert failed: {e}")
+
+            # Enqueue order confirmation email (fire-and-forget)
+            try:
+                user = self.db.query(User).filter(User.id == user_id).first()
+                if user and user.email:
+                    self.email_service.enqueue_order_confirmation(order.id, user_id, order, user)
+            except Exception as e:
+                logger.error(f"Failed to enqueue email for order {order.id}: {e}")
+
+            logger.info(f"✓ WEBHOOK ORDER CREATED: order_id={order.id} user={user_id} payment={payment_id}")
+            return order
+
+        except IntegrityError as ie:
+            self.db.rollback()
+            logger.warning(f"WEBHOOK_ORDER_RACE_RECOVER: user={user_id} payment={payment_id} {ie}")
+            dup = _find_existing_order(self.db, user_id, payment_id, razorpay_order_id)
+            if dup:
+                return dup
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Order could not be placed due to a conflict.",
+            )
+        finally:
+            _release_order_lock(lock_value, lock_token)
 
     def update_order_status(
         self,

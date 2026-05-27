@@ -54,6 +54,7 @@ def init_products_index():
             "name",
             "created_at",
             "total_stock",
+            "average_rating",
         ])
 
         # Ranking rules - optimized for e-commerce
@@ -179,6 +180,8 @@ def search_products(
             sort_list = ["name:desc"]
         elif sort_by == "newest":
             sort_list = ["created_at:desc"]
+        elif sort_by == "popular":
+            sort_list = ["average_rating:desc", "created_at:desc"]
 
         search_params = {
             "filter": " AND ".join(filters),
@@ -230,14 +233,15 @@ def sync_all_products(db_session):
                    STRING_AGG(DISTINCT i.sku, ',') as skus,
                    STRING_AGG(DISTINCT i.size, ',') FILTER (WHERE i.size IS NOT NULL AND i.size != '') as sizes,
                    STRING_AGG(DISTINCT i.color, ',') FILTER (WHERE i.color IS NOT NULL AND i.color != '') as colors,
-                   p.material, p.care_instructions
+                   p.material, p.care_instructions,
+                   p.average_rating
             FROM products p
             LEFT JOIN collections c ON p.category_id = c.id
             LEFT JOIN inventory i ON i.product_id = p.id AND i.is_active = true
             WHERE p.is_active = true
             GROUP BY p.id, p.name, p.description,
                      p.base_price, p.mrp, p.slug, p.is_active, p.is_featured,
-                     p.is_new_arrival, p.category_id, p.created_at, c.name, p.material, p.care_instructions
+                     p.is_new_arrival, p.category_id, p.created_at, c.name, p.material, p.care_instructions, p.average_rating
         """)).fetchall()
 
         products = []
@@ -247,9 +251,9 @@ def sync_all_products(db_session):
                 "price": float(r[3]) if r[3] else 0,
                 "mrp": float(r[4]) if r[4] else None, "slug": r[5],
                 "is_active": r[6], "is_featured": r[7], "is_new_arrival": r[8],
-                "category_id": r[9], "created_at": str(r[10]) if r[10] else None,
-                "category_name": r[11],
-                "total_stock": int(r[12]) if r[12] else 0,
+                "category_id": r[9], "created_at": str(r[10]) if r[10] else None,            "category_name": r[11],
+                    "total_stock": int(r[12]) if r[12] else 0,
+                    "average_rating": float(r[19]) if r[19] else 0,
                 "image_url": r[13] or "",
                 "sku": r[14] or "",
                 "sizes": r[15] or "",
@@ -291,6 +295,7 @@ def _format_product(p: Dict[str, Any]) -> Dict[str, Any]:
         "is_new_arrival": p.get("is_new_arrival", False),
         "total_stock": p.get("total_stock", 0),
         "in_stock": (p.get("total_stock", 0) or 0) > 0,
+        "average_rating": float(p.get("average_rating", 0) or 0),
         "image_url": p.get("image_url", "") or p.get("primary_image", ""),
         "category_id": p.get("category_id"),
         "category_name": p.get("category_name", ""),

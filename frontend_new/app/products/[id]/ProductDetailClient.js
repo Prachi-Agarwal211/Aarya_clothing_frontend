@@ -15,6 +15,7 @@ import {
   Star,
   AlertCircle,
   Ruler,
+  ShoppingBag,
 } from 'lucide-react';
 import EnhancedHeader from '@/components/landing/EnhancedHeader';
 import Footer from '@/components/landing/Footer';
@@ -263,9 +264,9 @@ export default function ProductDetailClient({ initialProduct, initialReviews }) 
           </nav>
 
           <div className="grid md:grid-cols-2 gap-8 lg:gap-12">
-            <div className="space-y-4">
+            <div className="space-y-4 w-full min-w-0">
               <div
-                className="relative aspect-[3/4] bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl overflow-hidden"
+                className="relative aspect-[3/4] bg-[#1A1A1A] border border-[#B76E79]/15 rounded-2xl overflow-hidden"
                 onTouchStart={handleImageTouchStart}
                 onTouchEnd={handleImageTouchEnd}
               >
@@ -292,12 +293,12 @@ export default function ProductDetailClient({ initialProduct, initialReviews }) 
               </div>
 
               {product.images?.length > 1 && (
-                <div className="flex gap-3 overflow-x-auto pb-2 scroll-snap-x snap-mandatory">
+                <div className="flex gap-3 overflow-x-auto pb-2 scroll-snap-x snap-mandatory w-full max-w-full">
                   {product.images.map((img, idx) => (
                     <button
                       key={idx}
                       onClick={() => { setSelectedImage(idx); setHeroError(false); }}
-                      className={`relative flex-shrink-0 w-20 h-20 rounded-xl overflow-hidden border-2 transition-all ${selectedImage === idx ? 'border-[#B76E79]' : 'border-[#B76E79]/20'}`}
+                      className={`relative flex-shrink-0 w-20 h-20 bg-[#1A1A1A] rounded-xl overflow-hidden border-2 transition-all ${selectedImage === idx ? 'border-[#B76E79]' : 'border-[#B76E79]/20'}`}
                     >
                       {thumbErrors[idx] ? (
                         <div className="absolute inset-0 flex items-center justify-center bg-[#0B0608]/60 text-[#B76E79]/30">
@@ -345,7 +346,7 @@ export default function ProductDetailClient({ initialProduct, initialReviews }) 
                         key={color.name}
                         onClick={() => colorHasAnyStock(color) && selectColor(color)}
                         disabled={!colorHasAnyStock(color)}
-                        className={`w-10 h-10 rounded-full border-2 transition-all ${normalizeHex(selectedColor?.hex) === normalizeHex(color.hex) ? 'border-[#F2C29A] scale-110 shadow-[0_0_15px_rgba(242,194,154,0.4)]' : 'border-[#B76E79]/20'} ${!colorHasAnyStock(color) ? 'opacity-30' : ''}`}
+                        className={`w-11 h-11 rounded-full border-2 transition-all ${normalizeHex(selectedColor?.hex) === normalizeHex(color.hex) ? 'border-[#F2C29A] scale-110 shadow-[0_0_15px_rgba(242,194,154,0.4)]' : 'border-[#B76E79]/20'} ${!colorHasAnyStock(color) ? 'opacity-30' : ''}`}
                         style={{ backgroundColor: color.hex }}
                       />
                     ))}
@@ -435,7 +436,7 @@ export default function ProductDetailClient({ initialProduct, initialReviews }) 
       </div>
 
       {product && (
-        <div className="fixed inset-x-0 lg:hidden bg-[#0B0608]/95 backdrop-blur-md border-t border-[#B76E79]/15 px-3 py-3 z-[105] flex items-center gap-3" style={{ bottom: 'calc(4rem + env(safe-area-inset-bottom, 0px))' }}>
+        <div className="fixed inset-x-0 lg:hidden bg-[#0B0608]/95 backdrop-blur-md border-t border-[#B76E79]/15 px-3 py-3 z-[99] flex items-center gap-3" style={{ bottom: 'calc(4rem + env(safe-area-inset-bottom, 0px))' }}>
           <div className="flex-1 min-w-0">
             <p className="text-[#F2C29A] font-semibold text-sm line-clamp-1">{product.name}</p>
             <p className="text-[#F2C29A] font-bold">{formatCurrency(product.price)}</p>

@@ -29,11 +29,19 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 def _resolve_user_query(db: Session, identifier: str):
-    """Build a query that matches a user by email, username, or phone."""
+    """Build a query that matches a user by email, username, or phone.
+
+    Phone lookup handles multiple input formats by normalising to E.164
+    before comparing with the stored value.  This way a user who registered
+    with ``+919XXXXXXXXX`` can sign in by typing ``919XXXXXXXXX`` or
+    ``099XXXXXXXXX`` or just the 10-digit number.
+    """
     ident = (identifier or "").strip()
     if not ident:
         return None
-    return (
+
+    # Try exact match first (fast path — email, username, or raw phone)
+    user = (
         db.query(User)
         .filter(
             or_(
@@ -44,6 +52,21 @@ def _resolve_user_query(db: Session, identifier: str):
         )
         .first()
     )
+    if user:
+        return user
+
+    # Fallback: normalise the identifier as a phone number and retry.
+    # This handles format variations (e.g. 9199XXXXXXXX vs +9199XXXXXXXX).
+    from shared.phone_utils import normalize_phone_safe
+    norm_phone = normalize_phone_safe(ident)
+    if norm_phone and norm_phone != ident:
+        return (
+            db.query(User)
+            .filter(User.phone == norm_phone)
+            .first()
+        )
+
+    return None
 
 
 class AuthService:
@@ -174,7 +197,7 @@ class AuthService:
             # Case 1: Already verified/active -> BLOCK (redirect to login)
             if existing.is_active:
                 if existing.email == user_data.email:
-                    raise ValueError("This email is already registered. Please sign in instead.")
+                    raise ValueError("An account with this email already exists. Please sign in instead.")
                 raise ValueError("This username is already taken. Please choose another.")
             
             # Case 2: Unverified -> RESUME FLOW (update and send fresh OTP)
@@ -189,7 +212,7 @@ class AuthService:
                     User.is_active == True
                 ).first()
                 if phone_exists:
-                    raise ValueError("This phone number is already registered with a verified account. Please use a different number.")
+                    raise ValueError("This phone number is already registered with another account. Please use a different number or sign in.")
 
             user.hashed_password = self.get_password_hash(user_data.password)
             user.signup_verification_method = getattr(user_data, "verification_method", "otp_email")
@@ -206,7 +229,7 @@ class AuthService:
                     User.is_active == True
                 ).first()
                 if phone_exists:
-                    raise ValueError("This phone number is already registered with a verified account. Please use a different number.")
+                    raise ValueError("This phone number is already registered with another account. Please use a different number or sign in.")
             
             user = User(
                 email=user_data.email,
@@ -312,13 +335,13 @@ class AuthService:
         """Authenticate using identifier and password."""
         user = _resolve_user_query(self.db, identifier)
         if not user:
-            raise ValueError("Account not found. Please create an account first.")
+            raise ValueError("No account found with this email or phone. Please create an account first — both email and phone number are required.")
 
         if getattr(user, "account_locked_until", None) and user.account_locked_until > ist_naive():
             raise ValueError("Account temporarily locked. Please try again later.")
 
         if not user.is_active:
-            raise ValueError("Account not verified. Please complete your registration verification.")
+            raise ValueError("This account has not been verified yet. Please check your email or phone for the OTP verification code and complete registration.")
 
         if not self.verify_password(password, user.hashed_password):
             user.failed_login_attempts = int(getattr(user, "failed_login_attempts", 0)) + 1
@@ -368,10 +391,10 @@ class AuthService:
         """Send a login OTP."""
         user = _resolve_user_query(self.db, identifier)
         if not user:
-            raise ValueError("Account not found. Please create an account first.")
+            raise ValueError("No account found with this email or phone. Please create an account first — both email and phone number are required.")
         
         if not user.is_active:
-            raise ValueError("Account not verified. Please complete your registration verification.")
+            raise ValueError("This account has not been verified yet. Please check your email or phone for the OTP verification code and complete registration.")
 
         delivery = (otp_type or "EMAIL").upper()
         from service.otp_service import OTPService
@@ -476,7 +499,7 @@ class AuthService:
         """Request password reset via OTP."""
         user = _resolve_user_query(self.db, identifier)
         if not user:
-            raise ValueError("Account not found. Please create an account first.")
+            raise ValueError("No account found with this email or phone. Please create an account first — both email and phone number are required.")
 
         delivery = (otp_type or "EMAIL").upper()
         from service.otp_service import OTPService

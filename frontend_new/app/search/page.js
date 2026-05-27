@@ -1,10 +1,11 @@
 import React, { Suspense } from 'react';
 import SearchClient from './SearchClient';
 import { productsApi, collectionsApi } from '@/lib/customerApi';
-import logger from '@/lib/logger';
 
-// Search results should be dynamic but can be cached for a short period
-export const revalidate = 300; // Cache search results for 5 minutes
+// Force fully dynamic — never statically cache with empty searchParams.
+// ISR caching of a server-computed page without query params will freeze
+// the page in the 'start typing' state and never revalidate for different q.
+export const dynamic = 'force-dynamic';
 
 async function getInitialData(q, pg = 1) {
   if (!q) return { products: [], total: 0, collections: [] };
@@ -12,26 +13,26 @@ async function getInitialData(q, pg = 1) {
   try {
     const PAGE_SIZE = 24;
     const params = {
-      search: q,
-      page: pg,
+      skip: (pg - 1) * PAGE_SIZE,
       limit: PAGE_SIZE,
-      sort: 'created_at',
-      order: 'desc',
+      sort_by: 'newest',
     };
 
     // Parallel fetch for speed
     const [productsRes, collectionsRes] = await Promise.all([
-      productsApi.list(params),
+      productsApi.search(q, params),
       collectionsApi.list()
     ]);
 
-    const products = Array.isArray(productsRes) ? productsRes : (productsRes?.items || productsRes?.products || []);
+    // Search endpoint returns { hits, total, ... }
+    const products = productsRes?.hits || [];
     const collections = Array.isArray(collectionsRes) ? collectionsRes : (collectionsRes?.items || collectionsRes?.collections || []);
     const total = productsRes?.total ?? products.length;
 
     return { products, collections, total };
   } catch (error) {
-    logger.error('Search pre-fetch failed:', error.message);
+    // Direct console.error — logger.error is a no-op in production
+    console.error('Search pre-fetch failed:', error?.message || error);
     return { products: [], collections: [], total: 0 };
   }
 }

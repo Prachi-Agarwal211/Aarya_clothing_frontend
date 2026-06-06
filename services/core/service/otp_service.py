@@ -492,7 +492,7 @@ class OTPService:
         purpose: str,
     ) -> Dict[str, Any]:
         """Actual OTP dispatch logic (synchronous)."""
-        otp_type = (otp_type or "EMAIL").upper()
+        otp_type = otp_type or "EMAIL"  # already uppercased by caller _dispatch_otp
         try:
             if otp_type == "EMAIL":
                 if not email:

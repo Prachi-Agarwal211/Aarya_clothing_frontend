@@ -23,6 +23,10 @@ def task_send_otp_email(email: str, otp_code: str, purpose: str = "verification"
     logger.info(f"[RQ] Sending OTP email to {email} (purpose={purpose})")
     try:
         from service.email_service import email_service
+    except ImportError as e:
+        logger.error(f"[RQ] Cannot import email_service (wrong worker context?): {e}")
+        return False
+    try:
         success = email_service.send_otp_email(email, otp_code, purpose)
         if success:
             logger.info(f"[RQ] OTP email sent to {email}")
@@ -39,6 +43,10 @@ def task_send_otp_sms(phone: str, otp_code: str, purpose: str = "verification"):
     logger.info(f"[RQ] Sending OTP SMS to {phone} (purpose={purpose})")
     try:
         from service.sms_service import SmsService
+    except ImportError as e:
+        logger.error(f"[RQ] Cannot import SmsService (wrong worker context?): {e}")
+        return False
+    try:
         sms = SmsService()
         if not sms.api_key:
             logger.warning("[RQ] SMS service not configured")
@@ -55,6 +63,10 @@ def task_send_otp_whatsapp(phone: str, otp_code: str, purpose: str = "verificati
     logger.info(f"[RQ] Sending OTP WhatsApp to {phone} (purpose={purpose})")
     try:
         from service.whatsapp_service import WhatsAppService
+    except ImportError as e:
+        logger.error(f"[RQ] Cannot import WhatsAppService (wrong worker context?): {e}")
+        return False
+    try:
         wa = WhatsAppService()
         if not wa.api_key or not wa.phone_number_id:
             logger.warning("[RQ] WhatsApp service not configured")

@@ -1,17 +1,19 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import EnhancedHeader from '@/components/landing/EnhancedHeader';
 import HeroSection from '@/components/landing/HeroSection';
 import IntroVideo from '@/components/landing/IntroVideo';
 import NewArrivals from '@/components/landing/NewArrivals';
 import Collections from '@/components/landing/Collections';
-import WholesaleSection from '@/components/landing/WholesaleSection';
-import AboutSection from '@/components/landing/AboutSection';
+import TrustBadges from '@/components/landing/TrustBadges';
 import Footer from '@/components/landing/Footer';
 import { useViewport } from '@/lib/hooks/useViewport';
-import { ShieldCheck, Truck, Lock } from 'lucide-react';
 import { gsap } from '@/lib/gsapConfig';
+
+// Lazy load below-the-fold sections for faster initial render / mobile perf
+const WholesaleSection = lazy(() => import('@/components/landing/WholesaleSection'));
+const AboutSection = lazy(() => import('@/components/landing/AboutSection'));
 
 export default function LandingClient({ landingData }) {
   const [showLanding, setShowLanding] = useState(false);
@@ -39,14 +41,32 @@ export default function LandingClient({ landingData }) {
         const target = document.querySelector(hash);
         if (target) {
           const isMobileView = window.innerWidth < 768;
+          const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
           gsap.to(window, {
             scrollTo: { y: target, offsetY: isMobileView ? 60 : 80 },
-            duration: 1,
-            ease: 'power3.inOut',
+            duration: reduce ? 0.01 : 1,
+            ease: reduce ? 'none' : 'power3.inOut',
           });
         }
       }, 500);
     }
+  }, [showLanding]);
+
+  // Scroll progress indicator — thin gold line that fills as user scrolls
+  useEffect(() => {
+    if (!showLanding) return;
+    const progressBar = document.getElementById('scroll-progress');
+    if (!progressBar) return;
+
+    const onScroll = () => {
+      const scrollTop = window.scrollY;
+      const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+      const progress = docHeight > 0 ? (scrollTop / docHeight) * 100 : 0;
+      progressBar.style.width = `${progress}%`;
+    };
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
   }, [showLanding]);
 
   return (
@@ -56,6 +76,15 @@ export default function LandingClient({ landingData }) {
           <IntroVideo onVideoEnd={handleVideoEnd} />
         </div>
       )}
+
+      {/* Scroll Progress Indicator */}
+      <div className="fixed top-0 left-0 w-full h-[2px] z-[200] bg-transparent">
+        <div
+          id="scroll-progress"
+          className="h-full bg-gradient-to-r from-[#7A2F57] via-[#B76E79] to-[#F2C29A] transition-none"
+          style={{ width: '0%' }}
+        />
+      </div>
 
       <main 
         id="main-content"
@@ -96,46 +125,22 @@ export default function LandingClient({ landingData }) {
             categories={landingData.collections?.categories}
           />
 
-          <WholesaleSection />
+          <Suspense fallback={<div className="h-32" />}>
+            <WholesaleSection />
+          </Suspense>
 
-          <AboutSection
-            id="about"
-            title={landingData.about?.title}
-            story={landingData.about?.story}
-            stats={landingData.about?.stats}
-            images={landingData.about?.images}
-          />
+          <Suspense fallback={<div className="h-64" />}>
+            <AboutSection
+              id="about"
+              title={landingData.about?.title}
+              story={landingData.about?.story}
+              stats={landingData.about?.stats}
+              images={landingData.about?.images}
+            />
+          </Suspense>
 
-          <section className="py-16 sm:py-20 relative z-10">
-            <div className="container mx-auto px-4 sm:px-6">
-              <div className="max-w-4xl mx-auto">
-                <div className="text-center mb-12">
-                  <h2 className="text-2xl sm:text-3xl font-semibold text-[#F2C29A] mb-3" style={{ fontFamily: 'Cinzel, serif' }}>
-                    Our Promise to You
-                  </h2>
-                  <div className="w-16 h-[1px] bg-gradient-to-r from-transparent via-[#F2C29A] to-transparent mx-auto mb-4" />
-                  <p className="text-[#EAE0D5]/60 text-sm sm:text-base">
-                    Shopping should be simple, honest, and stress-free.
-                  </p>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  {[
-                    { Icon: ShieldCheck, title: 'No Hidden Charges', desc: 'The price you see is the price you pay. All taxes and shipping are already included.' },
-                    { Icon: Truck, title: 'Free Shipping', desc: 'All orders ship free across India. No minimum order value, no surprise fees.' },
-                    { Icon: Lock, title: 'Secure Online Payment', desc: 'Pay safely via UPI, cards, or net banking through Razorpay.' },
-                  ].map(({ Icon, title, desc }) => (
-                    <div key={title} className="group relative p-6 rounded-2xl border border-[#B76E79]/20 bg-[#0B0608]/40 text-center backdrop-blur-sm transition-all duration-300 hover:scale-[1.02]">
-                      <div className="inline-flex items-center justify-center w-14 h-14 rounded-xl bg-[#B76E79]/10 border border-[#B76E79]/20 mb-4">
-                        <Icon className="w-7 h-7 text-[#F2C29A]" />
-                      </div>
-                      <h3 className="text-[#EAE0D5] font-semibold mb-2 text-lg">{title}</h3>
-                      <p className="text-[#EAE0D5]/50 text-sm leading-relaxed">{desc}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </section>
+          {/* Trust Badges — extracted to dedicated component with GSAP animations */}
+          <TrustBadges />
 
           <Footer id="footer" />
         </div>

@@ -307,7 +307,7 @@ async def admin_create_user(
     result = db.execute(
         text(
             "INSERT INTO users (email, username, first_name, last_name, full_name, "
-            "phone, hashed_password, role, is_active, is_verified, created_at, "
+            "phone, hashed_password, role, is_active, email_verified, created_at, "
             "updated_at) "
             "VALUES (:email, :username, :fn, :ln, :full, :phone, :pw, :role, "
             "        :active, TRUE, :now, :now) RETURNING id"
@@ -331,7 +331,7 @@ async def admin_create_user(
     return {"id": user_id, "email": email, "role": role}
 
 
-_UPDATABLE_FIELDS = {"first_name", "last_name", "phone", "role", "is_active", "is_verified"}
+_UPDATABLE_FIELDS = {"first_name", "last_name", "phone", "role", "is_active", "email_verified"}
 
 
 @router.patch("/api/v1/admin/users/{user_id}")

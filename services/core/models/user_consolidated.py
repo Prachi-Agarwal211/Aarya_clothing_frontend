@@ -30,13 +30,16 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String(255), unique=True, index=True, nullable=False)
     username = Column(String(50), unique=True, index=True, nullable=False)
-    hashed_password = Column(String(255), nullable=False)
+    # FIXED: hashed_password nullable — OTP-first users may not have a password yet
+    hashed_password = Column(String(255), nullable=True)
     
     # Consolidated fields (previously in user_profiles) - cleaned up
     first_name = Column(String(50), nullable=True)
     last_name = Column(String(50), nullable=True)
     full_name = Column(String(101), nullable=True)
-    phone = Column(String(20), unique=True, nullable=False)
+    # FIXED: phone nullable — some users register with email only via OTP
+    # PostgreSQL UNIQUE allows multiple NULLs, so email-only signups won't conflict
+    phone = Column(String(20), unique=True, nullable=True)
     # Removed unused columns: avatar_url, date_of_birth
     
     # Core authentication fields

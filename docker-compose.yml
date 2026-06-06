@@ -193,8 +193,8 @@ services:
       - REFRESH_TOKEN_DAYS_DEFAULT=90
       - REFRESH_TOKEN_DAYS_REMEMBER=365
       - REFRESH_TOKEN_EXPIRE_MINUTES=1440
-      - SESSION_EXPIRE_MINUTES=1440
-      - EMAIL_OTP_USE_QUEUE=false
+      - SESSION_EXPIRE_MINUTES=10080
+      - EMAIL_OTP_USE_QUEUE=${EMAIL_OTP_USE_QUEUE:-true}
       - ALLOWED_ORIGINS=["http://localhost:6004","http://localhost:6005","http://127.0.0.1:6004","http://127.0.0.1:6005","https://aaryaclothing.in","https://www.aaryaclothing.in"]
       - DEBUG=${AARYA_DEBUG:-false}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
@@ -248,6 +248,8 @@ services:
       # Database connection pool (PgBouncer-compatible)
       - DATABASE_POOL_SIZE=8
       - DATABASE_MAX_OVERFLOW=4
+      # Worker count: 2 × CPU cores + 1, capped by PgBouncer budget
+      - UVICORN_WORKERS=2
     expose:
       - "5001"
     depends_on:
@@ -258,7 +260,7 @@ services:
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
       interval: 15s
-      timeout: 10s  # Increased from 5s to handle connection pool initialization
+      timeout: 10s
       retries: 3
       start_period: 30s
     deploy:
@@ -325,8 +327,10 @@ services:
       - AI_GLM_ENABLED=${AI_GLM_ENABLED:-true}
       - AI_NVIDIA_ENABLED=${AI_NVIDIA_ENABLED:-true}
       # Database connection pool (PgBouncer-compatible)
-      - DATABASE_POOL_SIZE=8
-      - DATABASE_MAX_OVERFLOW=4
+      - DATABASE_POOL_SIZE=6
+      - DATABASE_MAX_OVERFLOW=2
+      # Commerce is the busiest service — 4 workers × 6 pool = 24 max connections
+      - UVICORN_WORKERS=4
       # Redis response caching for commerce (product listings, categories, etc.)
       - CACHE_BACKEND=redis
       - CACHE_URL=redis://:${REDIS_PASSWORD}@redis:6379/4
@@ -345,7 +349,7 @@ services:
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5002/health"]
       interval: 15s
-      timeout: 10s  # Increased from 5s to handle connection pool initialization
+      timeout: 10s
       retries: 3
       start_period: 30s
     deploy:
@@ -400,6 +404,8 @@ services:
       # Database connection pool (PgBouncer-compatible)
       - DATABASE_POOL_SIZE=8
       - DATABASE_MAX_OVERFLOW=4
+      # Payment needs reliable workers (webhook burst handling)
+      - UVICORN_WORKERS=2
     expose:
       - "5003"
     depends_on:
@@ -522,7 +528,7 @@ services:
     environment:
       - NODE_ENV=production
       - DOCKER_ENV=true
-      - NODE_OPTIONS=--max-old-space-size=1024
+      - NODE_OPTIONS=--max-old-space-size=1536
       - NEXT_SHARP_PATH=/app/node_modules/sharp
       # SSR needs absolute URL for Node.js fetch() - nginx will proxy to backend
       # Client-side code uses window.location.origin (CSP compliant)
@@ -532,6 +538,12 @@ services:
       - SECRET_KEY=${SECRET_KEY:?SECRET_KEY environment variable is required}
     expose:
       - "3000"
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://localhost:3000').then(r => { process.exit(r.ok ? 0 : 1) }).catch(() => process.exit(1))\" || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     depends_on:
       - core
       - commerce
@@ -595,6 +607,63 @@ services:
       - tools
     networks:
       - frontend_network
+
+  # ============================================================
+  # CORE WORKER (RQ Worker — OTP + Notifications)
+  # ============================================================
+  # Background worker that processes OTP delivery (email/SMS/WhatsApp)
+  # and order notification jobs enqueued by the core service.
+
+  core-worker:
+    build:
+      context: .
+      dockerfile: services/core/Dockerfile
+    container_name: aarya_core_worker
+    command: >
+      rq worker otp default --url redis://:${REDIS_PASSWORD}@redis:6379/0
+      --max-jobs 500 --worker-ttl 3600
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD environment variable is required}@pgbouncer:6432/aarya_clothing
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - REDIS_DB=0
+      - SECRET_KEY=${SECRET_KEY:?SECRET_KEY environment variable is required}
+      - ALGORITHM=HS256
+      - SMTP_HOST=smtp.hostinger.com
+      - SMTP_PORT=465
+      - SMTP_USER=noreply@aaryaclothing.in
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
+      - SMTP_TLS=true
+      - EMAIL_FROM=noreply@aaryaclothing.in
+      - EMAIL_FROM_NAME=Aarya Clothing
+      - MSG91_AUTH_KEY=${MSG91_AUTH_KEY:-}
+      - MSG91_TEMPLATE_ID=${MSG91_TEMPLATE_ID:-}
+      - MSG91_SENDER_ID=${MSG91_SENDER_ID:-}
+      - WHATSAPP_ACCESS_TOKEN=${WHATSAPP_ACCESS_TOKEN:-}
+      - WHATSAPP_PHONE_NUMBER_ID=${WHATSAPP_PHONE_NUMBER_ID:-}
+      - INTERNAL_SERVICE_SECRET=${INTERNAL_SERVICE_SECRET:?INTERNAL_SERVICE_SECRET environment variable is required}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import os; from redis import Redis; Redis(host='redis', port=6379, db=0, password=os.environ.get('REDIS_PASSWORD','')).ping()\" || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'
+    networks:
+      - backend_network
+    volumes:
+      - ./shared:/app/shared
+    restart: unless-stopped
 
   # ============================================================
   # PAYMENT RECOVERY WORKER (RQ Worker)

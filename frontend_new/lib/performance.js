@@ -9,6 +9,7 @@
  */
 
 import React from 'react';
+import logger from './logger';
 
 /**
  * Debounce function - delays execution until after wait milliseconds
@@ -230,7 +231,7 @@ export function measureRenderTime(componentName, callback) {
   const result = callback();
   const endTime = performance.now();
   
-  console.log(`[${componentName}] Render time: ${(endTime - startTime).toFixed(2)}ms`);
+  logger.debug(`[${componentName}] Render time: ${(endTime - startTime).toFixed(2)}ms`);
   return result;
 }
 

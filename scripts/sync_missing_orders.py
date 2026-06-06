@@ -59,7 +59,7 @@ def fetch_cart_data(user_id, commerce_url=COMMERCE_URL, secret=INTERNAL_SECRET):
         logger.warning(f"Failed to fetch cart for user {user_id}: {e}")
     return None
 
-def create_order_from_payment(payment, commerce_url=COMMERCE_url, secret=INTERNAL_SECRET):
+def create_order_from_payment(payment, commerce_url=COMMERCE_URL, secret=INTERNAL_SECRET):
     """Create order from payment transaction using internal API."""
     try:
         # Get cart data

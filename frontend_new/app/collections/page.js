@@ -32,8 +32,7 @@ export const metadata = {
 };
 
 // Force dynamic rendering
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
+export const revalidate = 300; // Revalidate collections every 5 minutes (ISR)
 
 // Generate structured data
 function generateStructuredData(categories) {

@@ -1,18 +1,17 @@
 """Inventory service for stock management."""
 
+import logging
 from typing import List, Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
 from sqlalchemy.exc import OperationalError
 from fastapi import HTTPException, status
 
+logger = logging.getLogger(__name__)
+
 from models.inventory import Inventory
 from models.product import Product
-from models.stock_reservation import StockReservation, ReservationStatus
 from schemas.inventory import InventoryCreate, InventoryUpdate, LowStockItem
-import uuid
-from datetime import timedelta
-
 from shared.time_utils import ist_naive
 
 
@@ -28,12 +27,17 @@ class InventoryService:
         return self.db.query(Inventory).filter(Inventory.sku == sku).first()
 
     def get_inventory_by_sku_for_update(
-        self, sku: str, nowait: bool = True
+        self, sku: str, skip_locked: bool = True
     ) -> Optional[Inventory]:
-        """Get inventory by SKU with pessimistic locking."""
+        """Get inventory by SKU with pessimistic locking.
+
+        Uses skip_locked=True (instead of nowait=True) so concurrent
+        transactions wait briefly rather than failing immediately.
+        This reduces unnecessary OperationalError retries under load.
+        """
         query = self.db.query(Inventory).filter(Inventory.sku == sku)
-        if nowait:
-            query = query.with_for_update(nowait=True)
+        if skip_locked:
+            query = query.with_for_update(skip_locked=True)
         else:
             query = query.with_for_update()
         return query.first()
@@ -114,41 +118,18 @@ class InventoryService:
             )
 
         inventory.quantity = new_quantity
+        
+        # Sync product.total_stock (denormalized) using delta — efficient O(1)
+        try:
+            product = self.db.query(Product).filter(Product.id == inventory.product_id).first()
+            if product:
+                product.total_stock = max(0, (product.total_stock or 0) + adjustment)
+        except Exception as e:
+            logger.warning(f"Failed to sync product.total_stock for product {inventory.product_id}: {e}")
+        
         self.db.commit()
         self.db.refresh(inventory)
         return inventory
-
-    def deduct_stock(self, sku: str, quantity: int, order_id: int = None) -> bool:
-        """
-        Atomically deduct stock when an order is placed.
-        Uses SELECT FOR UPDATE to prevent overselling under concurrent load.
-        Checks available_quantity and deducts directly - no reservations needed.
-        Does NOT commit — caller must commit the transaction.
-        """
-        try:
-            inventory = self.get_inventory_by_sku_for_update(sku)
-        except OperationalError:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Inventory is being updated. Please retry.",
-            )
-        if not inventory:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Inventory with SKU '{sku}' not found",
-            )
-
-        # Check available stock (total quantity) - simple and direct
-        if inventory.quantity < quantity:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Insufficient stock for {sku}. Available: {inventory.quantity}, Required: {quantity}",
-            )
-
-        # Deduct stock immediately
-        inventory.quantity -= quantity
-        inventory.reserved_quantity = max(0, inventory.reserved_quantity - quantity)
-        return True
 
     def deduct_stock_for_order(self, sku: str, quantity: int) -> bool:
         """
@@ -156,9 +137,13 @@ class InventoryService:
         Uses SELECT FOR UPDATE to prevent overselling under concurrent load.
         Uses available_quantity (quantity - reserved_quantity) to prevent overselling.
         Does NOT commit — caller must commit the transaction.
+
+        NOTE: Uses skip_locked=False so concurrent transactions WAIT for the
+        row lock rather than skipping it. This prevents the misleading 404
+        "Inventory not found" error when two orders race for the same SKU.
         """
         try:
-            inventory = self.get_inventory_by_sku_for_update(sku)
+            inventory = self.get_inventory_by_sku_for_update(sku, skip_locked=False)
         except OperationalError:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
@@ -169,15 +154,21 @@ class InventoryService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Inventory with SKU '{sku}' not found",
             )
-        # CRITICAL FIX: Check available_quantity (quantity - reserved) instead of total quantity
-        # This prevents overselling when stock is already reserved in other carts
         if inventory.available_quantity < quantity:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Insufficient stock for {sku}. Available: {inventory.available_quantity}, Required: {quantity}",
             )
         inventory.quantity -= quantity
-        inventory.reserved_quantity = max(0, inventory.reserved_quantity - quantity)
+
+        # Sync product.total_stock (denormalized) to keep it accurate
+        try:
+            product = self.db.query(Product).filter(Product.id == inventory.product_id).first()
+            if product:
+                product.total_stock = max(0, (product.total_stock or 0) - quantity)
+        except Exception as e:
+            logger.warning(f"Failed to sync product.total_stock for product {inventory.product_id}: {e}")
+
         return True
 
     def get_low_stock_items(self) -> List[LowStockItem]:

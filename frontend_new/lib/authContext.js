@@ -22,14 +22,13 @@
  */
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { authApi, apiFetch } from './customerApi';
 import { getStoredUser, clearAuthData, setAuthData } from './baseApi';
 import { USER_ROLES, hasRole, isAdmin, isStaff, isSuperAdmin } from './roles';
 import logger from './logger';
 
-const clearStoredTokens = clearAuthData;
-const setStoredTokens = (tokens) => setAuthData({ ...tokens });
+
 
 const AuthContext = createContext(null);
 
@@ -54,7 +53,14 @@ export function AuthProvider({ children }) {
 
     try {
       setAuthError(null);
+      // If no stored user, skip the API call — no session exists
       const storedUser = getStoredUser();
+      if (!storedUser) {
+        setUser(null);
+        setIsAuthenticated(false);
+        setLoading(false);
+        return;
+      }
 
       // Verify with backend FIRST - don't trust localStorage stale data
       // This prevents showing "Profile" briefly before it clears to "Sign In"
@@ -70,7 +76,6 @@ export function AuthProvider({ children }) {
         logger.warn('Backend session verification failed:', err.message);
         // Clear stale localStorage data - authoritative source says invalid
         clearAuthData();
-        clearStoredTokens();
         setUser(null);
         setIsAuthenticated(false);
       }
@@ -97,7 +102,9 @@ export function AuthProvider({ children }) {
     if (!isAuthenticated) return;
 
     // 25 min base + 0–3 min jitter to avoid thundering herd on refresh
-    const REFRESH_INTERVAL_MS = 25 * 60 * 1000 + Math.floor(Math.random() * 3 * 60 * 1000);
+    // FIXED: Compute jitter once at effect setup time, not on every callback
+    const jitterMs = Math.floor(Math.random() * 3 * 60 * 1000);
+    const REFRESH_INTERVAL_MS = 25 * 60 * 1000 + jitterMs;
 
     const intervalId = setInterval(async () => {
       try {
@@ -113,7 +120,6 @@ export function AuthProvider({ children }) {
           // Refresh token expired or invalid — session is truly dead
           logger.warn('Proactive refresh returned 401 — clearing auth state');
           clearAuthData();
-          clearStoredTokens();
           setUser(null);
           setIsAuthenticated(false);
           // Redirect to login
@@ -161,7 +167,6 @@ export function AuthProvider({ children }) {
       return response;
     } catch (err) {
       // Clear any stale auth data on failure
-      clearStoredTokens();
       clearAuthData();
       setUser(null);
       setIsAuthenticated(false);
@@ -196,7 +201,6 @@ export function AuthProvider({ children }) {
       // Always clear local state
       setUser(null);
       setIsAuthenticated(false);
-      clearStoredTokens();
       clearAuthData();
 
       // CRITICAL: Clear localStorage user data to prevent stale user display

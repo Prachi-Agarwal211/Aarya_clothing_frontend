@@ -67,46 +67,61 @@ async def get_featured_data(
     db: Session = Depends(get_db),
     current_user: Optional[dict] = Depends(get_current_user_optional),
 ):
-    """Return featured products, collections and new arrivals."""
+    """Return featured products, collections and new arrivals.
+
+    Cached in Redis for 120 seconds — this endpoint hits the database with
+    3 heavy eager-loaded queries on every call.
+    """
+    import asyncio
+    from core.advanced_cache import cache
+
     user_role = current_user.get("role") if current_user else None
+    cache_key = f"landing:featured:{user_role or 'public'}"
 
-    featured_products = (
-        db.query(Product)
-        .options(
-            joinedload(Product.category),
-            selectinload(Product.images),
-            selectinload(Product.variants),
-        )
-        .filter(Product.is_active.is_(True), Product.is_featured.is_(True))
-        .order_by(Product.created_at.desc())
-        .limit(12)
-        .all()
-    )
+    def _fetch():
+        # IMPORTANT: Create a fresh DB session — asyncio.to_thread runs this
+        # in a thread pool, and SQLAlchemy sessions are NOT thread-safe.
+        from database.database import SessionLocal
+        db_session = SessionLocal()
+        try:
+            fp = (
+                db_session.query(Product)
+                .options(
+                    joinedload(Product.collection),
+                    selectinload(Product.images),
+                    selectinload(Product.variants),
+                )
+                .filter(Product.is_active.is_(True), Product.is_featured.is_(True))
+                .order_by(Product.created_at.desc())
+                .limit(12)
+                .all()
+            )
+            na = (
+                db_session.query(Product)
+                .options(
+                    joinedload(Product.collection),
+                    selectinload(Product.images),
+                    selectinload(Product.variants),
+                )
+                .filter(Product.is_active.is_(True), Product.is_new_arrival.is_(True))
+                .order_by(Product.created_at.desc())
+                .limit(12)
+                .all()
+            )
+            fc = (
+                db_session.query(Category)
+                .filter(Category.is_active.is_(True), Category.is_featured.is_(True))
+                .all()
+            )
+            return {
+                "featured_products": [enrich_product(p, user_role) for p in fp],
+                "new_arrivals": [enrich_product(p, user_role) for p in na],
+                "featured_categories": [enrich_collection(c) for c in fc],
+            }
+        finally:
+            db_session.close()
 
-    new_arrivals = (
-        db.query(Product)
-        .options(
-            joinedload(Product.category),
-            selectinload(Product.images),
-            selectinload(Product.variants),
-        )
-        .filter(Product.is_active.is_(True), Product.is_new_arrival.is_(True))
-        .order_by(Product.created_at.desc())
-        .limit(12)
-        .all()
-    )
-
-    featured_categories = (
-        db.query(Category)
-        .filter(Category.is_active.is_(True), Category.is_featured.is_(True))
-        .all()
-    )
-
-    return {
-        "featured_products": [enrich_product(p, user_role) for p in featured_products],
-        "new_arrivals": [enrich_product(p, user_role) for p in new_arrivals],
-        "featured_categories": [enrich_collection(c) for c in featured_categories],
-    }
+    return await asyncio.to_thread(cache.get_or_set_sync, cache_key, _fetch, ttl=120)
 
 
 def _no_browser_cache(response: JSONResponse) -> JSONResponse:

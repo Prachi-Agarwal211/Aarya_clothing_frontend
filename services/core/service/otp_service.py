@@ -261,16 +261,8 @@ class OTPService:
 
         # --- Database lookup ----------------------------------------------
         try:
-            logger.info(f"[OTP DEBUG] Querying DB - user_id={user_id}, type={token_type}, code={otp_code}")
-            
-            # Debug: Check if ANY tokens exist for this user/type
-            all_tokens = self.db.query(VerificationToken).filter(
-                VerificationToken.user_id == user_id,
-                VerificationToken.token_type == token_type
-            ).order_by(VerificationToken.id.desc()).limit(3).all()
-            
-            for t in all_tokens:
-                logger.info(f"[OTP DEBUG] Existing Token: id={t.id}, code={t.token}, verified_at={t.verified_at}, expires_at={t.expires_at}")
+            # SECURITY: Never log OTP codes — only log user_id and token_type
+            logger.info(f"[OTP] Verifying user_id={user_id} type={token_type}")
 
             token = (
                 self.db.query(VerificationToken)
@@ -480,7 +472,7 @@ class OTPService:
             "database_connected": self.db is not None,
         }
 
-    def _dispatch_otp(
+    def _dispatch_otp_sync(
         self,
         otp_type: str,
         email: Optional[str],
@@ -488,7 +480,18 @@ class OTPService:
         otp_code: str,
         purpose: str,
     ) -> Dict[str, Any]:
-        """Send OTP through selected channel."""
+        """Send OTP synchronously (fallback when RQ is unavailable)."""
+        return self._dispatch_otp_impl(otp_type, email, phone, otp_code, purpose)
+
+    def _dispatch_otp_impl(
+        self,
+        otp_type: str,
+        email: Optional[str],
+        phone: Optional[str],
+        otp_code: str,
+        purpose: str,
+    ) -> Dict[str, Any]:
+        """Actual OTP dispatch logic (synchronous)."""
         otp_type = (otp_type or "EMAIL").upper()
         try:
             if otp_type == "EMAIL":
@@ -544,6 +547,75 @@ class OTPService:
         except Exception as exc:  # pragma: no cover - infra dependent
             logger.error(f"OTP delivery failed ({otp_type}): {exc}")
             return {"success": False, "error": f"Failed to deliver OTP via {otp_type}"}
+
+    def _dispatch_otp(
+        self,
+        otp_type: str,
+        email: Optional[str],
+        phone: Optional[str],
+        otp_code: str,
+        purpose: str,
+    ) -> Dict[str, Any]:
+        """Send OTP via RQ queue (async) with sync fallback.
+
+        Returns immediately after enqueueing. The actual SMTP/SMS/WhatsApp
+        call happens in the RQ worker, removing blocking I/O from the
+        request path.
+        """
+        otp_type = (otp_type or "EMAIL").upper()
+        try:
+            from shared.rq_tasks import (
+                get_rq_queue,
+                task_send_otp_email,
+                task_send_otp_sms,
+                task_send_otp_whatsapp,
+            )
+            from rq import Retry
+
+            q = get_rq_queue("otp", redis_db=0)
+
+            if otp_type == "EMAIL":
+                if not email:
+                    return {"success": False, "error": "Email is required for email OTP"}
+                q.enqueue(
+                    task_send_otp_email,
+                    email=email, otp_code=otp_code, purpose=purpose,
+                    retry=Retry(max=3, interval=[5, 30, 60]),
+                    job_timeout=60,
+                )
+                logger.info(f"[OTP] Email OTP enqueued for {email}")
+                return {"success": True, "queued": True}
+
+            elif otp_type == "SMS":
+                if not phone:
+                    return {"success": False, "error": "Phone is required for SMS OTP"}
+                q.enqueue(
+                    task_send_otp_sms,
+                    phone=phone, otp_code=otp_code, purpose=purpose,
+                    retry=Retry(max=2, interval=[10, 30]),
+                    job_timeout=30,
+                )
+                logger.info(f"[OTP] SMS OTP enqueued for {phone}")
+                return {"success": True, "queued": True}
+
+            elif otp_type == "WHATSAPP":
+                if not phone:
+                    return {"success": False, "error": "Phone is required for WhatsApp OTP"}
+                q.enqueue(
+                    task_send_otp_whatsapp,
+                    phone=phone, otp_code=otp_code, purpose=purpose,
+                    retry=Retry(max=2, interval=[10, 30]),
+                    job_timeout=30,
+                )
+                logger.info(f"[OTP] WhatsApp OTP enqueued for {phone}")
+                return {"success": True, "queued": True}
+
+            else:
+                return {"success": False, "error": f"Unsupported OTP type: {otp_type}"}
+
+        except Exception as exc:
+            logger.warning(f"[OTP] RQ enqueue failed, falling back to sync: {exc}")
+            return self._dispatch_otp_sync(otp_type, email, phone, otp_code, purpose)
 
 
 otp_service = OTPService(db=None)

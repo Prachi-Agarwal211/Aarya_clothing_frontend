@@ -44,7 +44,7 @@ def _get_redis_connection():
         REDIS_URL,
         retry_on_timeout=True,
         socket_connect_timeout=30,
-        socket_timeout=60,
+        socket_timeout=120,
         health_check_interval=15,
         socket_keepalive=True,
         retry=redis.retry.Retry(
@@ -81,9 +81,15 @@ def start_worker():
             name=WORKER_NAME,
             connection=redis_conn,
         )
-        # Never quit on idle — this is a daemon
+        # Never quit on idle — this is a daemon.
+        # max_jobs: force periodic worker restarts to prevent connection leaks
+        # and stale Redis state. After 500 jobs the worker exits cleanly and
+        # the outer loop restarts it (connection pool is refreshed).
+        # Socket timeout is set to 120s on the Redis connection above to
+        # prevent "Redis connection timeout, quitting" during BGSAVE.
         worker.work(
             logging_level="INFO",
+            max_jobs=500,
         )
 
 

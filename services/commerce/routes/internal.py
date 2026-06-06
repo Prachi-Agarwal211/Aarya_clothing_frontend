@@ -28,6 +28,10 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["Internal"])
 
+# Lock functions are NOT imported here — order_service methods handle
+# their own distributed locking. Importing and acquiring a lock here
+# caused deadlocks (double acquisition on the same key).
+
 
 def verify_internal_secret(x_internal_secret: Optional[str] = Header(None)) -> bool:
     """Constant-time check of the X-Internal-Secret header."""
@@ -47,55 +51,22 @@ def verify_internal_secret(x_internal_secret: Optional[str] = Header(None)) -> b
     return True
 
 
-# ==================== Distributed Lock Helpers ====================
-
-
-def _acquire_order_lock(lock_key: str, ttl: int = 30) -> Optional[str]:
-    """
-    Acquire a distributed Redis lock for order creation.
-
-    Uses the underlying Redis client's SET NX EX pattern for atomicity.
-    Returns a token string if acquired, None if not (lock held by another process).
-    """
-    try:
-        token = str(uuid.uuid4())
-        result = redis_client.client.set(lock_key, token, nx=True, ex=ttl)
-        return token if result else None
-    except Exception as e:
-        logger.warning(f"LOCK_ACQUIRE_ERROR: key={lock_key} error={e}")
-        return None
-
-
-def _release_order_lock(lock_key: str, token: str) -> None:
-    """
-    Release a distributed Redis lock safely.
-
-    Uses a Lua script to only delete the key if the token matches
-    (prevents releasing a lock held by another process).
-    """
-    try:
-        script = """
-        if redis.call("GET", KEYS[1]) == ARGV[1] then
-            return redis.call("DEL", KEYS[1])
-        else
-            return 0
-        end
-        """
-        redis_client.client.eval(script, 1, lock_key, token)
-    except Exception as e:
-        logger.warning(f"LOCK_RELEASE_ERROR: key={lock_key} error={e}")
-
-
 @router.post("/api/v1/internal/orders/{order_id}/reservation/confirm")
 async def internal_confirm_reservation(
     order_id: int,
     db: Session = Depends(get_db),
     _: bool = Depends(verify_internal_secret),
 ):
-    """Confirm a reservation: deduct reserved_quantity permanently after payment."""
+    """Confirm a reservation: deduct reserved_quantity permanently after payment.
+
+    Uses SELECT FOR UPDATE to prevent race conditions with concurrent
+    confirmations for the same order.
+    """
     items = db.execute(
         text(
-            "SELECT oi.inventory_id, oi.quantity FROM order_items oi WHERE oi.order_id = :oid"
+            "SELECT oi.inventory_id, oi.quantity"
+            " FROM order_items oi WHERE oi.order_id = :oid"
+            " FOR UPDATE OF oi"
         ),
         {"oid": order_id},
     ).fetchall()
@@ -106,6 +77,7 @@ async def internal_confirm_reservation(
                 "UPDATE inventory"
                 " SET reserved_quantity = GREATEST(0, reserved_quantity - :qty)"
                 " WHERE id = :id"
+                " FOR UPDATE"
             ),
             {"qty": qty, "id": inv_id},
         )
@@ -120,21 +92,42 @@ async def internal_release_reservation(
     db: Session = Depends(get_db),
     _: bool = Depends(verify_internal_secret),
 ):
-    """Release a reservation: hand the stock back to available inventory."""
+    """Release a reservation: hand the stock back to available inventory.
+
+    Uses SELECT FOR UPDATE to prevent race conditions.
+    NOTE: Since the cart reservation system was removed, stock is only
+    deducted at order creation time (deduct_stock_for_order). This endpoint
+    is called when payment verification fails AFTER order creation. We must
+    check if the order actually exists before adding stock back, to prevent
+    stock inflation from duplicate release calls.
+    """
+    # Check if order exists first — if order was never created,
+    # stock was never deducted, so nothing to release.
+    order_exists = db.execute(
+        text("SELECT 1 FROM orders WHERE id = :oid"),
+        {"oid": order_id}
+    ).fetchone()
+    if not order_exists:
+        return {"message": "No order found — nothing to release", "order_id": order_id}
+
     items = db.execute(
         text(
-            "SELECT oi.inventory_id, oi.quantity FROM order_items oi WHERE oi.order_id = :oid"
+            "SELECT oi.inventory_id, oi.quantity"
+            " FROM order_items oi WHERE oi.order_id = :oid"
+            " FOR UPDATE OF oi"
         ),
         {"oid": order_id},
     ).fetchall()
 
     for inv_id, qty in items:
+        # Only reduce reserved_quantity (never add back to quantity)
+        # because stock was already deducted at order creation time.
         db.execute(
             text(
                 "UPDATE inventory"
-                " SET reserved_quantity = GREATEST(0, reserved_quantity - :qty),"
-                "     quantity = quantity + :qty"
+                " SET reserved_quantity = GREATEST(0, reserved_quantity - :qty)"
                 " WHERE id = :id"
+                " FOR UPDATE"
             ),
             {"qty": qty, "id": inv_id},
         )
@@ -281,36 +274,22 @@ async def internal_create_order_from_payment(
             status_code=400, detail="user_id and payment_id are required"
         )
 
-    # ── DISTRIBUTED LOCK by payment_id ──
-    # Prevents duplicate order creation when Razorpay fires multiple webhooks
-    # for the same payment (e.g. payment.authorized + payment.captured),
-    # or when the recovery job runs concurrently with a webhook.
-    lock_key = f"order:lock:{payment_id}"
-    lock_token = _acquire_order_lock(lock_key, ttl=30)
-
-    if not lock_token:
-        # Lock held by another webhook — wait and try to find the existing order
-        for attempt in range(5):
-            logger.info(f"LOCK_WAIT: attempt {attempt + 1}/5 for payment={payment_id}")
-            await asyncio.sleep(0.5)
-            existing = db.execute(text("""
-                SELECT id FROM orders 
-                WHERE transaction_id = :payment_id 
-                   OR razorpay_payment_id = :payment_id
-                   OR razorpay_order_id = :razorpay_order_id
-                LIMIT 1
-            """), {
-                "payment_id": payment_id,
-                "razorpay_order_id": razorpay_order_id or ""
-            }).fetchone()
-            if existing:
-                logger.info(f"LOCK_WAIT_RESOLVED: order {existing[0]} found after {attempt + 1} attempts")
-                return {"found": True, "order_id": existing[0]}
-        logger.error(f"LOCK_TIMEOUT: payment={payment_id} after 5 attempts")
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Order is being processed from another payment notification.",
-        )
+    # ── IDEMPOTENCY CHECK ──
+    # Before attempting order creation, check if an order already exists.
+    # This is cheap and prevents unnecessary lock contention.
+    existing = db.execute(text("""
+        SELECT id FROM orders 
+        WHERE transaction_id = :payment_id 
+           OR razorpay_payment_id = :payment_id
+           OR razorpay_order_id = :razorpay_order_id
+        LIMIT 1
+    """), {
+        "payment_id": payment_id,
+        "razorpay_order_id": razorpay_order_id or ""
+    }).fetchone()
+    if existing:
+        logger.info(f"IDEMPOTENCY_HIT: order {existing[0]} already exists for payment={payment_id}")
+        return {"found": True, "order_id": existing[0]}
 
     order_service = OrderService(db)
 
@@ -362,8 +341,6 @@ async def internal_create_order_from_payment(
                     item_dict["image_url"] = primary_img.image_url
             items_data.append(item_dict)
 
-        _release_order_lock(lock_key, lock_token)
-
         return {
             "success": True,
             "order_id": order.id,
@@ -376,15 +353,44 @@ async def internal_create_order_from_payment(
                 "items": items_data,
             },
         }
-    except ValueError as exc:
-        _release_order_lock(lock_key, lock_token)
-        logger.error(f"INTERNAL_ORDER_CREATE_VALIDATION_ERROR: user={user_id} error={exc}")
-        raise HTTPException(status_code=400, detail=str(exc))
+    except (ValueError, HTTPException) as exc:
+        # Lock timeout or concurrency conflict — another process may be
+        # creating the order. Wait briefly and check for the existing order.
+        # create_order_from_pending_id raises ValueError on lock timeout,
+        # create_order_from_pending_order raises HTTPException(409).
+        # We retry on BOTH. Permanent validation errors (400/404) from
+        # variant-not-found etc. will also retry once — harmless since
+        # the idempotency SELECT won't find an order and we re-raise.
+        is_lock_contention = (
+            isinstance(exc, ValueError)
+            or (isinstance(exc, HTTPException) and exc.status_code == 409)
+        )
+        if not is_lock_contention:
+            raise
+        logger.warning(f"INTERNAL_ORDER_CREATE_RETRY: user={user_id} payment={payment_id} error={exc}")
+        for attempt in range(5):
+            await asyncio.sleep(0.5)
+            retry_existing = db.execute(text("""
+                SELECT id FROM orders 
+                WHERE transaction_id = :payment_id 
+                   OR razorpay_payment_id = :payment_id
+                   OR razorpay_order_id = :razorpay_order_id
+                LIMIT 1
+            """), {
+                "payment_id": payment_id,
+                "razorpay_order_id": razorpay_order_id or ""
+            }).fetchone()
+            if retry_existing:
+                logger.info(f"LOCK_WAIT_RESOLVED: order {retry_existing[0]} found after {attempt + 1} attempts")
+                return {"found": True, "order_id": retry_existing[0]}
+        logger.error(f"LOCK_TIMEOUT: payment={payment_id} after 5 attempts")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Order is being processed from another payment notification.",
+        )
     except HTTPException:
-        _release_order_lock(lock_key, lock_token)
         raise
     except Exception as exc:
-        _release_order_lock(lock_key, lock_token)
         logger.error(f"INTERNAL_ORDER_CREATE_ERROR: user={user_id} error={exc}", exc_info=True)
         raise HTTPException(
             status_code=500, detail=f"Internal order creation failed: {exc}"

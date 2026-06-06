@@ -10,6 +10,7 @@ import Image from 'next/image';
 import { authApi } from '../../../lib/customerApi';
 import { useLogo } from '../../../lib/siteConfigContext';
 import { validatePassword } from '../../../lib/authHelpers';
+import { AUTH_COPY } from '../../../lib/authCopy';
 
 // Total steps in the flow
 const TOTAL_STEPS = 3;
@@ -105,7 +106,7 @@ function ResetPasswordForm() {
       if (err.status === 429) {
         setError('Too many requests. Please try again later.');
       } else {
-        setError(err.message || 'Failed to reset password.');
+        setError(err.message || 'Failed to reset password. Please try again.');
       }
     } finally {
       setIsSubmitting(false);
@@ -214,7 +215,7 @@ function ResetPasswordForm() {
             </div>
           ))}
         </div>
-        <div className="flex justify-between mt-1.5 text-[10px] text-[#EAE0D5]/50 uppercase tracking-wider">
+        <div className="flex justify-between mt-1.5 text-[11px] text-[#EAE0D5]/50 uppercase tracking-wider">
           <span>Request</span>
           <span>Verify</span>
           <span>Reset</span>
@@ -291,7 +292,7 @@ function ResetPasswordForm() {
         </div>
         </div>
 
-        <div className="text-[10px] sm:text-xs text-white/55 grid grid-cols-2 gap-x-2 gap-y-0.5" aria-live="polite">
+        <div className="text-[11px] sm:text-xs text-white/55 grid grid-cols-2 gap-x-2 gap-y-0.5" aria-live="polite">
             {passwordRequirements.map((req, index) => (
               <div key={index} className="flex items-center gap-1.5">
                 {passwordValidation?.strength?.checks[req.key] ? (

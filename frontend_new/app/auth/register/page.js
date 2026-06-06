@@ -11,6 +11,7 @@ import { useAuth } from '../../../lib/authContext';
 import logger from '../../../lib/logger';
 import { getRedirectForRole, USER_ROLES } from '../../../lib/roles';
 import { useLogo, useSiteConfig } from '../../../lib/siteConfigContext';
+import { AUTH_COPY } from '../../../lib/authCopy';
 
 const OTP_EXPIRY_SECONDS = 600;
 const RESEND_COOLDOWN_SECONDS = 30;
@@ -25,8 +26,7 @@ export default function RegisterPage() {
   const [step, setStep] = useState(1);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
+  const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
@@ -135,7 +135,7 @@ export default function RegisterPage() {
 
     const phoneDigits = phone.replace(/\D/g, '');
     if (phoneDigits.length < 10) {
-      setError('Phone number must be at least 10 digits');
+      setError('Enter a valid 10-digit phone number');
       return;
     }
     if (phoneDigits.length > 15) {
@@ -150,7 +150,7 @@ export default function RegisterPage() {
         ? phoneDigits.slice(1)
         : phoneDigits;
     if (coreDigits.length === 10 && !/^[6789]/.test(coreDigits)) {
-      setError('Invalid phone number. Must start with 6, 7, 8, or 9');
+      setError('Enter a valid 10-digit Indian mobile number');
       return;
     }
 
@@ -162,8 +162,8 @@ export default function RegisterPage() {
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          first_name: firstName.trim(),
-          last_name: lastName.trim(),
+          first_name: fullName.trim().split(' ')[0] || '',
+          last_name: fullName.trim().split(' ').slice(1).join(' ') || null,
           email: email.trim(),
           phone: phone.trim(),
           password: password,
@@ -307,8 +307,15 @@ export default function RegisterPage() {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  // FIXED: Use useEffect for redirect instead of render-time side effect
+  // Render-time router.push can cause React 18 hydration issues
+  React.useEffect(() => {
+    if (isAuthenticated) {
+      router.push(getRedirectForRole(user?.role || USER_ROLES.CUSTOMER));
+    }
+  }, [isAuthenticated, user, router]);
+
   if (isAuthenticated) {
-    router.push(getRedirectForRole(user?.role || USER_ROLES.CUSTOMER));
     return null;
   }
 
@@ -346,35 +353,20 @@ export default function RegisterPage() {
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="luxury-input-wrapper h-11 sm:h-12 rounded-xl relative flex items-center px-4">
-              <Input
-                id="firstName"
-                name="firstName"
-                type="text"
-                autoComplete="given-name"
-                required
-                value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
-                placeholder="First name"
-                variant="minimal"
-                className="h-full text-[#EAE0D5] placeholder:text-[#8A6A5C] text-sm"
-              />
-            </div>
-            <div className="luxury-input-wrapper h-11 sm:h-12 rounded-xl relative flex items-center px-4">
-              <Input
-                id="lastName"
-                name="lastName"
-                type="text"
-                autoComplete="family-name"
-                required
-                value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
-                placeholder="Last name"
-                variant="minimal"
-                className="h-full text-[#EAE0D5] placeholder:text-[#8A6A5C] text-sm"
-              />
-            </div>
+          <div className="luxury-input-wrapper h-11 sm:h-12 rounded-xl relative group flex items-center px-4">
+            <Input
+              id="fullName"
+              name="fullName"
+              type="text"
+              autoComplete="name"
+              required
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              placeholder="Full name"
+              variant="minimal"
+              className="h-full text-[#EAE0D5] placeholder:text-[#8A6A5C] text-sm"
+              enterKeyHint="next"
+            />
           </div>
 
           <div className="luxury-input-wrapper h-11 sm:h-12 rounded-xl relative group flex items-center px-4">
@@ -456,13 +448,14 @@ export default function RegisterPage() {
                 required
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                placeholder="Phone number * (e.g. +919XXXXXXXXX or 9XXXXXXXXX)"
+                placeholder="9876543210"
                 variant="minimal"
                 className="h-full pl-3 sm:pl-4 text-[#EAE0D5] placeholder:text-[#8A6A5C] text-sm sm:text-base"
+                enterKeyHint="done"
               />
             </div>
-            <p className="text-[#EAE0D5]/40 text-[10px] mt-1 px-1">
-              Required for OTP delivery. Enter with or without country code.
+            <p className="text-[#EAE0D5]/40 text-[11px] mt-1 px-1">
+              {AUTH_COPY.registerPhoneHelp}
             </p>
           </div>
 
@@ -472,8 +465,10 @@ export default function RegisterPage() {
 
           <div className="bg-[#7A2F57]/10 border border-[#B76E79]/20 rounded-lg p-3">
             <p className="text-[#EAE0D5]/70 text-xs leading-relaxed">
-              <strong className="text-[#F2C29A]">Both email and phone number are required.</strong>
-              {' '}Your email is used for order confirmations and account recovery. Your phone number allows OTP delivery via SMS or WhatsApp for secure login.
+              {AUTH_COPY.bothEmailAndPhoneRequired}
+            </p>
+            <p className="text-[#EAE0D5]/50 text-xs mt-2">
+              {AUTH_COPY.alreadyRegisteredButNotVerified}
             </p>
           </div>
 

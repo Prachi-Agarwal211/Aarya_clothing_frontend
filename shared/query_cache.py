@@ -177,7 +177,10 @@ class QueryCache:
     
     def delete_pattern(self, pattern: str) -> int:
         """
-        Delete all keys matching pattern.
+        Delete all keys matching pattern using SCAN (non-blocking).
+        
+        Uses cursor-based SCAN instead of KEYS to avoid blocking Redis
+        on large keyspaces (KEYS is O(N) and blocks the event loop).
         
         Args:
             pattern: Redis pattern (e.g., "query:products:*")
@@ -189,10 +192,15 @@ class QueryCache:
             return 0
         
         try:
-            keys = self.redis.keys(pattern)
-            if keys:
-                return self.redis.delete(*keys)
-            return 0
+            deleted = 0
+            cursor = 0
+            while True:
+                cursor, keys = self.redis.scan(cursor=cursor, match=pattern, count=100)
+                if keys:
+                    deleted += self.redis.delete(*keys)
+                if cursor == 0:
+                    break
+            return deleted
         except Exception as e:
             logger.warning(f"Cache delete_pattern error for {pattern}: {e}")
             return 0

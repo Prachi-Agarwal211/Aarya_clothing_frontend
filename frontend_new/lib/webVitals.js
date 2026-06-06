@@ -11,6 +11,7 @@
  */
 
 import { onLCP, onFID, onCLS, onINP, onTTFB, onFCP } from 'web-vitals';
+import logger from './logger';
 
 // Analytics function - send to your analytics endpoint
 function sendToAnalytics(metric) {
@@ -28,7 +29,7 @@ function sendToAnalytics(metric) {
 
   // Log to console in development
   if (process.env.NODE_ENV === 'development') {
-    console.log(`[Web Vitals] ${metric.name}:`, {
+    logger.debug(`[Web Vitals] ${metric.name}:`, {
       value: metric.value,
       rating: metric.rating,
       delta: metric.delta,
@@ -66,7 +67,7 @@ export function initWebVitals() {
     
     // Log warnings for poor LCP
     if (metric.rating === 'poor') {
-      console.warn('[Performance] Poor LCP detected:', metric.value.toFixed(2), 'ms');
+      logger.warn('[Performance] Poor LCP detected:', metric.value.toFixed(2), 'ms');
     }
   });
 
@@ -75,7 +76,7 @@ export function initWebVitals() {
     sendToAnalytics(metric);
     
     if (metric.rating === 'poor') {
-      console.warn('[Performance] Poor FID detected:', metric.value.toFixed(2), 'ms');
+      logger.warn('[Performance] Poor FID detected:', metric.value.toFixed(2), 'ms');
     }
   });
 
@@ -84,7 +85,7 @@ export function initWebVitals() {
     sendToAnalytics(metric);
     
     if (metric.rating === 'poor') {
-      console.warn('[Performance] Poor CLS detected:', metric.value.toFixed(4));
+      logger.warn('[Performance] Poor CLS detected:', metric.value.toFixed(4));
     }
   });
 
@@ -93,7 +94,7 @@ export function initWebVitals() {
     sendToAnalytics(metric);
     
     if (metric.rating === 'poor') {
-      console.warn('[Performance] Poor INP detected:', metric.value.toFixed(2), 'ms');
+      logger.warn('[Performance] Poor INP detected:', metric.value.toFixed(2), 'ms');
     }
   });
 
@@ -102,7 +103,7 @@ export function initWebVitals() {
     sendToAnalytics(metric);
     
     if (metric.rating === 'poor') {
-      console.warn('[Performance] Poor TTFB detected:', metric.value.toFixed(2), 'ms');
+      logger.warn('[Performance] Poor TTFB detected:', metric.value.toFixed(2), 'ms');
     }
   });
 
@@ -111,7 +112,7 @@ export function initWebVitals() {
     sendToAnalytics(metric);
     
     if (metric.rating === 'poor') {
-      console.warn('[Performance] Poor FCP detected:', metric.value.toFixed(2), 'ms');
+      logger.warn('[Performance] Poor FCP detected:', metric.value.toFixed(2), 'ms');
     }
   });
 }
@@ -126,7 +127,7 @@ export function observePerformance() {
   try {
     const longTaskObserver = new PerformanceObserver((list) => {
       list.getEntries().forEach((entry) => {
-        console.log('[Performance] Long task detected:', {
+        logger.debug('[Performance] Long task detected:', {
           duration: entry.duration.toFixed(2) + 'ms',
           name: entry.name,
         });
@@ -142,7 +143,7 @@ export function observePerformance() {
     const layoutShiftObserver = new PerformanceObserver((list) => {
       list.getEntries().forEach((entry) => {
         if (!entry.hadRecentInput) {
-          console.log('[Performance] Layout shift:', {
+          logger.debug('[Performance] Layout shift:', {
             value: entry.value.toFixed(4),
             sources: entry.sources?.length || 0,
           });
@@ -158,7 +159,7 @@ export function observePerformance() {
   try {
     const paintObserver = new PerformanceObserver((list) => {
       list.getEntries().forEach((entry) => {
-        console.log('[Performance] Paint event:', {
+        logger.debug('[Performance] Paint event:', {
           name: entry.name,
           startTime: entry.startTime.toFixed(2) + 'ms',
         });

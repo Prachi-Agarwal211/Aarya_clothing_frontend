@@ -6,11 +6,11 @@ let authRefreshSingleton = null;
 /**
  * Base API Client for Aarya Clothing
  *
- * This file now re-exports from apiClient.js for consistency.
- * The BaseApiClient class is kept for advanced usage with custom base URLs.
+ * The BaseApiClient class provides HTTP request handling with retry logic,
+ * request deduplication, and in-memory caching.
  *
- * For most use cases, import from apiClient.js instead:
- *   import { apiClient, authApi, productsApi } from './apiClient';
+ * For most use cases, import from customerApi.js instead:
+ *   import { authApi, productsApi } from './customerApi';
  *
  * Token storage: localStorage + cookies (for middleware route protection)
  */
@@ -19,58 +19,7 @@ let authRefreshSingleton = null;
  // Token helpers — tokens are HttpOnly cookies set by the backend.
 // These functions exist only for backward-compat; real auth uses credentials:'include'.
 
-/**
- * @deprecated No-op for backward compatibility.
- * Tokens are now HttpOnly cookies managed by the backend.
- * Do NOT use for new code — use setAuthData() instead.
- */
-export function setCookie(name, value, days = 7) {
-  if (typeof document === 'undefined') return;
-  try {
-    const expires = new Date();
-    expires.setTime(expires.getTime() + days * 24 * 60 * 60 * 1000);
-    const secureFlag = window.location.protocol === 'https:' ? ';Secure' : '';
-    document.cookie = `${name}=${encodeURIComponent(value)};expires=${expires.toUTCString()};path=/;SameSite=Lax${secureFlag}`;
-  } catch (e) {
-    logger.error('Failed to set cookie:', e);
-  }
-}
 
-/**
- * @deprecated No-op for backward compatibility.
- * Tokens are now HttpOnly cookies managed by the backend.
- */
-export function removeCookie(name) {
-  if (typeof document === 'undefined') return;
-  try {
-    document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`;
-  } catch (e) {
-    logger.warn('Failed to remove cookie:', e);
-  }
-}
-
-/**
- * @deprecated No-op — returns null.
- * Tokens are HttpOnly cookies; this function exists only for backward compatibility.
- * Use `getAccessToken()` from authContext instead if you need token-aware logic.
- */
-export function getStoredTokens() { return null; }
-/**
- * @deprecated No-op.
- * Tokens are HttpOnly cookies set by the backend.
- */
-export function setStoredTokens() {}
-/**
- * @deprecated Alias for clearAuthData().
- * Clears localStorage user data only; cookies are cleared by backend logout.
- */
-export function clearStoredTokens() { clearAuthData(); }
-
-/**
- * @deprecated Always returns null.
- * Tokens are HttpOnly cookies — not accessible to JavaScript for security.
- */
-export function getAccessToken() { return null; }
 
 export function getStoredUser() {
   if (typeof window === 'undefined') return null;
@@ -105,24 +54,7 @@ export function clearAuthData() {
   }
 }
 
-export function getAuthToken() {
-  // Returns null - tokens are HttpOnly cookies now
-  return null;
-}
 
-export function getRefreshToken() {
-  // Returns null - tokens are HttpOnly cookies now
-  return null;
-}
-
-// Legacy function for backward compatibility
-export function setTokens(tokens) {
-  setAuthData(tokens);
-}
-
-export function clearTokens() {
-  clearAuthData();
-}
 
 // Utility functions
 export function buildQuery(params) {
@@ -246,8 +178,12 @@ export class BaseApiClient {
     const method = options.method || 'GET';
     const isGet = method.toUpperCase() === 'GET';
     
-    // 1. Check Cache (GET only)
-    if (isGet && !options.cache && !options.next?.revalidate === 0) {
+    // 1. Check Cache (GET only, 2s in-memory dedup window)
+    // Skip if caller opts out via { cache: 'no-store' } or { noCache: true }.
+    // The 2s TTL prevents thundering herds (e.g. 24 ProductCards mounting simultaneously)
+    // without meaningfully delaying fresh data from reaching the UI.
+    const skipCache = options.cache === 'no-store' || options.noCache === true || options.next?.revalidate === 0;
+    if (isGet && !skipCache) {
       const cached = getCache.get(url);
       if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
         return cached.data;

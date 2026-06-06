@@ -5,6 +5,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base, Session
 from sqlalchemy.pool import QueuePool
 from core.config import settings
+from shared.db_migration_helpers import ensure_column
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +19,8 @@ engine = create_engine(
     pool_pre_ping=True,
     pool_recycle=300,  # Recycle every 5 min (PgBouncer timeout is 10 min)
     pool_timeout=30,
+    # CRITICAL: Disable psycopg2 prepared statements for PgBouncer transaction mode.
+    connect_args={"prepare_threshold": None},
 )
 
 # Create session factory
@@ -41,42 +44,38 @@ def get_db():
 
 @contextmanager
 def get_db_context() -> Session:
-    """Context manager for database session - use for background tasks."""
+    """Context manager for database session - use for background tasks.
+
+    Rolls back on exception to prevent dirty state from leaking,
+    then closes the session.
+    """
     db = SessionLocal()
     try:
         yield db
+    except Exception:
+        db.rollback()
+        raise
     finally:
         db.close()
 
 def init_db():
     """Initialize database tables."""
     from models.payment import PaymentTransaction, PaymentMethod, WebhookEvent
-    from sqlalchemy import text
 
     Base.metadata.create_all(bind=engine)
 
     # Add columns that may be missing from existing tables (create_all won't ALTER)
-    _ensure_column("payment_transactions", "razorpay_qr_code_id", "VARCHAR(100)")
-    _ensure_column("payment_transactions", "razorpay_signature", "VARCHAR(500)")
-    _ensure_column("payment_transactions", "gateway_response", "JSON")
-    _ensure_column("payment_transactions", "description", "TEXT")
-    _ensure_column("payment_transactions", "customer_email", "VARCHAR(255)")
-    _ensure_column("payment_transactions", "customer_phone", "VARCHAR(20)")
-    _ensure_column("payment_transactions", "completed_at", "TIMESTAMP")
-    _ensure_column("payment_transactions", "refund_amount", "NUMERIC(10,2)")
-    _ensure_column("payment_transactions", "refund_id", "VARCHAR(100)")
-    _ensure_column("payment_transactions", "refund_status", "VARCHAR(50)")
-    _ensure_column("payment_transactions", "refund_reason", "TEXT")
+    # Now using shared helper (consistent with core/commerce, fixes bad col_type validation)
+    ensure_column(engine, "payment_transactions", "razorpay_qr_code_id", "VARCHAR(100)")
+    ensure_column(engine, "payment_transactions", "razorpay_signature", "VARCHAR(500)")
+    ensure_column(engine, "payment_transactions", "gateway_response", "JSON")
+    ensure_column(engine, "payment_transactions", "description", "TEXT")
+    ensure_column(engine, "payment_transactions", "customer_email", "VARCHAR(255)")
+    ensure_column(engine, "payment_transactions", "customer_phone", "VARCHAR(20)")
+    ensure_column(engine, "payment_transactions", "completed_at", "TIMESTAMP")
+    ensure_column(engine, "payment_transactions", "refund_amount", "NUMERIC(10,2)")
+    ensure_column(engine, "payment_transactions", "refund_id", "VARCHAR(100)")
+    ensure_column(engine, "payment_transactions", "refund_status", "VARCHAR(50)")
+    ensure_column(engine, "payment_transactions", "refund_reason", "TEXT")
 
     logger.info("✓ Payment service: Database initialized")
-
-
-def _ensure_column(table: str, column: str, col_type: str) -> None:
-    """Add a column to a table if it doesn't already exist."""
-    try:
-        with engine.begin() as conn:
-            conn.execute(text(
-                f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {column} {col_type}"
-            ))
-    except Exception as e:
-        logger.debug(f"Column {table}.{column} check: {e}")

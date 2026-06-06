@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useEffect, useRef, useCallback } from 'react';
-import { gsap, ScrollTrigger } from '@/lib/gsapConfig';
+import React, { useEffect, useRef, useCallback, useState } from 'react';
+import { gsap, ScrollTrigger, prefersReducedMotion } from '@/lib/gsapConfig';
 import { Button } from '../ui/button';
 import Image from 'next/image';
 import { useViewport } from '@/lib/hooks/useViewport';
@@ -41,9 +41,12 @@ const HeroSection = ({
   const autoPlayRef = useRef(null);
   const slideAnimationRefs = useRef([]); // Track GSAP animations for cleanup
   const isMountedRef = useRef(true);
+  const [activeSlide, setActiveSlide] = useState(0);
 
   // Detect mobile for responsive image source
   const { isMobile } = useViewport();
+
+  const reduceMotion = prefersReducedMotion();
 
   // Auto-rotate slides with proper cleanup
   const nextSlide = useCallback(() => {
@@ -57,6 +60,14 @@ const HeroSection = ({
     if (!outgoingSlide || !incomingSlide) return;
 
     gsap.killTweensOf([outgoingSlide, incomingSlide]);
+
+    if (reduceMotion) {
+      // Instant switch for reduced motion / perf
+      if (outgoingSlide) gsap.set(outgoingSlide, { opacity: 0, y: 0 });
+      if (incomingSlide) gsap.set(incomingSlide, { opacity: 1, y: 0 });
+      currentSlide.current = next;
+      return;
+    }
 
     // Create new animations and track them
     // GPU acceleration is automatic in GSAP 3.12+
@@ -79,7 +90,8 @@ const HeroSection = ({
 
     slideAnimationRefs.current = [outAnim, inAnim];
     currentSlide.current = next;
-  }, [slides.length]);
+    setActiveSlide(next);
+  }, [slides.length, reduceMotion]);
 
   useEffect(() => {
     // OPTIMIZATION: Increased interval to 15000ms for better user experience
@@ -144,6 +156,17 @@ const HeroSection = ({
 
   // Entrance animations
   useEffect(() => {
+    if (reduceMotion) {
+      // Instant for a11y/perf
+      if (slideRefs.current[0]) gsap.set(slideRefs.current[0], { opacity: 1, y: 0 });
+      if (taglineRef.current) gsap.set(taglineRef.current, { y: 0, opacity: 1 });
+      if (buttonContainerRef.current) {
+        const buttons = Array.from(buttonContainerRef.current.children);
+        gsap.set(buttons, { y: 0, opacity: 1 });
+      }
+      return;
+    }
+
     // Use gsap.context for proper cleanup in React
     let ctx = gsap.context(() => {
       const tl = gsap.timeline({ delay: 0.3 });
@@ -178,7 +201,7 @@ const HeroSection = ({
     });
 
     return () => ctx.revert(); // Cleanup GSAP animations
-  }, []);
+  }, [reduceMotion]);
 
   // Parallax scroll effect
   useEffect(() => {
@@ -293,6 +316,24 @@ const HeroSection = ({
       {/* Decorative Glow Elements */}
       <div className="absolute inset-0 z-20 pointer-events-none overflow-hidden" aria-hidden="true">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-[#B76E79]/5 rounded-full blur-[120px] opacity-30" />
+      </div>
+
+      {/* Slide indicators — dots for carousel */}
+      {slides.length > 1 && (
+        <div className="absolute bottom-16 sm:bottom-12 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2" aria-label="Slide indicators">
+          {slides.map((_, i) => (
+            <div
+              key={i}
+              className={`rounded-full transition-all duration-500 ${i === activeSlide ? 'w-6 h-1.5 bg-[#F2C29A]' : 'w-1.5 h-1.5 bg-[#EAE0D5]/30'}`}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Scroll-Down Indicator — animated chevron at bottom of hero */}
+      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-1 animate-bounce" aria-hidden="true">
+        <span className="text-[#EAE0D5]/40 text-[10px] tracking-[0.2em] uppercase" style={{ fontFamily: 'Cinzel, serif' }}>Scroll</span>
+        <svg className="w-5 h-5 text-[#F2C29A]/50" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 9l-7 7-7-7" /></svg>
       </div>
 
       {/* Tagline and Buttons Container - bottom-24 on mobile clears the 64px bottom nav */}

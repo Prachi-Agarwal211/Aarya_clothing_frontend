@@ -29,7 +29,13 @@ class SMSService:
         logger.info("Fast2SMS SMS service initialized successfully")
 
     def _format_phone_number(self, phone: str) -> str:
-        """Format phone number - remove non-digits, handle country code."""
+        """Format phone number — strip non-digits, ensure country code prefix."""
+        from shared.phone_utils import normalize_phone_safe
+        normalised = normalize_phone_safe(phone)
+        if normalised:
+            # normalised is E.164 like +91XXXXXXXXXX — strip '+' for Fast2SMS
+            return normalised.lstrip('+')
+        # Fallback: strip non-digits
         phone = str(phone).strip()
         phone = re.sub(r'\D', '', phone)
         return phone

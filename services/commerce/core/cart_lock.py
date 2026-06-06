@@ -21,18 +21,30 @@ class CartLock:
         self.identifier = None
         
     def acquire(self, blocking: bool = True, timeout: Optional[float] = None) -> bool:
-        """Acquire the cart lock using SETNX with a UUID fencing token."""
+        """Acquire the cart lock using atomic SET NX PX with a UUID fencing token.
+
+        Uses PX (millisecond expiry) instead of EX (second expiry) for more
+        precise TTL control. The UUID fencing token ensures only the lock owner
+        can release it.
+        """
         if timeout is None:
             timeout = self.timeout
 
         # UUID-based fencing token — stronger than timestamp
         identifier = str(uuid.uuid4())
         end_time = time.time() + timeout
+        lock_ttl_ms = int(timeout * 2 * 1000)  # 2x timeout in milliseconds
 
         while time.time() < end_time:
             try:
-                # Atomic SET NX EX — only succeeds if no existing lock
-                if redis_client.client.set(self.lock_key, identifier, nx=True, ex=self.timeout):
+                # Atomic SET NX PX — only succeeds if no existing lock
+                # PX sets expiry in milliseconds (more precise than EX seconds)
+                acquired = redis_client.client.set(
+                    self.lock_key, identifier,
+                    nx=True,
+                    px=lock_ttl_ms,
+                )
+                if acquired:
                     self.identifier = identifier
                     return True
             except Exception as e:

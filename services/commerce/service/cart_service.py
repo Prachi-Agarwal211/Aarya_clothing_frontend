@@ -207,7 +207,7 @@ class CartService:
                 if size_attr or color_attr:
                     raise HTTPException(
                         status_code=status.HTTP_400_BAD_REQUEST,
-                        detail="Please select a size before adding to cart",
+                        detail="Please select a size and color before adding to cart",
                     )
             # Product has no size/color variants - use first inventory entry
             inventory = has_variants
@@ -244,8 +244,8 @@ class CartService:
                     detail=f"Only {available} items available",
                 )
 
-        # LOCK: Acquire distributed lock before read-modify-write
-        lock_token = self._acquire_cart_lock(user_id)
+        # Note: Locking is handled by the caller (CartConcurrencyManager/cart_operation_lock).
+        # No inner lock needed here — avoids deadlock and double-locking overhead.
         try:
             result = self._add_to_cart_unlocked(
                 user_id, product, inventory, sku, price, quantity, variant_id
@@ -258,8 +258,6 @@ class CartService:
             if self.db:
                 self.db.rollback()
             raise
-        finally:
-            self._release_cart_lock(user_id, lock_token)
 
     def _add_to_cart_unlocked(
         self,
@@ -354,14 +352,14 @@ class CartService:
         new_quantity: int,
         variant_id: Optional[int] = None,
     ) -> Dict:
-        """Update item quantity in cart. LOCK FIX: Uses distributed lock."""
-        lock_token = self._acquire_cart_lock(user_id)
-        try:
-            return self._update_quantity_unlocked(
-                user_id, product_id, new_quantity, variant_id
-            )
-        finally:
-            self._release_cart_lock(user_id, lock_token)
+        """Update item quantity in cart.
+        
+        NOTE: Caller (CartConcurrencyManager) holds the distributed lock.
+        No inner lock here — avoids double-locking and deadlock.
+        """
+        return self._update_quantity_unlocked(
+            user_id, product_id, new_quantity, variant_id
+        )
 
     def _update_quantity_unlocked(
         self,
@@ -452,22 +450,15 @@ class CartService:
 
         return cart
 
-    def clear_cart(self, user_id: int, release_reservations: bool = True) -> Dict:
-        """Clear cart. No reservations to release."""
-        lock_token = self._acquire_cart_lock(user_id)
-        try:
-            return self._clear_cart_unlocked(user_id, release_reservations)
-        finally:
-            self._release_cart_lock(user_id, lock_token)
+    def clear_cart(self, user_id: int) -> Dict:
+        """Clear cart.
+        
+        NOTE: Caller (CartConcurrencyManager) holds the distributed lock.
+        No inner lock here — avoids double-locking and deadlock.
+        """
+        return self._clear_cart_unlocked(user_id)
 
-    def _clear_cart_unlocked(
-        self, user_id: int, release_reservations: bool = True
-    ) -> Dict:
-        # Get cart before clearing
-        cart = self.get_cart(user_id)
-
-        # SIMPLE: No reservations to release
-
+    def _clear_cart_unlocked(self, user_id: int) -> Dict:
         # Delete cart
         cart_key = f"{self.CART_KEY_PREFIX}{user_id}"
         redis_client.delete_cache(cart_key)
@@ -569,9 +560,8 @@ class CartService:
                 )
             # Safely check inventory quantity
             if inventory is not None:
-                inventory_qty = getattr(inventory, "quantity", 0)
-                if inventory_qty is not None and inventory_qty < item["quantity"]:
-                    avail = inventory_qty if inventory_qty is not None else 0
+                avail = getattr(inventory, "available_quantity", 0)
+                if avail is not None and avail < item["quantity"]:
                     raise HTTPException(
                         status_code=status.HTTP_400_BAD_REQUEST,
                         detail=f"'{item.get('name', item['sku'])}' has only {avail} items available. Please update your cart.",

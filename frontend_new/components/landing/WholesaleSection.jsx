@@ -1,12 +1,65 @@
+'use client';
+
+import React, { useRef, useEffect } from 'react';
 import { Phone, Building2, Handshake } from 'lucide-react';
+import { gsap, prefersReducedMotion } from '@/lib/gsapConfig';
+import { useViewport } from '@/lib/hooks/useViewport';
 
 export default function WholesaleSection() {
+  const sectionRef = useRef(null);
+  const cardsRef = useRef([]);
+  const headerRef = useRef(null);
+  const { isMobile } = useViewport();
+
+  useEffect(() => {
+    if (isMobile || prefersReducedMotion()) {
+      // Instant reveal on mobile / reduced-motion
+      if (headerRef.current) gsap.set(headerRef.current, { opacity: 1, y: 0 });
+      cardsRef.current.forEach(el => { if (el) gsap.set(el, { opacity: 1, y: 0, scale: 1 }); });
+      return;
+    }
+
+    const ctx = gsap.context(() => {
+      // Header entrance
+      if (headerRef.current) {
+        gsap.set(headerRef.current, { willChange: 'transform, opacity' });
+        gsap.fromTo(headerRef.current,
+          { y: 50, opacity: 0 },
+          {
+            y: 0, opacity: 1, duration: 0.9, ease: 'power3.out',
+            scrollTrigger: { trigger: sectionRef.current, start: 'top 82%' },
+            onComplete: () => gsap.set(headerRef.current, { willChange: 'auto' }),
+          }
+        );
+      }
+
+      // Cards staggered entrance
+      const cards = cardsRef.current.filter(Boolean);
+      if (cards.length > 0) {
+        gsap.set(cards, { willChange: 'transform, opacity' });
+        gsap.fromTo(cards,
+          { y: 60, opacity: 0, scale: 0.95 },
+          {
+            y: 0, opacity: 1, scale: 1, stagger: 0.15, duration: 0.9, ease: 'power3.out',
+            scrollTrigger: { trigger: sectionRef.current, start: 'top 75%' },
+            onComplete: () => cards.forEach(el => gsap.set(el, { willChange: 'auto' })),
+          }
+        );
+      }
+    });
+
+    return () => ctx.revert();
+  }, [isMobile]);
+
   return (
-    <section className="py-16 sm:py-20 relative z-10">
+    <section ref={sectionRef} className="py-16 sm:py-20 relative z-10">
+      {/* Decorative glow */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-[#B76E79]/5 rounded-full blur-[100px] pointer-events-none" aria-hidden="true" />
+
       <div className="container mx-auto px-4 sm:px-6">
         <div className="max-w-4xl mx-auto">
           {/* Section Header */}
-          <div className="text-center mb-12">
+          <div ref={headerRef} className="text-center mb-12">
             <div className="flex items-center justify-center gap-3 mb-4">
               <Building2 className="w-8 h-8 text-[#F2C29A]" />
               <h2 className="text-2xl sm:text-3xl font-semibold text-[#F2C29A]" style={{ fontFamily: 'Cinzel, serif' }}>
@@ -23,7 +76,7 @@ export default function WholesaleSection() {
           {/* Contact Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Wholesale Contact Card */}
-            <div className="group relative bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/20 rounded-2xl p-6 sm:p-8 hover:border-[#F2C29A]/40 hover:shadow-[0_0_40px_rgba(242,194,154,0.1)] transition-all duration-500">
+            <div ref={el => cardsRef.current[0] = el} className="group relative bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/20 rounded-2xl p-6 sm:p-8 hover:border-[#F2C29A]/40 hover:shadow-[0_0_40px_rgba(242,194,154,0.1)] transition-all duration-500">
               <div className="absolute inset-0 bg-gradient-to-br from-[#7A2F57]/5 to-[#B76E79]/5 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
               
               <div className="relative z-10">
@@ -71,7 +124,7 @@ export default function WholesaleSection() {
             </div>
 
             {/* Why Partner With Us Card */}
-            <div className="group relative bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/20 rounded-2xl p-6 sm:p-8 hover:border-[#F2C29A]/40 hover:shadow-[0_0_40px_rgba(242,194,154,0.1)] transition-all duration-500">
+            <div ref={el => cardsRef.current[1] = el} className="group relative bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/20 rounded-2xl p-6 sm:p-8 hover:border-[#F2C29A]/40 hover:shadow-[0_0_40px_rgba(242,194,154,0.1)] transition-all duration-500">
               <div className="absolute inset-0 bg-gradient-to-br from-[#7A2F57]/5 to-[#B76E79]/5 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
               
               <div className="relative z-10">

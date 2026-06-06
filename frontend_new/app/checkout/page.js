@@ -390,6 +390,20 @@ function CheckoutAddressPage() {
           </div>
         </div>
       </div>
+
+      {/* Mobile Sticky CTA — always visible at bottom on small screens */}
+      <div className="fixed inset-x-0 bottom-0 lg:hidden bg-[#0B0608]/95 backdrop-blur-md border-t border-[#B76E79]/15 p-4 z-[99]" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom, 0px))' }}>
+        <button
+          onClick={handleContinue}
+          disabled={!selectedAddress || continuing}
+          className="w-full flex items-center justify-center gap-2 px-8 py-3.5 bg-gradient-to-r from-[#7A2F57] to-[#B76E79] text-white font-semibold rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {continuing ? 'Processing...' : 'Continue to Payment'}
+          <ChevronRight className="w-4 h-4" />
+        </button>
+      </div>
+      {/* Spacer for mobile sticky CTA */}
+      <div className="lg:hidden h-[80px]" />
     </div>
   );
 }

@@ -26,39 +26,27 @@ const SORT_OPTIONS = [
 
 const PAGE_SIZE = 24;
 
-// Simple API fetcher - no complex Proxy, direct fetch
+// Use baseApi client for 2-second GET cache layer + automatic retry
+import { coreClient } from '@/lib/baseApi';
+
 async function fetchProductsAPI(params = {}) {
+  // Build query string manually so coreClient.fetch receives the full path+query.
+  // Using coreClient.get(path, params) would double-serialize.
   const queryString = new URLSearchParams(params).toString();
-  const url = `/api/v1/products/browse${queryString ? '?' + queryString : ''}`;
+  const fullPath = `/api/v1/products/browse${queryString ? '?' + queryString : ''}`;
 
-  console.log('[fetchProductsAPI] Fetching:', url);
+  logger.debug('[fetchProductsAPI] Fetching:', fullPath);
 
-  const response = await fetch(url, {
-    credentials: 'include',
-    headers: { 'Accept': 'application/json' },
-  });
+  // Use fetch() directly to avoid double-query-string from get(path, params)
+  const response = await coreClient.fetch(fullPath);
 
-  console.log('[fetchProductsAPI] Response status:', response.status);
+  logger.debug('[fetchProductsAPI] Response status:', 200);
 
-  if (!response.ok) {
-    throw new Error(`API error: ${response.status}`);
-  }
-
-  return response.json();
-}
+  return response;
 
 async function fetchCollectionsAPI() {
-  const response = await fetch('/api/v1/collections', {
-    credentials: 'include',
-    headers: { 'Accept': 'application/json' },
-  });
-  
-  if (!response.ok) {
-    throw new Error(`API error: ${response.status}`);
-  }
-  
-  return response.json();
-}
+  const response = await coreClient.fetch('/api/v1/collections');
+  return response;
 
 export default function ProductsContent({ initialFilters, initialData }) {
   const [products, setProducts] = useState(initialData?.products || []);
@@ -143,7 +131,7 @@ export default function ProductsContent({ initialFilters, initialData }) {
       setProducts(items);
       setTotalProducts(total);
     } catch (err) {
-      console.error('[ProductsClient] Fetch error:', err);
+      logger.error('[ProductsClient] Fetch error:', err.message || err);
       const shouldRetry = !isRetry && attempt < 2;
 
       if (shouldRetry) {

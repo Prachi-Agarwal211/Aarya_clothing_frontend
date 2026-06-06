@@ -22,7 +22,10 @@ class Settings(SharedBaseSettings):
     SERVICE_NAME: str = "aarya-core"
     
     # ==================== Session Settings ====================
-    SESSION_EXPIRE_MINUTES: int = 1440  # 24 hours
+    SESSION_EXPIRE_MINUTES: int = 10080  # 7 days — must match refresh token window.
+    # Redis session is the bridge between the HttpOnly session_id cookie and
+    # the backend. If it expires before the refresh token, the user silently
+    # gets logged out even though the refresh cookie is still valid.
     
     # ==================== Password Policy ====================
     PASSWORD_MIN_LENGTH: int = 5

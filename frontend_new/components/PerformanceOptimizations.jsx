@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import logger from '../lib/logger';
 
 /**
  * PerformanceOptimizations Component
@@ -77,11 +78,11 @@ export function PerformanceOptimizations() {
           
           // Store LCP for analytics
           window.__LCP = lcp;
-          console.log('LCP:', lcp.toFixed(2), 'ms');
+          logger.debug('LCP:', lcp.toFixed(2), 'ms');
           
           // Send to analytics endpoint if needed
           if (lcp > 2500) {
-            console.warn('LCP is above 2.5s threshold:', lcp);
+            logger.warn('LCP is above 2.5s threshold:', lcp);
           }
         });
         lcpObserver.observe({ entryTypes: ['largest-contentful-paint'] });
@@ -95,10 +96,10 @@ export function PerformanceOptimizations() {
             }
           }
           window.__CLS = clsValue;
-          console.log('CLS:', clsValue.toFixed(3));
+          logger.debug('CLS:', clsValue.toFixed(3));
           
           if (clsValue > 0.1) {
-            console.warn('CLS is above 0.1 threshold:', clsValue);
+            logger.warn('CLS is above 0.1 threshold:', clsValue);
           }
         });
         clsObserver.observe({ entryTypes: ['layout-shift'] });
@@ -108,10 +109,10 @@ export function PerformanceOptimizations() {
           for (const entry of entryList.getEntries()) {
             const fid = entry.processingStart - entry.startTime;
             window.__FID = fid;
-            console.log('FID:', fid.toFixed(2), 'ms');
+            logger.debug('FID:', fid.toFixed(2), 'ms');
             
             if (fid > 100) {
-              console.warn('FID is above 100ms threshold:', fid);
+              logger.warn('FID is above 100ms threshold:', fid);
             }
           }
         });
@@ -120,14 +121,14 @@ export function PerformanceOptimizations() {
         // Monitor Long Tasks
         const longTaskObserver = new PerformanceObserver((entryList) => {
           for (const entry of entryList.getEntries()) {
-            console.warn('Long task detected:', entry.duration.toFixed(2), 'ms');
+            logger.warn('Long task detected:', entry.duration.toFixed(2), 'ms');
             // Could send to analytics for monitoring
           }
         });
         longTaskObserver.observe({ entryTypes: ['longtask'] });
 
       } catch (error) {
-        console.warn('Performance Observer not fully supported:', error);
+        logger.warn('Performance Observer not fully supported:', error);
       }
     }
 
@@ -234,7 +235,7 @@ export function usePerformance() {
           pageLoad: timing.loadEventEnd - timing.navigationStart,
         };
 
-        console.log('Performance Metrics:', {
+        logger.debug('Performance Metrics:', {
           'TTFB (ms)': metrics.ttfb,
           'DOM Interactive (ms)': metrics.domInteractive,
           'DOM Content Loaded (ms)': metrics.domContentLoaded,

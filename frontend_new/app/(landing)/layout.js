@@ -29,7 +29,6 @@ export default async function LandingRootLayout({ children }) {
           as="video"
           type={getVideoTypeHint(d)}
           fetchPriority="high"
-          importance="high"
         />
       );
     } else {
@@ -43,7 +42,6 @@ export default async function LandingRootLayout({ children }) {
             type={getVideoTypeHint(d)}
             media="(min-width: 769px)"
             fetchPriority="high"
-            importance="high"
           />
         );
       }
@@ -57,7 +55,6 @@ export default async function LandingRootLayout({ children }) {
             type={getVideoTypeHint(m)}
             media="(max-width: 768px)"
             fetchPriority="high"
-            importance="high"
           />
         );
       }

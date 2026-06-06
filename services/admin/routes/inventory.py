@@ -272,6 +272,61 @@ async def admin_adjust_inventory(
     }
 
 
+@router.post("/api/v1/admin/inventory/reconcile-total-stock", tags=["Admin Inventory"])
+async def admin_reconcile_total_stock(
+    dry_run: bool = Query(False, description="If true, report mismatches without updating"),
+    db: Session = Depends(get_db),
+    user: dict = Depends(require_admin),
+):
+    """Reconcile denormalized product.total_stock with actual SUM(inventory.quantity).
+
+    If dry_run=true, returns mismatches without writing. Otherwise corrects drift.
+    """
+    rows = db.execute(
+        text(
+            "SELECT p.id, p.name, p.total_stock, "
+            "COALESCE(SUM(i.quantity), 0) AS actual_stock "
+            "FROM products p LEFT JOIN inventory i ON i.product_id = p.id "
+            "GROUP BY p.id, p.name, p.total_stock "
+            "HAVING COALESCE(SUM(i.quantity), 0) != COALESCE(p.total_stock, 0)"
+        )
+    ).fetchall()
+
+    mismatches = []
+    corrected = 0
+    now = now_ist().replace(tzinfo=None)
+
+    for row in rows:
+        pid = row._mapping["id"]
+        actual = int(row._mapping["actual_stock"])
+        mismatches.append(
+            {
+                "product_id": pid,
+                "product_name": row._mapping["name"],
+                "stored_total_stock": row._mapping["total_stock"],
+                "actual_stock": actual,
+                "drift": actual - (row._mapping["total_stock"] or 0),
+            }
+        )
+        if not dry_run:
+            db.execute(
+                text("UPDATE products SET total_stock = :qty, updated_at = :now WHERE id = :id"),
+                {"qty": actual, "now": now, "id": pid},
+            )
+            corrected += 1
+
+    if not dry_run and corrected > 0:
+        db.commit()
+        redis_client.invalidate_pattern("products:*")
+
+    return {
+        "mismatches_found": len(mismatches),
+        "corrected": corrected if not dry_run else 0,
+        "dry_run": dry_run,
+        "details": mismatches,
+    }
+
+
 @router.post("/api/v1/admin/inventory/adjust", tags=["Admin Inventory"])
 async def admin_adjust_inventory_by_sku(
     payload: dict,

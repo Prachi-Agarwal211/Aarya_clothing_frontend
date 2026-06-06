@@ -1,11 +1,10 @@
 import './globals.css';
 import { Cinzel, Playfair_Display } from 'next/font/google';
-import Script from 'next/script';
 import { AuthProvider } from '../lib/authContext';
 import { CartProvider } from '../lib/cartContext';
 import { SiteConfigProvider } from '../lib/siteConfigContext';
 import CartDrawer from '../components/cart/CartDrawer';
-import SilkBackground from '../components/SilkBackground';
+import SilkBackground from '../components/SilkBackgroundWrapper';
 import { ToastProvider } from '../components/ui/Toast';
 import { CartAnimationProvider } from '../components/cart/CartAnimation';
 import ErrorBoundary from '../components/ErrorBoundary';
@@ -109,35 +108,7 @@ export default function RootLayout({ children }) {
         
         {/* Razorpay SDK - preload for faster checkout */}
         <link rel="preconnect" href="https://checkout.razorpay.com" />
-        <Script id="register-sw" strategy="afterInteractive">
-          {`
-            if ('serviceWorker' in navigator) {
-              window.addEventListener('load', function() {
-                // Force unregister ALL old service workers to clear broken caches
-                navigator.serviceWorker.getRegistrations().then(function(registrations) {
-                  for(let registration of registrations) {
-                    registration.unregister();
-                    console.log('Service Worker unregistered:', registration.scope);
-                  }
-                }).then(function() {
-                  // Clear all old caches
-                  caches.keys().then(function(names) {
-                    for (let name of names) {
-                      if (name.includes('aarya-clothing')) {
-                        caches.delete(name);
-                        console.log('Old cache deleted:', name);
-                      }
-                    }
-                  });
-                }).then(function() {
-                  // Register fresh service worker
-                  navigator.serviceWorker.register('/sw.js');
-                  console.log('Fresh Service Worker registered');
-                });
-              });
-            }
-          `}
-        </Script>
+        {/* NOTE: Removed broken /sw.js ServiceWorker registration (no sw.js exists; was causing SSL + registration errors in dev https://localhost). */}
       </body>
     </html>
   );

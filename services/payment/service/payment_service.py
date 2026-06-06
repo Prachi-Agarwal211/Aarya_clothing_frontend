@@ -306,7 +306,7 @@ class PaymentService:
             # Brief lock to update failed status
             txn_locked = self.db.query(PaymentTransaction).filter(
                 PaymentTransaction.transaction_id == transaction_id
-            ).with_for_update(nowait=True).first()
+            ).with_for_update(skip_locked=True).first()
             if txn_locked and txn_locked.status == "pending":
                 txn_locked.status = "failed"
                 self.db.commit()
@@ -325,7 +325,7 @@ class PaymentService:
         # ── Step 4: Acquire row lock (brief write only) ──
         txn_locked = self.db.query(PaymentTransaction).filter(
             PaymentTransaction.transaction_id == transaction_id
-        ).with_for_update(nowait=True).first()
+        ).with_for_update(skip_locked=True).first()
 
         if not txn_locked:
             raise TransactionNotFoundError(transaction_id)
@@ -356,7 +356,11 @@ class PaymentService:
         # Update transaction — lock held briefly for this write
         txn_locked.razorpay_payment_id = razorpay_payment_id
         txn_locked.razorpay_signature = razorpay_signature
-        txn_locked.status = "completed" if payment_details.get("status") == "captured" else "failed"
+        # Accept both 'captured' AND 'authorized' as successful payments.
+        # UPI collect (embedded checkout) sends 'authorized' first, then 'captured'.
+        # Rejecting 'authorized' caused money to be taken but orders never created.
+        payment_status = payment_details.get("status", "")
+        txn_locked.status = "completed" if payment_status in ("captured", "authorized") else "failed"
         txn_locked.gateway_response = payment_details
         txn_locked.completed_at = ist_naive()
 
@@ -645,11 +649,29 @@ class PaymentService:
             event_id = webhook_data.get("id")
             event_type = webhook_data.get("event", "")
 
-            # Idempotency check: Return true if event already processed
+            # Fast-path dedup: Redis check avoids DB round-trip for rapid retries.
+            # Razorpay retries failed webhooks 3x at 2s intervals.
             if event_id:
+                dedup_key = f"webhook:processed:{event_id}"
+                try:
+                    from core.redis_client import redis_client as _redis
+                    if _redis and _redis.get_cache(dedup_key, namespace=""):
+                        logger.info(f"Webhook {event_id} already processed (Redis dedup). Skipping.")
+                        return True
+                    # Mark as processing (30s window — enough for one processing cycle)
+                    _redis.set_cache(dedup_key, "1", ttl=30, namespace="")
+                except Exception:
+                    pass  # Redis unavailable — fall through to DB check
+
+                # DB-level idempotency check (definitive)
                 existing_event = self.db.query(WebhookEvent).filter(WebhookEvent.event_id == event_id).first()
                 if existing_event:
                     logger.info(f"Webhook {event_id} already processed. Skipping.")
+                    # Mark in Redis for future fast-path
+                    try:
+                        _redis.set_cache(dedup_key, "done", ttl=86400, namespace="")
+                    except Exception:
+                        pass
                     return True
 
             # Log webhook event
@@ -731,11 +753,10 @@ class PaymentService:
         commerce service if it doesn't exist yet. Never returns early for non-pending
         transactions; always checks if order exists and creates if missing.
 
-        Transaction-finding strategy (in order):
+        Transaction-finding strategy (in order of reliability):
         1. By razorpay_order_id (most reliable — set at checkout initiation)
         2. By razorpay_payment_id (set after payment completes)
-        3. By transaction_id (QR/UPI fallback where payment_id may be delayed)
-        4. By QR code + amount matching (QR payments where no ID was set)
+        3. By QR code + amount matching (QR payments where no ID was set)
         """
         try:
             payment_id = event_info.get("payment_id")
@@ -751,7 +772,7 @@ class PaymentService:
                 transaction = (
                     self.db.query(PaymentTransaction)
                     .filter(PaymentTransaction.razorpay_order_id == razorpay_order_id)
-                    .with_for_update(nowait=True)
+                    .with_for_update(skip_locked=True)
                     .first()
                 )
 
@@ -760,23 +781,11 @@ class PaymentService:
                 transaction = (
                     self.db.query(PaymentTransaction)
                     .filter(PaymentTransaction.razorpay_payment_id == payment_id)
-                    .with_for_update(nowait=True)
+                    .with_for_update(skip_locked=True)
                     .first()
                 )
 
-            # Strategy 3: By transaction_id (QR/UPI — payment may use transaction_id as reference)
-            if not transaction and payment_id and method in ["upi", "upi_qr"]:
-                transaction = (
-                    self.db.query(PaymentTransaction)
-                    .filter(
-                        PaymentTransaction.transaction_id == payment_id,
-                        PaymentTransaction.razorpay_payment_id.is_(None) | (PaymentTransaction.razorpay_payment_id == ""),
-                    )
-                    .with_for_update(nowait=True)
-                    .first()
-                )
-
-            # Strategy 4: By QR + amount matching (QR payments where no payment_id was set yet)
+            # Strategy 3: By QR + amount matching (QR payments where no payment_id was set yet)
             if not transaction and amount_paise and method == "upi_qr":
                 amount_rupees = Decimal(str(amount_paise)) / Decimal('100')
                 query = self.db.query(PaymentTransaction).filter(
@@ -792,7 +801,7 @@ class PaymentService:
                 if user_id_from_notes:
                     query = query.filter(PaymentTransaction.user_id == int(user_id_from_notes))
                 transaction = (
-                    query.with_for_update(nowait=True)
+                    query.with_for_update(skip_locked=True)
                     .order_by(PaymentTransaction.created_at.desc())
                     .first()
                 )
@@ -923,14 +932,14 @@ class PaymentService:
                 transaction = (
                     self.db.query(PaymentTransaction)
                     .filter(PaymentTransaction.razorpay_order_id == razorpay_order_id)
-                    .with_for_update(nowait=True)
+                    .with_for_update(skip_locked=True)
                     .first()
                 )
             if not transaction and payment_id:
                 transaction = (
                     self.db.query(PaymentTransaction)
                     .filter(PaymentTransaction.razorpay_payment_id == payment_id)
-                    .with_for_update(nowait=True)
+                    .with_for_update(skip_locked=True)
                     .first()
                 )
             if not transaction:
@@ -943,7 +952,7 @@ class PaymentService:
                     )
                     if qr_code_id:
                         query = query.filter(PaymentTransaction.razorpay_qr_code_id == qr_code_id)
-                    transaction = query.with_for_update(nowait=True).order_by(
+                    transaction = query.with_for_update(skip_locked=True).order_by(
                         PaymentTransaction.created_at.desc()
                     ).first()
 
@@ -986,14 +995,14 @@ class PaymentService:
                 transaction = (
                     self.db.query(PaymentTransaction)
                     .filter(PaymentTransaction.razorpay_payment_id == payment_id)
-                    .with_for_update(nowait=True)
+                    .with_for_update(skip_locked=True)
                     .first()
                 )
             if not transaction and razorpay_order_id:
                 transaction = (
                     self.db.query(PaymentTransaction)
                     .filter(PaymentTransaction.razorpay_order_id == razorpay_order_id)
-                    .with_for_update(nowait=True)
+                    .with_for_update(skip_locked=True)
                     .first()
                 )
 
@@ -1034,7 +1043,7 @@ class PaymentService:
                     transaction = (
                         self.db.query(PaymentTransaction)
                         .filter(PaymentTransaction.razorpay_qr_code_id == qr_code_id)
-                        .with_for_update(nowait=True)
+                        .with_for_update(skip_locked=True)
                         .first()
                     )
                     if transaction:
@@ -1052,14 +1061,14 @@ class PaymentService:
                     transaction = (
                         self.db.query(PaymentTransaction)
                         .filter(PaymentTransaction.razorpay_qr_code_id == qr_code_id)
-                        .with_for_update(nowait=True)
+                        .with_for_update(skip_locked=True)
                         .first()
                     )
                 if not transaction and payment_id:
                     transaction = (
                         self.db.query(PaymentTransaction)
                         .filter(PaymentTransaction.razorpay_payment_id == payment_id)
-                        .with_for_update(nowait=True)
+                        .with_for_update(skip_locked=True)
                         .first()
                     )
                 if not transaction and payment_id and amount_paise:
@@ -1071,7 +1080,7 @@ class PaymentService:
                             PaymentTransaction.payment_method == "upi_qr",
                             PaymentTransaction.amount == amount_rupees,
                         )
-                        .with_for_update(nowait=True)
+                        .with_for_update(skip_locked=True)
                         .order_by(PaymentTransaction.created_at.desc())
                         .first()
                     )

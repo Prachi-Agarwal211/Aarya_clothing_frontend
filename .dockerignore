@@ -1,60 +1,73 @@
-# Dependencies
-node_modules/
-**/node_modules/
+# Python
+__pycache__
+**/__pycache__
+**/*.pyc
+**/*.pyo
+**/.pytest_cache
+**/pytest_cache
+**/.mypy_cache
 
-# Build outputs
-.next/
-out/
-build/
-dist/
-
-# Environment files
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-**/.env.local
+# Node
+**/node_modules
+**/.next
+**/.cache
 
 # Git
-.git/
-.gitignore
+**/.git
+**/.gitignore
 
 # IDE
-.idea/
-.vscode/
-*.swp
-*.swo
+**/.vscode
+**/.idea
+**/.cursor
+**/.kilo
+**/.windsurf
 
-# OS
-.DS_Store
-Thumbs.db
+# Tests
+**/tests/
+**/*.test.py
+**/*.test.js
+**/*.spec.ts
+**/*.spec.js
+**/conftest.py
 
-# Logs
-logs/
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
+# Documentation
+**/*.md
+**/docs/
 
-# Testing
-coverage/
-.nyc_output/
+# Docker
+**/docker-compose*.yml
+**/Dockerfile*
 
-# Misc
-*.md
-!README.md
-.qwen/
-.github/
-tests/
-plans/
-docs/
+# Environment
+**/.env
+**/.env.*
 
-# Video files (for uploads - should not be in repo)
-*.mp4
-*.webm
-*.mov
-*.avi
-*.mkv
-*.wmv
-*.flv
+# Backups
+**/backups/
+
+# Scripts (not needed in containers)
+**/scripts/
+
+# Monitoring config
+**/monitoring/
+
+# Git files
+**/.gitattributes
+**/.gitignore
+
+# Project root files not needed in containers
+AGENTS.md
+SOUL.md
+USER.md
+TOOLS.md
+MEMORY.md
+HEARTBEAT.md
+IDENTITY.md
+kilo.json
+validate_syntax.py
+
+# Frontend build artifacts (rebuilt in container)
+frontend_new/.next
+frontend_new/node_modules
+frontend_new/public/build

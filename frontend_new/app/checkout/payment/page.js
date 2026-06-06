@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { CreditCard, ChevronRight, Lock, Shield, Check, AlertCircle, ShoppingBag, X, RotateCcw, RefreshCw, QrCode, Clock, Timer } from 'lucide-react';
+import { CreditCard, ChevronRight, Lock, Shield, Check, AlertCircle, ShoppingBag, X, RotateCcw, QrCode, Clock, Timer } from 'lucide-react';
 import { paymentApi, cartApi, userApi } from '@/lib/customerApi';
 import { useCart } from '@/lib/cartContext';
 import { useAuth } from '@/lib/authContext';
@@ -543,9 +543,29 @@ export default function CheckoutPaymentPage() {
         </div>
       )}
 
+      {/* Order Cost Breakdown — moved to TOP for mobile visibility */}
+      <div className="p-5 bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl">
+        <h3 className="text-sm font-semibold text-[#F2C29A] mb-4 uppercase tracking-wider">Order Summary</h3>
+        <div className="space-y-2 text-sm">
+          {cart?.discount > 0 && (
+            <div className="flex justify-between">
+              <span className="text-[#EAE0D5]/60">Discount Applied</span>
+              <span className="text-green-400">-{formatCurrency(cart.discount)}</span>
+            </div>
+          )}
+          <div className="flex justify-between pt-3 mt-1 border-t border-[#B76E79]/20 font-semibold text-base">
+            <span className="text-[#F2C29A]">Total Payable</span>
+            <span className="text-[#F2C29A]">{formatCurrency(cart?.total)}</span>
+          </div>
+          <p className="text-xs text-[#EAE0D5]/40 pt-1">
+            Inclusive of all taxes &amp; free shipping
+          </p>
+        </div>
+      </div>
+
       {/* Payment Gateway Selection */}
       <div className="p-6 bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl">
-        <h2 className="text-xl font-semibold text-[#F2C29A] mb-4">Select Payment Method</h2>
+        <h2 className="text-xl font-semibold text-[#F2C29A] mb-4">Pay with</h2>
         <div className="space-y-3">
           {/* Razorpay Option */}
           <button
@@ -606,86 +626,11 @@ export default function CheckoutPaymentPage() {
         </div>
       </div>
 
-      {/* Payment Method Info */}
-      <div className="p-6 bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl">
-        <h2 className="text-xl font-semibold text-[#F2C29A] mb-4">Payment Details</h2>
-        <div className="relative p-4 border rounded-xl bg-[#7A2F57]/20 border-[#B76E79]">
-          <div className="absolute top-3 right-3">
-            <Check className="w-5 h-5 text-[#B76E79]" />
-          </div>
-          <div className="flex items-center gap-4">
-            <span className="text-2xl">💳</span>
-            <div>
-              <p className="font-medium text-[#F2C29A]">Razorpay</p>
-              <p className="text-sm text-[#EAE0D5]/70">UPI, Cards, Net Banking, Wallets & more</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Payment info */}
-      <div className="p-6 bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl">
-        <div className="flex items-center gap-2 mb-4">
-          <Lock className="w-4 h-4 text-[#B76E79]" />
-          <span className="text-sm text-[#EAE0D5]/70">Secure payment powered by Razorpay</span>
-        </div>
-        <p className="text-[#EAE0D5]/70 text-sm">
-          Click &quot;Pay Now&quot; to open the secure Razorpay checkout. You can pay using:
-        </p>
-        <div className="flex flex-wrap gap-2 mt-4">
-          {['UPI', 'Credit Card', 'Debit Card', 'Net Banking', 'Wallet'].map((m) => (
-            <span key={m} className="px-3 py-1 bg-[#7A2F57]/20 text-[#EAE0D5]/70 text-sm rounded-full">
-              {m}
-            </span>
-          ))}
-        </div>
-      </div>
-
-      {/* Order Cost Breakdown */}
-      <div className="p-5 bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl">
-        <h3 className="text-sm font-semibold text-[#F2C29A] mb-4 uppercase tracking-wider">Order Summary</h3>
-        <div className="space-y-2 text-sm">
-          {cart?.discount > 0 && (
-            <div className="flex justify-between">
-              <span className="text-[#EAE0D5]/60">Discount Applied</span>
-              <span className="text-green-400">-{formatCurrency(cart.discount)}</span>
-            </div>
-          )}
-          <div className="flex justify-between pt-3 mt-1 border-t border-[#B76E79]/20 font-semibold text-base">
-            <span className="text-[#F2C29A]">Total Payable</span>
-            <span className="text-[#F2C29A]">{formatCurrency(cart?.total)}</span>
-          </div>
-          <p className="text-xs text-[#EAE0D5]/40 pt-1">
-            Inclusive of all taxes &amp; free shipping
-          </p>
-        </div>
-      </div>
-
-      {/* Security Info */}
-      <div className="p-4 bg-[#7A2F57]/10 border border-[#B76E79]/10 rounded-xl">
-        <div className="flex items-center gap-3">
-          <Shield className="w-5 h-5 text-[#B76E79]" />
-          <div>
-            <p className="text-sm text-[#F2C29A]">100% Secure Payments</p>
-            <p className="text-xs text-[#EAE0D5]/50">Your payment information is encrypted and secure</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Return Policy Info */}
-      <div className="p-4 bg-[#F2C29A]/5 border border-[#F2C29A]/10 rounded-xl">
-        <div className="flex items-center gap-3">
-          <RotateCcw className="w-5 h-5 text-[#F2C29A]" />
-          <div className="flex-1">
-            <div className="flex items-center gap-2">
-              <RefreshCw className="w-5 h-5 text-green-400" />
-              <div>
-                <p className="text-sm text-[#F2C29A]">Return Protection</p>
-                <p className="text-xs text-[#EAE0D5]/50">Defective items? Submit return with video proof within 7 days. <Link href="/returns" className="underline hover:text-[#F2C29A]">Learn more</Link></p>
-              </div>
-            </div>
-          </div>
-        </div>
+      {/* Security + Return — compact single-line strip (replaces 3 separate cards) */}
+      <div className="flex items-center justify-center gap-4 text-xs text-[#EAE0D5]/50 py-1">
+        <span className="flex items-center gap-1"><Lock className="w-3 h-3 text-[#B76E79]/60" /> Secure</span>
+        <span className="flex items-center gap-1"><Shield className="w-3 h-3 text-[#B76E79]/60" /> Encrypted</span>
+        <span className="flex items-center gap-1"><RotateCcw className="w-3 h-3 text-[#B76E79]/60" /> <Link href="/returns" className="hover:text-[#F2C29A]">7-day returns</Link></span>
       </div>
 
       {/* Error */}

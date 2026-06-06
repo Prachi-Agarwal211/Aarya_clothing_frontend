@@ -90,7 +90,7 @@ const ProductCard = ({ product, className, priority = false }) => {
               priority={priority}
               quality={75}
               placeholder="blur"
-              blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k="
+              blurDataURL="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjUwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCBmaWxsPSIjMUYxQTFBIiB3aWR0aD0iNDAwIiBoZWlnaHQ9IjUwMCIvPjwvc3ZnPg=="
               onError={() => setImageError(true)}
             />
           )}
@@ -169,4 +169,18 @@ const ProductCard = ({ product, className, priority = false }) => {
   );
 };
 
-export default ProductCard;
+/**
+ * Custom comparator: only re-render when the product ID, priority, or className changes.
+ * product is a new object reference on every parent render (from _enrich_product),
+ * so shallow comparison would never prevent re-renders.
+ */
+const areEqual = (prev, next) => (
+  prev.product?.id === next.product?.id &&
+  prev.priority === next.priority &&
+  prev.className === next.className
+);
+
+const MemoizedProductCard = React.memo(ProductCard, areEqual);
+MemoizedProductCard.displayName = 'ProductCard';
+
+export default MemoizedProductCard;

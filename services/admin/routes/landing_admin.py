@@ -89,6 +89,7 @@ async def update_landing_config(
         )
     db.commit()
     redis_client.invalidate_pattern("public:landing:*")
+    redis_client.invalidate_pattern("landing:featured:*")
     return {"message": f"Landing config for '{section}' updated"}
 
 
@@ -335,6 +336,7 @@ async def add_landing_product(
     )
     db.commit()
     redis_client.invalidate_pattern("public:landing:*")
+    redis_client.invalidate_pattern("landing:featured:*")
     return {
         "message": "Product added to landing section",
         "landing_product_id": result.scalar(),
@@ -365,6 +367,7 @@ async def update_landing_product(
     )
     db.commit()
     redis_client.invalidate_pattern("public:landing:*")
+    redis_client.invalidate_pattern("landing:featured:*")
     return {"message": "Landing product updated"}
 
 
@@ -382,6 +385,7 @@ async def delete_landing_product(
     )
     db.commit()
     redis_client.invalidate_pattern("public:landing:*")
+    redis_client.invalidate_pattern("landing:featured:*")
     return {"message": "Product removed from landing section"}
 
 

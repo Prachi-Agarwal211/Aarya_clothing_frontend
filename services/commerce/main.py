@@ -140,6 +140,12 @@ from shared.auth_middleware import (
 from shared.roles import is_staff
 from shared.request_id_middleware import RequestIDMiddleware
 
+# Exception handlers — standardized responses via shared/base_exception_handler.
+# Registers HTTP, validation, SQLAlchemy, and commerce custom exceptions
+# (CommerceServiceException + subclasses with their status mappings).
+# This call was missing after the DRY refactor (see uncommitted changes audit 2026-06-04).
+from exception_handler import setup_exception_handlers
+
 
 def reconcile_cart_reservations(db: Session) -> int:
     """
@@ -364,6 +370,11 @@ except Exception:
 
 # Request ID
 app.add_middleware(RequestIDMiddleware)
+
+# Register standardized exception handlers (must be after app + middlewares).
+# Uses the thin local exception_handler (which defines Commerce* exceptions + mapping)
+# delegating to shared/base_exception_handler for the actual @app.exception_handler registrations.
+setup_exception_handlers(app)
 
 # Register route modules. Customer SSE/track/checkout flows use ``customer_orders_router``;
 # ``orders_router`` owns POST/GET /api/v1/orders, invoices, and internal payment webhooks.

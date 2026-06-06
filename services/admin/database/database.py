@@ -15,6 +15,8 @@ engine = create_engine(
     pool_pre_ping=True,                          # Validate connections before use
     pool_recycle=300,                            # Recycle every 5 min (PgBouncer timeout is 10 min)
     pool_timeout=30,
+    # CRITICAL: Disable psycopg2 prepared statements for PgBouncer transaction mode.
+    connect_args={"prepare_threshold": None},
     echo=False                                   # Never log raw SQL (use logging instead)
 )
 
@@ -27,8 +29,6 @@ SessionLocal = sessionmaker(
 )
 
 Base = declarative_base()
-
-
 def get_db() -> Session:
     """FastAPI dependency for database session."""
     db = SessionLocal()
@@ -36,18 +36,21 @@ def get_db() -> Session:
         yield db
     finally:
         db.close()
-
-
 @contextmanager
 def get_db_context() -> Session:
-    """Context manager for background tasks."""
+    """Context manager for background tasks.
+
+    Rolls back on exception to prevent dirty state from leaking,
+    then closes the session.
+    """
     db = SessionLocal()
     try:
         yield db
+    except Exception:
+        db.rollback()
+        raise
     finally:
         db.close()
-
-
 def init_db():
     """Initialize database tables."""
     from models.chat import ChatRoom, ChatMessage
@@ -65,8 +68,6 @@ def init_db():
     except Exception:
         # Tables/indexes already exist from a previous deployment — safe to ignore
         pass
-
-
 def get_pool_status() -> dict:
     """Get connection pool status for monitoring."""
     return {

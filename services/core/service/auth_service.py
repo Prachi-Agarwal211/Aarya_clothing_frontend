@@ -178,6 +178,14 @@ class AuthService:
 
     def create_user(self, user_data) -> Dict[str, Any]:
         """Register a new user and dispatch a verification OTP."""
+        # Normalize phone to E.164 before any DB operation
+        from shared.phone_utils import normalize_phone_safe
+        raw_phone = getattr(user_data, 'phone', None)
+        if raw_phone and isinstance(raw_phone, str) and raw_phone.strip():
+            normalized = normalize_phone_safe(raw_phone.strip())
+            if normalized:
+                user_data.phone = normalized
+
         valid, errors = self.validate_password(user_data.password)
         if not valid:
             raise ValueError("; ".join(errors))
@@ -216,7 +224,10 @@ class AuthService:
 
             user.hashed_password = self.get_password_hash(user_data.password)
             user.signup_verification_method = getattr(user_data, "verification_method", "otp_email")
-            user.phone = new_phone if new_phone else user.phone
+            if new_phone:
+                norm_new = normalize_phone_safe(new_phone.strip()) if isinstance(new_phone, str) else new_phone
+                user.phone = norm_new if norm_new else new_phone
+            # else: keep existing user.phone
             user.full_name = getattr(user_data, "full_name", user.full_name)
             user.updated_at = ist_naive()
             logger.info(f"[Auth] Resuming registration for unverified user {user.id}")
@@ -421,17 +432,26 @@ class AuthService:
         user = _resolve_user_query(self.db, identifier)
         if not user: raise ValueError("Invalid or expired OTP")
 
+        # SECURITY: Reject inactive (unverified) users from OTP login.
+        # They should use the registration verify-otp-registration flow instead.
+        if not user.is_active:
+            raise ValueError("This account has not been verified yet. Please complete registration first.")
+
         from service.otp_service import OTPService
         verify = OTPService(db=self.db).verify_otp(user_id=user.id, otp_code=otp_code, token_type="login")
         if not verify.get("success"):
             raise ValueError(verify.get("error", "Invalid or expired OTP"))
 
-        # Update verification flag based on delivery method
+        # FIXED: Only update verification flag if not already verified.
+        # Previously, every email OTP login would overwrite email_verified=True
+        # even for users who registered via phone, causing incorrect state.
         delivery = str(verify.get("delivery_method", "EMAIL")).upper()
         if any(m in delivery for m in ("SMS", "WHATSAPP", "PHONE")):
-            user.phone_verified = True
+            if not user.phone_verified:
+                user.phone_verified = True
         else:
-            user.email_verified = True
+            if not user.email_verified:
+                user.email_verified = True
 
         user.last_login_at = ist_naive()
         self.db.commit()

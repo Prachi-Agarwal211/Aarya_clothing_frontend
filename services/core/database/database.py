@@ -29,6 +29,9 @@ engine = create_engine(
     pool_pre_ping=True,                 # Validate connections before use
     pool_recycle=300,                   # Recycle every 5 min (PgBouncer timeout is 10 min)
     pool_timeout=30,                    # Fail fast when pool exhausted (avoid hung requests)
+    # CRITICAL: Disable psycopg2 prepared statements for PgBouncer transaction mode.
+    # PgBouncer closes connections between transactions, so prepared statements are lost.
+    connect_args={"prepare_threshold": None},
     echo=DEBUG
 )
 
@@ -42,8 +45,6 @@ SessionLocal = sessionmaker(
 
 # Create base class for models
 Base = declarative_base()
-
-
 def get_db() -> Session:
     """FastAPI dependency for database session."""
     db = SessionLocal()
@@ -51,65 +52,39 @@ def get_db() -> Session:
         yield db
     finally:
         db.close()
-
-
 @contextmanager
 def get_db_context() -> Session:
-    """Context manager for background tasks."""
+    """Context manager for background tasks.
+
+    Rolls back on exception to prevent dirty state from leaking,
+    then closes the session.
+    """
     db = SessionLocal()
     try:
         yield db
+    except Exception:
+        db.rollback()
+        raise
     finally:
         db.close()
-
-
-def _ensure_users_phone_verified_column() -> None:
-    """Add phone_verified if missing (shared users table; create_all does not ALTER)."""
-    import logging
-
-    log = logging.getLogger(__name__)
-    try:
-        with engine.begin() as conn:
-            conn.execute(
-                text(
-                    "ALTER TABLE users ADD COLUMN IF NOT EXISTS phone_verified BOOLEAN NOT NULL DEFAULT FALSE"
-                )
-            )
-    except Exception as e:
-        log.warning("Could not ensure phone_verified column on users: %s", e)
-
-
-def _ensure_users_signup_verification_method_column() -> None:
-    import logging
-
-    log = logging.getLogger(__name__)
-    try:
-        with engine.begin() as conn:
-            conn.execute(
-                text(
-                    "ALTER TABLE users ADD COLUMN IF NOT EXISTS signup_verification_method VARCHAR(32)"
-                )
-            )
-    except Exception as e:
-        log.warning("Could not ensure signup_verification_method column on users: %s", e)
-
-
 def init_db():
     """Initialize database tables."""
-    # Import all models here so Base knows about them
+    from shared.db_migration_helpers import ensure_column
     from models import User, EmailVerification, OTP
-    # UserProfile is deprecated - fields moved to User model
-    # from models import UserProfile
-    # UserSecurity is deprecated - fields moved to User model
-    # from models import UserSecurity
 
     # Skip create_all to avoid foreign key issues with database initialization order
     # Tables are created by init.sql script
     # Base.metadata.create_all(bind=engine)
-    _ensure_users_phone_verified_column()
-    _ensure_users_signup_verification_method_column()
 
-
+    # Schema drift prevention - add columns that create_all won't ALTER in
+    ensure_column(engine, "users", "phone_verified", "BOOLEAN NOT NULL DEFAULT FALSE")
+    ensure_column(engine, "users", "signup_verification_method", "VARCHAR(32)")
+    ensure_column(engine, "users", "first_name", "VARCHAR(50)")
+    ensure_column(engine, "users", "last_name", "VARCHAR(50)")
+    ensure_column(engine, "users", "failed_login_attempts", "INTEGER NOT NULL DEFAULT 0")
+    ensure_column(engine, "users", "account_locked_until", "TIMESTAMP")
+    ensure_column(engine, "users", "last_login_at", "TIMESTAMP")
+    ensure_column(engine, "users", "password_changed_at", "TIMESTAMP")
 def get_pool_status() -> dict:
     """Get connection pool status for monitoring."""
     return {

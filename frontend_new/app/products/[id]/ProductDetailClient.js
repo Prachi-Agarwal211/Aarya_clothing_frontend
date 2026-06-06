@@ -29,6 +29,9 @@ import logger from '@/lib/logger';
 import { useAlertToast } from '@/lib/useAlertToast';
 import { getColorName, getHexFromName } from '@/lib/colorMap';
 
+// Clear, user-facing instruction (single source of truth for this message)
+const VARIANT_SELECTION_INSTRUCTION = "Select size and color to check availability and add to cart";
+
 const HEX_COLOR_RE = /^#([0-9a-f]{6})$/i;
 
 const normalizeHex = (value) => {
@@ -175,18 +178,9 @@ export default function ProductDetailClient({ initialProduct, initialReviews }) 
       const firstWithStock = product.colors.find(c => colorHasAnyStock(c)) || product.colors[0];
       if (firstWithStock) setSelectedColor(firstWithStock);
     }
-
-    // Auto-select first available size
-    if (product.sizes?.length && !selectedSize) {
-      const colorKey = selectedColor ? normalizeHex(selectedColor.hex) : null;
-      const firstAvailable = product.sizes.find(
-        (size) => product.inventory?.some(
-          (inv) => inv.size === size && inv.in_stock && (!colorKey || normalizeHex(inv.color_hex) === colorKey)
-        )
-      ) || product.sizes[0];
-      if (firstAvailable) setSelectedSize(firstAvailable);
-    }
-
+    // NOTE: We DO NOT auto-select size on load. Forcing the user to actively
+    // select their size prevents sizing mistakes (critical for premium ethnic wear)
+    // and ensures the variant instruction banner/alerts function properly.
     setInitialized(true);
   }, [product, initialized, selectedColor, selectedSize]);
 
@@ -213,8 +207,8 @@ export default function ProductDetailClient({ initialProduct, initialReviews }) 
       return;
     }
 
-    if (product?.sizes?.length > 0 && !selectedSize) {
-      showAlert('Please select a size');
+    if ((product?.sizes?.length > 0 || product?.colors?.length > 0) && !selectedVariant) {
+      showAlert(VARIANT_SELECTION_INSTRUCTION);
       return;
     }
 
@@ -337,6 +331,13 @@ export default function ProductDetailClient({ initialProduct, initialReviews }) 
                 {product.mrp > product.price && <span className="text-lg text-[#EAE0D5]/50 line-through">{formatCurrency(product.mrp)}</span>}
               </div>
 
+              {/* Clear user instruction — only shown when the product actually has variants */}
+              {(product.sizes?.length > 0 || product.colors?.length > 0) && !selectedVariant && (
+                <p className="text-sm text-[#F2C29A]/90 bg-[#7A2F57]/10 border border-[#B76E79]/20 rounded-lg px-3 py-2">
+                  {VARIANT_SELECTION_INSTRUCTION}
+                </p>
+              )}
+
               {product.colors?.length > 0 && (
                 <div>
                   <p className="text-sm text-[#EAE0D5]/70 mb-2">Color: {selectedColor?.display_name || selectedColor?.name}</p>
@@ -388,10 +389,10 @@ export default function ProductDetailClient({ initialProduct, initialReviews }) 
                 <button onClick={handleShare} className="p-3.5 rounded-xl border border-[#B76E79]/20 text-[#EAE0D5]/70"><Share2 className="w-5 h-5" /></button>
               </div>
 
-              <div className="grid grid-cols-3 gap-2 pt-6 border-t border-[#B76E79]/15">
-                <div className="text-center"><Truck className="w-5 h-5 mx-auto text-[#B76E79] mb-1" /><p className="text-[10px] uppercase text-[#EAE0D5]/60">Free Shipping</p></div>
-                <div className="text-center"><Shield className="w-5 h-5 mx-auto text-[#B76E79] mb-1" /><p className="text-[10px] uppercase text-[#EAE0D5]/60">Secure SSL</p></div>
-                <div className="text-center"><Check className="w-5 h-5 mx-auto text-[#B76E79] mb-1" /><p className="text-[10px] uppercase text-[#EAE0D5]/60">100% Genuine</p></div>
+              <div className="grid grid-cols-3 gap-3 pt-6 border-t border-[#B76E79]/15">
+                <div className="text-center"><Truck className="w-5 h-5 sm:w-6 sm:h-6 mx-auto text-[#B76E79] mb-1.5" /><p className="text-[11px] uppercase text-[#EAE0D5]/60">Free Shipping</p></div>
+                <div className="text-center"><Shield className="w-5 h-5 sm:w-6 sm:h-6 mx-auto text-[#B76E79] mb-1.5" /><p className="text-[11px] uppercase text-[#EAE0D5]/60">Secure SSL</p></div>
+                <div className="text-center"><Check className="w-5 h-5 sm:w-6 sm:h-6 mx-auto text-[#B76E79] mb-1.5" /><p className="text-[11px] uppercase text-[#EAE0D5]/60">100% Genuine</p></div>
               </div>
             </div>
           </div>
@@ -417,9 +418,17 @@ export default function ProductDetailClient({ initialProduct, initialReviews }) 
                   <div className="space-y-4">
                     {reviews.map((r, i) => (
                       <div key={i} className="p-4 bg-[#0B0608]/40 rounded-xl">
-                        <div className="flex justify-between">
-                          <p className="font-medium">{r.user || 'Anonymous'}</p>
-                          <span className="text-xs text-[#EAE0D5]/50">{new Date(r.created_at).toLocaleDateString()}</span>
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <p className="font-medium">{r.user || 'Anonymous'}</p>
+                            <div className="flex items-center gap-1 mt-1">
+                              {[1, 2, 3, 4, 5].map((s) => (
+                                <Star key={s} className={`w-3 h-3 ${s <= Math.floor(r.rating || 0) ? 'text-yellow-400 fill-yellow-400' : 'text-[#EAE0D5]/20'}`} />
+                              ))}
+                              <span className="text-xs text-[#EAE0D5]/50 ml-1">{r.rating}/5</span>
+                            </div>
+                          </div>
+                          <span className="text-xs text-[#EAE0D5]/50 whitespace-nowrap">{new Date(r.created_at).toLocaleDateString()}</span>
                         </div>
                         <p className="text-sm mt-2 text-[#EAE0D5]/70">{r.comment}</p>
                       </div>
@@ -436,13 +445,15 @@ export default function ProductDetailClient({ initialProduct, initialReviews }) 
       </div>
 
       {product && (
-        <div className="fixed inset-x-0 lg:hidden bg-[#0B0608]/95 backdrop-blur-md border-t border-[#B76E79]/15 px-3 py-3 z-[99] flex items-center gap-3" style={{ bottom: 'calc(4rem + env(safe-area-inset-bottom, 0px))' }}>
+        <div className="fixed inset-x-0 lg:hidden bg-[#0B0608]/95 backdrop-blur-md border-t border-[#B76E79]/15 px-3 py-3 z-[99] flex items-center gap-3 bottom-nav-offset">
           <div className="flex-1 min-w-0">
             <p className="text-[#F2C29A] font-semibold text-sm line-clamp-1">{product.name}</p>
             <p className="text-[#F2C29A] font-bold">{formatCurrency(product.price)}</p>
           </div>
-          <button onClick={handleAddToCart} disabled={!product.in_stock || addingToCart} className="px-5 py-2.5 bg-gradient-to-r from-[#7A2F57] to-[#B76E79] text-white font-semibold rounded-xl text-sm">
-            {!product.in_stock ? 'Out of Stock' : 'Add to Cart'}
+          <button onClick={handleAddToCart} disabled={!product.in_stock || addingToCart} className="px-5 py-2.5 bg-gradient-to-r from-[#7A2F57] to-[#B76E79] text-white font-semibold rounded-xl text-sm flex items-center gap-2">
+            {addingToCart ? (
+              <><svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8h4z"/></svg> Adding...</>
+            ) : !product.in_stock ? 'Out of Stock' : 'Add to Cart'}
           </button>
         </div>
       )}

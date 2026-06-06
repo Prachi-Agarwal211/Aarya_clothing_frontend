@@ -23,6 +23,8 @@ async function fetchJson(url) {
   }
 }
 
+export const revalidate = 3600; // Cache entire sitemap for 1 hour (avoids thundering herd from crawlers)
+
 export default async function sitemap() {
   const now = new Date().toISOString();
   
@@ -45,7 +47,7 @@ export default async function sitemap() {
   // Products - use internal URL
   let products = [];
   try {
-    const productsData = await fetchJson(`${COMMERCE_INTERNAL_URL}/api/v1/products/browse?limit=1000`);
+    const productsData = await fetchJson(`${COMMERCE_INTERNAL_URL}/api/v1/products/browse?limit=500`);
     products = (productsData?.items || productsData?.products || []).map((p) => ({
       url: `${BASE_URL}/products/${p.slug || p.id}`,
       lastModified: p.updated_at ? new Date(p.updated_at).toISOString() : now,
@@ -59,7 +61,7 @@ export default async function sitemap() {
   // Collections - use internal URL
   let collections = [];
   try {
-    const collectionsData = await fetchJson(`${COMMERCE_INTERNAL_URL}/api/v1/collections?limit=200`);
+    const collectionsData = await fetchJson(`${COMMERCE_INTERNAL_URL}/api/v1/collections?limit=50`);
     collections = (collectionsData?.items || collectionsData?.collections || []).map((c) => ({
       url: `${BASE_URL}/products?collection_id=${c.id}`,
       lastModified: c.updated_at ? new Date(c.updated_at).toISOString() : now,

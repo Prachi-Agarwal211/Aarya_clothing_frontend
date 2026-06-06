@@ -3,7 +3,7 @@
 import React, { useRef, useEffect, memo } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { gsap, ScrollTrigger } from '@/lib/gsapConfig';
+import { gsap, ScrollTrigger, prefersReducedMotion } from '@/lib/gsapConfig';
 import { ArrowRight } from 'lucide-react';
 import { getCoreBaseUrl } from '@/lib/baseApi';
 import { useViewport } from '@/lib/hooks/useViewport';
@@ -33,6 +33,7 @@ const Collections = ({
   const cardsContainerRef = useRef(null);
   const cardRefs = useRef([]);
   const { isMobile } = useViewport();
+  const reduce = prefersReducedMotion();
 
   useEffect(() => {
     const section = sectionRef.current;
@@ -40,7 +41,9 @@ const Collections = ({
     const cards = cardRefs.current;
     if (!section) return;
 
-    if (isMobile) {
+    const reduce = prefersReducedMotion();
+
+    if (isMobile || reduce) {
       gsap.set([title, ...cards].filter(Boolean), {
         opacity: 1,
         y: 0,

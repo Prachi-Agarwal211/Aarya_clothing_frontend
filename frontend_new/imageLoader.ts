@@ -103,7 +103,13 @@ export default function cloudflareLoader({
   // Return direct R2 URL - Cloudflare Image Resizing via /cdn-cgi/image/
   // requires the "Image Resizing" paid addon which is not enabled on this domain.
   // R2 public bucket already serves via Cloudflare CDN with caching.
-  return encodeURI(fullUrl);
+  // Include width/quality in query for Next.js <Image> to consider the loader "implements width"
+  // (actual resizing not performed server-side; CDN serves original).
+  const params = new URLSearchParams();
+  if (width) params.set('w', String(width));
+  if (quality) params.set('q', String(quality));
+  const query = params.toString() ? `?${params.toString()}` : '';
+  return encodeURI(`${fullUrl}${query}`);
 }
 
 /**

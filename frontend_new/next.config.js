@@ -67,6 +67,9 @@ const nextConfig = {
 
     // Prevent unoptimized mode - always use optimization
     unoptimized: false,
+
+    // Qualities for Next.js 16+ compatibility (fixes unconfigured-qualities warning)
+    qualities: [25, 50, 75, 100],
   },
 
   // Performance
@@ -116,45 +119,18 @@ const nextConfig = {
 
   // Webpack configuration for additional optimizations
   webpack: (config, { isServer, dev }) => {
-    // Enable source maps only in development
-    config.devtool = dev ? 'source-map' : false;
+    // Let Next.js fully manage chunk splitting, CSS extraction, and devtool.
+    // Custom splitChunks was interfering with Next's CSS/JS chunking, causing
+    // vendors.css to be requested as a script (MIME type error) and chunk loading failures
+    // (TypeError: Cannot read properties of undefined (reading 'call')).
+    // optimizePackageImports + modularizeImports already provide good tree-shaking.
 
-    // Reduce bundle size by excluding moment locales
-    if (!isServer) {
-      config.optimization.splitChunks = {
-        chunks: 'all',
-        cacheGroups: {
-          // Separate vendor chunks
-          vendors: {
-            test: /[\\/]node_modules[\\/]/,
-            name: 'vendors',
-            chunks: 'all',
-            priority: 10,
-          },
-          // Separate React chunk
-          react: {
-            test: /[\\/]node_modules[\\/](react|react-dom|scheduler)[\\/]/,
-            name: 'react',
-            chunks: 'all',
-            priority: 20,
-          },
-          // Separate GSAP chunk
-          gsap: {
-            test: /[\\/]node_modules[\\/](gsap|@gsap)[\\/]/,
-            name: 'gsap',
-            chunks: 'all',
-            priority: 20,
-          },
-          // Common chunks for shared code
-          common: {
-            name: 'common',
-            minChunks: 2,
-            chunks: 'all',
-            priority: 5,
-            reuseExistingChunk: true,
-          },
-        },
-      };
+    // Note: We no longer override config.optimization.splitChunks here.
+
+    // Disable source maps in dev to avoid "illegal path" issues with complex host paths
+    // (e.g. OneDrive with Unicode chars in WSL/Docker). Also avoids devtool revert warnings.
+    if (dev) {
+      config.devtool = false;
     }
 
     return config;
@@ -162,7 +138,8 @@ const nextConfig = {
 
   // Security & Performance Headers
   async headers() {
-    return [
+    const isProd = process.env.NODE_ENV === 'production';
+    const headers = [
       {
         source: '/:path*',
         headers: [
@@ -174,39 +151,7 @@ const nextConfig = {
           // are handled exclusively by Nginx to avoid duplicate/conflicting headers.
         ]
       },
-      // Cache static assets for 1 year
-      {
-        source: '/fonts/:path*',
-        headers: [
-          {
-            key: 'Cache-Control',
-            value: 'public, max-age=31536000, immutable'
-          }
-        ]
-      },
-      // /_next/static/ chunks — immutable (content-hashed, safe to cache forever)
-      {
-        source: '/_next/static/:path*',
-        headers: [
-          {
-            key: 'Cache-Control',
-            value: 'public, max-age=31536000, immutable'
-          }
-        ]
-      },
-      // /_next/image optimizer — short-lived cache
-      {
-        source: '/_next/image/:path*',
-        headers: [
-          {
-            key: 'Cache-Control',
-            value: 'public, max-age=604800, stale-while-revalidate=86400'
-          }
-        ]
-      },
       // All HTML/SSR routes — never cache.
-      // Scoped to exclude /_next/* so static chunks keep their immutable header.
-      // After a rebuild chunk hashes change: cached HTML → old chunk URLs → 404.
       {
         source: '/((?!_next/).*)',
         headers: [
@@ -231,6 +176,58 @@ const nextConfig = {
         ]
       },
     ];
+
+    if (isProd) {
+      // Prod only: long immutable cache for hashed static assets (chunks change on rebuild so safe).
+      // In dev, stable chunk names + immutable = browser serves stale bundles forever even after rebuilds/restarts.
+      headers.push(
+        {
+          source: '/fonts/:path*',
+          headers: [
+            {
+              key: 'Cache-Control',
+              value: 'public, max-age=31536000, immutable'
+            }
+          ]
+        },
+        {
+          source: '/_next/static/:path*',
+          headers: [
+            {
+              key: 'Cache-Control',
+              value: 'public, max-age=31536000, immutable'
+            }
+          ]
+        },
+        {
+          source: '/_next/image/:path*',
+          headers: [
+            {
+              key: 'Cache-Control',
+              value: 'public, max-age=604800, stale-while-revalidate=86400'
+            }
+          ]
+        }
+      );
+    } else {
+      // Dev: explicitly prevent any caching of chunks so source/config changes + docker rebuilds are immediately visible
+      // without requiring "Empty Cache and Hard Reload" every time. Fixes the "why again and again after docker" symptom.
+      headers.push({
+        source: '/_next/static/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'no-cache, no-store, must-revalidate'
+          },
+          {
+            key: 'Pragma',
+            value: 'no-cache'
+          }
+        ]
+      });
+    }
+
+    return headers;
   },
 
   // NOTE: API routing is handled entirely by Nginx.

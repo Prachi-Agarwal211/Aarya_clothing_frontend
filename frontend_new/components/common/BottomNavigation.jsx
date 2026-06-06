@@ -51,13 +51,15 @@ const BottomNavigation = () => {
         }
     ];
 
-    // CSS md:hidden handles desktop hiding — no SSR gate needed
+    // Mobile-only bottom navigation bar.
+    // Hidden on lg+ (1024px and up) → clean experience on desktop and landscape tablets.
+    // Consistent with other mobile sticky bars across the app (ProductDetail, Checkout, Cart).
     if (pathname.startsWith('/admin')) return null;
     if (pathname.startsWith('/checkout')) return null;
     if (introOverlayActive) return null;
 
     return (
-        <div className="md:hidden fixed bottom-0 left-0 right-0 z-[100] bg-[#0B0608]/95 backdrop-blur-md border-t border-[#B76E79]/20 pb-safe">
+        <div className="lg:hidden fixed bottom-0 left-0 right-0 z-[100] bg-[#0B0608]/95 backdrop-blur-md border-t border-[#B76E79]/20 pb-safe">
             <div className="flex items-center justify-around px-2 min-h-[64px]">
                 {navItems.map((item) => {
                     const Component = item.onClick ? 'button' : Link;

@@ -350,9 +350,15 @@ class ProductService:
                     self.db.add(inv)
                 self.db.commit()
                 logger.info(f"Created {len(variants)} variant inventory record(s) for product #{product.id}")
+
+                # Sync denormalized total_stock so it matches actual inventory
+                total = sum(v.quantity or 0 for v in variants)
+                product.total_stock = total
+                self.db.commit()
             else:
                 # No variants provided — this is now an error. Products MUST have variants.
-                self.db.rollback()
+                product.total_stock = 0
+                self.db.commit()
                 raise ValueError("At least one product variant is required. Please specify size/color inventory.")
 
         except IntegrityError as e:
@@ -449,6 +455,79 @@ class ProductService:
             _generate_product_embedding(product, self.db)
 
         return product
+
+    def get_products_cached(self, product_ids: List[int]) -> Dict[int, dict]:
+        """Batch-fetch product data using Redis pipeline.
+
+        This replaces individual Redis GET per product with a single pipeline
+        round-trip, then batch-loads any cache misses from the DB.
+
+        Args:
+            product_ids: List of product IDs to fetch.
+
+        Returns:
+            Dict mapping product_id to serialized product data.
+        """
+        import json
+
+        if not product_ids or not is_cache_available():
+            return {}
+
+        cache = get_cache()
+        if not cache or not hasattr(cache, 'client') or not hasattr(cache.client, 'pipeline'):
+            return {}
+
+        # Pipeline batch GET
+        try:
+            pipe = cache.client.pipeline() if hasattr(cache.client, 'pipeline') else None
+            if not pipe:
+                return {}
+            for pid in product_ids:
+                pipe.get(f"product:{pid}")
+            results = pipe.execute()
+        except Exception as e:
+            logger.debug(f"Redis pipeline failed: {e}")
+            return {}
+
+        cached = {}
+        missing = []
+        for pid, data in zip(product_ids, results):
+            if data:
+                try:
+                    cached[pid] = json.loads(data) if isinstance(data, str) else data
+                except (json.JSONDecodeError, TypeError):
+                    missing.append(pid)
+            else:
+                missing.append(pid)
+
+        # Batch DB query for cache misses
+        if missing:
+            db_products = self.db.query(Product).filter(
+                Product.id.in_(missing)
+            ).options(
+                selectinload(Product.images),
+                selectinload(Product.variants),
+                joinedload(Product.collection),
+            ).all()
+
+            # Pipeline batch SET
+            try:
+                pipe = cache.client.pipeline() if hasattr(cache.client, 'pipeline') else None
+                if pipe:
+                    for p in db_products:
+                        data = {
+                            "id": p.id, "name": p.name, "slug": p.slug,
+                            "base_price": float(p.base_price) if p.base_price else 0,
+                            "total_stock": p.total_stock or 0,
+                            "is_active": p.is_active,
+                        }
+                        cached[p.id] = data
+                        pipe.setex(f"product:{p.id}", 300, json.dumps(data, default=str))
+                    pipe.execute()
+            except Exception as e:
+                logger.debug(f"Redis pipeline SET failed: {e}")
+
+        return cached
 
     def _ensure_product_has_inventory(self, product: Product) -> None:
         """Check if a product has inventory and log a warning if not.

@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useRef, useEffect, memo } from 'react';
-import { gsap, ScrollTrigger } from '@/lib/gsapConfig';
+import React, { useRef, useEffect, useCallback, memo } from 'react';
+import { gsap, ScrollTrigger, prefersReducedMotion } from '@/lib/gsapConfig';
 import ProductCard from '../common/ProductCard';
 import { useViewport } from '@/lib/hooks/useViewport';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 /**
  * NewArrivals - Simplified section showing products directly on landing page
@@ -28,7 +29,15 @@ const NewArrivals = ({
   const sectionRef = useRef(null);
   const headerRef = useRef(null);
   const productRefs = useRef([]);
+  const scrollContainerRef = useRef(null);
   const { isMobile } = useViewport();
+
+  const scrollBy = useCallback((direction) => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    const cardWidth = container.querySelector(':scope > div')?.offsetWidth || 320;
+    container.scrollBy({ left: direction * (cardWidth + 32), behavior: 'smooth' });
+  }, []);
 
   useEffect(() => {
     const section = sectionRef.current;
@@ -152,9 +161,10 @@ const NewArrivals = ({
         </div>
 
         {/* Products - Horizontal Scroll Container */}
-        <div className="relative">
+        <div className="relative group/scroll">
           <div
-            className="flex gap-6 sm:gap-8 overflow-x-auto snap-x snap-mandatory scrollbar-hide pb-8"
+            ref={scrollContainerRef}
+            className="flex gap-6 sm:gap-8 overflow-x-auto snap-x snap-mandatory scrollbar-hide pb-8 scroll-smooth"
             style={{ WebkitOverflowScrolling: 'touch' }}
           >
             {products.map((product, index) => (
@@ -182,6 +192,26 @@ const NewArrivals = ({
               </div>
             ))}
           </div>
+
+          {/* Desktop scroll arrows — only visible on hover */}
+          {!isMobile && products.length > 3 && (
+            <>
+              <button
+                onClick={() => scrollBy(-1)}
+                className="absolute left-0 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-[#0B0608]/80 backdrop-blur-sm border border-[#B76E79]/30 flex items-center justify-center text-[#F2C29A] opacity-0 group-hover/scroll:opacity-100 transition-all duration-300 hover:bg-[#7A2F57]/40 hover:border-[#F2C29A]/50 -translate-x-2 group-hover/scroll:translate-x-0"
+                aria-label="Scroll left"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+              <button
+                onClick={() => scrollBy(1)}
+                className="absolute right-0 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-[#0B0608]/80 backdrop-blur-sm border border-[#B76E79]/30 flex items-center justify-center text-[#F2C29A] opacity-0 group-hover/scroll:opacity-100 transition-all duration-300 hover:bg-[#7A2F57]/40 hover:border-[#F2C29A]/50 translate-x-2 group-hover/scroll:translate-x-0"
+                aria-label="Scroll right"
+              >
+                <ChevronRight className="w-5 h-5" />
+              </button>
+            </>
+          )}
 
           {/* Scroll hint gradient */}
           <div className="absolute right-0 top-0 bottom-8 w-20 bg-gradient-to-l from-[#050203] to-transparent pointer-events-none hidden sm:block" />

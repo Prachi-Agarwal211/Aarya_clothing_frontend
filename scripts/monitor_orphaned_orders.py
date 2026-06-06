@@ -77,7 +77,7 @@ def check_orphaned_orders(conn) -> List[Dict[str, Any]]:
         LEFT JOIN payment_transactions pt ON o.id = pt.order_id
         WHERE pt.id IS NULL 
           AND o.payment_method IN ('razorpay', 'upi_qr')
-          AND o.status IN ('confirmed', 'paid', 'processing', 'shipped', 'delivered')
+          AND o.status IN ('confirmed', 'shipped', 'delivered')
         ORDER BY o.created_at DESC;
     """
     

@@ -417,5 +417,5 @@ async def get_site_config(db: Session = Depends(get_db)):
         "intro_video_enabled": config.get("intro_video_enabled") == "true",
     }
 
-    redis_client.set_cache(cache_key, result, ttl=3600)
+    redis_client.set_cache(cache_key, result, ttl=120)
     return result

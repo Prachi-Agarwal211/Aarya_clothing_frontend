@@ -156,8 +156,8 @@ class DatabaseSettings(PydanticBaseSettings):
     """
 
     DATABASE_URL: str = "postgresql://postgres:password@localhost/aarya_clothing"
-    DATABASE_POOL_SIZE: int = 5
-    DATABASE_MAX_OVERFLOW: int = 10
+    DATABASE_POOL_SIZE: int = 20
+    DATABASE_MAX_OVERFLOW: int = 30
 
     class Config:
         env_file = ".env"

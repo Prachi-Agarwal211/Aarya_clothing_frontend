@@ -22,7 +22,6 @@ from core.redis_client import redis_client
 from database.database import get_db, init_db
 from service.event_handlers import OrderCreatedHandler
 from shared.auth_middleware import initialize_auth_middleware
-from shared.error_responses import register_error_handlers
 from shared.event_bus import EventBus
 from shared.request_id_middleware import RequestIDMiddleware
 
@@ -123,8 +122,7 @@ except Exception as exc:
 # Request ID
 app.add_middleware(RequestIDMiddleware)
 
-# Standardized error handlers (complements admin's own exception handler)
-register_error_handlers(app)
+# Standardized error handlers are registered at the bottom via setup_exception_handlers(app)
 
 # Mount routers. Each router owns one cohesive slice of the admin API so this
 # file stays focused on lifespan + middleware wiring.

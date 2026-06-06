@@ -44,7 +44,7 @@ from service.email_service import email_service
 from middleware.auth_middleware import init_auth, get_current_user, get_current_user_optional
 from middleware.csrf_middleware import CSRFMiddleware
 from shared.request_id_middleware import RequestIDMiddleware
-from shared.error_responses import register_error_handlers
+from exception_handler import setup_exception_handlers
 from shared.time_utils import now_ist
 from shared.phone_utils import normalize_phone_safe
 
@@ -104,36 +104,26 @@ app.add_middleware(
 )
 
 # Security Headers
+# NOTE: In production, Nginx sets ALL security headers (CSP, HSTS, X-Frame-Options,
+# X-XSS-Protection, X-Content-Type-Options, Referrer-Policy, Permissions-Policy,
+# COEP/COOP/CORP). Only set headers here that Nginx does NOT cover, to avoid
+# duplicate/conflicting headers and wasted bandwidth.
 @app.middleware("http")
 async def add_security_headers(request: Request, call_next):
-    """Add security headers to all responses."""
+    """Add security headers to all responses.
+
+    In production behind Nginx, only sets Vary: Cookie to prevent CDN/proxy
+    cache pollution between users. All other security headers are set by Nginx.
+    In development (no Nginx), sets a minimal set for safety.
+    """
     response = await call_next(request)
 
-    # Content Security Policy
-    response.headers["Content-Security-Policy"] = (
-        "default-src 'self'; "
-        "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
-        "style-src 'self' 'unsafe-inline'; "
-        "img-src 'self' data: https:; "
-        "font-src 'self' data:; "
-        "connect-src 'self' https:; "
-        "frame-ancestors 'self'; "
-        "object-src 'none'; "
-        "base-uri 'self'; "
-        "form-action 'self'; "
-        "upgrade-insecure-requests"
-    )
-
-    # Additional security headers
-    response.headers["X-Frame-Options"] = "DENY"
-    response.headers["X-XSS-Protection"] = "1; mode=block"
-    response.headers["X-Content-Type-Options"] = "nosniff"
-    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-    response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
-
-    # HSTS (already set, but reinforce)
-    if not settings.is_development:
-        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains; preload"
+    # Vary: Cookie — CRITICAL for CDN/proxy safety.
+    # Prevents a CDN from serving a cached response meant for user A to user B.
+    # Must be present on any endpoint that returns different data based on auth.
+    existing_vary = response.headers.get("Vary", "")
+    if "Cookie" not in existing_vary:
+        response.headers["Vary"] = f"{existing_vary}, Cookie".strip(", ")
 
     return response
 
@@ -147,11 +137,12 @@ except Exception:
 # Request ID
 app.add_middleware(RequestIDMiddleware)
 
-# HSTS (Strict-Transport-Security)
+# HSTS (Strict-Transport-Security) — handled by Nginx in production.
+# Only set in development when Nginx is not in front.
 @app.middleware("http")
 async def add_hsts_header(request: Request, call_next):
     response = await call_next(request)
-    if not settings.is_development:
+    if settings.is_development:
         response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains; preload"
     return response
 
@@ -159,7 +150,8 @@ async def add_hsts_header(request: Request, call_next):
 app.add_middleware(CSRFMiddleware)
 
 # Standardized error handlers
-register_error_handlers(app)
+# Standardized error handlers via base exception handler
+setup_exception_handlers(app)
 
 # Filter out health checks from logs to reduce noise
 class HealthCheckFilter(logging.Filter):

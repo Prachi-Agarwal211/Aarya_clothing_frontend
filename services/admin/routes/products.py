@@ -183,6 +183,7 @@ async def admin_create_product(
     # inventory variants will not be visible to customers.
     redis_client.invalidate_pattern("products:*")
     redis_client.invalidate_pattern("public:landing:*")
+    redis_client.invalidate_pattern("landing:featured:*")
     return {
         "id": product_id,
         "name": data.name,
@@ -244,6 +245,7 @@ async def admin_update_product(
     db.commit()
     redis_client.invalidate_pattern("products:*")
     redis_client.invalidate_pattern("public:landing:*")
+    redis_client.invalidate_pattern("landing:featured:*")
     return {"message": "Product updated", "id": product_id}
 
 
@@ -317,6 +319,7 @@ async def admin_delete_product(
     redis_client.invalidate_pattern(f"product:{pid}")
     redis_client.invalidate_pattern("query:products:*")
     redis_client.invalidate_pattern("public:landing:*")
+    redis_client.invalidate_pattern("landing:featured:*")
 
 
 # --- Bulk operations ---
@@ -405,6 +408,7 @@ async def admin_bulk_status_update(
     db.commit()
     redis_client.invalidate_pattern("products:*")
     redis_client.invalidate_pattern("public:landing:*")
+    redis_client.invalidate_pattern("landing:featured:*")
     return {"updated": len(data.product_ids)}
 
 

@@ -38,14 +38,17 @@ class UnifiedRedisClient:
         self._connected = False
         
         try:
-            self._client = redis.Redis.from_url(
+            # Use ConnectionPool for proper connection reuse across requests
+            pool = redis.ConnectionPool.from_url(
                 redis_url,
                 db=redis_db,
                 decode_responses=True,
                 socket_connect_timeout=5,
                 socket_timeout=5,
-                retry_on_timeout=True
+                retry_on_timeout=True,
+                max_connections=20,
             )
+            self._client = redis.Redis(connection_pool=pool)
             
             # Test connection
             if self._client.ping():
@@ -251,7 +254,10 @@ class UnifiedRedisClient:
     
     def invalidate_pattern(self, pattern: str, namespace: str = "cache") -> int:
         """
-        Delete all keys matching pattern.
+        Delete all keys matching pattern using SCAN (non-blocking).
+        
+        Uses cursor-based SCAN instead of KEYS to avoid blocking Redis
+        on large keyspaces (KEYS is O(N) and blocks the event loop).
         
         Args:
             pattern: Key pattern (e.g., "products:*")
@@ -262,10 +268,15 @@ class UnifiedRedisClient:
         """
         try:
             full_pattern = self._make_key(pattern, namespace)
-            keys = self.client.keys(full_pattern)
-            if keys:
-                return self.client.delete(*keys)
-            return 0
+            deleted = 0
+            cursor = 0
+            while True:
+                cursor, keys = self.client.scan(cursor=cursor, match=full_pattern, count=100)
+                if keys:
+                    deleted += self.client.delete(*keys)
+                if cursor == 0:
+                    break
+            return deleted
         except Exception as e:
             logger.error(f"Cache invalidate pattern failed for {pattern}: {e}")
             return 0

@@ -10,7 +10,7 @@ import { collectionsApi } from '@/lib/customerApi';
  * filter pre-selected.
  */
 
-export const dynamic = 'force-dynamic';
+export const dynamic = 'force-dynamic'; // Redirect page — dynamic to resolve slug → id at request time
 
 export async function generateMetadata({ params }) {
   try {

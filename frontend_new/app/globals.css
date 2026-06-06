@@ -2,6 +2,21 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Proper scrolling + reduced motion for fast/mobile/a11y animations */
+html {
+  scroll-behavior: smooth;
+}
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *, *::before, *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+
 /* Mobile touch target utility - minimum 44px for accessibility */
 @layer utilities {
   .touch-target {
@@ -204,30 +219,16 @@
   border-color: rgba(183, 110, 121, 0.3);
 }
 
-/* Skeleton loader utility */
-.skeleton {
-  background: linear-gradient(90deg, rgba(183, 110, 121, 0.1) 25%, rgba(183, 110, 121, 0.2) 50%, rgba(183, 110, 121, 0.1) 75%);
-  background-size: 200% 100%;
-  animation: skeleton-loading 1.5s infinite;
-}
-
-@keyframes skeleton-loading {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
-}
+/* Skeleton loader — see SKELETON LOADING ANIMATIONS section below */
 
 /* ============================================
    IMAGE LOADING ANIMATIONS
    ============================================ */
 
-/* Shimmer animation for image loading */
-@keyframes shimmer {
-  0% {
-    transform: translateX(-100%);
-  }
-  100% {
-    transform: translateX(100%);
-  }
+/* Image loading shimmer overlay */
+@keyframes shimmer-transform {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
 }
 
 .shimmer-animation {
@@ -250,7 +251,7 @@
     rgba(183, 110, 121, 0.1) 75%,
     transparent 100%
   );
-  animation: shimmer 2s infinite;
+  animation: shimmer-transform 2s infinite;
 }
 
 /* ============================================
@@ -618,15 +619,7 @@ input[type="checkbox"]:focus {
   }
 }
 
-/* Horizontal Carousel Styles */
-.scrollbar-hide {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
-
-.scrollbar-hide::-webkit-scrollbar {
-  display: none;
-}
+/* Horizontal Carousel Styles — .scrollbar-hide defined in @layer base above */
 
 /* Parallax Animation */
 @keyframes parallax {
@@ -1283,59 +1276,7 @@ button, .btn, a, .no-select {
   }
 }
 
-/* ============================================
-   PREMIUM SCROLLBAR STYLING
-   ============================================ */
-
-/* Custom Scrollbar for Desktop */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-::-webkit-scrollbar-track {
-  background: rgba(5, 2, 3, 0.5);
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, #7A2F57, #B76E79);
-  border-radius: 4px;
-  border: 2px solid rgba(5, 2, 3, 0.5);
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, #B76E79, #F2C29A);
-}
-
-/* Hide scrollbar on mobile */
-@media (max-width: 768px) {
-  ::-webkit-scrollbar {
-    display: none;
-  }
-  * {
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-  }
-}
-
-/* ============================================
-   PREMIUM FOCUS STATES
-   ============================================ */
-
-/* Enhanced Focus Ring */
-.focus-ring:focus {
-  outline: none;
-  box-shadow: 
-    0 0 0 2px rgba(5, 2, 3, 0.8),
-    0 0 0 4px rgba(242, 194, 154, 0.5);
-}
-
-/* Focus Visible for Keyboard Navigation */
-.focus-visible:focus-visible {
-  outline: 2px solid #F2C29A;
-  outline-offset: 2px;
-}
+/* Scrollbar and focus styles are defined once earlier in this file */
 
 /* ============================================
    HEADER SPACING UTILITY
@@ -1393,21 +1334,7 @@ section[id],
   }
 }
 
-/* ============================================
-   PAGE WRAPPER STRUCTURE
-   ============================================ */
-
-/* Main page wrapper for consistent layout */
-.page-wrapper {
-  display: flex;
-  flex-direction: column;
-  min-height: 100vh;
-}
-
-/* Page content area - expands to fill available space */
-.page-content {
-  flex: 1 0 auto;
-}
+/* Page wrapper / page-content are defined in FOOTER STICKY BOTTOM FIX section */
 
 /* ============================================
    Z-INDEX HIERARCHY
@@ -1503,21 +1430,7 @@ header {
    SKELETON LOADING ANIMATIONS
    ============================================ */
 
-@keyframes skeleton-pulse {
-  0%, 100% { opacity: 0.4; }
-  50% { opacity: 0.8; }
-}
-
-.skeleton {
-  background: linear-gradient(
-    90deg,
-    rgba(183, 110, 121, 0.1) 0%,
-    rgba(242, 194, 154, 0.15) 50%,
-    rgba(183, 110, 121, 0.1) 100%
-  );
-  background-size: 200% 100%;
-  animation: skeleton-pulse 1.5s ease-in-out infinite;
-}
+/* .skeleton defined in MOBILE PERFORMANCE section below (canonical) */
 
 .skeleton-text {
   border-radius: 4px;
@@ -2249,10 +2162,44 @@ main {
   padding-bottom: calc(4rem + env(safe-area-inset-bottom, 0px));
 }
 
-/* Position element above bottom nav */
+/* Position element above bottom nav (mobile only).
+   The elements using this class should also have lg:hidden.
+   On desktop the calc is harmless but we keep it scoped. */
 .bottom-nav-offset {
   bottom: calc(4rem + env(safe-area-inset-bottom, 0px));
 }
+
+/* Desktop override - ensures no weird positioning if class leaks */
+@media (min-width: 1024px) {
+  .bottom-nav-offset {
+    bottom: auto;
+  }
+}
+
+/* ============================================================
+   RESPONSIVE / DEVICE STRATEGY (Mobile, Tablet, Desktop)
+   ============================================================
+   Breakpoints (standard Tailwind):
+   - < 1024px (lg): Mobile + Tablet portrait/landscape up to ~1023px
+     → Show mobile bottom navigation, sticky CTAs, mobile filters, safe-area handling.
+   - ≥ 1024px (lg+): Desktop + large landscape tablets
+     → Hide all mobile bottom bars. Clean top navigation + desktop layouts.
+
+   Rules:
+   - All mobile-only fixed bottom elements must use `lg:hidden`.
+   - `.bottom-nav-offset` and safe-area utilities are mobile-oriented.
+   - BottomNavigation component uses `lg:hidden` (consistent).
+   - No mobile nav leakage on desktop or landscape tablets.
+
+   This ensures proper experience on:
+   - Small phones (320px+)
+   - Large phones
+   - Tablets portrait (768px)
+   - Tablets landscape (~1024px+)
+   - All desktop sizes (1024px → 4K+)
+
+   When adding new mobile bottom UI: always pair with `lg:hidden` + appropriate spacer.
+   ============================================================ */
 
 /* Remove tap highlight on mobile interactive elements */
 .tap-none {
@@ -2264,6 +2211,48 @@ main {
   touch-action: pan-x;
   user-select: none;
   -webkit-user-select: none;
+}
+
+/* Cart drawer slide-in animation */
+@keyframes slide-in-right {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+.animate-slide-in-right {
+  animation: slide-in-right 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Mobile active touch feedback — tactile press feel */
+@media (hover: none) and (pointer: coarse) {
+  button:active:not(:disabled),
+  a:active,
+  [role="button"]:active {
+    transform: scale(0.97);
+    transition: transform 0.1s ease-out;
+  }
+}
+
+/* Staggered mobile menu entry */
+@keyframes menu-item-enter {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.mobile-menu-item-enter {
+  animation: menu-item-enter 0.3s ease-out forwards;
+  opacity: 0;
+}
+
+/* Mobile-optimized text shadows — lighter on small screens for sharper text */
+@media (max-width: 640px) {
+  .text-\[\#F2C29A\] {
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6), 0 0 6px rgba(242, 194, 154, 0.15);
+  }
+  .text-\[\#EAE0D5\] {
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.5);
+  }
+  .text-\[\#B76E79\] {
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.5);
+  }
 }
 
 /* Prevent text selection during swipe */
@@ -2450,63 +2439,6 @@ main {
   .mobile-scroll {
     -webkit-overflow-scrolling: touch;
     overflow-scrolling: touch;
-  }
-}
-
-/* ============================================
-   MOBILE PERFORMANCE OPTIMIZATIONS
-   ============================================ */
-
-@media (max-width: 768px) {
-  /* PERFORMANCE: GPU acceleration for parallax layers - will-change applied dynamically via JS */
-  .parallax-layer {
-    contain: layout style paint;
-  }
-
-  /* PERFORMANCE: Content visibility for below-fold content */
-  /* Skips rendering work for off-screen content */
-  .content-below-fold {
-    content-visibility: auto;
-    contain-intrinsic-size: 0 800px;
-  }
-
-  /* PERFORMANCE: Optimize image rendering for SVG icons only */
-  /* Note: crisp-edges makes product photos look harsh, so avoid blanket img rules */
-  img[src$=".svg"] {
-    image-rendering: -webkit-optimize-contrast;
-    image-rendering: crisp-edges;
-  }
-
-  /* PERFORMANCE: Reduce paint areas */
-  .glass-card,
-  .card-glass {
-    backdrop-filter: blur(8px); /* Reduced from 12-16px for mobile */
-    -webkit-backdrop-filter: blur(8px);
-  }
-
-  /* PERFORMANCE: Simplify shadows on mobile */
-  .shadow-\[0_8px_32px_rgba\(0\,0\,0\,0\.3\)\] {
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
-  }
-
-  /* PERFORMANCE: Reduce gradient complexity */
-  .bg-gradient-to-br {
-    background: linear-gradient(135deg, var(--tw-gradient-stops));
-  }
-}
-
-/* ============================================
-   REDUCED MOTION SUPPORT
-   ============================================ */
-
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
   }
 }
 

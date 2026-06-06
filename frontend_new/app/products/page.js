@@ -3,7 +3,7 @@ import ProductsClient from './ProductsClient';
 import { productsApi, collectionsApi } from '@/lib/customerApi';
 import logger from '@/lib/logger';
 
-export const dynamic = 'force-dynamic';
+export const dynamic = 'force-dynamic'; // Products vary by query params (collection, page, sort, search) — ISR unsafe here. Backend Redis caching handles performance.
 
 async function getInitialData(params) {
   try {

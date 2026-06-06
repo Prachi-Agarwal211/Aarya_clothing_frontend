@@ -324,7 +324,7 @@ export default function CollectionDetailClient({ initialCollection, initialProdu
             {/* Toolbar */}
             <div className="flex flex-wrap items-center gap-3 mb-6 pb-4 border-b border-[#B76E79]/10">
               {/* Search */}
-              <div className="relative flex-1 min-w-[180px]">
+              <div className="relative flex-1 min-w-[160px] sm:min-w-[180px]">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#EAE0D5]/40" />
                 <input
                   type="text"
@@ -341,7 +341,7 @@ export default function CollectionDetailClient({ initialCollection, initialProdu
                 <select
                   value={filters.priceRange}
                   onChange={(e) => setFilters(prev => ({ ...prev, priceRange: e.target.value }))}
-                  className="appearance-none pl-3 pr-8 py-2 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-xl text-[#EAE0D5] focus:outline-none focus:border-[#B76E79]/40 transition-colors cursor-pointer text-sm min-w-[140px]"
+                  className="appearance-none pl-3 pr-8 py-2 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-xl text-[#EAE0D5] focus:outline-none focus:border-[#B76E79]/40 transition-colors cursor-pointer text-sm min-w-[100px] sm:min-w-[140px]"
                   aria-label="Filter by price range"
                 >
                   {PRICE_RANGES.map(range => (
@@ -358,7 +358,7 @@ export default function CollectionDetailClient({ initialCollection, initialProdu
                   placeholder="Max ₹"
                   value={filters.maxPrice}
                   onChange={(e) => setFilters(prev => ({ ...prev, maxPrice: e.target.value }))}
-                  className="w-24 px-3 py-2 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-xl text-[#EAE0D5] placeholder-[#EAE0D5]/40 focus:outline-none focus:border-[#B76E79]/40 text-sm"
+                  className="w-20 sm:w-24 px-3 py-2 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-xl text-[#EAE0D5] placeholder-[#EAE0D5]/40 focus:outline-none focus:border-[#B76E79]/40 text-sm"
                   aria-label="Maximum price"
                 />
               </div>
@@ -390,8 +390,8 @@ export default function CollectionDetailClient({ initialCollection, initialProdu
                 </button>
               )}
 
-              {/* Results count */}
-              <span className="ml-auto text-sm text-[#EAE0D5]/40">
+              {/* Results count — full width row on mobile */}
+              <span className="w-full sm:w-auto text-center sm:text-left sm:ml-auto text-sm text-[#EAE0D5]/40">
                 {loading ? 'Loading...' : `Showing ${filteredProducts.length} of ${totalProducts} products`}
               </span>
             </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, use } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -68,7 +68,7 @@ const statusTone = (s) => {
 
 export default function CustomerDetailPage({ params }) {
   const router = useRouter();
-  const customerId = React.use(params).id;
+  const customerId = use(params).id;
 
   const [customer, setCustomer] = useState(null);
   const [loading, setLoading] = useState(true);

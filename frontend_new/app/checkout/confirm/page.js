@@ -267,37 +267,47 @@ export default function CheckoutConfirmPage() {
     }).format(amount || 0);
   };
 
-  // Show polling / processing state
-  if (loading && polling) {
+  // Show unified processing state — single clear message for all loading phases
+  if (loading && !order) {
+    const steps = [
+      { label: 'Payment verified', done: paymentRegistered },
+      { label: 'Creating your order', done: false },
+      { label: 'Sending confirmation', done: false },
+    ];
     return (
-      <div className="flex flex-col items-center justify-center py-16 space-y-4">
-        <Loader2 className="w-12 h-12 text-[#B76E79] animate-spin" />
-        <p className="text-[#EAE0D5]/70 text-lg">Confirming your payment and creating order...</p>
-        <p className="text-[#EAE0D5]/50 text-sm">This should take just a few seconds</p>
-      </div>
-    );
-  }
-
-  if (loading && paymentRegistered && !order) {
-    return (
-      <div className="flex flex-col items-center justify-center py-16 space-y-4">
+      <div className="flex flex-col items-center justify-center py-16 space-y-6">
         <div className="w-16 h-16 rounded-full bg-[#7A2F57]/30 flex items-center justify-center">
-          <Clock className="w-8 h-8 text-[#B76E79] animate-pulse" />
+          <Loader2 className="w-8 h-8 text-[#F2C29A] animate-spin" />
         </div>
-        <h3 className="text-lg font-semibold text-[#F2C29A]">Payment Confirmed!</h3>
-        <p className="text-[#EAE0D5]/70 text-center max-w-md">
-          Your payment was successful. We are now creating your order — this usually takes a few seconds.
-        </p>
-        <div className="w-8 h-8 border-2 border-[#B76E79] border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
-
-  // Show loading spinner
-  if (loading && !paymentRegistered) {
-    return (
-      <div className="flex items-center justify-center py-16">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#B76E79]" />
+        <div className="text-center space-y-2">
+          <h3 className="text-lg font-semibold text-[#F2C29A]">Processing Your Order</h3>
+          <p className="text-[#EAE0D5]/70 max-w-md">
+            {paymentRegistered
+              ? 'Payment confirmed! Creating your order...'
+              : 'Verifying your payment...'}
+          </p>
+        </div>
+        {/* Progress steps */}
+        <div className="w-full max-w-xs space-y-2">
+          {steps.map((step, i) => (
+            <div key={i} className="flex items-center gap-3">
+              <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 ${
+                step.done ? 'bg-green-500/20' : (i === 1 && paymentRegistered) ? 'bg-[#7A2F57]/30' : 'bg-[#B76E79]/10'
+              }`}>
+                {step.done ? (
+                  <svg className="w-3 h-3 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                ) : (i === 1 && paymentRegistered) ? (
+                  <div className="w-2 h-2 rounded-full bg-[#F2C29A] animate-pulse" />
+                ) : (
+                  <div className="w-2 h-2 rounded-full bg-[#B76E79]/20" />
+                )}
+              </div>
+              <span className={`text-sm ${
+                step.done ? 'text-green-400' : (i === 1 && paymentRegistered) ? 'text-[#F2C29A]' : 'text-[#EAE0D5]/40'
+              }`}>{step.label}</span>
+            </div>
+          ))}
+        </div>
       </div>
     );
   }

@@ -17,7 +17,7 @@ from typing import List, Optional
 from decimal import Decimal
 from fastapi import APIRouter, Depends, HTTPException, status, Request, UploadFile, File, Query
 from sqlalchemy.orm import Session, joinedload, selectinload
-from sqlalchemy import desc, func
+from sqlalchemy import desc, func, select
 
 from database.database import get_db
 from models.product import Product
@@ -40,6 +40,7 @@ from search.meilisearch_client import (
 from shared.auth_middleware import get_current_user, get_current_user_optional, require_admin, require_staff
 from shared.roles import is_staff, is_admin
 from shared.color_utils import get_nearest_color_name
+from helpers import SIZE_ORDER as _SIZE_ORDER
 
 logger = logging.getLogger(__name__)
 
@@ -200,10 +201,9 @@ def _enrich_product(product, db: Session = None, user_role: str = None) -> dict:
     inventory_list = list(product.inventory or [])
 
     # Logical size ordering (not alphabetical) — matches Indian apparel sizing
-    SIZE_ORDER = {'XS': 0, 'S': 1, 'M': 2, 'L': 3, 'XL': 4, 'XXL': 5, 'XXXL': 6, '3XL': 6, '4XL': 7, 'Free Size': 99}
     sizes = sorted(
         {inv.size for inv in inventory_list if inv.size},
-        key=lambda s: SIZE_ORDER.get(s.upper(), 50)
+        key=lambda s: _SIZE_ORDER.get(s.upper(), 50)
     )
     is_admin_user = is_staff(user_role) if user_role else False
 
@@ -386,15 +386,13 @@ async def list_products(
         if sizes:
             size_list = [s.strip() for s in sizes.split(',') if s.strip()]
             if size_list:
-                # Use subquery to avoid passing Query directly to in_()
-                size_subq = db.query(Inventory.product_id).filter(Inventory.size.in_(size_list)).subquery()
+                size_subq = select(Inventory.product_id).where(Inventory.size.in_(size_list)).scalar_subquery()
                 query = query.filter(Product.id.in_(size_subq))
 
         if colors:
             color_list = [c.strip() for c in colors.split(',') if c.strip()]
             if color_list:
-                # Use subquery to avoid passing Query directly to in_()
-                color_subq = db.query(Inventory.product_id).filter(Inventory.color.in_(color_list)).subquery()
+                color_subq = select(Inventory.product_id).where(Inventory.color.in_(color_list)).scalar_subquery()
                 query = query.filter(Product.id.in_(color_subq))
 
         if db_search:
@@ -420,7 +418,11 @@ async def list_products(
         else:
             query = query.order_by(sort_col.asc())
 
-        total = query.count()
+        # Efficient count: separate query without eager-loading JOINs
+        if query.whereclause is not None:
+            total = db.query(func.count(Product.id)).filter(query.whereclause).scalar()
+        else:
+            total = db.query(func.count(Product.id)).scalar()
         offset = (page - 1) * limit
         products = query.offset(offset).limit(limit).all()
         items = [_enrich_product(p, db, user_role) for p in products]
@@ -504,16 +506,24 @@ async def get_new_arrivals(
 ):
     """Get new arrival products."""
     user_role = current_user.get("role") if current_user else None
-    
-    products = db.query(Product).options(
-        joinedload(Product.collection),
-        selectinload(Product.images),
-        selectinload(Product.variants),
-    ).filter(
-        Product.is_new_arrival == True,
-        Product.is_active == True
-    ).order_by(Product.created_at.desc()).limit(limit).all()
-    return [_enrich_product(p, db, user_role) for p in products]
+    cache_key = f"products:new_arrivals:{limit}:role={user_role or 'public'}"
+
+    def _fetch():
+        products = db.query(Product).options(
+            joinedload(Product.collection),
+            selectinload(Product.images),
+            selectinload(Product.variants),
+        ).filter(
+            Product.is_new_arrival == True,
+            Product.is_active == True
+        ).order_by(Product.created_at.desc()).limit(limit).all()
+        return [_enrich_product(p, db, user_role) for p in products]
+
+    try:
+        return await asyncio.to_thread(cache.get_or_set_sync, cache_key, _fetch, ttl=120)
+    except Exception as e:
+        logger.warning(f"Cache miss fallback for new-arrivals: {e}")
+        return _fetch()
 
 
 @router.get("/featured")
@@ -524,16 +534,24 @@ async def get_featured_products(
 ):
     """Get featured products."""
     user_role = current_user.get("role") if current_user else None
+    cache_key = f"products:featured:{limit}:role={user_role or 'public'}"
 
-    products = db.query(Product).options(
-        joinedload(Product.collection),
-        selectinload(Product.images),
-        selectinload(Product.variants),
-    ).filter(
-        Product.is_active == True,
-        Product.is_featured == True
-    ).order_by(Product.created_at.desc()).limit(limit).all()
-    return [_enrich_product(p, db, user_role) for p in products]
+    def _fetch():
+        products = db.query(Product).options(
+            joinedload(Product.collection),
+            selectinload(Product.images),
+            selectinload(Product.variants),
+        ).filter(
+            Product.is_active == True,
+            Product.is_featured == True
+        ).order_by(Product.created_at.desc()).limit(limit).all()
+        return [_enrich_product(p, db, user_role) for p in products]
+
+    try:
+        return await asyncio.to_thread(cache.get_or_set_sync, cache_key, _fetch, ttl=120)
+    except Exception as e:
+        logger.warning(f"Cache miss fallback for featured: {e}")
+        return _fetch()
 
 
 # IMPORTANT: /browse route MUST come before /{product_id} to avoid route matching conflicts
@@ -563,32 +581,7 @@ async def browse_products(
     - New clients can send page+limit
     - Existing clients can keep sending skip+limit
     """
-    from models.inventory import Inventory as _Inv
-    from sqlalchemy import select
-    
     user_role = current_user.get("role") if current_user else None
-
-    query = db.query(Product).filter(Product.is_active == True)
-
-    # Category filter (by ID or slug)
-    if category_id:
-        query = query.filter(Product.category_id == category_id)
-    elif category_slug:
-        cat = db.query(Collection).filter(Collection.slug == category_slug).first()
-        if cat:
-            query = query.filter(Product.category_id == cat.id)
-
-    # Price range filter
-    if min_price is not None:
-        query = query.filter(Product.base_price >= min_price)
-    if max_price is not None:
-        query = query.filter(Product.base_price <= max_price)
-
-    # In-stock filter
-    if in_stock_only:
-        # Use select() construct explicitly to avoid Subquery coercion warning
-        in_stock_subq = select(_Inv.product_id).where(_Inv.quantity > 0).subquery()
-        query = query.filter(Product.id.in_(in_stock_subq))
 
     # Normalize pagination params (support both page and skip styles)
     effective_skip = skip if skip is not None else ((page - 1) * limit if page else 0)
@@ -609,39 +602,104 @@ async def browse_products(
     if not effective_sort_by:
         effective_sort_by = "newest"
 
-    # Sorting
-    if effective_sort_by == "price_low":
-        query = query.order_by(Product.base_price.asc())
-    elif effective_sort_by == "price_high":
-        query = query.order_by(Product.base_price.desc())
-    elif effective_sort_by == "popular":
-        query = query.order_by(Product.average_rating.desc())  # Proxy for popularity
-    elif effective_sort_by == "name_asc":
-        query = query.order_by(Product.name.asc())
-    elif effective_sort_by == "name_desc":
-        query = query.order_by(Product.name.desc())
-    else:  # newest
-        query = query.order_by(Product.created_at.desc())
+    # Build cache key — include role to prevent admin data leaking to customers
+    cache_params = f"role={user_role or 'public'}:cid={category_id}:slug={category_slug}:min={min_price}:max={max_price}:size={size}:color={color}:sort={effective_sort_by}:stock={in_stock_only}:skip={effective_skip}:limit={limit}"
+    cache_key_hash = hashlib.md5(cache_params.encode()).hexdigest()[:12]
+    cache_key = f"products:browse:{cache_key_hash}"
 
-    total = query.count()
-    products = query.offset(effective_skip).limit(limit).all()
-    enriched_products = [_enrich_product(p, db, user_role) for p in products]
+    def _fetch_browse():
+        """Execute the database query for product browsing.
 
-    return {
-        "items": enriched_products,
-        "products": enriched_products,
-        "total": total,
-        "page": effective_page,
-        "skip": effective_skip,
-        "total_pages": (total + limit - 1) // limit,
-        "sort_by": effective_sort_by,
-        "filters": {
-            "category_id": category_id,
-            "min_price": min_price,
-            "max_price": max_price,
-            "in_stock_only": in_stock_only,
+        Must be a sync function because it is called from
+        cache.get_or_set_sync() which runs inside asyncio.to_thread().
+        """
+        query = db.query(Product).options(
+            joinedload(Product.collection),
+            selectinload(Product.images),
+            selectinload(Product.variants),
+        ).filter(Product.is_active == True)
+
+        # Category filter (by ID or slug)
+        if category_id:
+            query = query.filter(Product.category_id == category_id)
+        elif category_slug:
+            cat = db.query(Collection).filter(Collection.slug == category_slug).first()
+            if cat:
+                query = query.filter(Product.category_id == cat.id)
+
+        # Price range filter
+        if min_price is not None:
+            query = query.filter(Product.base_price >= min_price)
+        if max_price is not None:
+            query = query.filter(Product.base_price <= max_price)
+
+        # Size filter
+        if size:
+            size_list = [s.strip() for s in size.split(',') if s.strip()]
+            if size_list:
+                size_subq = select(Inventory.product_id).where(Inventory.size.in_(size_list)).scalar_subquery()
+                query = query.filter(Product.id.in_(size_subq))
+
+        # Color filter
+        if color:
+            color_list = [c.strip() for c in color.split(',') if c.strip()]
+            if color_list:
+                color_subq = select(Inventory.product_id).where(Inventory.color.in_(color_list)).scalar_subquery()
+                query = query.filter(Product.id.in_(color_subq))
+
+        # In-stock filter
+        if in_stock_only:
+            in_stock_subq = select(Inventory.product_id).where(Inventory.quantity > 0).scalar_subquery()
+            query = query.filter(Product.id.in_(in_stock_subq))
+
+        # Sorting
+        if effective_sort_by == "price_low":
+            query = query.order_by(Product.base_price.asc())
+        elif effective_sort_by == "price_high":
+            query = query.order_by(Product.base_price.desc())
+        elif effective_sort_by == "popular":
+            query = query.order_by(Product.average_rating.desc())
+        elif effective_sort_by == "name_asc":
+            query = query.order_by(Product.name.asc())
+        elif effective_sort_by == "name_desc":
+            query = query.order_by(Product.name.desc())
+        else:
+            query = query.order_by(Product.created_at.desc())
+
+        # Efficient count without JOINs
+        if query.whereclause is not None:
+            total = db.query(func.count(Product.id)).filter(query.whereclause).scalar()
+        else:
+            total = db.query(func.count(Product.id)).scalar()
+        products = query.offset(effective_skip).limit(limit).all()
+        enriched_products = [_enrich_product(p, db, user_role) for p in products]
+
+        return {
+            "items": enriched_products,
+            "products": enriched_products,
+            "total": total,
+            "page": effective_page,
+            "skip": effective_skip,
+            "total_pages": (total + limit - 1) // limit,
+            "sort_by": effective_sort_by,
+            "filters": {
+                "category_id": category_id,
+                "min_price": min_price,
+                "max_price": max_price,
+                "in_stock_only": in_stock_only,
+            }
         }
-    }
+
+    # Use L1+L2 cache for browse queries (run sync Redis in thread pool to avoid blocking event loop)
+    try:
+        cached_result = await asyncio.to_thread(
+            cache.get_or_set_sync, cache_key, _fetch_browse, ttl=60
+        )
+        return cached_result
+    except Exception as e:
+        logger.warning(f"Cache miss fallback for browse: {e}")
+
+    return _fetch_browse()
 
 
 @router.get("/slug/{slug}")

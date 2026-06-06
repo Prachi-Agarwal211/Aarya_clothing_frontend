@@ -11,6 +11,7 @@ import { authApi } from '../../../lib/customerApi';
 import { useLogo, useSiteConfig } from '../../../lib/siteConfigContext';
 import logger from '../../../lib/logger';
 import { validatePhone, formatTime, getErrorMessage } from '../../../lib/authHelpers';
+import { AUTH_COPY } from '../../../lib/authCopy';
 
 const OTP_EXPIRY_SECONDS = 600;
 const RESEND_COOLDOWN_SECONDS = 30;
@@ -339,7 +340,7 @@ export default function ForgotPasswordPage() {
             </div>
           ))}
         </div>
-        <div className="flex justify-between mt-1.5 text-[10px] text-[#EAE0D5]/50 uppercase tracking-wider">
+        <div className="flex justify-between mt-1.5 text-[11px] text-[#EAE0D5]/50 uppercase tracking-wider">
           <span>Request</span>
           <span>Verify</span>
           <span>Reset</span>
@@ -419,7 +420,7 @@ export default function ForgotPasswordPage() {
               )}
               <Input
                 type={verificationMethod === 'otp_email' ? 'email' : 'tel'}
-                placeholder={verificationMethod === 'otp_email' ? 'Email Address' : 'Phone Number'}
+                placeholder={verificationMethod === 'otp_email' ? 'Email Address' : '9876543210'}
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
                 variant="minimal"
@@ -430,13 +431,15 @@ export default function ForgotPasswordPage() {
               />
             </div>
 
-            <p className="text-center text-[10px] text-[#EAE0D5]/55">
-              6-digit code to your {verificationMethod === 'otp_email' ? 'email' : 'phone'}.
+            <p className="text-center text-[11px] text-[#EAE0D5]/60">
+              We&apos;ll send a 6-digit code to your {verificationMethod === 'otp_email' ? 'email' : 'phone'}.
             </p>
 
-            <p className="text-[#EAE0D5]/30 text-[9px] uppercase tracking-wider text-center">
-              Tip: Use the same email or phone you registered with
-            </p>
+            {verificationMethod !== 'otp_email' && (
+              <p className="text-[#EAE0D5]/30 text-[10px] uppercase tracking-wider text-center">
+                {AUTH_COPY.phoneFormatHint}
+              </p>
+            )}
 
             <Button
               type="submit"

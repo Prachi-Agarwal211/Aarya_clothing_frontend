@@ -142,7 +142,7 @@ def _find_existing_order(
             existing = (
                 db.query(Order)
                 .filter(combined)
-                .with_for_update(nowait=True)
+                .with_for_update(skip_locked=True)
                 .order_by(Order.created_at.desc())
                 .first()
             )
@@ -308,15 +308,21 @@ class OrderService:
                 sku=item["sku"],
                 quantity=item["quantity"],
                 unit_price=Decimal(str(item.get("unit_price", item.get("price", 0)))),
-                total_price=Decimal(str(item.get("unit_price", item.get("price", 0)))) * item["quantity"],
+                line_total=Decimal(str(item.get("unit_price", item.get("price", 0)))) * item["quantity"],
                 size=item.get("size", variant.size),
                 color=item.get("color", variant.color),
                 image_url=item.get("image_url", variant.resolved_image_url),
             )
             self.db.add(order_item)
 
-            # Deduct stock immediately (atomic)
-            variant.quantity -= item["quantity"]
+            # Deduct stock via inventory service (uses SELECT FOR UPDATE + total_stock sync)
+            # CRITICAL: Stock deduction failure must rollback the entire order —
+            # allowing an order without stock deduction causes overselling.
+            sku = item.get("sku")
+            if sku:
+                self.inventory_service.deduct_stock_for_order(sku=sku, quantity=item["quantity"])
+            else:
+                logger.warning("No SKU for order item — skipping stock deduction (recovery order)")
 
         self.db.commit()
         self.db.refresh(order)
@@ -654,15 +660,10 @@ class OrderService:
         pending.razorpay_order_id = razorpay_order_id
         self.db.commit()
 
-        # Release stock reservations — let the webhook re-deduct
-        # (reservations from cart_service.confirm_cart_for_checkout will be
-        #  automatically released when the cart TTL expires; the webhook
-        #  deducts stock at order-creation time)
-        try:
-            self.cart_service.clear_cart(user_id, release_reservations=True)
-            logger.info(f"✓ Cart cleared after payment registration for user {user_id}")
-        except Exception as cart_err:
-            logger.warning(f"Failed to clear cart after payment registration: {cart_err}")
+        # NOTE: Cart is NOT cleared here. The cart is cleared by the frontend
+        # after the order is confirmed (CheckoutConfirmPage calls clearCart()).
+        # This prevents data loss if the webhook fails — the pending_order
+        # snapshot already has the cart data, and the cart remains as a backup.
 
         logger.info(
             f"✓ REGISTER_PAYMENT_SUCCESS: user={user_id} payment={transaction_id} "
@@ -762,7 +763,7 @@ class OrderService:
             existing = (
                 self.db.query(Order)
                 .filter(Order.transaction_id == lookup_id, Order.user_id == user_id)
-                .with_for_update(nowait=True)
+                .with_for_update(skip_locked=True)
                 .first()
             )
             if existing:
@@ -779,7 +780,7 @@ class OrderService:
                         Order.razorpay_order_id == razorpay_order_id,
                         Order.user_id == user_id,
                     )
-                    .with_for_update(nowait=True)
+                    .with_for_update(skip_locked=True)
                     .first()
                 )
                 if existing_by_razorpay:
@@ -904,7 +905,7 @@ class OrderService:
                 self.db.add(order_item)
 
                 try:
-                    self.inventory_service.deduct_stock(sku=sku, quantity=qty, order_id=order.id)
+                    self.inventory_service.deduct_stock_for_order(sku=sku, quantity=qty)
                 except Exception as e:
                     self.db.rollback()
                     logger.error(f"Failed to deduct stock for {sku}: {e}")
@@ -1012,6 +1013,7 @@ class OrderService:
             OrderStatus.SHIPPED: [OrderStatus.DELIVERED],
             OrderStatus.DELIVERED: [],  # Terminal — returns handled by Returns module
             OrderStatus.CANCELLED: [],  # Terminal
+            OrderStatus.REFUNDED: [],  # Terminal
         }
 
         if new_status not in valid_transitions.get(order.status, []):

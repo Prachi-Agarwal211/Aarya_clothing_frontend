@@ -14,14 +14,15 @@
  * - Mobile-specific settings for better battery life
  */
 
-import { gsap } from 'gsap';
+import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { ScrollToPlugin } from 'gsap/ScrollToPlugin';
 import { Draggable } from 'gsap/Draggable';
 import { MotionPathPlugin } from 'gsap/MotionPathPlugin';
 
-// Register plugins only on client side
-if (typeof window !== 'undefined') {
+// Register plugins only on client side (idempotent for HMR/dev)
+let gsapPluginsRegistered = false;
+if (typeof window !== 'undefined' && !gsapPluginsRegistered) {
   gsap.registerPlugin(ScrollTrigger, ScrollToPlugin, Draggable, MotionPathPlugin);
 
   // PERFORMANCE: Global GSAP performance settings
@@ -30,12 +31,18 @@ if (typeof window !== 'undefined') {
   gsap.defaults({
     lazy: true, // Lazy load animations
   });
+  gsapPluginsRegistered = true;
 }
 
-// PERFORMANCE: Mobile detection utility
+// PERFORMANCE: Mobile detection + reduced motion utility
 const isMobile = () => {
   if (typeof window === 'undefined') return false;
   return window.innerWidth < 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+};
+
+const prefersReducedMotion = () => {
+  if (typeof window === 'undefined') return false;
+  return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 };
 
 // Default animation configuration for consistency
@@ -69,9 +76,10 @@ export const animationConfig = {
   // PERFORMANCE: Mobile-specific optimizations
   mobileContext: {
     durationMultiplier: 1.2, // Slightly slower on mobile for battery
-    reduceMotion: false, // Keep animations but optimize them
     // NOTE: force3D removed - GSAP 3.12+ handles GPU acceleration automatically
   },
+  // Respect user reduced motion preference (a11y + perf)
+  reduceMotion: prefersReducedMotion(),
 };
 
 // Export gsap and plugins for use in components
@@ -85,9 +93,15 @@ export { gsap, ScrollTrigger, ScrollToPlugin, Draggable };
  * @param {Object} scrollConfig - ScrollTrigger configuration
  */
 export function createScrollAnimation(element, fromVars, toVars, scrollConfig = {}) {
-  // PERFORMANCE: Apply mobile optimizations if needed
+  // PERFORMANCE + A11Y: Apply mobile + reduced motion optimizations
   const isMobileDevice = isMobile();
-  const durationMultiplier = isMobileDevice ? animationConfig.mobileContext.durationMultiplier : 1;
+  const reduce = prefersReducedMotion() || animationConfig.reduceMotion;
+  const durationMultiplier = reduce ? 0.01 : (isMobileDevice ? animationConfig.mobileContext.durationMultiplier : 1);
+
+  if (reduce) {
+    // Instant for reduced motion
+    return gsap.set(element, { ...toVars, duration: 0 });
+  }
 
   return gsap.fromTo(element, fromVars, {
     ...toVars,
@@ -108,9 +122,14 @@ export function createScrollAnimation(element, fromVars, toVars, scrollConfig = 
  * @param {string} staggerType - 'fast', 'normal', or 'slow'
  */
 export function createStaggerAnimation(elements, fromVars, toVars, staggerType = 'normal') {
-  // PERFORMANCE: Apply mobile optimizations
+  // PERFORMANCE + A11Y: Apply mobile + reduced motion optimizations
   const isMobileDevice = isMobile();
-  const durationMultiplier = isMobileDevice ? animationConfig.mobileContext.durationMultiplier : 1;
+  const reduce = prefersReducedMotion() || animationConfig.reduceMotion;
+  const durationMultiplier = reduce ? 0.01 : (isMobileDevice ? animationConfig.mobileContext.durationMultiplier : 1);
+
+  if (reduce) {
+    return gsap.set(elements, { ...toVars, duration: 0 });
+  }
 
   return gsap.fromTo(elements, fromVars, {
     ...toVars,
@@ -136,6 +155,9 @@ export function cleanupAnimations(context) {
   });
 }
 
+// Re-export for components
+export { prefersReducedMotion, isMobile };
+
 export default {
   gsap,
   ScrollTrigger,
@@ -146,4 +168,5 @@ export default {
   createStaggerAnimation,
   cleanupAnimations,
   isMobile,
+  prefersReducedMotion,
 };

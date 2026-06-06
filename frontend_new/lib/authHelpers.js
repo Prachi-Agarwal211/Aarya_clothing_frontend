@@ -1,29 +1,5 @@
 'use client';
 
-import { useCallback } from 'react';
-
-const OTP_EXPIRY_SECONDS = 120;
-const RESEND_COOLDOWN_SECONDS = 30;
-
-/**
- * Custom hook for OTP timer management
- * @param {number} initialSeconds - Initial timer value (default: 120)
- * @param {function} onComplete - Callback when timer expires
- * @returns {Object} Timer state and controls
- */
-export function useOtpTimer(initialSeconds = OTP_EXPIRY_SECONDS, onComplete) {
-  const handleTimerComplete = useCallback(() => {
-    if (onComplete) onComplete();
-  }, [onComplete]);
-
-  return {
-    initialSeconds,
-    expirySeconds: OTP_EXPIRY_SECONDS,
-    cooldownSeconds: RESEND_COOLDOWN_SECONDS,
-    onTimerComplete: handleTimerComplete,
-  };
-}
-
 /**
  * Validate phone number format (Indian and International)
  * @param {string} phone - Phone number to validate

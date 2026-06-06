@@ -1,13 +1,12 @@
-import React, { Suspense } from 'react';
-import LoginOtpPageContent from './LoginOtpPageContent';
+import { redirect } from 'next/navigation';
 
+/**
+ * Login-OTP page now redirects to unified login page.
+ * The unified page has a password/OTP toggle built in.
+ */
 export default async function LoginOtpPage({ searchParams }) {
   const params = await searchParams;
   const raw = params?.redirect_url;
   const redirectUrl = Array.isArray(raw) ? raw[0] : raw || '/products';
-  return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-gray-500">Loading…</div>}>
-      <LoginOtpPageContent redirectUrl={redirectUrl} />
-    </Suspense>
-  );
+  redirect(`/auth/login?redirect_url=${encodeURIComponent(redirectUrl)}`);
 }

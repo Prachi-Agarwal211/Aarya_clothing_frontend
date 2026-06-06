@@ -12,17 +12,20 @@ class VerificationMethod(str, Enum):
     Verification method for registration.
 
     ACTIVE (Supported):
-    - link: Email link verification (recommended, industry standard)
+    - otp_email: Email OTP verification (6-digit code) — DEFAULT
     - otp_sms: SMS OTP verification (6-digit code)
-    - otp_email: Email OTP verification (6-digit code)
+    - otp_whatsapp: WhatsApp OTP verification (6-digit code)
+
+    DEPRECATED:
+    - link: Email link verification (removed — use otp_email instead)
 
     User selects one method during registration. System routes verification accordingly.
     """
 
-    link = "link"  # Email link (recommended, default)
-    otp_email = "otp_email"  # Email OTP (6-digit code)
+    otp_email = "otp_email"  # Email OTP (6-digit code) — DEFAULT
     otp_sms = "otp_sms"  # SMS OTP (6-digit code)
     otp_whatsapp = "otp_whatsapp"  # WhatsApp OTP (6-digit code)
+    link = "link"  # DEPRECATED: email link removed, kept for migration
 
 
 # ==================== User Schemas ====================
@@ -241,7 +244,7 @@ class ForgotPasswordRequest(BaseModel):
     """Schema for requesting password reset."""
 
     identifier: str = Field(..., description="Email address or phone number")
-    otp_type: str = Field(default="SMS", description="EMAIL or SMS")
+    otp_type: str = Field(default="EMAIL", description="EMAIL, SMS, or WHATSAPP")
 
 
 class PasswordResetRequest(BaseModel):
@@ -265,7 +268,7 @@ class ResetPasswordWithOtpRequest(BaseModel):
         ..., min_length=6, max_length=6, description="6-digit OTP code"
     )
     new_password: str = Field(..., min_length=5, description="5-character password")
-    otp_type: str = Field(default="SMS", description="EMAIL or SMS")
+    otp_type: str = Field(default="EMAIL", description="EMAIL, SMS, or WHATSAPP")
 
 
 class VerifyResetOtpRequest(BaseModel):
@@ -275,7 +278,7 @@ class VerifyResetOtpRequest(BaseModel):
     otp_code: str = Field(
         ..., min_length=6, max_length=6, description="6-digit OTP code"
     )
-    otp_type: str = Field(default="SMS", description="EMAIL or SMS")
+    otp_type: str = Field(default="EMAIL", description="EMAIL, SMS, or WHATSAPP")
 
 
 class VerifyResetOtpResponse(BaseModel):

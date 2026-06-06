@@ -27,7 +27,7 @@ from sqlalchemy.orm import Session
 from starlette.responses import StreamingResponse
 
 from core.redis_client import redis_client
-from database.database import get_db
+from database.database import get_db, SessionLocal
 from models.inventory import Inventory
 from models.product import Product
 from rate_limit import check_rate_limit
@@ -80,39 +80,8 @@ async def add_to_my_cart(
 
     user_id = current_user["user_id"]
 
-    product = db.query(Product).filter(Product.id == item.product_id).first()
-    if not product:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Product not found",
-        )
-
-    if item.variant_id:
-        variant = (
-            db.query(Inventory)
-            .filter(
-                Inventory.id == item.variant_id,
-                Inventory.product_id == item.product_id,
-            )
-            .first()
-        )
-        if not variant:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Variant not found",
-            )
-        if variant.available_quantity < item.quantity:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Only {variant.available_quantity} items available",
-            )
-    else:
-        if product.total_stock < item.quantity:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Insufficient inventory",
-            )
-
+    # Stock and product validation is handled by CartService.add_to_cart() —
+    # no need to duplicate those DB queries in the route layer.
     item_data = {
         "product_id": item.product_id,
         "variant_id": item.variant_id,
@@ -211,18 +180,8 @@ async def update_cart_shipping_address(
     return CartResponse(**cart)
 
 
-@router.post("/api/v1/cart/clear-expired")
-async def clear_expired_cart_items(
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
-):
-    """Refresh reservation expiry on the cart, dropping expired holds."""
-    user_id = current_user["user_id"]
-    cart_service = CartService(db)
-    cart = cart_service.get_cart(user_id)
-    cart["reservation_expires_at"] = cart_service._get_earliest_reservation_expiry(user_id)
-    cart_service.save_cart(user_id, cart)
-    return {"status": "ok", "cart": cart}
+# clear-expired endpoint removed — reservations system was removed.
+# Stock is checked and deducted at checkout time only.
 
 
 # ---------------------------------------------------------------------------
@@ -249,6 +208,10 @@ async def cart_stock_stream(
     start_time = asyncio.get_event_loop().time()
 
     async def event_generator():
+        # NOTE: We create a fresh SessionLocal() per iteration because the
+        # request-scoped `db` session will go stale over the long-lived SSE
+        # connection (up to 1 hour). SessionLocal() draws from the connection
+        # pool and is fully thread/async-safe.
         while True:
             if await request.is_disconnected():
                 logger.debug(f"Client disconnected from stock stream for user {user_id}")
@@ -264,25 +227,43 @@ async def cart_stock_stream(
                 cart = cart_service.get_cart(user_id)
 
                 if cart["items"]:
+                    # Batch all SKU lookups into a single query (was N separate
+                    # queries per item — caused pgbouncer pressure + stale sessions).
+                    skus = [item.get("sku") for item in cart["items"] if item.get("sku")]
+                    stock_map = {}
+                    if skus:
+                        fresh_db = SessionLocal()
+                        try:
+                            placeholders = ", ".join(":sku" + str(i) for i in range(len(skus)))
+                            params = {f"sku{i}": s for i, s in enumerate(skus)}
+                            rows = fresh_db.execute(
+                                text(
+                                    f"SELECT sku, quantity, reserved_quantity "
+                                    f"FROM inventory WHERE sku IN ({placeholders})"
+                                ),
+                                params,
+                            ).fetchall()
+                            stock_map = {
+                                row.sku: max(0, row.quantity - row.reserved_quantity)
+                                for row in rows
+                            }
+                        finally:
+                            fresh_db.close()
+
                     stock_updates = []
                     for item in cart["items"]:
-                        result = db.execute(
-                            text("SELECT quantity, reserved_quantity FROM inventory WHERE sku = :sku"),
-                            {"sku": item.get("sku")},
-                        ).fetchone()
-
-                        if result:
-                            available = max(0, result[0] - result[1])
-                            stock_updates.append(
-                                {
-                                    "product_id": item["product_id"],
-                                    "variant_id": item.get("variant_id"),
-                                    "sku": item.get("sku"),
-                                    "available_quantity": available,
-                                    "requested_quantity": item["quantity"],
-                                    "in_stock": available >= item["quantity"],
-                                }
-                            )
+                        sku = item.get("sku")
+                        available = stock_map.get(sku, 0)
+                        stock_updates.append(
+                            {
+                                "product_id": item["product_id"],
+                                "variant_id": item.get("variant_id"),
+                                "sku": sku,
+                                "available_quantity": available,
+                                "requested_quantity": item["quantity"],
+                                "in_stock": available >= item["quantity"],
+                            }
+                        )
 
                     event_data = {
                         "type": "stock_update",
@@ -387,6 +368,8 @@ async def add_to_cart(
         )
 
     if product.total_stock < item.quantity:
+        # NOTE: total_stock is denormalized and may be stale.
+        # The real stock check happens in CartService.add_to_cart().
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Insufficient inventory",
@@ -449,8 +432,12 @@ async def update_cart_quantity(
 
 
 @router.get("/api/v1/cart/{user_id}/summary")
-async def cart_summary(user_id: int):
+async def cart_summary(
+    user_id: int,
+    current_user: dict = Depends(get_current_user),
+):
     """Lightweight totals view straight from Redis — no DB hit."""
+    _ensure_owner_or_staff(current_user, user_id)
     cart_data = redis_client.get_cache(f"cart:{user_id}")
 
     if not cart_data or not cart_data.get("items"):

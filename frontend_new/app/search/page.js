@@ -5,7 +5,7 @@ import { productsApi, collectionsApi } from '@/lib/customerApi';
 // Force fully dynamic — never statically cache with empty searchParams.
 // ISR caching of a server-computed page without query params will freeze
 // the page in the 'start typing' state and never revalidate for different q.
-export const dynamic = 'force-dynamic';
+export const dynamic = 'force-dynamic'; // Search varies by query param — ISR unsafe here. Backend caching handles performance.
 
 async function getInitialData(q, pg = 1) {
   if (!q) return { products: [], total: 0, collections: [] };

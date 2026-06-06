@@ -102,25 +102,24 @@ export default function OrdersPage() {
 
   const handleDownloadInvoice = async (orderId, invoiceNumber) => {
     try {
-      console.log('[Invoice] Downloading invoice for order:', orderId, invoiceNumber);
+      logger.info('[Invoice] Downloading invoice for order:', orderId, invoiceNumber);
 
       const response = await fetch(`/api/v1/orders/${orderId}/invoice`, {
         method: 'GET',
         credentials: 'include',
       });
 
-      console.log('[Invoice] Response status:', response.status);
-      console.log('[Invoice] Response ok:', response.ok);
+      logger.debug('[Invoice] Response status:', response.status);
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        console.error('[Invoice] Error response:', errorData);
+        logger.error('[Invoice] Error response:', errorData);
         throw new Error(errorData.detail || errorData.message || 'Failed to download invoice');
       }
 
       // Create blob and download
       const blob = await response.blob();
-      console.log('[Invoice] Blob created, size:', blob.size);
+      logger.debug('[Invoice] Blob created, size:', blob.size);
 
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -131,9 +130,9 @@ export default function OrdersPage() {
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
 
-      console.log('[Invoice] Download successful');
+      logger.info('[Invoice] Download successful');
     } catch (error) {
-      console.error('[Invoice] Download failed:', error);
+      logger.error('[Invoice] Download failed:', error);
       logError('ProfileOrders', 'downloading invoice', error, {
         orderId,
         invoiceNumber

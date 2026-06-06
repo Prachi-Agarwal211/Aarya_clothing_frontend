@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils';
 import { useCart } from '@/lib/cartContext';
 import { useAuth } from '@/lib/authContext';
 import { useLogo, useSiteConfig } from '@/lib/siteConfigContext';
-import { gsap } from '@/lib/gsapConfig';
+import { gsap, prefersReducedMotion } from '@/lib/gsapConfig';
 
 // Static navigation links — anchor IDs on the landing page
 const NAV_LINKS = [
@@ -58,6 +58,7 @@ function useDebounce(value, delay) {
 const EnhancedHeader = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [activeSection, setActiveSection] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
   const { itemCount, toggleCart } = useCart();
@@ -112,6 +113,19 @@ const EnhancedHeader = () => {
       if (!tickingRef.current) {
         requestAnimationFrame(() => {
           setIsScrolled(window.scrollY > 50);
+
+          // Section-aware highlighting — find which anchor section is in view
+          const anchors = ['new-arrivals', 'collections', 'about', 'footer'];
+          let current = null;
+          for (const id of anchors) {
+            const el = document.getElementById(id);
+            if (el) {
+              const rect = el.getBoundingClientRect();
+              if (rect.top <= 150) current = `#${id}`;
+            }
+          }
+          setActiveSection(current);
+
           tickingRef.current = false;
         });
         tickingRef.current = true;
@@ -146,10 +160,11 @@ const EnhancedHeader = () => {
       const target = document.querySelector(link.anchor);
       if (target) {
         const isMobile = window.innerWidth < 768;
+        const reduce = prefersReducedMotion();
         gsap.to(window, {
           scrollTo: { y: target, offsetY: isMobile ? 60 : 80 },
-          duration: 1,
-          ease: 'power3.inOut',
+          duration: reduce ? 0.01 : 1,
+          ease: reduce ? 'none' : 'power3.inOut',
         });
         window.history.pushState(null, '', link.anchor);
       }
@@ -238,13 +253,15 @@ const EnhancedHeader = () => {
                   onClick={(e) => handleNavClick(e, link)}
                   className={`relative text-sm font-medium transition-colors duration-300 py-2 group nav-link ${link.highlight
                       ? 'text-[#F2C29A] hover:text-white px-3 py-1.5 rounded-full bg-gradient-to-r from-[#7A2F57]/40 to-[#B76E79]/30 border border-[#B76E79]/40 hover:border-[#B76E79]/70'
-                      : 'text-[#EAE0D5]/80 hover:text-[#F2C29A]'
+                      : activeSection === link.anchor
+                        ? 'text-[#F2C29A]'
+                        : 'text-[#EAE0D5]/80 hover:text-[#F2C29A]'
                     }`}
                   aria-current={link.name === 'New Arrivals' ? 'page' : undefined}
                 >
                   {link.name}
                   {!link.highlight && (
-                    <span className="absolute bottom-0 left-0 w-0 h-[1px] bg-[#F2C29A] transition-all duration-300 group-hover:w-full" aria-hidden="true" />
+                    <span className={`absolute bottom-0 left-0 h-[1px] bg-[#F2C29A] transition-all duration-300 ${activeSection === link.anchor ? 'w-full' : 'w-0 group-hover:w-full'}`} aria-hidden="true" />
                   )}
                 </Link>
               ))}
@@ -277,7 +294,6 @@ const EnhancedHeader = () => {
               ) : (
                 <button
                   onClick={() => {
-                    console.log('[Sign In] Click detected, navigating to:', `/auth/login?redirect_url=${encodeURIComponent(pathname)}`);
                     window.location.href = `/auth/login?redirect_url=${encodeURIComponent(pathname)}`;
                   }}
                   className="text-[#EAE0D5]/80 hover:text-[#F2C29A] text-sm font-medium transition-colors duration-300 flex items-center"
@@ -418,8 +434,8 @@ const EnhancedHeader = () => {
               href={link.href}
               scroll={false}
               ref={index === 0 ? firstNavItemRef : null}
-              className="text-2xl text-[#EAE0D5] hover:text-[#F2C29A] transition-colors duration-300 nav-link"
-              style={{ fontFamily: 'Cinzel, serif', transitionDelay: `${index * 100}ms` }}
+              className="text-2xl text-[#EAE0D5] hover:text-[#F2C29A] transition-colors duration-300 nav-link mobile-menu-item-enter"
+              style={{ fontFamily: 'Cinzel, serif', animationDelay: `${index * 60}ms` }}
               onClick={(e) => {
                 setIsMobileMenuOpen(false);
                 handleNavClick(e, link);
@@ -496,7 +512,6 @@ const EnhancedHeader = () => {
               <div className="flex flex-col items-center gap-4 mt-2">
                 <button
                   onClick={() => {
-                    console.log('[Sign In Mobile] Click detected');
                     setIsMobileMenuOpen(false);
                     window.location.href = `/auth/login?redirect_url=${encodeURIComponent(pathname)}`;
                   }}

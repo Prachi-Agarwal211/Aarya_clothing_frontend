@@ -204,6 +204,9 @@ class AuthService:
         if existing:
             # Case 1: Already verified/active -> BLOCK (redirect to login)
             if existing.is_active:
+                # Check phone first (most common case for phone-first Indian flow)
+                if user_data.phone and existing.phone == user_data.phone:
+                    raise ValueError("This phone number is already registered. Please sign in instead.")
                 if existing.email == user_data.email:
                     raise ValueError("An account with this email already exists. Please sign in instead.")
                 raise ValueError("This username is already taken. Please choose another.")
@@ -346,7 +349,7 @@ class AuthService:
         """Authenticate using identifier and password."""
         user = _resolve_user_query(self.db, identifier)
         if not user:
-            raise ValueError("No account found with this email or phone. Please create an account first — both email and phone number are required.")
+            raise ValueError("No account found. Please create an account first.")
 
         if getattr(user, "account_locked_until", None) and user.account_locked_until > ist_naive():
             raise ValueError("Account temporarily locked. Please try again later.")
@@ -402,7 +405,7 @@ class AuthService:
         """Send a login OTP."""
         user = _resolve_user_query(self.db, identifier)
         if not user:
-            raise ValueError("No account found with this email or phone. Please create an account first — both email and phone number are required.")
+            raise ValueError("No account found. Please create an account first.")
         
         if not user.is_active:
             raise ValueError("This account has not been verified yet. Please check your email or phone for the OTP verification code and complete registration.")
@@ -519,7 +522,7 @@ class AuthService:
         """Request password reset via OTP."""
         user = _resolve_user_query(self.db, identifier)
         if not user:
-            raise ValueError("No account found with this email or phone. Please create an account first — both email and phone number are required.")
+            raise ValueError("No account found. Please create an account first.")
 
         delivery = (otp_type or "EMAIL").upper()
         from service.otp_service import OTPService

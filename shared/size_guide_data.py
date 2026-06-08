@@ -66,56 +66,57 @@ class SizeChart:
 # ==================== Size Charts by Category ====================
 
 KURTA_SIZE_CHART: List[SizeChart] = [
-    SizeChart("XS", Measurement(32, 81), Measurement(26, 66), Measurement(34, 86)),
-    SizeChart("S", Measurement(34, 86), Measurement(28, 71), Measurement(36, 91)),
-    SizeChart("M", Measurement(36, 91), Measurement(30, 76), Measurement(38, 97)),
-    SizeChart("L", Measurement(38, 97), Measurement(32, 81), Measurement(40, 102)),
-    SizeChart("XL", Measurement(40, 102), Measurement(34, 86), Measurement(42, 107)),
-    SizeChart("XXL", Measurement(42, 107), Measurement(36, 91), Measurement(44, 112)),
+    SizeChart("S", Measurement(36, 91), Measurement(30, 76), Measurement(38, 97)),
+    SizeChart("M", Measurement(38, 97), Measurement(32, 81), Measurement(40, 102)),
+    SizeChart("L", Measurement(40, 102), Measurement(34, 86), Measurement(42, 107)),
+    SizeChart("XL", Measurement(42, 107), Measurement(36, 91), Measurement(44, 112)),
+    SizeChart("XXL", Measurement(44, 112), Measurement(38, 97), Measurement(46, 117)),
+    SizeChart("XXXL", Measurement(46, 117), Measurement(40, 102), Measurement(48, 122)),
 ]
 
 TOP_SIZE_CHART: List[SizeChart] = [
-    SizeChart("XS", Measurement(30, 76), Measurement(24, 61), Measurement(14, 36)),
-    SizeChart("S", Measurement(32, 81), Measurement(26, 66), Measurement(14.5, 37)),
-    SizeChart("M", Measurement(34, 86), Measurement(28, 71), Measurement(15, 38)),
-    SizeChart("L", Measurement(36, 91), Measurement(30, 76), Measurement(15.5, 39)),
-    SizeChart("XL", Measurement(38, 97), Measurement(32, 81), Measurement(16, 41)),
-    SizeChart("XXL", Measurement(40, 102), Measurement(34, 86), Measurement(16.5, 42)),
+    SizeChart("S", Measurement(36, 91), Measurement(28, 71), Measurement(14.5, 37)),
+    SizeChart("M", Measurement(38, 97), Measurement(30, 76), Measurement(15, 38)),
+    SizeChart("L", Measurement(40, 102), Measurement(32, 81), Measurement(15.5, 39)),
+    SizeChart("XL", Measurement(42, 107), Measurement(34, 86), Measurement(16, 41)),
+    SizeChart("XXL", Measurement(44, 112), Measurement(36, 91), Measurement(16.5, 42)),
+    SizeChart("XXXL", Measurement(46, 117), Measurement(38, 97), Measurement(17, 43)),
 ]
 
 BOTTOM_SIZE_CHART: List[SizeChart] = [
-    SizeChart("XS", Measurement(24, 61), Measurement(34, 86), Measurement(28, 71)),
-    SizeChart("S", Measurement(26, 66), Measurement(36, 91), Measurement(28.5, 72)),
-    SizeChart("M", Measurement(28, 71), Measurement(38, 97), Measurement(29, 74)),
-    SizeChart("L", Measurement(30, 76), Measurement(40, 102), Measurement(29.5, 75)),
-    SizeChart("XL", Measurement(32, 81), Measurement(42, 107), Measurement(30, 76)),
-    SizeChart("XXL", Measurement(34, 86), Measurement(44, 112), Measurement(30.5, 77)),
+    SizeChart("S", Measurement(30, 76), Measurement(38, 97), Measurement(29, 74)),
+    SizeChart("M", Measurement(32, 81), Measurement(40, 102), Measurement(29.5, 75)),
+    SizeChart("L", Measurement(34, 86), Measurement(42, 107), Measurement(30, 76)),
+    SizeChart("XL", Measurement(36, 91), Measurement(44, 112), Measurement(30.5, 77)),
+    SizeChart("XXL", Measurement(38, 97), Measurement(46, 117), Measurement(31, 79)),
+    SizeChart("XXXL", Measurement(40, 102), Measurement(48, 122), Measurement(31.5, 80)),
 ]
 
 DRESS_SIZE_CHART: List[SizeChart] = [
-    SizeChart("XS", Measurement(32, 81), Measurement(26, 66), Measurement(34, 86), Measurement(35, 89)),
-    SizeChart("S", Measurement(34, 86), Measurement(28, 71), Measurement(36, 91), Measurement(36, 91)),
-    SizeChart("M", Measurement(36, 91), Measurement(30, 76), Measurement(38, 97), Measurement(37, 94)),
-    SizeChart("L", Measurement(38, 97), Measurement(32, 81), Measurement(40, 102), Measurement(38, 97)),
-    SizeChart("XL", Measurement(40, 102), Measurement(34, 86), Measurement(42, 107), Measurement(39, 99)),
-    SizeChart("XXL", Measurement(42, 107), Measurement(36, 91), Measurement(44, 112), Measurement(40, 102)),
+    SizeChart("S", Measurement(36, 91), Measurement(28, 71), Measurement(38, 97), Measurement(36, 91)),
+    SizeChart("M", Measurement(38, 97), Measurement(30, 76), Measurement(40, 102), Measurement(37, 94)),
+    SizeChart("L", Measurement(40, 102), Measurement(32, 81), Measurement(42, 107), Measurement(38, 97)),
+    SizeChart("XL", Measurement(42, 107), Measurement(34, 86), Measurement(44, 112), Measurement(39, 99)),
+    SizeChart("XXL", Measurement(44, 112), Measurement(36, 91), Measurement(46, 117), Measurement(40, 102)),
+    SizeChart("XXXL", Measurement(46, 117), Measurement(38, 97), Measurement(48, 122), Measurement(41, 104)),
 ]
 
 LEHENGA_SIZE_CHART: List[SizeChart] = [
-    SizeChart("XS", Measurement(24, 61), Measurement(34, 86), Measurement(40, 102)),
-    SizeChart("S", Measurement(26, 66), Measurement(36, 91), Measurement(40.5, 103)),
-    SizeChart("M", Measurement(28, 71), Measurement(38, 97), Measurement(41, 104)),
-    SizeChart("L", Measurement(30, 76), Measurement(40, 102), Measurement(41.5, 105)),
-    SizeChart("XL", Measurement(32, 81), Measurement(42, 107), Measurement(42, 107)),
+    SizeChart("S", Measurement(30, 76), Measurement(40, 102), Measurement(40.5, 103)),
+    SizeChart("M", Measurement(32, 81), Measurement(42, 107), Measurement(41, 104)),
+    SizeChart("L", Measurement(34, 86), Measurement(44, 112), Measurement(41.5, 105)),
+    SizeChart("XL", Measurement(36, 91), Measurement(46, 117), Measurement(42, 107)),
+    SizeChart("XXL", Measurement(38, 97), Measurement(48, 122), Measurement(42.5, 108)),
+    SizeChart("XXXL", Measurement(40, 102), Measurement(50, 127), Measurement(43, 109)),
 ]
 
 SAREE_BLOUSE_SIZE_CHART: List[SizeChart] = [
-    SizeChart("XS", Measurement(32, 81), Measurement(26, 66), Measurement(34, 86)),
-    SizeChart("S", Measurement(34, 86), Measurement(28, 71), Measurement(36, 91)),
-    SizeChart("M", Measurement(36, 91), Measurement(30, 76), Measurement(38, 97)),
-    SizeChart("L", Measurement(38, 97), Measurement(32, 81), Measurement(40, 102)),
-    SizeChart("XL", Measurement(40, 102), Measurement(34, 86), Measurement(42, 107)),
-    SizeChart("XXL", Measurement(42, 107), Measurement(36, 91), Measurement(44, 112)),
+    SizeChart("S", Measurement(36, 91), Measurement(28, 71), Measurement(38, 97)),
+    SizeChart("M", Measurement(38, 97), Measurement(30, 76), Measurement(40, 102)),
+    SizeChart("L", Measurement(40, 102), Measurement(32, 81), Measurement(42, 107)),
+    SizeChart("XL", Measurement(42, 107), Measurement(34, 86), Measurement(44, 112)),
+    SizeChart("XXL", Measurement(44, 112), Measurement(36, 91), Measurement(46, 117)),
+    SizeChart("XXXL", Measurement(46, 117), Measurement(38, 97), Measurement(48, 122)),
 ]
 
 MENS_SHIRT_SIZE_CHART: List[SizeChart] = [
@@ -124,6 +125,7 @@ MENS_SHIRT_SIZE_CHART: List[SizeChart] = [
     SizeChart("L", Measurement(40, 102), Measurement(34, 86), Measurement(15, 38), Measurement(25, 64)),
     SizeChart("XL", Measurement(42, 107), Measurement(36, 91), Measurement(15.5, 39), Measurement(25.5, 65)),
     SizeChart("XXL", Measurement(44, 112), Measurement(38, 97), Measurement(16, 41), Measurement(26, 66)),
+    SizeChart("XXXL", Measurement(46, 117), Measurement(40, 102), Measurement(16.5, 42), Measurement(26.5, 67)),
 ]
 
 MENS_TSHIRT_SIZE_CHART: List[SizeChart] = [
@@ -132,6 +134,7 @@ MENS_TSHIRT_SIZE_CHART: List[SizeChart] = [
     SizeChart("L", Measurement(40, 102), Measurement(34, 86), Measurement(19, 48), Measurement(28, 71)),
     SizeChart("XL", Measurement(42, 107), Measurement(36, 91), Measurement(20, 51), Measurement(28.5, 72)),
     SizeChart("XXL", Measurement(44, 112), Measurement(38, 97), Measurement(21, 53), Measurement(29, 74)),
+    SizeChart("XXXL", Measurement(46, 117), Measurement(40, 102), Measurement(22, 56), Measurement(29.5, 75)),
 ]
 
 # ==================== Category Mapping ====================
@@ -242,12 +245,12 @@ MEASUREMENT_GUIDE = {
 
 # Height ranges in cm with corresponding base size
 HEIGHT_SIZE_MAPPING = [
-    (150, "XS"),  # Below 150cm
-    (155, "S"),   # 150-155cm
+    (155, "S"),   # Below 155cm
     (160, "M"),   # 155-160cm
     (165, "L"),   # 160-165cm
     (170, "XL"),  # 165-170cm
-    (175, "XXL"), # Above 170cm
+    (175, "XXL"), # 170-175cm
+    (999, "XXXL"),# Above 175cm
 ]
 
 # Weight ranges in kg with size adjustment
@@ -260,7 +263,7 @@ WEIGHT_SIZE_ADJUSTMENT = [
     (999, 4),  # Above 85kg: +4 sizes
 ]
 
-SIZE_ORDER = ["XS", "S", "M", "L", "XL", "XXL"]
+SIZE_ORDER = ["S", "M", "L", "XL", "XXL", "XXXL"]
 
 
 def get_size_index(size: str) -> int:

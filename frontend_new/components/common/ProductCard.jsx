@@ -111,18 +111,29 @@ const ProductCard = ({ product, className, priority = false }) => {
             </AddToCartButton>
           </div>
 
-          {/* Desktop: hover overlay with centered actions (hidden on mobile) */}
-          <div className="absolute inset-0 bg-[#050203]/50 hidden lg:flex opacity-0 group-hover:opacity-100 transition-all duration-500 flex-row items-center justify-center gap-4 backdrop-blur-[4px] rounded-2xl">
+          {/* Desktop: hover overlay with richer micro-interactions */}
+          <div className="absolute inset-0 bg-[#050203]/60 hidden lg:flex opacity-0 group-hover:opacity-100 transition-all duration-500 flex-col items-center justify-center gap-4 backdrop-blur-[6px] rounded-2xl">
             <AddToCartButton
               onClick={(e) => {
                 e.preventDefault();
                 handleAddToCart(product);
               }}
-              className="p-4 bg-gradient-to-r from-[#EAE0D5] to-[#F2C29A] text-[#050203] rounded-full transform translate-y-6 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-500 delay-100 hover:shadow-[0_0_30px_rgba(242,194,154,0.5)] active:scale-95 flex items-center justify-center"
+              className="p-4 bg-gradient-to-r from-[#EAE0D5] to-[#F2C29A] text-[#050203] rounded-full transform translate-y-6 scale-90 opacity-0 group-hover:translate-y-0 group-hover:scale-100 group-hover:opacity-100 transition-all duration-500 delay-100 hover:shadow-[0_0_40px_rgba(242,194,154,0.5)] active:scale-95 flex items-center justify-center"
               title="View product details and select size"
             >
               <ShoppingBag className="w-5 h-5" />
             </AddToCartButton>
+            {/* Quick-view price on hover */}
+            <span className="text-[#F2C29A] text-sm font-medium opacity-0 group-hover:opacity-100 transition-all duration-500 delay-200 translate-y-4 group-hover:translate-y-0" style={{ fontFamily: 'Playfair Display, serif' }}>
+              {originalPrice && originalPrice > price ? (
+                <>
+                  <span className="line-through text-[#EAE0D5]/40 mr-2">₹{originalPrice?.toLocaleString()}</span>
+                  ₹{price?.toLocaleString()}
+                </>
+              ) : (
+                <>₹{price?.toLocaleString()}</>
+              )}
+            </span>
           </div>
 
           {/* Bottom Gradient Line Animation */}

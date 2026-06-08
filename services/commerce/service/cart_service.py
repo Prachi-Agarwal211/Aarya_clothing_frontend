@@ -501,19 +501,32 @@ class CartService:
                 "message": "Cart is valid for checkout",
             }
 
+        # Batch all SKU lookups into a single query (was N separate queries per item)
+        skus = [item.get("sku") for item in cart["items"] if item.get("sku")]
+        stock_map = {}
+        if skus:
+            from sqlalchemy import text
+            placeholders = ", ".join(":sku" + str(i) for i in range(len(skus)))
+            params = {f"sku{i}": s for i, s in enumerate(skus)}
+            rows = self.db.execute(
+                text(f"SELECT sku, quantity, reserved_quantity FROM inventory WHERE sku IN ({placeholders})"),
+                params,
+            ).fetchall()
+            stock_map = {
+                row.sku: max(0, row.quantity - row.reserved_quantity) for row in rows
+            }
+
         for item in cart["items"]:
-            if not item.get("sku"):
+            sku = item.get("sku")
+            if not sku:
                 continue
-            inventory = (
-                self.db.query(Inventory).filter(Inventory.sku == item["sku"]).first()
-            )
-            avail = inventory.available_quantity if inventory else 0
+            avail = stock_map.get(sku, 0)
             req = item["quantity"]
-            if not inventory or avail < req:
+            if sku not in stock_map or avail < req:
                 out_of_stock.append(
                     {
-                        "sku": item.get("sku"),
-                        "name": item.get("name", item["sku"]),
+                        "sku": sku,
+                        "name": item.get("name", sku),
                         "requested": req,
                         "available": avail,
                     }

@@ -4,6 +4,7 @@ import React, { useRef, useEffect, useCallback, memo } from 'react';
 import { gsap, ScrollTrigger, prefersReducedMotion } from '@/lib/gsapConfig';
 import ProductCard from '../common/ProductCard';
 import { useViewport } from '@/lib/hooks/useViewport';
+import Link from 'next/link';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 /**
@@ -172,6 +173,7 @@ const NewArrivals = ({
                 key={product.id}
                 ref={el => productRefs.current[index] = el}
                 className="flex-shrink-0 snap-start w-[280px] sm:w-[320px] md:w-[360px]"
+                style={{ transform: `translateY(${index % 2 === 1 ? '16px' : '0px'})` }}
               >
                 <div
                   className="
@@ -181,7 +183,8 @@ const NewArrivals = ({
                     shadow-[0_8px_32px_rgba(0,0,0,0.3)]
                     transition-all duration-500
                     hover:border-[#B76E79]/30
-                    hover:shadow-[0_12px_40px_rgba(0,0,0,0.4)]
+                    hover:shadow-[0_20px_60px_rgba(122,47,87,0.15)]
+                    hover:-translate-y-2
                   "
                 >
                   <ProductCard
@@ -215,6 +218,19 @@ const NewArrivals = ({
 
           {/* Scroll hint gradient */}
           <div className="absolute right-0 top-0 bottom-8 w-20 bg-gradient-to-l from-[#050203] to-transparent pointer-events-none hidden sm:block" />
+          {/* Left scroll hint gradient */}
+          <div className="absolute left-0 top-0 bottom-8 w-20 bg-gradient-to-r from-[#050203] to-transparent pointer-events-none hidden sm:block" />
+        </div>
+
+        {/* View All CTA */}
+        <div className="text-center mt-10 md:mt-12">
+          <Link
+            href="/products?sort=newest"
+            className="group inline-flex items-center gap-2 px-8 py-3.5 bg-transparent border-2 border-[#B76E79]/40 text-[#F2C29A] rounded-xl hover:bg-[#7A2F57]/20 hover:border-[#F2C29A]/50 transition-all duration-300 font-semibold text-sm tracking-wide"
+          >
+            View All New Arrivals
+            <svg className="w-4 h-4 transition-transform duration-300 group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
+          </Link>
         </div>
       </div>
     </section>

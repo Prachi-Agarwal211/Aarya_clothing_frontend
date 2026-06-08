@@ -33,7 +33,6 @@ const CURRENT_CACHES = [STATIC_CACHE, IMAGE_CACHE];
 self.addEventListener('install', (event) => {
   // Activate immediately — don't wait for old tabs to close
   self.skipWaiting();
-  console.log(`[SW] v${SW_VERSION} installed`);
 });
 
 // ─── Activate ────────────────────────────────────────────────────────────────
@@ -45,13 +44,13 @@ self.addEventListener('activate', (event) => {
           cacheNames
             .filter((name) => !CURRENT_CACHES.includes(name))
             .map((name) => {
-              console.log(`[SW] Deleting stale cache: ${name}`);
+
               return caches.delete(name);
             })
         )
       )
       .then(() => {
-        console.log(`[SW] v${SW_VERSION} activated`);
+
         return self.clients.claim();
       })
   );
@@ -175,4 +174,4 @@ self.addEventListener('notificationclick', (event) => {
   event.waitUntil(clients.openWindow(event.notification.data?.url || '/'));
 });
 
-console.log(`[SW] Aarya Clothing v${SW_VERSION} loaded`);
+

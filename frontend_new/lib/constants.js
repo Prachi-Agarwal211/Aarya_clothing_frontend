@@ -25,3 +25,6 @@ export const DEFAULT_PRODUCT_LIMIT = 100;
 
 // Intro video seen flag expiry in milliseconds (24 hours)
 export const INTRO_VIDEO_SEEN_EXPIRY_MS = 24 * 60 * 60 * 1000;
+
+// Free shipping threshold in INR
+export const FREE_SHIPPING_THRESHOLD = 1499;

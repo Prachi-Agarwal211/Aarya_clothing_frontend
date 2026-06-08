@@ -10,9 +10,60 @@ import json
 import os
 import uuid
 import httpx
+import threading
 
 logger = logging.getLogger(__name__)
 from sqlalchemy import and_, or_
+
+# ── Shared HTTP clients for service-to-service calls ──
+# Reuses TCP connections across requests (HTTP keepalive). Avoids the
+# overhead of creating a new connection pool per call (which matters when
+# the webhook handler fires 500+ times in rapid succession).
+#
+# THREAD-SAFETY: httpx.Client is NOT thread-safe. Uvicorn workers handle
+# concurrent requests via asyncio, so we use thread-local storage for
+# the sync client to ensure each thread gets its own instance.
+_http_async_client: httpx.AsyncClient | None = None
+_http_thread_local = threading.local()
+
+
+def _get_http_client() -> httpx.Client:
+    """Get or create a thread-local synchronous HTTP client.
+
+    Uses threading.local() so each thread (uvicorn worker thread) gets
+    its own httpx.Client instance, avoiding thread-safety issues.
+    """
+    client = getattr(_http_thread_local, 'client', None)
+    if client is None or client.is_closed:
+        client = httpx.Client(
+            timeout=httpx.Timeout(30.0, connect=5.0),
+            limits=httpx.Limits(
+                max_connections=50,
+                max_keepalive_connections=20,
+                keepalive_expiry=30,
+            ),
+        )
+        _http_thread_local.client = client
+    return client
+
+
+def _get_http_async_client() -> httpx.AsyncClient:
+    """Get or create a shared async HTTP client.
+
+    httpx.AsyncClient is async-safe, so a single shared instance is fine.
+    Timeout is 30s to match sync client (order creation can take 30s+).
+    """
+    global _http_async_client
+    if _http_async_client is None or _http_async_client.is_closed:
+        _http_async_client = httpx.AsyncClient(
+            timeout=httpx.Timeout(30.0, connect=5.0),
+            limits=httpx.Limits(
+                max_connections=50,
+                max_keepalive_connections=20,
+                keepalive_expiry=30,
+            ),
+        )
+    return _http_async_client
 
 from core.config import settings
 from core.razorpay_client import get_razorpay_client
@@ -190,7 +241,7 @@ class PaymentService:
                     commerce_url = os.environ.get("COMMERCE_SERVICE_URL", "http://commerce:5002")
                     internal_secret = os.environ.get("INTERNAL_SERVICE_SECRET")
                     
-                    prepare_resp = httpx.post(
+                    prepare_resp = _get_http_client().post(
                         f"{commerce_url}/api/v1/orders/internal/orders/prepare",
                         json={
                             "user_id": request.user_id,
@@ -202,7 +253,6 @@ class PaymentService:
                             "shipping_cost": float(request.notes.get("shipping_cost", 0)) if request.notes else 0,
                         },
                         headers={"X-Internal-Secret": internal_secret},
-                        timeout=5.0
                     )
                     if prepare_resp.status_code == 200:
                         pending_data = prepare_resp.json()
@@ -405,13 +455,13 @@ class PaymentService:
             if not internal_secret:
                 logger.error("INTERNAL_SERVICE_SECRET not configured - cannot notify commerce service")
                 return
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                response = await client.post(
-                    commerce_url,
-                    headers={"X-Internal-Secret": internal_secret}
-                )
-                if response.status_code != 200:
-                    logger.warning(f"Commerce reservation {action} for order {order_id} returned {response.status_code}")
+            client = _get_http_async_client()
+            response = await client.post(
+                commerce_url,
+                headers={"X-Internal-Secret": internal_secret}
+            )
+            if response.status_code != 200:
+                logger.warning(f"Commerce reservation {action} for order {order_id} returned {response.status_code}")
         except Exception as e:
             logger.error(f"Failed to {action} reservation for order {order_id}: {e}")
             # Don't raise — payment verification should succeed even if this fails
@@ -728,8 +778,7 @@ class PaymentService:
             return True
 
         except Exception as e:
-            self.db.rollback()
-            # AUDIT: Log webhook failure
+            # AUDIT: Log webhook failure BEFORE rollback — the session is still valid here.
             try:
                 _audit_payment_event(
                     self.db, event_type="webhook_failed", success=False,
@@ -740,18 +789,32 @@ class PaymentService:
             except Exception:
                 pass
 
-            # Mark webhook as failed
+            # Now rollback — audit is already written (or failed silently)
+            self.db.rollback()
+
+            # Mark webhook as failed (best-effort — session may be broken after rollback)
             if 'webhook_event' in locals():
-                webhook_event.processing_error = str(e)
-                self.db.commit()
+                try:
+                    webhook_event.processing_error = str(e)
+                    self.db.commit()
+                except Exception:
+                    pass  # Session broken — log is already in audit table
             raise WebhookException(f"Webhook processing failed: {str(e)}")
     
     def _handle_payment_captured(self, event_info: Dict[str, Any]):
         """Handle payment captured webhook event.
 
         CRITICAL: This is the primary reliability mechanism — creates the order in
-        commerce service if it doesn't exist yet. Never returns early for non-pending
-        transactions; always checks if order exists and creates if missing.
+        commerce service if it doesn't exist yet.
+
+        ARCHITECTURE: Network I/O (HTTP to commerce) is performed OUTSIDE the
+        database row lock to prevent blocking other webhooks.
+
+        Flow:
+        1. Find transaction WITHOUT lock (read-only)
+        2. Check if order already exists (no lock needed)
+        3. If order exists → done (idempotent)
+        4. If not → brief lock for status update, commit (releases lock), then HTTP call
 
         Transaction-finding strategy (in order of reliability):
         1. By razorpay_order_id (most reliable — set at checkout initiation)
@@ -765,27 +828,25 @@ class PaymentService:
             qr_code_id = event_info.get("qr_code_id")
             method = event_info.get("method", "")
 
-            # ── Find transaction (4 strategies, in order of reliability) ──
-            # Strategy 1: By razorpay_order_id (set at checkout initiation)
+            # ── Step 1: Find transaction WITHOUT lock (read-only) ──
+            # We avoid with_for_update here so we don't hold the lock during
+            # any subsequent network I/O. A brief FOR UPDATE is used later
+            # only for the status update.
             transaction = None
             if razorpay_order_id:
                 transaction = (
                     self.db.query(PaymentTransaction)
                     .filter(PaymentTransaction.razorpay_order_id == razorpay_order_id)
-                    .with_for_update(skip_locked=True)
                     .first()
                 )
 
-            # Strategy 2: By razorpay_payment_id (set after payment)
             if not transaction and payment_id:
                 transaction = (
                     self.db.query(PaymentTransaction)
                     .filter(PaymentTransaction.razorpay_payment_id == payment_id)
-                    .with_for_update(skip_locked=True)
                     .first()
                 )
 
-            # Strategy 3: By QR + amount matching (QR payments where no payment_id was set yet)
             if not transaction and amount_paise and method == "upi_qr":
                 amount_rupees = Decimal(str(amount_paise)) / Decimal('100')
                 query = self.db.query(PaymentTransaction).filter(
@@ -801,115 +862,140 @@ class PaymentService:
                 if user_id_from_notes:
                     query = query.filter(PaymentTransaction.user_id == int(user_id_from_notes))
                 transaction = (
-                    query.with_for_update(skip_locked=True)
-                    .order_by(PaymentTransaction.created_at.desc())
+                    query.order_by(PaymentTransaction.created_at.desc())
                     .first()
                 )
 
-            # ── Process transaction ──
-            if transaction:
-                # Update transaction metadata from webhook
-                if payment_id and not transaction.razorpay_payment_id:
-                    transaction.razorpay_payment_id = payment_id
-                if razorpay_order_id and not transaction.razorpay_order_id:
-                    transaction.razorpay_order_id = razorpay_order_id
-
-                # Preserve checkout metadata before overwriting gateway_response
-                _preserve_checkout_meta(transaction, event_info)
-
-                # Update transaction status
-                status = event_info.get("status", "captured")
-                if status in ["captured", "authorized", "completed"] and transaction.status != "completed":
-                    transaction.status = "completed"
-                    if not transaction.completed_at:
-                        transaction.completed_at = ist_naive()
-                elif status in ["failed", "rejected"] and transaction.status != "failed":
-                    transaction.status = "failed"
-
-                self.db.flush()
-
-                # ── Check if order exists; create if not ──
-                if not self._order_exists(transaction):
-                    logger.info(
-                        f"WEBHOOK_ORDER_CHECK: No order for txn={transaction.transaction_id} "
-                        f"user={transaction.user_id} — creating from webhook"
-                    )
-                    self._create_order_from_webhook(transaction, event_info)
-                else:
-                    logger.info(
-                        f"WEBHOOK_ORDER_CHECK: Order exists for txn={transaction.transaction_id} "
-                        f"user={transaction.user_id}"
-                    )
-
-                # Link payment details to order via commerce API (best-effort)
-                if transaction.order_id:
-                    self._link_payment_to_order(
-                        order_id=transaction.order_id,
-                        transaction_id=transaction.transaction_id,
-                        razorpay_payment_id=transaction.razorpay_payment_id or event_info.get("payment_id"),
-                        razorpay_order_id=transaction.razorpay_order_id or event_info.get("order_id"),
-                        payment_method=transaction.payment_method,
-                    )
-            else:
+            if not transaction:
                 # ── No transaction found — on-the-fly recovery ──
-                # This handles edge cases where the frontend failed to create a transaction
-                # before redirecting to Razorpay (rare, but possible).
-                if payment_id and method in ["upi", "card", "netbanking"]:
-                    logger.warning(
-                        f"WEBHOOK_NO_TRANSACTION: payment_id={payment_id} order_id={razorpay_order_id} "
-                        f"method={method} — attempting recovery from webhook data"
-                    )
-                    notes = event_info.get("notes", {})
-                    if isinstance(notes, str):
-                        import json
-                        try:
-                            notes = json.loads(notes)
-                        except:
-                            notes = {}
+                self._handle_captured_no_transaction(event_info, payment_id, razorpay_order_id, amount_paise, method)
+                return
 
-                    user_id = notes.get("user_id") or event_info.get("user_id")
-                    if user_id:
-                        user_id = int(user_id)
-                        from sqlalchemy import text as _text
-                        user = self.db.execute(
-                            _text("SELECT id FROM users WHERE id = :user_id"),
-                            {"user_id": user_id},
-                        ).fetchone()
+            # ── Step 2: Check if order already exists (no lock needed) ──
+            if self._order_exists(transaction):
+                logger.info(
+                    f"WEBHOOK_ORDER_CHECK: Order exists for txn={transaction.transaction_id} "
+                    f"user={transaction.user_id}"
+                )
+                return
 
-                        if user:
-                            amount_rupees = Decimal(str(amount_paise)) / Decimal('100') if amount_paise else Decimal('0')
-                            transaction = PaymentTransaction(
-                                user_id=user_id,
-                                amount=amount_rupees,
-                                currency="INR",
-                                payment_method=method,
-                                transaction_id=payment_id,
-                                razorpay_payment_id=payment_id,
-                                razorpay_order_id=razorpay_order_id,
-                                status="completed",
-                                completed_at=ist_naive(),
-                                gateway_response=event_info,
-                            )
-                            self.db.add(transaction)
-                            self.db.flush()
-                            logger.info(
-                                f"WEBHOOK_RECOVERED_TRANSACTION: txn_id={payment_id} user_id={user_id}"
-                            )
-                            self._create_order_from_webhook(transaction, event_info)
-                            self.db.flush()
-                        else:
-                            logger.error(
-                                f"WEBHOOK_RECOVER_NO_USER: payment_id={payment_id} user_id={user_id}"
-                            )
-                    else:
-                        logger.error(
-                            f"WEBHOOK_RECOVER_NO_USER_ID: payment_id={payment_id}"
-                        )
+            # ── Step 3: Update transaction status with brief lock, then commit ──
+            # Acquire lock ONLY for the status write — this is held for milliseconds.
+            txn_locked = (
+                self.db.query(PaymentTransaction)
+                .filter(PaymentTransaction.id == transaction.id)
+                .with_for_update(skip_locked=True)
+                .first()
+            )
+            if not txn_locked:
+                logger.warning(f"WEBHOOK: Could not lock transaction {transaction.id} — skip_locked")
+                return
+
+            # Double-check: webhook or frontend may have completed it while we fetched
+            if txn_locked.status == "completed":
+                self.db.rollback()  # Release lock
+                if not self._order_exists(transaction):
+                    # Status is completed but order doesn't exist — still create it
+                    self._create_order_from_webhook(transaction, event_info)
+                return
+
+            # Update metadata and status under lock
+            if payment_id and not txn_locked.razorpay_payment_id:
+                txn_locked.razorpay_payment_id = payment_id
+            if razorpay_order_id and not txn_locked.razorpay_order_id:
+                txn_locked.razorpay_order_id = razorpay_order_id
+
+            _preserve_checkout_meta(txn_locked, event_info)
+
+            status = event_info.get("status", "captured")
+            if status in ["captured", "authorized", "completed"] and txn_locked.status != "completed":
+                txn_locked.status = "completed"
+                if not txn_locked.completed_at:
+                    txn_locked.completed_at = ist_naive()
+            elif status in ["failed", "rejected"] and txn_locked.status != "failed":
+                txn_locked.status = "failed"
+
+            self.db.commit()  # Lock released after commit
+
+            logger.info(
+                f"WEBHOOK_ORDER_CHECK: No order for txn={transaction.transaction_id} "
+                f"user={transaction.user_id} — creating from webhook"
+            )
+
+            # ── Step 4: Create order OUTSIDE lock (HTTP to commerce, 30s timeout) ──
+            try:
+                self._create_order_from_webhook(transaction, event_info)
+            except OrderCreationError:
+                raise
+            except Exception as create_err:
+                logger.error(f"WEBHOOK_ORDER_CREATE_OUTSIDE_LOCK: {create_err}", exc_info=True)
+                raise OrderCreationError(str(create_err))
+
+            # Link payment details to order (best-effort)
+            if transaction.order_id:
+                self._link_payment_to_order(
+                    order_id=transaction.order_id,
+                    transaction_id=transaction.transaction_id,
+                    razorpay_payment_id=transaction.razorpay_payment_id or event_info.get("payment_id"),
+                    razorpay_order_id=transaction.razorpay_order_id or event_info.get("order_id"),
+                    payment_method=transaction.payment_method,
+                )
 
         except Exception as e:
             self.db.rollback()
             logger.error(f"WEBHOOK_CAPTURE_FAILED: {str(e)}", exc_info=True)
             raise WebhookException("Payment capture handling failed")
+
+    def _handle_captured_no_transaction(self, event_info, payment_id, razorpay_order_id, amount_paise, method):
+        """Handle payment.captured when no transaction record exists — on-the-fly recovery."""
+        if not (payment_id and method in ["upi", "card", "netbanking"]):
+            logger.error(f"WEBHOOK_NO_TRANSACTION: payment_id={payment_id} method={method} — cannot recover")
+            return
+
+        logger.warning(
+            f"WEBHOOK_NO_TRANSACTION: payment_id={payment_id} order_id={razorpay_order_id} "
+            f"method={method} — attempting recovery from webhook data"
+        )
+        notes = event_info.get("notes", {})
+        if isinstance(notes, str):
+            try:
+                notes = json.loads(notes)
+            except Exception:
+                notes = {}
+
+        user_id = notes.get("user_id") or event_info.get("user_id")
+        if not user_id:
+            logger.error(f"WEBHOOK_RECOVER_NO_USER_ID: payment_id={payment_id}")
+            return
+
+        user_id = int(user_id)
+        from sqlalchemy import text as _text
+        user = self.db.execute(
+            _text("SELECT id FROM users WHERE id = :user_id"),
+            {"user_id": user_id},
+        ).fetchone()
+
+        if not user:
+            logger.error(f"WEBHOOK_RECOVER_NO_USER: payment_id={payment_id} user_id={user_id}")
+            return
+
+        amount_rupees = Decimal(str(amount_paise)) / Decimal('100') if amount_paise else Decimal('0')
+        transaction = PaymentTransaction(
+            user_id=user_id,
+            amount=amount_rupees,
+            currency="INR",
+            payment_method=method,
+            transaction_id=payment_id,
+            razorpay_payment_id=payment_id,
+            razorpay_order_id=razorpay_order_id,
+            status="completed",
+            completed_at=ist_naive(),
+            gateway_response=event_info,
+        )
+        self.db.add(transaction)
+        self.db.flush()
+        logger.info(f"WEBHOOK_RECOVERED_TRANSACTION: txn_id={payment_id} user_id={user_id}")
+        self._create_order_from_webhook(transaction, event_info)
 
     def _handle_payment_authorized(self, event_info: Dict[str, Any]):
         """Handle payment authorized webhook — update transaction AND create order immediately.
@@ -917,6 +1003,9 @@ class PaymentService:
         CRITICAL FIX: Embedded checkout (UPI collect) sends 'authorized' webhook FIRST,
         then 'captured' webhook. We must create the order NOW, not wait for 'captured'
         (which may fail or arrive out of order).
+
+        ARCHITECTURE: Same as _handle_payment_captured — find WITHOUT lock,
+        brief lock for status update, commit (releases lock), then HTTP call.
         """
         try:
             payment_id = event_info.get("payment_id")
@@ -924,60 +1013,62 @@ class PaymentService:
             amount_paise = event_info.get("amount")
             qr_code_id = event_info.get("qr_code_id")
             method = event_info.get("method", "")
-            status = event_info.get("status", "authorized")
 
-            # For authorized payments, find and update the transaction
+            # ── Step 1: Find transaction WITHOUT lock ──
             transaction = None
             if razorpay_order_id:
                 transaction = (
                     self.db.query(PaymentTransaction)
                     .filter(PaymentTransaction.razorpay_order_id == razorpay_order_id)
-                    .with_for_update(skip_locked=True)
                     .first()
                 )
             if not transaction and payment_id:
                 transaction = (
                     self.db.query(PaymentTransaction)
                     .filter(PaymentTransaction.razorpay_payment_id == payment_id)
-                    .with_for_update(skip_locked=True)
                     .first()
                 )
+            if not transaction and amount_paise:
+                amount_rupees = Decimal(str(amount_paise)) / Decimal('100')
+                query = self.db.query(PaymentTransaction).filter(
+                    PaymentTransaction.status == "pending",
+                    PaymentTransaction.payment_method == "upi_qr",
+                    PaymentTransaction.amount == amount_rupees,
+                )
+                if qr_code_id:
+                    query = query.filter(PaymentTransaction.razorpay_qr_code_id == qr_code_id)
+                transaction = query.order_by(PaymentTransaction.created_at.desc()).first()
+
             if not transaction:
-                if amount_paise:
-                    amount_rupees = Decimal(str(amount_paise)) / Decimal('100')
-                    query = self.db.query(PaymentTransaction).filter(
-                        PaymentTransaction.status == "pending",
-                        PaymentTransaction.payment_method == "upi_qr",
-                        PaymentTransaction.amount == amount_rupees,
-                    )
-                    if qr_code_id:
-                        query = query.filter(PaymentTransaction.razorpay_qr_code_id == qr_code_id)
-                    transaction = query.with_for_update(skip_locked=True).order_by(
-                        PaymentTransaction.created_at.desc()
-                    ).first()
-
-            if transaction:
-                if payment_id and not transaction.razorpay_payment_id:
-                    transaction.razorpay_payment_id = payment_id
-                if razorpay_order_id and not transaction.razorpay_order_id:
-                    transaction.razorpay_order_id = razorpay_order_id
-                _preserve_checkout_meta(transaction, event_info)
-                # CRITICAL: Create order NOW for embedded checkout
-                # (authorized comes before captured for UPI collect)
-                if transaction.status == "pending":
-                    transaction.status = "authorized"
-                self.db.flush()
-                logger.info(f"WEBHOOK: Payment authorized: {payment_id} txn={transaction.transaction_id}")
-
-                # CRITICAL FIX: Create order immediately for embedded checkout
-                # (don't wait for captured webhook which may fail)
-                if method in ["upi", "card", "netbanking"] and not self._order_exists(transaction):
-                    logger.info(f"WEBHOOK: Creating order from authorized event for txn={transaction.transaction_id}")
-                    self._create_order_from_webhook(transaction, event_info)
-            else:
-                # No transaction found — try to recover from Razorpay API
                 logger.warning(f"WEBHOOK: No transaction found for authorized payment {payment_id}")
                 self._recover_transaction_from_razorpay(event_info)
+                return
+
+            # ── Step 2: Brief lock for status update, commit (releases lock) ──
+            txn_locked = (
+                self.db.query(PaymentTransaction)
+                .filter(PaymentTransaction.id == transaction.id)
+                .with_for_update(skip_locked=True)
+                .first()
+            )
+            if not txn_locked:
+                return
+
+            if payment_id and not txn_locked.razorpay_payment_id:
+                txn_locked.razorpay_payment_id = payment_id
+            if razorpay_order_id and not txn_locked.razorpay_order_id:
+                txn_locked.razorpay_order_id = razorpay_order_id
+            _preserve_checkout_meta(txn_locked, event_info)
+            if txn_locked.status == "pending":
+                txn_locked.status = "authorized"
+            self.db.commit()  # Lock released
+
+            logger.info(f"WEBHOOK: Payment authorized: {payment_id} txn={txn_locked.transaction_id}")
+
+            # ── Step 3: Create order OUTSIDE lock ──
+            if method in ["upi", "card", "netbanking"] and not self._order_exists(transaction):
+                logger.info(f"WEBHOOK: Creating order from authorized event for txn={txn_locked.transaction_id}")
+                self._create_order_from_webhook(transaction, event_info)
         except Exception as e:
             self.db.rollback()
             logger.error(f"WEBHOOK_AUTHORIZED_FAILED: {str(e)}")
@@ -1029,46 +1120,52 @@ class PaymentService:
             logger.error(f"WEBHOOK_ORDER_PAID_FAILED: {str(e)}")
 
     def _handle_qr_code_event(self, event_info: Dict[str, Any]):
-        """Handle QR code created/credited webhook events."""
+        """Handle QR code created/credited webhook events.
+
+        ARCHITECTURE: Same as _handle_payment_captured — find WITHOUT lock,
+        brief lock for status update, commit (releases lock), then HTTP call.
+        """
         try:
             qr_code_id = event_info.get("qr_code_id")
             payment_id = event_info.get("payment_id")
             amount_paise = event_info.get("amount")
-            status = event_info.get("status")
 
             if event_info["event_type"] == "qr_code.created":
-                # QR code created — transaction should already exist from /create-qr-code endpoint
-                # Just ensure we have the qr_code_id stored
+                # QR code created — just store the qr_code_id
                 if qr_code_id:
                     transaction = (
                         self.db.query(PaymentTransaction)
                         .filter(PaymentTransaction.razorpay_qr_code_id == qr_code_id)
-                        .with_for_update(skip_locked=True)
                         .first()
                     )
                     if transaction:
-                        if not transaction.razorpay_qr_code_id:
-                            transaction.razorpay_qr_code_id = qr_code_id
-                        transaction.gateway_response = event_info
-                        self.db.flush()
+                        txn_locked = (
+                            self.db.query(PaymentTransaction)
+                            .filter(PaymentTransaction.id == transaction.id)
+                            .with_for_update(skip_locked=True)
+                            .first()
+                        )
+                        if txn_locked:
+                            if not txn_locked.razorpay_qr_code_id:
+                                txn_locked.razorpay_qr_code_id = qr_code_id
+                            txn_locked.gateway_response = event_info
+                            self.db.commit()
                         logger.info(f"WEBHOOK: QR created: {qr_code_id}")
 
             elif event_info["event_type"] == "qr_code.credited":
-                # QR code credited — payment has been received
-                # This is equivalent to payment.captured for QR code payments
+                # QR code credited — payment received (equivalent to payment.captured)
+                # ── Step 1: Find WITHOUT lock ──
                 transaction = None
                 if qr_code_id:
                     transaction = (
                         self.db.query(PaymentTransaction)
                         .filter(PaymentTransaction.razorpay_qr_code_id == qr_code_id)
-                        .with_for_update(skip_locked=True)
                         .first()
                     )
                 if not transaction and payment_id:
                     transaction = (
                         self.db.query(PaymentTransaction)
                         .filter(PaymentTransaction.razorpay_payment_id == payment_id)
-                        .with_for_update(skip_locked=True)
                         .first()
                     )
                 if not transaction and payment_id and amount_paise:
@@ -1080,25 +1177,36 @@ class PaymentService:
                             PaymentTransaction.payment_method == "upi_qr",
                             PaymentTransaction.amount == amount_rupees,
                         )
-                        .with_for_update(skip_locked=True)
                         .order_by(PaymentTransaction.created_at.desc())
                         .first()
                     )
 
-                if transaction:
-                    if payment_id and not transaction.razorpay_payment_id:
-                        transaction.razorpay_payment_id = payment_id
-                    transaction.gateway_response = event_info
-                    if transaction.status != "completed":
-                        transaction.status = "completed"
-                        transaction.completed_at = ist_naive()
-                    self.db.flush()
-                    
-                    # Check if order exists and create if not
-                    if not self._order_exists(transaction):
-                        self._create_order_from_webhook(transaction, event_info)
-                        
-                    logger.info(f"WEBHOOK: QR credited: {qr_code_id} payment={payment_id}")
+                if not transaction:
+                    return
+
+                # ── Step 2: Brief lock for status update, commit (releases lock) ──
+                txn_locked = (
+                    self.db.query(PaymentTransaction)
+                    .filter(PaymentTransaction.id == transaction.id)
+                    .with_for_update(skip_locked=True)
+                    .first()
+                )
+                if not txn_locked:
+                    return
+
+                if payment_id and not txn_locked.razorpay_payment_id:
+                    txn_locked.razorpay_payment_id = payment_id
+                txn_locked.gateway_response = event_info
+                if txn_locked.status != "completed":
+                    txn_locked.status = "completed"
+                    txn_locked.completed_at = ist_naive()
+                self.db.commit()  # Lock released
+
+                # ── Step 3: Create order OUTSIDE lock ──
+                if not self._order_exists(transaction):
+                    self._create_order_from_webhook(transaction, event_info)
+
+                logger.info(f"WEBHOOK: QR credited: {qr_code_id} payment={payment_id}")
         except Exception as e:
             self.db.rollback()
             logger.error(f"WEBHOOK_QR_FAILED: {str(e)}")
@@ -1185,24 +1293,24 @@ class PaymentService:
             # Fallback: If still no address, try to fetch current cart (legacy/failsafe)
             if not pending_order_id and not pending_order_data.get("shipping_address"):
                 try:
-                    with httpx.Client(timeout=10.0) as client:
-                        cart_response = client.get(
-                            f"{commerce_url}/api/v1/internal/cart/{transaction.user_id}",
-                            headers={"X-Internal-Secret": internal_secret}
-                        )
-                        if cart_response.status_code == 200:
-                            cart_data = cart_response.json()
-                            pending_order_data = {
-                                "cart_snapshot": cart_data.get("items", []),
-                                "shipping_address": cart_data.get("shipping_address", ""),
-                                "subtotal": float(transaction.amount),
-                                "total_amount": float(transaction.amount),
-                                "shipping_cost": 0,
-                                "gst_amount": 0,
-                                "cgst_amount": 0,
-                                "sgst_amount": 0,
-                                "igst_amount": 0,
-                            }
+                    client = _get_http_client()
+                    cart_response = client.get(
+                        f"{commerce_url}/api/v1/internal/cart/{transaction.user_id}",
+                        headers={"X-Internal-Secret": internal_secret}
+                    )
+                    if cart_response.status_code == 200:
+                        cart_data = cart_response.json()
+                        pending_order_data = {
+                            "cart_snapshot": cart_data.get("items", []),
+                            "shipping_address": cart_data.get("shipping_address", ""),
+                            "subtotal": float(transaction.amount),
+                            "total_amount": float(transaction.amount),
+                            "shipping_cost": 0,
+                            "gst_amount": 0,
+                            "cgst_amount": 0,
+                            "sgst_amount": 0,
+                            "igst_amount": 0,
+                        }
                 except Exception as e:
                     logger.warning(f"WEBHOOK_CART_FETCH_ERROR: {e}")
 
@@ -1221,46 +1329,46 @@ class PaymentService:
                 f"WEBHOOK_ORDER_CREATE: user={transaction.user_id} payment={payload['payment_id']} pending_id={pending_order_id}"
             )
 
-            with httpx.Client(timeout=30.0) as client:
-                response = client.post(
-                    f"{commerce_url}/api/v1/orders/internal/orders/create-from-payment",
-                    json=payload,
-                    headers={"X-Internal-Secret": internal_secret}
-                )
+            client = _get_http_client()
+            response = client.post(
+                f"{commerce_url}/api/v1/orders/internal/orders/create-from-payment",
+                json=payload,
+                headers={"X-Internal-Secret": internal_secret}
+            )
 
-                if response.status_code == 200:
-                    result = response.json()
-                    order_id = result.get("order_id")
-                    transaction.order_id = order_id
-                    self.db.flush()
-                    logger.info(f"✓ WEBHOOK_ORDER_CREATED: order_id={order_id}")
-                    
-                    # AUDIT: Log successful order creation from webhook
-                    _audit_payment_event(
-                        self.db, event_type="order_created_from_webhook", success=True,
-                        razorpay_payment_id=payload['payment_id'],
-                        razorpay_order_id=payload.get('razorpay_order_id'),
-                        user_id=transaction.user_id,
-                        order_id=order_id,
-                        transaction_id=transaction.transaction_id,
-                        amount=float(transaction.amount),
-                        pending_order_id=pending_order_id,
-                        response_data=result
-                    )
-                else:
-                    logger.error(f"✗ WEBHOOK_ORDER_CREATE_FAILED: {response.text[:500]}")
-                    # AUDIT: Log failed order creation
-                    _audit_payment_event(
-                        self.db, event_type="order_creation_failed", success=False,
-                        razorpay_payment_id=payload['payment_id'],
-                        user_id=transaction.user_id,
-                        error_message=f"Commerce service returned {response.status_code}",
-                        error_details={"status": response.status_code, "body": response.text[:1000]},
-                    )
-                    # RAISE so webhook endpoint returns 500 → Razorpay retries
-                    raise OrderCreationError(
-                        f"Commerce service returned {response.status_code}: {response.text[:500]}"
-                    )
+            if response.status_code == 200:
+                result = response.json()
+                order_id = result.get("order_id")
+                transaction.order_id = order_id
+                self.db.flush()
+                logger.info(f"✓ WEBHOOK_ORDER_CREATED: order_id={order_id}")
+                
+                # AUDIT: Log successful order creation from webhook
+                _audit_payment_event(
+                    self.db, event_type="order_created_from_webhook", success=True,
+                    razorpay_payment_id=payload['payment_id'],
+                    razorpay_order_id=payload.get('razorpay_order_id'),
+                    user_id=transaction.user_id,
+                    order_id=order_id,
+                    transaction_id=transaction.transaction_id,
+                    amount=float(transaction.amount),
+                    pending_order_id=pending_order_id,
+                    response_data=result
+                )
+            else:
+                logger.error(f"✗ WEBHOOK_ORDER_CREATE_FAILED: {response.text[:500]}")
+                # AUDIT: Log failed order creation
+                _audit_payment_event(
+                    self.db, event_type="order_creation_failed", success=False,
+                    razorpay_payment_id=payload['payment_id'],
+                    user_id=transaction.user_id,
+                    error_message=f"Commerce service returned {response.status_code}",
+                    error_details={"status": response.status_code, "body": response.text[:1000]},
+                )
+                # RAISE so webhook endpoint returns 500 → Razorpay retries
+                raise OrderCreationError(
+                    f"Commerce service returned {response.status_code}: {response.text[:500]}"
+                )
         except OrderCreationError:
             raise
         except Exception as e:
@@ -1409,24 +1517,24 @@ class PaymentService:
             if payment_method:
                 payload["payment_method"] = payment_method
 
-            with httpx.Client(timeout=10.0) as client:
-                response = client.post(
-                    f"{commerce_url}/api/v1/internal/orders/{order_id}/link-payment-details",
-                    json=payload,
-                    headers={"X-Internal-Secret": internal_secret},
+            client = _get_http_client()
+            response = client.post(
+                f"{commerce_url}/api/v1/internal/orders/{order_id}/link-payment-details",
+                json=payload,
+                headers={"X-Internal-Secret": internal_secret},
+            )
+            if response.status_code == 200:
+                logger.info(
+                    f"ORDER_LINKED_PAYMENT: order_id={order_id} "
+                    f"txn_id={transaction_id} payment={razorpay_payment_id}"
                 )
-                if response.status_code == 200:
-                    logger.info(
-                        f"ORDER_LINKED_PAYMENT: order_id={order_id} "
-                        f"txn_id={transaction_id} payment={razorpay_payment_id}"
-                    )
-                    return True
-                else:
-                    logger.error(
-                        f"ORDER_LINK_PAYMENT_FAILED: order_id={order_id} "
-                        f"status={response.status_code} response={response.text[:500]}"
-                    )
-                    return False
+                return True
+            else:
+                logger.error(
+                    f"ORDER_LINK_PAYMENT_FAILED: order_id={order_id} "
+                    f"status={response.status_code} response={response.text[:500]}"
+                )
+                return False
         except Exception as e:
             logger.error(f"ORDER_LINK_PAYMENT_ERROR: order_id={order_id} error={e}")
             return False

@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Eye, EyeOff, Mail, Lock, MessageCircle, Smartphone } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, MessageCircle, Smartphone, Phone } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -14,26 +14,27 @@ import { getDeviceFingerprint, getDeviceName } from '../../../lib/deviceFingerpr
 import { useLogo, useSiteConfig } from '../../../lib/siteConfigContext';
 import { getRedirectForRole, USER_ROLES } from '../../../lib/roles';
 import { AUTH_COPY } from '../../../lib/authCopy';
+import { validatePhone } from '../../../lib/authHelpers';
 
 /**
- * Unified login page — password and OTP in one page.
- * Toggle between modes with a clean switcher.
+ * Simplified login page — Phone-first OTP for Indian users.
+ * Password mode is hidden by default, accessible via "Use password instead" link.
  */
 export default function LoginPageContent({ redirectUrl = '/products' }) {
-  const [mode, setMode] = useState('password'); // 'password' | 'otp'
+  const [mode, setMode] = useState('otp'); // Default to OTP mode for Indian users
 
   // Shared
   const [identifier, setIdentifier] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Password mode
+  // Password mode (hidden by default)
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
 
   // OTP mode
-  const [verificationMethod, setVerificationMethod] = useState('otp_email');
+  const [verificationMethod, setVerificationMethod] = useState('otp_sms'); // Default to SMS for Indian users
   const [otpSent, setOtpSent] = useState(false);
   const [otpDigits, setOtpDigits] = useState(['', '', '', '', '', '']);
   const [otpTimeLeft, setOtpTimeLeft] = useState(600);
@@ -48,8 +49,12 @@ export default function LoginPageContent({ redirectUrl = '/products' }) {
 
   // Auto-fix OTP method if channel is disabled
   useEffect(() => {
-    if (!smsOtpEnabled && verificationMethod === 'otp_sms') setVerificationMethod('otp_email');
-    if (!whatsappEnabled && verificationMethod === 'otp_whatsapp') setVerificationMethod('otp_email');
+    if (!smsOtpEnabled && verificationMethod === 'otp_sms') {
+      setVerificationMethod(whatsappEnabled ? 'otp_whatsapp' : 'otp_email');
+    }
+    if (!whatsappEnabled && verificationMethod === 'otp_whatsapp') {
+      setVerificationMethod(smsOtpEnabled ? 'otp_sms' : 'otp_email');
+    }
   }, [smsOtpEnabled, whatsappEnabled, verificationMethod]);
 
   // OTP timers
@@ -75,7 +80,6 @@ export default function LoginPageContent({ redirectUrl = '/products' }) {
   }, []);
 
   // Reset OTP state when switching modes
-  // FIXED: Also reset isSubmitting to prevent stuck button state
   const switchMode = (newMode) => {
     setMode(newMode);
     setError('');
@@ -92,7 +96,7 @@ export default function LoginPageContent({ redirectUrl = '/products' }) {
     e.preventDefault();
     setError('');
     if (!identifier || !password) {
-      setError('Please enter your credentials.');
+      setError(AUTH_COPY.errors.missingPhone);
       return;
     }
     setIsSubmitting(true);
@@ -117,13 +121,28 @@ export default function LoginPageContent({ redirectUrl = '/products' }) {
 
   // === OTP: REQUEST ===
   const handleRequestOtp = async () => {
-    if (!identifier) { setError(AUTH_COPY.errors.missingIdentifier); return; }
+    // For new flow, identifier is just the phone number
+    const phone = identifier.replace(/\D/g, '');
+    
+    if (!identifier) {
+      setError(AUTH_COPY.errors.missingPhone);
+      return;
+    }
+    
+    const phoneValidation = validatePhone(identifier);
+    if (!phoneValidation.valid) {
+      setError(phoneValidation.message || AUTH_COPY.errors.invalidPhone);
+      return;
+    }
+    
     setError('');
     setIsSubmitting(true);
     try {
-      let otpType = 'EMAIL';
+      let otpType = 'SMS'; // Default to SMS for phone-first flow
       if (verificationMethod === 'otp_whatsapp') otpType = 'WHATSAPP';
-      else if (verificationMethod === 'otp_sms') otpType = 'SMS';
+      else if (verificationMethod === 'otp_email') otpType = 'EMAIL';
+      
+      // For phone-based login, send to phone
       await authApi.sendLoginOtpRequest(identifier.trim(), otpType);
       setOtpSent(true);
       setOtpDigits(['', '', '', '', '', '']);
@@ -132,7 +151,12 @@ export default function LoginPageContent({ redirectUrl = '/products' }) {
       setResendCooldown(30);
       setTimeout(() => otpRefs.current[0]?.focus(), 100);
     } catch (err) {
-      setError(err.message || AUTH_COPY.errors.otpSendFailed);
+      // Detect 'no account' error and guide user to register
+      if (err.message && err.message.toLowerCase().includes('no account found')) {
+        setError('No account found. Please create an account first.');
+      } else {
+        setError(err.message || AUTH_COPY.errors.otpSendFailed);
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -141,20 +165,32 @@ export default function LoginPageContent({ redirectUrl = '/products' }) {
   // === OTP: VERIFY ===
   const handleOtpVerify = async (finalOtpValue) => {
     const otpValue = finalOtpValue || otpDigits.join('');
-    if (otpValue.length !== 6) { setError('Please enter all 6 digits.'); return; }
+    if (otpValue.length !== 6) { 
+      setError('Please enter all 6 digits.'); 
+      return; 
+    }
     setError('');
     setIsSubmitting(true);
     try {
-      let otpType = 'EMAIL';
+      let otpType = 'SMS'; // Default to SMS for phone-first flow
       if (verificationMethod === 'otp_whatsapp') otpType = 'WHATSAPP';
-      else if (verificationMethod === 'otp_sms') otpType = 'SMS';
+      else if (verificationMethod === 'otp_email') otpType = 'EMAIL';
+      
       const [device_fingerprint, device_name] = await Promise.all([
         getDeviceFingerprint(), Promise.resolve(getDeviceName()),
       ]);
+      
+      // Existing user OTP login
       const result = await login({
-        identifier: identifier.trim(), otp_code: otpValue, login_method: 'otp',
-        otp_type: otpType, remember_me: rememberMe, device_fingerprint, device_name,
+        identifier: identifier.trim(), 
+        otp_code: otpValue, 
+        login_method: 'otp',
+        otp_type: otpType, 
+        remember_me: rememberMe, 
+        device_fingerprint, 
+        device_name,
       });
+      
       logger.info('OTP Login successful');
       if (result?.user) setAuthStatus(result.user);
       const role = result?.user?.role || user?.role || USER_ROLES.CUSTOMER;
@@ -177,7 +213,7 @@ export default function LoginPageContent({ redirectUrl = '/products' }) {
     setOtpDigits(next);
     setError('');
     if (digit && index < 5) otpRefs.current[index + 1]?.focus();
-    // FIXED: Guard against double-submit when all 6 digits entered
+    // Auto-submit when all 6 digits entered
     if (next.every((d) => d) && !isSubmitting) setTimeout(() => handleOtpVerify(next.join('')), 50);
   };
 
@@ -212,40 +248,10 @@ export default function LoginPageContent({ redirectUrl = '/products' }) {
 
       {/* Title */}
       <div className="text-center mb-4 sm:mb-5 space-y-1 animate-fade-in-up-delay">
-        <h2 className="text-xl sm:text-2xl text-white/90 font-body">Sign in to your account</h2>
+        <h2 className="text-xl sm:text-2xl text-white/90 font-body">{AUTH_COPY.loginTitle}</h2>
         <p className="text-[#8A6A5C] text-xs sm:text-sm uppercase tracking-[0.15em] font-light">
-          {mode === 'password' ? 'Sign in using password' : AUTH_COPY.loginOtpSubtitle}
+          {AUTH_COPY.loginSubtitle}
         </p>
-      </div>
-
-      {/* Mode Toggle */}
-      <div className="w-full mb-4 animate-fade-in-up-delay">
-        <div className="flex bg-[#0B0608]/60 rounded-xl border border-[#B76E79]/20 p-1">
-          <button
-            type="button"
-            onClick={() => switchMode('password')}
-            className={`flex-1 py-2.5 rounded-lg text-xs sm:text-sm font-medium transition-all duration-300 ${
-              mode === 'password'
-                ? 'bg-[#7A2F57]/30 text-[#F2C29A] border border-[#F2C29A]/30'
-                : 'text-[#EAE0D5]/50 hover:text-[#EAE0D5]/80'
-            }`}
-          >
-            <Lock className="w-3.5 h-3.5 inline-block mr-1.5 -mt-0.5" />
-            Password
-          </button>
-          <button
-            type="button"
-            onClick={() => switchMode('otp')}
-            className={`flex-1 py-2.5 rounded-lg text-xs sm:text-sm font-medium transition-all duration-300 ${
-              mode === 'otp'
-                ? 'bg-[#7A2F57]/30 text-[#F2C29A] border border-[#F2C29A]/30'
-                : 'text-[#EAE0D5]/50 hover:text-[#EAE0D5]/80'
-            }`}
-          >
-            <MessageCircle className="w-3.5 h-3.5 inline-block mr-1.5 -mt-0.5" />
-            OTP
-          </button>
-        </div>
       </div>
 
       {/* Error */}
@@ -255,7 +261,201 @@ export default function LoginPageContent({ redirectUrl = '/products' }) {
         </div>
       )}
 
-      {/* === PASSWORD MODE === */}
+      {/* === OTP MODE (Default for Indian users) === */}
+      {mode === 'otp' && (
+        <div className="w-full space-y-4 animate-fade-in-up-delay">
+          {!otpSent ? (
+            <>
+              {/* Phone Number Input - Large and prominent */}
+              <div className="space-y-2">
+                <label className="text-[#EAE0D5]/80 text-sm font-medium">Phone Number</label>
+                <div className="luxury-input-wrapper h-14 sm:h-16 rounded-xl relative group flex items-center px-4 bg-[#0B0608]/80 border border-[#B76E79]/30">
+                  <Phone className="w-5 h-5 sm:w-6 sm:h-6 text-[#B76E79] group-focus-within:text-[#F2C29A] transition-colors duration-300 shrink-0" aria-hidden="true" />
+                  <Input
+                    id="phone-login"
+                    name="phone-login"
+                    type="tel"
+                    inputMode="numeric"
+                    autoComplete="tel"
+                    required
+                    value={identifier}
+                    onChange={(e) => {
+                      // Only allow digits, max 10
+                      const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                      setIdentifier(val);
+                    }}
+                    placeholder={AUTH_COPY.phonePlaceholder}
+                    variant="minimal"
+                    className="h-full pl-4 text-[#EAE0D5] placeholder:text-[#8A6A5C] text-lg sm:text-xl font-medium tracking-wider"
+                  />
+                </div>
+                <p className="text-[#EAE0D5]/50 text-xs px-1">
+                  {AUTH_COPY.phoneFormatHint}
+                </p>
+              </div>
+
+              {/* OTP Method Selector - Simple icons */}
+              <div className="space-y-2">
+                <p className="text-[#EAE0D5]/60 text-xs uppercase tracking-widest">Send OTP via</p>
+                <div className="flex gap-3">
+                  <button 
+                    type="button" 
+                    onClick={() => setVerificationMethod('otp_sms')}
+                    disabled={!smsOtpEnabled}
+                    className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-xl border-2 transition-all duration-300 ${
+                      !smsOtpEnabled 
+                        ? 'opacity-50 cursor-not-allowed bg-[#7A2F57]/5 border-[#B76E79]/20'
+                        : verificationMethod === 'otp_sms'
+                          ? 'bg-[#7A2F57]/20 border-[#F2C29A]/60 shadow-[0_0_20px_rgba(242,194,154,0.15)]'
+                          : 'bg-[#7A2F57]/10 border-[#B76E79]/30 hover:border-[#F2C29A]/40'
+                    }`}
+                  >
+                    <Smartphone className={`w-5 h-5 ${verificationMethod === 'otp_sms' ? 'text-[#F2C29A]' : 'text-[#B76E79]'}`} />
+                    <span className="text-sm font-medium text-[#EAE0D5]/90">SMS</span>
+                  </button>
+                  
+                  <button 
+                    type="button" 
+                    onClick={() => setVerificationMethod('otp_whatsapp')}
+                    disabled={!whatsappEnabled}
+                    className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-xl border-2 transition-all duration-300 ${
+                      !whatsappEnabled 
+                        ? 'opacity-50 cursor-not-allowed bg-[#7A2F57]/5 border-[#B76E79]/20'
+                        : verificationMethod === 'otp_whatsapp'
+                          ? 'bg-[#7A2F57]/20 border-[#F2C29A]/60 shadow-[0_0_20px_rgba(242,194,154,0.15)]'
+                          : 'bg-[#7A2F57]/10 border-[#B76E79]/30 hover:border-[#F2C29A]/40'
+                    }`}
+                  >
+                    <MessageCircle className={`w-5 h-5 ${verificationMethod === 'otp_whatsapp' ? 'text-[#F2C29A]' : 'text-[#B76E79]'}`} />
+                    <span className="text-sm font-medium text-[#EAE0D5]/90">WhatsApp</span>
+                  </button>
+                  
+                  <button 
+                    type="button" 
+                    onClick={() => setVerificationMethod('otp_email')}
+                    className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-xl border-2 transition-all duration-300 ${
+                      verificationMethod === 'otp_email'
+                        ? 'bg-[#7A2F57]/20 border-[#F2C29A]/60 shadow-[0_0_20px_rgba(242,194,154,0.15)]'
+                        : 'bg-[#7A2F57]/10 border-[#B76E79]/30 hover:border-[#F2C29A]/40'
+                    }`}
+                  >
+                    <Mail className={`w-5 h-5 ${verificationMethod === 'otp_email' ? 'text-[#F2C29A]' : 'text-[#B76E79]'}`} />
+                    <span className="text-sm font-medium text-[#EAE0D5]/90">Email</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Remember me */}
+              <label htmlFor="remember-me-otp" className="flex items-center gap-2 text-sm text-[#EAE0D5]/85 cursor-pointer">
+                <span className="checkbox-wrapper">
+                  <input id="remember-me-otp" type="checkbox" checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)} aria-label="Remember me on this device" />
+                </span>
+                <span>Remember me on this device</span>
+              </label>
+
+              {/* Send OTP Button - Large and prominent */}
+              <Button 
+                type="button" 
+                onClick={handleRequestOtp} 
+                disabled={isSubmitting || !identifier || identifier.length < 10}
+                className="w-full h-14 sm:h-16 relative overflow-hidden rounded-xl bg-transparent border border-[#B76E79]/40 group transition-all duration-500 hover:border-[#F2C29A]/60 hover:shadow-[0_0_30px_rgba(183,110,121,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-[#7A2F57]/80 via-[#B76E79]/70 to-[#2A1208]/80 opacity-90"></div>
+                <div className="animate-sheen"></div>
+                <span className="relative z-10 text-[#F2C29A] font-serif tracking-[0.12em] text-lg group-hover:text-white transition-colors font-heading">
+                  {isSubmitting ? AUTH_COPY.sendingOtp : AUTH_COPY.sendOtpButton}
+                </span>
+              </Button>
+
+              {/* New user message */}
+              <p className="text-center text-[#EAE0D5]/50 text-sm px-2">
+                {AUTH_COPY.newUserMessage}
+              </p>
+            </>
+          ) : (
+            <>
+              {/* OTP Verification */}
+              <div className="text-center mb-4">
+                <div className="w-14 h-14 rounded-full bg-[#7A2F57]/30 border border-[#B76E79]/30 flex items-center justify-center mx-auto mb-3">
+                  {verificationMethod === 'otp_sms' ? (
+                    <Smartphone className="w-7 h-7 text-[#F2C29A]" />
+                  ) : verificationMethod === 'otp_whatsapp' ? (
+                    <MessageCircle className="w-7 h-7 text-[#F2C29A]" />
+                  ) : (
+                    <Mail className="w-7 h-7 text-[#F2C29A]" />
+                  )}
+                </div>
+                <p className="text-[#EAE0D5]/80 text-base mb-1">
+                  {AUTH_COPY.otpEnterCode}
+                </p>
+                <p className="text-[#F2C29A] font-medium text-lg">
+                  {identifier}
+                </p>
+                <p className={`text-sm mt-2 ${otpExpired ? 'text-red-300' : otpTimeLeft <= 30 ? 'text-amber-300' : 'text-[#EAE0D5]/70'}`}>
+                  {otpExpired ? 'Code expired' : `${AUTH_COPY.otpExpiresIn} ${formatTime(otpTimeLeft)}`}
+                </p>
+              </div>
+
+              {/* OTP Input - Large digits */}
+              <div className="flex justify-center gap-2 sm:gap-3 mb-4">
+                {otpDigits.map((digit, index) => (
+                  <input 
+                    key={index} 
+                    ref={(el) => { otpRefs.current[index] = el; }}
+                    type="text" 
+                    inputMode="numeric" 
+                    maxLength={1} 
+                    value={digit}
+                    onChange={(e) => handleOtpDigit(index, e.target.value)}
+                    onKeyDown={(e) => handleOtpKeyDown(index, e)}
+                    className="w-12 sm:w-14 h-14 text-center text-xl font-bold border-2 border-[#B76E79]/30 bg-[#0B0608]/60 text-[#F2C29A] rounded-xl focus:border-[#F2C29A] focus:outline-none focus:shadow-[0_0_0_3px_rgba(242,194,154,0.1)]"
+                  />
+                ))}
+              </div>
+
+              {/* Verify Button */}
+              <Button 
+                type="button" 
+                onClick={() => handleOtpVerify()} 
+                disabled={isSubmitting || otpDigits.some((d) => !d)}
+                className="w-full h-14 sm:h-16 relative overflow-hidden rounded-xl bg-transparent border border-[#B76E79]/40 group transition-all duration-500 hover:border-[#F2C29A]/60 hover:shadow-[0_0_30px_rgba(183,110,121,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-[#7A2F57]/80 via-[#B76E79]/70 to-[#2A1208]/80 opacity-90"></div>
+                <div className="animate-sheen"></div>
+                <span className="relative z-10 text-[#F2C29A] font-serif tracking-[0.12em] text-lg group-hover:text-white transition-colors font-heading">
+                  {isSubmitting ? AUTH_COPY.verifying : AUTH_COPY.verifyButton}
+                </span>
+              </Button>
+
+              {/* Resend OTP */}
+              <div className="text-center">
+                {resendCooldown > 0 ? (
+                  <p className="text-sm text-[#EAE0D5]/70">{AUTH_COPY.otpResendIn} {resendCooldown}s</p>
+                ) : (
+                  <button type="button" onClick={handleResendOtp} className="text-sm text-[#C27A4E] hover:text-[#F2C29A]">
+                    {AUTH_COPY.otpResend}
+                  </button>
+                )}
+              </div>
+
+              <p className="text-center text-[#EAE0D5]/50 text-xs px-2">
+                {AUTH_COPY.otpTroubleshooting}
+              </p>
+
+              <div className="text-center">
+                <button type="button" onClick={() => { setOtpSent(false); setError(''); }}
+                  className="text-sm text-[#8A6A5C] hover:text-[#EAE0D5]/80"
+                >
+                  ← Change phone number
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* === PASSWORD MODE (Hidden by default) === */}
       {mode === 'password' && (
         <form className="w-full space-y-3 sm:space-y-3.5 animate-fade-in-up-delay" onSubmit={handlePasswordLogin} noValidate>
           <div className="luxury-input-wrapper h-11 sm:h-12 rounded-xl relative group flex items-center px-4">
@@ -263,7 +463,7 @@ export default function LoginPageContent({ redirectUrl = '/products' }) {
             <Input
               id="identifier" name="identifier" type="text" autoComplete="username"
               required value={identifier} onChange={(e) => setIdentifier(e.target.value)}
-              placeholder={AUTH_COPY.identifierPlaceholder} variant="minimal"
+              placeholder="Email, username, or phone" variant="minimal"
               className="h-full pl-3 sm:pl-4 text-[#EAE0D5] placeholder:text-[#8A6A5C] text-sm sm:text-base"
             />
           </div>
@@ -309,158 +509,24 @@ export default function LoginPageContent({ redirectUrl = '/products' }) {
         </form>
       )}
 
-      {/* === OTP MODE === */}
-      {mode === 'otp' && (
-        <div className="w-full space-y-4 animate-fade-in-up-delay">
-          {!otpSent ? (
-            <>
-              {/* OTP Method Selector */}
-              <div className="space-y-2">
-                <p className="text-[#EAE0D5]/60 text-[10px] uppercase tracking-widest">Verification method</p>
-                <div className="grid grid-cols-3 gap-2">
-                  <button type="button" onClick={() => setVerificationMethod('otp_email')}
-                    className={`flex flex-col items-center gap-1 p-2.5 rounded-xl border-2 transition-all duration-300 ${
-                      verificationMethod === 'otp_email'
-                        ? 'bg-[#7A2F57]/20 border-[#F2C29A]/60 shadow-[0_0_20px_rgba(242,194,154,0.15)]'
-                        : 'bg-[#7A2F57]/10 border-[#B76E79]/30 hover:border-[#F2C29A]/40'
-                    }`}
-                  >
-                    <Mail className={`w-5 h-5 transition-colors ${verificationMethod === 'otp_email' ? 'text-[#F2C29A]' : 'text-[#B76E79]'}`} />
-                    <p className="text-[10px] sm:text-[11px] text-[#EAE0D5]/90 font-bold tracking-widest">EMAIL</p>
-                  </button>
-                  <button type="button" disabled={!whatsappEnabled}
-                    title={!whatsappEnabled ? 'WhatsApp OTP is not configured.' : undefined}
-                    onClick={() => whatsappEnabled && setVerificationMethod('otp_whatsapp')}
-                    className={`flex flex-col items-center gap-1 p-2.5 rounded-xl border-2 transition-all duration-300 ${
-                      !whatsappEnabled ? 'opacity-50 cursor-not-allowed bg-[#7A2F57]/5 border-[#B76E79]/20'
-                        : verificationMethod === 'otp_whatsapp'
-                          ? 'bg-[#7A2F57]/20 border-[#F2C29A]/60 shadow-[0_0_20px_rgba(242,194,154,0.15)]'
-                          : 'bg-[#7A2F57]/10 border-[#B76E79]/30 hover:border-[#F2C29A]/40'
-                    }`}
-                  >
-                    <MessageCircle className={`w-5 h-5 transition-colors ${verificationMethod === 'otp_whatsapp' ? 'text-[#F2C29A]' : 'text-[#B76E79]'}`} />
-                    <p className="text-[10px] sm:text-[11px] text-[#EAE0D5]/90 font-bold tracking-widest">WA</p>
-                  </button>
-                  <button type="button" disabled={!smsOtpEnabled}
-                    title={!smsOtpEnabled ? 'SMS OTP is not configured.' : undefined}
-                    onClick={() => smsOtpEnabled && setVerificationMethod('otp_sms')}
-                    className={`flex flex-col items-center gap-1 p-2.5 rounded-xl border-2 transition-all duration-300 ${
-                      !smsOtpEnabled ? 'opacity-50 cursor-not-allowed bg-[#7A2F57]/5 border-[#B76E79]/20'
-                        : verificationMethod === 'otp_sms'
-                          ? 'bg-[#7A2F57]/20 border-[#F2C29A]/60 shadow-[0_0_20px_rgba(242,194,154,0.15)]'
-                          : 'bg-[#7A2F57]/10 border-[#B76E79]/30 hover:border-[#F2C29A]/40'
-                    }`}
-                  >
-                    <Smartphone className={`w-5 h-5 transition-colors ${verificationMethod === 'otp_sms' ? 'text-[#F2C29A]' : 'text-[#B76E79]'}`} />
-                    <p className="text-[10px] sm:text-[11px] text-[#EAE0D5]/90 font-bold tracking-widest">SMS</p>
-                  </button>
-                </div>
-              </div>
-
-              {/* Identifier Input */}
-              <div className="luxury-input-wrapper h-11 sm:h-12 rounded-xl relative group flex items-center px-4">
-                <Mail className="w-4 h-4 sm:w-5 sm:h-5 text-[#B76E79] group-focus-within:text-[#F2C29A] transition-colors duration-300 shrink-0" aria-hidden="true" />
-                <Input
-                  id="identifier-otp" name="identifier-otp" type="text" autoComplete="username"
-                  required value={identifier} onChange={(e) => setIdentifier(e.target.value)}
-                  placeholder={AUTH_COPY.identifierPlaceholder} variant="minimal"
-                  className="h-full pl-3 sm:pl-4 text-[#EAE0D5] placeholder:text-[#8A6A5C] text-sm sm:text-base"
-                />
-              </div>
-
-              <p className="text-[#EAE0D5]/40 text-[11px] px-1">
-                {AUTH_COPY.otpDeliveryExplanation}{' '}
-                <Link href="/auth/register" className="text-[#C27A4E] hover:text-[#F2C29A]">Create one here</Link>.
-              </p>
-
-              <label htmlFor="remember-me-otp" className="flex items-center gap-2 text-sm text-[#EAE0D5]/85 cursor-pointer">
-                <span className="checkbox-wrapper">
-                  <input id="remember-me-otp" type="checkbox" checked={rememberMe}
-                    onChange={(e) => setRememberMe(e.target.checked)} aria-label="Remember me on this device" />
-                </span>
-                <span>Remember me on this device</span>
-              </label>
-
-              <Button type="button" onClick={handleRequestOtp} disabled={isSubmitting || !identifier}
-                className="w-full h-11 sm:h-12 relative overflow-hidden rounded-xl bg-transparent border border-[#B76E79]/40 group transition-all duration-500 hover:border-[#F2C29A]/60 hover:shadow-[0_0_30px_rgba(183,110,121,0.3)]"
-              >
-                <div className="absolute inset-0 bg-gradient-to-r from-[#7A2F57]/80 via-[#B76E79]/70 to-[#2A1208]/80 opacity-90"></div>
-                <div className="animate-sheen"></div>
-                <span className="relative z-10 text-[#F2C29A] font-serif tracking-[0.12em] text-base group-hover:text-white transition-colors font-heading">
-                  {isSubmitting ? 'SENDING...' : 'SEND OTP'}
-                </span>
-              </Button>
-            </>
-          ) : (
-            <>
-              {/* OTP Verification */}
-              <div className="text-center mb-2">
-                <p className="text-sm text-[#EAE0D5]/80">
-                  Enter the 6-digit code sent to your{' '}
-                  {verificationMethod === 'otp_email' ? 'email' : verificationMethod === 'otp_whatsapp' ? 'WhatsApp' : 'phone'}
-                </p>
-                <p className={`text-sm mt-1 ${otpExpired ? 'text-red-300' : otpTimeLeft <= 30 ? 'text-amber-300' : 'text-[#EAE0D5]/70'}`}>
-                  {otpExpired ? 'Code expired' : `Expires in ${formatTime(otpTimeLeft)}`}
-                </p>
-              </div>
-
-              <div className="flex justify-center gap-1.5 sm:gap-2 mb-2">
-                {otpDigits.map((digit, index) => (
-                  <input key={index} ref={(el) => { otpRefs.current[index] = el; }}
-                    type="text" inputMode="numeric" maxLength={1} value={digit}
-                    onChange={(e) => handleOtpDigit(index, e.target.value)}
-                    onKeyDown={(e) => handleOtpKeyDown(index, e)}
-                    className="w-9 sm:w-11 h-12 text-center text-lg font-bold border-2 border-[#B76E79]/30 bg-[#0B0608]/60 text-[#F2C29A] rounded-lg focus:border-[#F2C29A] focus:outline-none"
-                  />
-                ))}
-              </div>
-
-              <Button type="button" onClick={() => handleOtpVerify()} disabled={isSubmitting || otpDigits.some((d) => !d)}
-                className="w-full h-11 sm:h-12 relative overflow-hidden rounded-xl bg-transparent border border-[#B76E79]/40 group transition-all duration-500 hover:border-[#F2C29A]/60 hover:shadow-[0_0_30px_rgba(183,110,121,0.3)]"
-              >
-                <div className="absolute inset-0 bg-gradient-to-r from-[#7A2F57]/80 via-[#B76E79]/70 to-[#2A1208]/80 opacity-90"></div>
-                <div className="animate-sheen"></div>
-                <span className="relative z-10 text-[#F2C29A] font-serif tracking-[0.12em] text-base group-hover:text-white transition-colors font-heading">
-                  {isSubmitting ? 'VERIFYING...' : 'VERIFY & LOG IN'}
-                </span>
-              </Button>
-
-              <div className="text-center">
-                {resendCooldown > 0 ? (
-                  <p className="text-sm text-[#EAE0D5]/70">Resend in {resendCooldown}s</p>
-                ) : (
-                  <button type="button" onClick={handleResendOtp} className="text-sm text-[#C27A4E] hover:text-[#F2C29A]">
-                    Resend OTP
-                  </button>
-                )}
-              </div>
-
-              <p className="text-center text-[#EAE0D5]/50 text-xs px-2">
-                {AUTH_COPY.otpTroubleshooting}
-              </p>
-
-              <div className="text-center">
-                <button type="button" onClick={() => { setOtpSent(false); setError(''); }}
-                  className="text-sm text-[#8A6A5C] hover:text-[#EAE0D5]/80"
-                >
-                  ← Change method or identifier
-                </button>
-              </div>
-            </>
-          )}
-        </div>
-      )}
-
       {/* Footer */}
-      <div className="w-full mt-4 sm:mt-5 space-y-2">
+      <div className="w-full mt-4 sm:mt-5 space-y-3">
+        {/* Mode Switcher - Subtle */}
+        <div className="text-center">
+          <button 
+            type="button" 
+            onClick={() => switchMode(mode === 'otp' ? 'password' : 'otp')}
+            className="text-xs text-[#8A6A5C] hover:text-[#EAE0D5]/80 transition-colors"
+          >
+            {mode === 'otp' ? 'Use password instead' : 'Use OTP instead (recommended)'}
+          </button>
+        </div>
+        
         <p className="text-center text-[#8A6A5C] text-xs sm:text-sm tracking-wide">
           New here?{' '}
           <Link href="/auth/register" className="text-[#C27A4E] hover:text-[#F2C29A] transition-colors ml-1 uppercase text-sm font-bold tracking-widest">
             Create account
           </Link>
-        </p>
-        <p className="text-center text-[#EAE0D5]/40 text-[11px] uppercase tracking-wider">
-          {AUTH_COPY.needBothToRegister}
         </p>
       </div>
     </div>

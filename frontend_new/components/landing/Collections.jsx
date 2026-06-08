@@ -137,9 +137,11 @@ const Collections = ({
 
         <div ref={cardsContainerRef} className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 md:gap-8">
           {categories.map((category, index) => {
+            // Creative staggered layout: alternate heights for visual rhythm
+            const size = index === 0 ? 'large' : index % 3 === 2 ? 'small' : 'medium';
             return (
               <div key={category.id || index} ref={el => cardRefs.current[index] = el} className="w-full h-full">
-                <CollectionCard category={category} size="medium" index={index} />
+                <CollectionCard category={category} size={size} index={index} />
               </div>
             );
           })}

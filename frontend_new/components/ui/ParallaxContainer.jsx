@@ -11,7 +11,6 @@ const ParallaxContainer = ({
 }) => {
   const triggerRef = useRef(null);
   const targetRef = useRef(null);
-  const scrollTriggerRef = useRef(null);
 
   useEffect(() => {
     const element = targetRef.current;
@@ -19,34 +18,29 @@ const ParallaxContainer = ({
 
     if (!element || !trigger) return;
 
-    // Create specific ScrollTrigger and store reference
-    scrollTriggerRef.current = gsap.fromTo(element, 
-      {
-        y: 0
-      },
-      {
-        y: () => -(trigger.offsetHeight * speed),
-        ease: "none",
-        scrollTrigger: {
-          trigger: trigger,
-          start: "top bottom",
-          end: "bottom top",
-          scrub: 0
+    // Use gsap.context for reliable cleanup of all GSAP animations + ScrollTriggers
+    const ctx = gsap.context(() => {
+      gsap.fromTo(element, 
+        { y: 0 },
+        {
+          y: () => -(trigger.offsetHeight * speed),
+          ease: "none",
+          scrollTrigger: {
+            trigger: trigger,
+            start: "top bottom",
+            end: "bottom top",
+            scrub: 0
+          }
         }
-      }
-    );
+      );
+    });
 
-    // Only kill THIS specific ScrollTrigger instance
-    return () => {
-      if (scrollTriggerRef.current) {
-        scrollTriggerRef.current.kill();
-      }
-    };
+    return () => ctx.revert();
   }, [speed]);
 
   return (
     <div ref={triggerRef} id={id} className={`relative overflow-hidden ${className}`}>
-      <div ref={targetRef} className="will-change-transform">
+      <div ref={targetRef}>
         {children}
       </div>
     </div>

@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import {
-  Share2,
   Truck,
   Shield,
   ChevronRight,
@@ -16,12 +15,14 @@ import {
   AlertCircle,
   Ruler,
   ShoppingBag,
+  RotateCcw,
 } from 'lucide-react';
 import EnhancedHeader from '@/components/landing/EnhancedHeader';
 import Footer from '@/components/landing/Footer';
 import SizeGuideModal from '@/components/product/SizeGuideModal';
 import RelatedProducts from '@/components/product/RelatedProducts';
 import ReviewForm from '@/components/review/ReviewForm';
+import ProductShareButton from '@/components/product/ProductShareButton';
 import { reviewsApi } from '@/lib/customerApi';
 import { useCart } from '@/lib/cartContext';
 import { useAuth } from '@/lib/authContext';
@@ -71,6 +72,7 @@ export default function ProductDetailClient({ initialProduct, initialReviews }) 
   const [quantity, setQuantity] = useState(1);
   const [selectedVariant, setSelectedVariant] = useState(null);
   const [addingToCart, setAddingToCart] = useState(false);
+  const [addedToCart, setAddedToCart] = useState(false);
   const [activeTab, setActiveTab] = useState('description');
   const [showSizeGuide, setShowSizeGuide] = useState(false);
   const [touchStartX, setTouchStartX] = useState(null);
@@ -79,20 +81,6 @@ export default function ProductDetailClient({ initialProduct, initialReviews }) 
   useEffect(() => {
     if (initialProduct) setProduct(initialProduct);
   }, [initialProduct]);
-
-  const handleShare = async () => {
-    const url = typeof window !== 'undefined' ? window.location.href : '';
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: product?.name, text: product?.description, url });
-      } catch (e) {
-        if (e.name !== 'AbortError') showAlert('Could not share', 'error');
-      }
-    } else {
-      await navigator.clipboard.writeText(url).catch(() => {});
-      showAlert('Link copied to clipboard!', 'success');
-    }
-  };
 
   const handleReviewSuccess = async () => {
     setShowReviewForm(false);
@@ -221,6 +209,8 @@ export default function ProductDetailClient({ initialProduct, initialReviews }) 
     try {
       setAddingToCart(true);
       await addItem(product.id, quantity, { id: variant.id });
+      setAddedToCart(true);
+      setTimeout(() => setAddedToCart(false), 2000);
       openCart();
     } catch (err) {
       logger.error('Error adding to cart:', err);
@@ -358,23 +348,51 @@ export default function ProductDetailClient({ initialProduct, initialReviews }) 
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-sm text-[#EAE0D5]/70">Size: {selectedSize || 'Select'}</p>
-                  <button onClick={() => setShowSizeGuide(true)} className="text-sm text-[#B76E79] flex items-center gap-1"><Ruler className="w-4 h-4" /> Size Guide</button>
+                  <button onClick={() => setShowSizeGuide(true)} className="text-sm text-[#B76E79] flex items-center gap-1 hover:text-[#F2C29A] transition-colors"><Ruler className="w-4 h-4" /> Size Guide</button>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {product.sizes?.map((size) => {
                     const variant = getMatchingVariant(size);
                     const inStock = !!variant?.in_stock;
+                    const stockStatus = getVariantStockStatus(variant);
                     return (
                       <button
                         key={size}
                         onClick={() => inStock && setSelectedSize(size)}
                         disabled={!inStock}
-                        className={`px-4 py-2 rounded-lg border transition-all ${selectedSize === size ? 'bg-[#7A2F57]/30 border-[#B76E79] text-[#F2C29A]' : 'bg-[#0B0608]/40 border-[#B76E79]/20 text-[#EAE0D5]/70'} ${!inStock ? 'opacity-30' : ''}`}
+                        className={`relative px-4 py-2.5 rounded-xl border-2 transition-all duration-300 min-w-[52px] ${selectedSize === size ? 'bg-gradient-to-b from-[#7A2F57]/40 to-[#7A2F57]/20 border-[#F2C29A] text-[#F2C29A] shadow-[0_0_20px_rgba(242,194,154,0.15)] scale-105' : 'bg-[#0B0608]/40 border-[#B76E79]/20 text-[#EAE0D5]/70 hover:border-[#B76E79]/50 hover:text-[#EAE0D5]'} ${!inStock ? 'opacity-30 border-dashed' : ''}`}
                       >
-                        {size}
+                        <span className="text-sm font-medium">{size}</span>
+                        {stockStatus === 'low_stock' && inStock && (
+                          <span className="absolute -top-1.5 -right-1.5 w-2 h-2 bg-amber-400 rounded-full" title="Low stock" />
+                        )}
                       </button>
                     );
                   })}
+                </div>
+              </div>
+
+              {/* Quantity Selector */}
+              <div className="flex items-center gap-4">
+                <p className="text-sm text-[#EAE0D5]/70">Quantity</p>
+                <div className="flex items-center border-2 border-[#B76E79]/20 rounded-xl overflow-hidden">
+                  <button
+                    onClick={() => setQuantity(q => Math.max(1, q - 1))}
+                    disabled={quantity <= 1}
+                    className="w-10 h-10 flex items-center justify-center text-[#EAE0D5]/50 hover:text-[#F2C29A] hover:bg-[#7A2F57]/20 transition-all disabled:opacity-30"
+                  >
+                    <Minus className="w-4 h-4" />
+                  </button>
+                  <span className="w-10 h-10 flex items-center justify-center text-[#F2C29A] font-semibold text-sm border-x-2 border-[#B76E79]/20">
+                    {quantity}
+                  </span>
+                  <button
+                    onClick={() => setQuantity(q => Math.min(10, q + 1))}
+                    disabled={quantity >= 10}
+                    className="w-10 h-10 flex items-center justify-center text-[#EAE0D5]/50 hover:text-[#F2C29A] hover:bg-[#7A2F57]/20 transition-all disabled:opacity-30"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
                 </div>
               </div>
 
@@ -382,17 +400,46 @@ export default function ProductDetailClient({ initialProduct, initialReviews }) 
                 <button
                   onClick={handleAddToCart}
                   disabled={!product.in_stock || addingToCart}
-                  className="flex-1 py-3.5 bg-gradient-to-r from-[#7A2F57] to-[#B76E79] text-white font-semibold rounded-xl hover:opacity-90 disabled:opacity-50"
+                  className={`flex-1 py-4 font-semibold rounded-xl transition-all duration-500 relative overflow-hidden ${addedToCart ? 'bg-green-600 text-white scale-[0.98]' : 'bg-gradient-to-r from-[#7A2F57] to-[#B76E79] text-white hover:shadow-[0_8px_30px_rgba(122,47,87,0.4)] hover:scale-[1.02] active:scale-[0.98]'} disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:shadow-none`}
                 >
-                  {!product.in_stock ? 'Out of Stock' : addingToCart ? 'Adding...' : 'Add to Cart'}
+                  <span className={`flex items-center justify-center gap-2 transition-all duration-300 ${addedToCart ? 'translate-y-0 opacity-100' : addingToCart ? '-translate-y-8 opacity-0' : 'translate-y-0 opacity-100'}`}>
+                    {!product.in_stock ? 'Out of Stock' : 'Add to Cart'}
+                    {!product.in_stock ? null : <ShoppingBag className="w-5 h-5" />}
+                  </span>
+                  {addingToCart && (
+                    <span className="absolute inset-0 flex items-center justify-center">
+                      <svg className="animate-spin w-5 h-5" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8h4z"/></svg>
+                    </span>
+                  )}
+                  {addedToCart && (
+                    <span className="absolute inset-0 flex items-center justify-center gap-2 animate-scale-in">
+                      <Check className="w-5 h-5" /> Added!
+                    </span>
+                  )}
                 </button>
-                <button onClick={handleShare} className="p-3.5 rounded-xl border border-[#B76E79]/20 text-[#EAE0D5]/70"><Share2 className="w-5 h-5" /></button>
+                <ProductShareButton product={product} />
               </div>
 
+              {/* Premium Trust Badges */}
               <div className="grid grid-cols-3 gap-3 pt-6 border-t border-[#B76E79]/15">
-                <div className="text-center"><Truck className="w-5 h-5 sm:w-6 sm:h-6 mx-auto text-[#B76E79] mb-1.5" /><p className="text-[11px] uppercase text-[#EAE0D5]/60">Free Shipping</p></div>
-                <div className="text-center"><Shield className="w-5 h-5 sm:w-6 sm:h-6 mx-auto text-[#B76E79] mb-1.5" /><p className="text-[11px] uppercase text-[#EAE0D5]/60">Secure SSL</p></div>
-                <div className="text-center"><Check className="w-5 h-5 sm:w-6 sm:h-6 mx-auto text-[#B76E79] mb-1.5" /><p className="text-[11px] uppercase text-[#EAE0D5]/60">100% Genuine</p></div>
+                <div className="text-center group cursor-default">
+                  <div className="w-10 h-10 mx-auto mb-2 rounded-xl bg-[#7A2F57]/10 border border-[#B76E79]/15 flex items-center justify-center group-hover:border-[#B76E79]/40 group-hover:bg-[#7A2F57]/20 transition-all">
+                    <Truck className="w-5 h-5 text-[#B76E79]" />
+                  </div>
+                  <p className="text-[10px] uppercase tracking-wider text-[#EAE0D5]/60">Free Shipping</p>
+                </div>
+                <div className="text-center group cursor-default">
+                  <div className="w-10 h-10 mx-auto mb-2 rounded-xl bg-[#7A2F57]/10 border border-[#B76E79]/15 flex items-center justify-center group-hover:border-[#B76E79]/40 group-hover:bg-[#7A2F57]/20 transition-all">
+                    <Shield className="w-5 h-5 text-[#B76E79]" />
+                  </div>
+                  <p className="text-[10px] uppercase tracking-wider text-[#EAE0D5]/60">Secure SSL</p>
+                </div>
+                <div className="text-center group cursor-default">
+                  <div className="w-10 h-10 mx-auto mb-2 rounded-xl bg-[#7A2F57]/10 border border-[#B76E79]/15 flex items-center justify-center group-hover:border-[#B76E79]/40 group-hover:bg-[#7A2F57]/20 transition-all">
+                    <RotateCcw className="w-5 h-5 text-[#B76E79]" />
+                  </div>
+                  <p className="text-[10px] uppercase tracking-wider text-[#EAE0D5]/60">Easy Returns</p>
+                </div>
               </div>
             </div>
           </div>
@@ -400,7 +447,10 @@ export default function ProductDetailClient({ initialProduct, initialReviews }) 
           <div className="mt-12">
             <div className="flex gap-6 border-b border-[#B76E79]/15">
               {['description', 'reviews'].map((tab) => (
-                <button key={tab} onClick={() => setActiveTab(tab)} className={`pb-3 text-sm font-medium capitalize transition-colors ${activeTab === tab ? 'text-[#F2C29A] border-b-2 border-[#B76E79]' : 'text-[#EAE0D5]/50'}`}>{tab}</button>
+                <button key={tab} onClick={() => setActiveTab(tab)} className={`pb-3 text-sm font-medium capitalize transition-all duration-300 relative ${activeTab === tab ? 'text-[#F2C29A]' : 'text-[#EAE0D5]/50 hover:text-[#EAE0D5]/80'}`}>
+                  {tab}
+                  {activeTab === tab && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-[#7A2F57] to-[#F2C29A] rounded-full" />}
+                </button>
               ))}
             </div>
             <div className="py-6">

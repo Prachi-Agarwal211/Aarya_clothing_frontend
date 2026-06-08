@@ -1,6 +1,7 @@
 """Schemas for authentication."""
 
 from datetime import datetime
+from secrets import token_urlsafe
 from pydantic import BaseModel, Field, EmailStr, computed_field, validator, model_validator
 from typing import Optional
 from enum import Enum
@@ -62,27 +63,62 @@ class UserProfileUpdate(UserProfileBase):
 class UserBase(BaseModel):
     """Base user schema, containing only core user fields."""
 
-    email: EmailStr
-    username: str = Field(..., min_length=3, max_length=50)
+    email: Optional[EmailStr] = None
+    username: Optional[str] = Field(default=None, min_length=3, max_length=50)
 
 
 class UserCreate(UserBase):
-    """Schema for creating a user. Frontend now sends first_name + last_name.
+    """Schema for creating a user. Supports both flows:
 
-    `full_name` is computed from the two for backwards compatibility with the
-    existing User model. `username` is auto-derived from email if not supplied
-    so the registration form only needs to collect first/last/email/phone/password.
+    1. Traditional: email + username + password + phone (all required)
+    2. Phone-first (Indian users): phone only — email/username/password auto-generated
+
+    `full_name` is computed from first_name + last_name for backwards compatibility.
+    `username` is auto-derived from email if not supplied.
     """
 
-    password: str = Field(..., min_length=5, max_length=128)
-    first_name: str = Field(..., min_length=1, max_length=50)
-    last_name: str = Field(..., min_length=1, max_length=50)
+    password: Optional[str] = Field(default=None, min_length=5, max_length=128)
+    first_name: Optional[str] = Field(default=None, min_length=1, max_length=50)
+    last_name: Optional[str] = Field(default=None, min_length=1, max_length=50)
     username: Optional[str] = Field(default=None, min_length=3, max_length=50)
     phone: str = Field(
         ..., min_length=10, max_length=20, description="Phone number is required"
     )
     role: UserRole = UserRole.customer
     verification_method: VerificationMethod = VerificationMethod.otp_email
+
+    @model_validator(mode="after")
+    def phone_only_defaults(self):
+        """When phone is the only identifier (no email/password), generate defaults.
+
+        This enables the simplified Indian phone-first registration flow:
+        just enter phone → get OTP → account created automatically.
+        """
+        phone_only = not self.email and not self.password
+        if phone_only:
+            # Auto-generate email from phone (system placeholder — user can update later)
+            digits = "".join(filter(str.isdigit, self.phone or ""))
+            self.email = f"{digits}@aaryaclothing.in"
+            # Auto-generate username from phone
+            self.username = f"user_{digits[-8:]}"
+            # Auto-generate a random password (user will use OTP login)
+            self.password = token_urlsafe(12)
+            # Set names to phone-based defaults if not provided
+            if not self.first_name:
+                self.first_name = "Customer"
+            if not self.last_name:
+                self.last_name = digits[-4:]
+        return self
+
+    @model_validator(mode="after")
+    def email_required_for_password_flow(self):
+        """Traditional flow requires email and password."""
+        has_password = self.password and len(self.password) >= 5
+        has_email = bool(self.email)
+        # If user provided a password but no email, that's invalid
+        if has_password and not has_email:
+            raise ValueError("Email is required when setting a password")
+        return self
 
     @computed_field
     @property

@@ -47,9 +47,7 @@ const AboutSection = ({
 
     // Use gsap.context for proper cleanup - only kills THIS component's animations
     let ctx = gsap.context(() => {
-      // Content reveal animation with dynamic will-change
-      const contentChildren = content.children;
-      gsap.set(contentChildren, { willChange: "transform, opacity" });
+      // Content reveal animation
       gsap.fromTo(content.children,
         { y: 80, opacity: 0 },
         {
@@ -61,18 +59,13 @@ const AboutSection = ({
           scrollTrigger: {
             trigger: content,
             start: "top 80%",
-          },
-          onComplete: () => gsap.set(contentChildren, { willChange: "auto" })
+          }
         }
       );
 
       // Parallax images with different speeds — filter null refs (React sets ref=null on unmount)
-      // Add will-change dynamically for each image
       imageElements.filter(Boolean).forEach((img, index) => {
         const speed = index === 0 ? -30 : 30;
-
-        // Set will-change before animation
-        gsap.set(img, { willChange: "transform, opacity" });
 
         gsap.fromTo(img,
           { y: 100, opacity: 0, x: index === 0 ? -50 : 50 },
@@ -85,8 +78,7 @@ const AboutSection = ({
             scrollTrigger: {
               trigger: img,
               start: "top 85%",
-            },
-            onComplete: () => gsap.set(img, { willChange: "auto" })
+            }
           }
         );
 
@@ -105,11 +97,9 @@ const AboutSection = ({
         }
       });
 
-      // Stats counter animation with dynamic will-change
+      // Stats counter animation
       if (statsElement) {
-        const statElements = statsElement.children;
-        gsap.set(statElements, { willChange: "transform, opacity" });
-        Array.from(statElements).forEach((el, index) => {
+        Array.from(statsElement.children).forEach((el, index) => {
           gsap.fromTo(el,
             { y: 50, opacity: 0, scale: 0.8 },
             {
@@ -122,8 +112,7 @@ const AboutSection = ({
               scrollTrigger: {
                 trigger: statsElement,
                 start: "top 85%",
-              },
-              onComplete: () => gsap.set(el, { willChange: "auto" })
+              }
             }
           );
         });
@@ -131,10 +120,7 @@ const AboutSection = ({
 
       // Decorative element — scroll-scrubbed rotation on desktop only
       if (decorRef.current) {
-        if (isMobile) {
-          gsap.set(decorRef.current, { rotation: 0, willChange: "auto" });
-        } else {
-          gsap.set(decorRef.current, { willChange: "transform" });
+        if (!isMobile) {
           gsap.fromTo(decorRef.current,
             { rotation: 0 },
             {
@@ -145,8 +131,7 @@ const AboutSection = ({
                 start: "top bottom",
                 end: "bottom top",
                 scrub: 1
-              },
-              onComplete: () => gsap.set(decorRef.current, { willChange: "auto" })
+              }
             }
           );
         }

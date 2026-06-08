@@ -43,10 +43,10 @@ class UnifiedRedisClient:
                 redis_url,
                 db=redis_db,
                 decode_responses=True,
-                socket_connect_timeout=5,
+                socket_connect_timeout=3,
                 socket_timeout=5,
                 retry_on_timeout=True,
-                max_connections=20,
+                max_connections=50,
             )
             self._client = redis.Redis(connection_pool=pool)
             

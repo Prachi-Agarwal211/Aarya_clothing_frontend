@@ -35,6 +35,7 @@ export default function SilkBackground() {
   const startTimeRef = useRef(0);
   const isMobileRef = useRef(false);         // ref — no re-init on resize
   const isInitializedRef = useRef(false);
+  const cleanupRef = useRef(null);
 
   const pathname = usePathname();
   // Static background on admin / auth / checkout — no GPU waste
@@ -390,8 +391,8 @@ export default function SilkBackground() {
 
       render(performance.now());
 
-      // Cleanup local re-registers
-      window._silkCleanup = () => {
+      // Store cleanup function in ref (not window) for proper unmount handling
+      cleanupRef.current = () => {
         clearTimeout(resizeTimeout);
         window.removeEventListener('resize', debouncedResize);
         document.removeEventListener('visibilitychange', handleVisibilityChange);
@@ -415,9 +416,9 @@ export default function SilkBackground() {
         clearTimeout(idleHandle);
       }
 
-      if (window._silkCleanup) {
-        window._silkCleanup();
-        delete window._silkCleanup;
+      if (cleanupRef.current) {
+        cleanupRef.current();
+        cleanupRef.current = null;
       }
 
       if (animationRef.current) {

@@ -49,6 +49,8 @@ export default function SizeGuideModal({ isOpen, onClose, category = 'kurta' }) 
     dress: 'Dresses & Gowns',
     lehenga: 'Lehengas',
     saree: 'Saree Blouses',
+    mens_shirt: "Men's Shirts & Kurtas",
+    mens_tshirt: "Men's T-Shirts",
   };
 
   // Measurement labels
@@ -167,6 +169,7 @@ function SizeChart({ sizeData, measurementLabels }) {
     { size: 'L', chest: 40, chestCm: 101.6, waist: 34, waistCm: 86.4, hip: 42, hipCm: 106.7, length: 43, lengthCm: 109.2 },
     { size: 'XL', chest: 42, chestCm: 106.7, waist: 36, waistCm: 91.4, hip: 44, hipCm: 111.8, length: 44, lengthCm: 111.8 },
     { size: 'XXL', chest: 44, chestCm: 111.8, waist: 38, waistCm: 96.5, hip: 46, hipCm: 116.8, length: 45, lengthCm: 114.3 },
+    { size: 'XXXL', chest: 46, chestCm: 116.8, waist: 40, waistCm: 101.6, hip: 48, hipCm: 121.9, length: 46, lengthCm: 116.8 },
   ];
 
   // Use backend data if available, otherwise use default
@@ -294,6 +297,7 @@ function SizeChart({ sizeData, measurementLabels }) {
           <li><strong>L (40)</strong> — Chest: 40&quot; / 101.6 cm</li>
           <li><strong>XL (42)</strong> — Chest: 42&quot; / 106.7 cm</li>
           <li><strong>XXL (44)</strong> — Chest: 44&quot; / 111.8 cm</li>
+          <li><strong>XXXL (46)</strong> — Chest: 46&quot; / 116.8 cm</li>
           <li className="pt-1">For a relaxed fit, consider sizing up</li>
           <li>When in between sizes, we recommend sizing up for comfort</li>
         </ul>

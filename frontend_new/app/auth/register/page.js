@@ -3,7 +3,7 @@
 import React, { useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Mail, Lock, Eye, EyeOff, Smartphone, MessageCircle } from 'lucide-react';
+import { Mail, Smartphone, MessageCircle, Phone } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -12,6 +12,7 @@ import logger from '../../../lib/logger';
 import { getRedirectForRole, USER_ROLES } from '../../../lib/roles';
 import { useLogo, useSiteConfig } from '../../../lib/siteConfigContext';
 import { AUTH_COPY } from '../../../lib/authCopy';
+import { validatePhone } from '../../../lib/authHelpers';
 
 const OTP_EXPIRY_SECONDS = 600;
 const RESEND_COOLDOWN_SECONDS = 30;
@@ -22,17 +23,21 @@ const VERIFICATION_LABELS = {
   otp_whatsapp: 'WhatsApp number',
 };
 
+/**
+ * Simplified Registration Page - Phone First for Indian Users
+ * 
+ * Flow:
+ * 1. Enter phone number
+ * 2. Get OTP via SMS/WhatsApp
+ * 3. Verify OTP
+ * 4. Auto-create account
+ * 5. Optional: Add name and email later
+ */
 export default function RegisterPage() {
-  const [step, setStep] = useState(1);
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [fullName, setFullName] = useState('');
-  const [email, setEmail] = useState('');
+  const [step, setStep] = useState(1); // 1: Phone, 2: OTP, 3: Success
   const [phone, setPhone] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
   const [otpDigits, setOtpDigits] = useState(['', '', '', '', '', '']);
-  const [verificationMethod, setVerificationMethod] = useState('otp_email');
+  const [verificationMethod, setVerificationMethod] = useState('otp_sms'); // Default SMS
   const [otpTimeLeft, setOtpTimeLeft] = useState(OTP_EXPIRY_SECONDS);
   const [otpExpired, setOtpExpired] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
@@ -88,23 +93,27 @@ export default function RegisterPage() {
 
   React.useEffect(() => {
     if (!smsOtpEnabled && verificationMethod === 'otp_sms') {
-      setVerificationMethod('otp_email');
+      setVerificationMethod(whatsappEnabled ? 'otp_whatsapp' : 'otp_email');
     }
     if (!whatsappEnabled && verificationMethod === 'otp_whatsapp') {
-      setVerificationMethod('otp_email');
+      setVerificationMethod(smsOtpEnabled ? 'otp_sms' : 'otp_email');
     }
   }, [smsOtpEnabled, whatsappEnabled, verificationMethod]);
 
   const handleOtpChange = (index, value) => {
-    if (value.length > 1) return; // Single digit only
+    if (value.length > 1) return;
     
     const newDigits = [...otpDigits];
     newDigits[index] = value;
     setOtpDigits(newDigits);
     
-    // Auto-focus next input
     if (value && index < 5 && otpRefs.current[index + 1]) {
       otpRefs.current[index + 1].focus();
+    }
+    
+    // Auto-submit when all digits entered
+    if (newDigits.every(d => d) && !isSubmitting) {
+      setTimeout(() => handleOtpVerification(null, newDigits.join('')), 50);
     }
   };
 
@@ -114,81 +123,60 @@ export default function RegisterPage() {
     }
   };
 
-  const handleRegistration = async (e) => {
+  // Step 1: Register user with phone number (creates account + sends OTP)
+  const handleSendOtp = async (e) => {
     e.preventDefault();
     setError('');
 
-    if (password !== confirmPassword) {
-      setError('Passwords do not match');
-      return;
-    }
-
-    if (password.length < 5) {
-      setError('Password must be at least 5 characters');
-      return;
-    }
-
     if (!phone.trim()) {
-      setError('Phone number is required');
+      setError(AUTH_COPY.errors.missingPhone);
       return;
     }
 
-    const phoneDigits = phone.replace(/\D/g, '');
-    if (phoneDigits.length < 10) {
-      setError('Enter a valid 10-digit phone number');
-      return;
-    }
-    if (phoneDigits.length > 15) {
-      setError('Phone number is too long');
-      return;
-    }
-
-    // Validate Indian number starts with 6/7/8/9 (after removing country code)
-    const coreDigits = phoneDigits.startsWith('91') && phoneDigits.length > 10
-      ? phoneDigits.slice(2)
-      : phoneDigits.startsWith('0')
-        ? phoneDigits.slice(1)
-        : phoneDigits;
-    if (coreDigits.length === 10 && !/^[6789]/.test(coreDigits)) {
-      setError('Enter a valid 10-digit Indian mobile number');
+    const phoneValidation = validatePhone(phone);
+    if (!phoneValidation.valid) {
+      setError(phoneValidation.message || AUTH_COPY.errors.invalidPhone);
       return;
     }
 
     setIsSubmitting(true);
 
     try {
+      const otpType = verificationMethod === 'otp_whatsapp' ? 'WHATSAPP' : 
+                      verificationMethod === 'otp_email' ? 'EMAIL' : 'SMS';
+      
+      // Call the register endpoint — it creates the user AND sends OTP in one step.
+      // The backend auto-generates email/username/password for phone-only registrations.
+      const verificationMethodValue = verificationMethod === 'otp_whatsapp' ? 'otp_whatsapp' : 
+                                      verificationMethod === 'otp_email' ? 'otp_email' : 'otp_sms';
+      
+      const body = {
+        phone: phone.trim(),
+        verification_method: verificationMethodValue,
+      };
+      
       const response = await fetch('/api/v1/auth/register', {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          first_name: fullName.trim().split(' ')[0] || '',
-          last_name: fullName.trim().split(' ').slice(1).join(' ') || null,
-          email: email.trim(),
-          phone: phone.trim(),
-          password: password,
-          verification_method: verificationMethod,
-        })
+        body: JSON.stringify(body),
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        // Handle 422 validation errors: { error: { details: [{ message }] } }
-        // Handle 400/500 errors: { detail: "message" } or { error: { message: "..." } }
         let message = 'Registration failed';
         if (errorData.detail) {
-          message = errorData.detail;
+          message = typeof errorData.detail === 'string' ? errorData.detail : errorData.detail.message || 'Registration failed';
         } else if (errorData.error?.message) {
           message = errorData.error.message;
-        } else if (errorData.error?.details?.length > 0) {
-          message = errorData.error.details.map(d => d.message).join('. ');
         }
         throw new Error(message);
       }
 
-      await response.json();
+      const data = await response.json();
+      logger.info('Registration initiated', { userId: data?.user?.id });
+
       setStep(2);
-      setRegistrationSuccess(true);
       setIsSubmitting(false);
       startExpiryTimer();
       startResendCooldown();
@@ -202,16 +190,19 @@ export default function RegisterPage() {
     if (resendCooldown > 0 || resending) return;
     setError('');
     setResending(true);
-    const otpType =
-      verificationMethod === 'otp_email'
-        ? 'EMAIL'
-        : verificationMethod === 'otp_whatsapp'
-        ? 'WHATSAPP'
-        : 'SMS';
-    const body =
-      otpType === 'EMAIL'
-        ? { email: email.trim(), otp_type: otpType, purpose: 'registration' }
-        : { phone: phone.trim(), otp_type: otpType, purpose: 'registration' };
+    
+    const otpType = verificationMethod === 'otp_whatsapp' ? 'WHATSAPP' : 
+                    verificationMethod === 'otp_email' ? 'EMAIL' : 'SMS';
+    
+    // Resend OTP using the dedicated send-verification-otp endpoint
+    const otpType = verificationMethod === 'otp_whatsapp' ? 'WHATSAPP' : 
+                    verificationMethod === 'otp_email' ? 'EMAIL' : 'SMS';
+    
+    const body = {
+      phone: phone.trim(),
+      otp_type: otpType,
+    };
+    
     try {
       const response = await fetch('/api/v1/auth/send-verification-otp', {
         method: 'POST',
@@ -219,18 +210,16 @@ export default function RegisterPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
+      
       if (!response.ok) {
         const errorData = await response.json();
         let message = 'Failed to resend code';
         if (errorData.detail) {
-          message = errorData.detail;
-        } else if (errorData.error?.message) {
-          message = errorData.error.message;
-        } else if (errorData.error?.details?.length > 0) {
-          message = errorData.error.details.map(d => d.message).join('. ');
+          message = typeof errorData.detail === 'string' ? errorData.detail : errorData.detail.message || message;
         }
         throw new Error(message);
       }
+      
       setOtpDigits(['', '', '', '', '', '']);
       startExpiryTimer();
       startResendCooldown();
@@ -241,24 +230,30 @@ export default function RegisterPage() {
     }
   };
 
-  const handleOtpVerification = async (e) => {
-    e.preventDefault();
+  // Step 2: Verify OTP and create account
+  const handleOtpVerification = async (e, finalOtpValue) => {
+    e?.preventDefault();
     setError('');
     setIsSubmitting(true);
     
-    const otpValue = otpDigits.join('');
+    const otpValue = finalOtpValue || otpDigits.join('');
 
-    const otpType =
-      verificationMethod === 'otp_email'
-        ? 'EMAIL'
-        : verificationMethod === 'otp_whatsapp'
-        ? 'WHATSAPP'
-        : 'SMS';
+    if (otpValue.length !== 6) {
+      setError('Please enter all 6 digits.');
+      setIsSubmitting(false);
+      return;
+    }
 
-    const body =
-      otpType === 'EMAIL'
-        ? { email: email.trim(), otp_code: otpValue, otp_type: otpType }
-        : { phone: phone.trim(), otp_code: otpValue, otp_type: otpType };
+    if (otpExpired) {
+      setError('This code has expired. Please request a new one.');
+      setIsSubmitting(false);
+      return;
+    }
+
+    const otpType = verificationMethod === 'otp_whatsapp' ? 'WHATSAPP' : 
+                    verificationMethod === 'otp_email' ? 'EMAIL' : 'SMS';
+
+    const body = { phone: phone.trim(), otp_code: otpValue, otp_type: otpType };
 
     try {
       const response = await fetch('/api/v1/auth/verify-otp-registration', {
@@ -275,26 +270,25 @@ export default function RegisterPage() {
           message = errorData.detail;
         } else if (errorData.error?.message) {
           message = errorData.error.message;
-        } else if (errorData.error?.details?.length > 0) {
-          message = errorData.error.details.map(d => d.message).join('. ');
         }
         throw new Error(message);
       }
 
       const data = await response.json();
-      logger.info('Registration & OTP verification successful', {
-        userId: data?.user?.id,
-      });
+      logger.info('Registration & OTP verification successful', { userId: data?.user?.id });
 
-      // Update centralized auth context immediately
       if (data?.user) {
         setAuthStatus(data.user);
       }
 
-      // Cookies are already set by the verify-otp-registration endpoint —
-      // no second login round-trip needed (the user is now authenticated).
+      // Account created - show success and redirect
+      setRegistrationSuccess(true);
+      setStep(3);
+      
       const role = data?.user?.role || USER_ROLES.CUSTOMER;
-      router.push(getRedirectForRole(role));
+      setTimeout(() => {
+        router.push(getRedirectForRole(role));
+      }, 2000);
     } catch (error) {
       setError(error.message);
       setIsSubmitting(false);
@@ -307,8 +301,6 @@ export default function RegisterPage() {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // FIXED: Use useEffect for redirect instead of render-time side effect
-  // Render-time router.push can cause React 18 hydration issues
   React.useEffect(() => {
     if (isAuthenticated) {
       router.push(getRedirectForRole(user?.role || USER_ROLES.CUSTOMER));
@@ -319,9 +311,7 @@ export default function RegisterPage() {
     return null;
   }
 
-  const verificationLabel = VERIFICATION_LABELS[verificationMethod] || 'email';
-  const verificationTarget =
-    verificationMethod === 'otp_email' ? email : phone;
+  const verificationLabel = VERIFICATION_LABELS[verificationMethod] || 'phone';
 
   return (
     <div className="w-full max-w-md md:max-w-lg flex flex-col items-center">
@@ -338,228 +328,152 @@ export default function RegisterPage() {
 
       <div className="text-center mb-4 sm:mb-5 space-y-1 animate-fade-in-up-delay">
         <h2 className="text-xl sm:text-2xl text-white/90 font-body">
-          {step === 1 ? 'Create your account' : `Verify your ${verificationLabel}`}
+          {step === 1 ? 'Create your account' : 
+           step === 2 ? `Verify your ${verificationLabel}` :
+           'Welcome to Aarya!'}
         </h2>
         <p className="text-[#8A6A5C] text-xs sm:text-sm uppercase tracking-[0.15em] font-light">
-          {step === 1 ? 'Join Aarya Clothing' : 'Complete verification'}
+          {step === 1 ? 'Enter your phone number to get started' : 
+           step === 2 ? 'Enter the code we sent you' :
+           'Your account is ready'}
         </p>
       </div>
 
-      {step === 1 ? (
-        <form className="w-full space-y-3 sm:space-y-3.5 animate-fade-in-up-delay" onSubmit={handleRegistration} noValidate>
+      {/* Step 1: Phone Number Input */}
+      {step === 1 && (
+        <form className="w-full space-y-4 animate-fade-in-up-delay" onSubmit={handleSendOtp} noValidate>
           {error && (
             <div className="p-2.5 rounded-lg bg-red-500/10 border border-red-500/20">
               <p className="text-red-300 text-sm">{error}</p>
             </div>
           )}
 
-          <div className="luxury-input-wrapper h-11 sm:h-12 rounded-xl relative group flex items-center px-4">
-            <Input
-              id="fullName"
-              name="fullName"
-              type="text"
-              autoComplete="name"
-              required
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              placeholder="Full name"
-              variant="minimal"
-              className="h-full text-[#EAE0D5] placeholder:text-[#8A6A5C] text-sm"
-              enterKeyHint="next"
-            />
-          </div>
-
-          <div className="luxury-input-wrapper h-11 sm:h-12 rounded-xl relative group flex items-center px-4">
-            <Lock className="w-4 h-4 sm:w-5 sm:h-5 text-[#B76E79] group-focus-within:text-[#F2C29A] transition-colors duration-300 shrink-0" aria-hidden="true" />
-            <Input
-              id="password"
-              name="password"
-              type={showPassword ? 'text' : 'password'}
-              autoComplete="new-password"
-              required
-              minLength={5}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Password (min 5 chars)"
-              variant="minimal"
-              className="h-full pl-3 sm:pl-4 pr-10 text-[#EAE0D5] placeholder:text-[#8A6A5C] text-sm sm:text-base"
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-2 touch-target-icon text-[#B76E79] hover:text-[#F2C29A] transition-colors"
-              aria-label={showPassword ? 'Hide password' : 'Show password'}
-            >
-              {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-            </button>
-          </div>
-
-          <div className="luxury-input-wrapper h-11 sm:h-12 rounded-xl relative group flex items-center px-4">
-            <Lock className="w-4 h-4 sm:w-5 sm:h-5 text-[#B76E79] group-focus-within:text-[#F2C29A] transition-colors duration-300 shrink-0" aria-hidden="true" />
-            <Input
-              id="confirmPassword"
-              name="confirmPassword"
-              type={showConfirmPassword ? 'text' : 'password'}
-              autoComplete="new-password"
-              required
-              minLength={5}
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="Confirm password"
-              variant="minimal"
-              className="h-full pl-3 sm:pl-4 pr-10 text-[#EAE0D5] placeholder:text-[#8A6A5C] text-sm sm:text-base"
-            />
-            <button
-              type="button"
-              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-              className="absolute right-2 touch-target-icon text-[#B76E79] hover:text-[#F2C29A] transition-colors"
-              aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
-            >
-              {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-            </button>
-          </div>
-
-          <div className="relative">
-            <div className="luxury-input-wrapper h-11 sm:h-12 rounded-xl relative group flex items-center px-4">
-              <Mail className="w-4 h-4 sm:w-5 sm:h-5 text-[#B76E79] group-focus-within:text-[#F2C29A] transition-colors duration-300 shrink-0" aria-hidden="true" />
+          {/* Phone Number - Large and prominent */}
+          <div className="space-y-2">
+            <label className="text-[#EAE0D5]/80 text-sm font-medium">Phone Number</label>
+            <div className="luxury-input-wrapper h-14 sm:h-16 rounded-xl relative group flex items-center px-4 bg-[#0B0608]/80 border border-[#B76E79]/30">
+              <Phone className="w-5 h-5 sm:w-6 sm:h-6 text-[#B76E79] group-focus-within:text-[#F2C29A] transition-colors duration-300 shrink-0" aria-hidden="true" />
               <Input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Email address *"
-                variant="minimal"
-                className="h-full pl-3 sm:pl-4 text-[#EAE0D5] placeholder:text-[#8A6A5C] text-sm sm:text-base"
-              />
-            </div>
-          </div>
-
-          <div className="relative">
-            <div className="luxury-input-wrapper h-11 sm:h-12 rounded-xl relative group flex items-center px-4">
-              <Smartphone className="w-4 h-4 sm:w-5 sm:h-5 text-[#B76E79] group-focus-within:text-[#F2C29A] transition-colors duration-300 shrink-0" aria-hidden="true" />
-              <Input
-                id="phone"
-                name="phone"
+                id="phone-register"
+                name="phone-register"
                 type="tel"
+                inputMode="numeric"
                 autoComplete="tel"
                 required
                 value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="9876543210"
+                onChange={(e) => {
+                  const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                  setPhone(val);
+                }}
+                placeholder={AUTH_COPY.phonePlaceholder}
                 variant="minimal"
-                className="h-full pl-3 sm:pl-4 text-[#EAE0D5] placeholder:text-[#8A6A5C] text-sm sm:text-base"
-                enterKeyHint="done"
+                className="h-full pl-4 text-[#EAE0D5] placeholder:text-[#8A6A5C] text-lg sm:text-xl font-medium tracking-wider"
               />
             </div>
-            <p className="text-[#EAE0D5]/40 text-[11px] mt-1 px-1">
-              {AUTH_COPY.registerPhoneHelp}
+            <p className="text-[#EAE0D5]/50 text-xs px-1">
+              {AUTH_COPY.phoneFormatHint}
             </p>
           </div>
 
-          {password && confirmPassword && password !== confirmPassword && (
-            <p className="text-sm text-red-300">Passwords do not match.</p>
-          )}
-
-          <div className="bg-[#7A2F57]/10 border border-[#B76E79]/20 rounded-lg p-3">
-            <p className="text-[#EAE0D5]/70 text-xs leading-relaxed">
-              {AUTH_COPY.bothEmailAndPhoneRequired}
-            </p>
-            <p className="text-[#EAE0D5]/50 text-xs mt-2">
-              {AUTH_COPY.alreadyRegisteredButNotVerified}
-            </p>
-          </div>
-
+          {/* OTP Method Selector */}
           <div className="space-y-2">
-            <p className="text-[#EAE0D5]/60 text-[10px] uppercase tracking-widest">Verification method</p>
-            <div className="grid grid-cols-3 gap-2">
-              <button
-                type="button"
-                onClick={() => setVerificationMethod('otp_email')}
-                className={`flex flex-col items-center gap-1 p-2.5 rounded-xl border-2 transition-all duration-300 ${
-                  verificationMethod === 'otp_email'
-                    ? 'bg-[#7A2F57]/20 border-[#F2C29A]/60 shadow-[0_0_20px_rgba(242,194,154,0.15)]'
-                    : 'bg-[#7A2F57]/10 border-[#B76E79]/30 hover:border-[#F2C29A]/40'
-                }`}
-              >
-                <Mail className={`w-5 h-5 transition-colors ${verificationMethod === 'otp_email' ? 'text-[#F2C29A]' : 'text-[#B76E79]'}`} />
-                <p className="text-[10px] sm:text-[11px] text-[#EAE0D5]/90 font-bold tracking-widest">EMAIL</p>
-              </button>
-
-              <button
-                type="button"
+            <p className="text-[#EAE0D5]/60 text-xs uppercase tracking-widest">Send OTP via</p>
+            <div className="flex gap-3">
+              <button 
+                type="button" 
+                onClick={() => setVerificationMethod('otp_sms')}
                 disabled={!smsOtpEnabled}
-                title={!smsOtpEnabled ? 'SMS OTP is not configured.' : undefined}
-                onClick={() => smsOtpEnabled && setVerificationMethod('otp_sms')}
-                className={`flex flex-col items-center gap-1 p-2.5 rounded-xl border-2 transition-all duration-300 ${
-                  !smsOtpEnabled
+                className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-xl border-2 transition-all duration-300 ${
+                  !smsOtpEnabled 
                     ? 'opacity-50 cursor-not-allowed bg-[#7A2F57]/5 border-[#B76E79]/20'
                     : verificationMethod === 'otp_sms'
                       ? 'bg-[#7A2F57]/20 border-[#F2C29A]/60 shadow-[0_0_20px_rgba(242,194,154,0.15)]'
                       : 'bg-[#7A2F57]/10 border-[#B76E79]/30 hover:border-[#F2C29A]/40'
                 }`}
               >
-                <Smartphone className={`w-5 h-5 transition-colors ${verificationMethod === 'otp_sms' ? 'text-[#F2C29A]' : 'text-[#B76E79]'}`} />
-                <p className="text-[10px] sm:text-[11px] text-[#EAE0D5]/90 font-bold tracking-widest">SMS</p>
+                <Smartphone className={`w-5 h-5 ${verificationMethod === 'otp_sms' ? 'text-[#F2C29A]' : 'text-[#B76E79]'}`} />
+                <span className="text-sm font-medium text-[#EAE0D5]/90">SMS</span>
               </button>
-
-              <button
-                type="button"
+              
+              <button 
+                type="button" 
+                onClick={() => setVerificationMethod('otp_whatsapp')}
                 disabled={!whatsappEnabled}
-                title={!whatsappEnabled ? 'WhatsApp OTP is not configured.' : undefined}
-                onClick={() => whatsappEnabled && setVerificationMethod('otp_whatsapp')}
-                className={`flex flex-col items-center gap-1 p-2.5 rounded-xl border-2 transition-all duration-300 ${
-                  !whatsappEnabled
+                className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-xl border-2 transition-all duration-300 ${
+                  !whatsappEnabled 
                     ? 'opacity-50 cursor-not-allowed bg-[#7A2F57]/5 border-[#B76E79]/20'
                     : verificationMethod === 'otp_whatsapp'
                       ? 'bg-[#7A2F57]/20 border-[#F2C29A]/60 shadow-[0_0_20px_rgba(242,194,154,0.15)]'
                       : 'bg-[#7A2F57]/10 border-[#B76E79]/30 hover:border-[#F2C29A]/40'
                 }`}
               >
-                <MessageCircle className={`w-5 h-5 transition-colors ${verificationMethod === 'otp_whatsapp' ? 'text-[#F2C29A]' : 'text-[#B76E79]'}`} />
-                <p className="text-[10px] sm:text-[11px] text-[#EAE0D5]/90 font-bold tracking-widest">WA</p>
+                <MessageCircle className={`w-5 h-5 ${verificationMethod === 'otp_whatsapp' ? 'text-[#F2C29A]' : 'text-[#B76E79]'}`} />
+                <span className="text-sm font-medium text-[#EAE0D5]/90">WhatsApp</span>
+              </button>
+              
+              <button 
+                type="button" 
+                onClick={() => setVerificationMethod('otp_email')}
+                className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-xl border-2 transition-all duration-300 ${
+                  verificationMethod === 'otp_email'
+                    ? 'bg-[#7A2F57]/20 border-[#F2C29A]/60 shadow-[0_0_20px_rgba(242,194,154,0.15)]'
+                    : 'bg-[#7A2F57]/10 border-[#B76E79]/30 hover:border-[#F2C29A]/40'
+                }`}
+              >
+                <Mail className={`w-5 h-5 ${verificationMethod === 'otp_email' ? 'text-[#F2C29A]' : 'text-[#B76E79]'}`} />
+                <span className="text-sm font-medium text-[#EAE0D5]/90">Email</span>
               </button>
             </div>
           </div>
 
+          {/* Send OTP Button - Large */}
           <Button
             type="submit"
-            disabled={isSubmitting}
-            className="w-full h-11 sm:h-12 relative overflow-hidden rounded-xl bg-transparent border border-[#B76E79]/40 group transition-all duration-500 hover:border-[#F2C29A]/60 hover:shadow-[0_0_30px_rgba(183,110,121,0.3)]"
+            disabled={isSubmitting || !phone || phone.length < 10}
+            className="w-full h-14 sm:h-16 relative overflow-hidden rounded-xl bg-transparent border border-[#B76E79]/40 group transition-all duration-500 hover:border-[#F2C29A]/60 hover:shadow-[0_0_30px_rgba(183,110,121,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <div className="absolute inset-0 bg-gradient-to-r from-[#7A2F57]/80 via-[#B76E79]/70 to-[#2A1208]/80 opacity-90"></div>
             <div className="animate-sheen"></div>
-            <span className="relative z-10 text-[#F2C29A] font-serif tracking-[0.12em] text-base group-hover:text-white transition-colors font-heading">
-              {isSubmitting ? 'REGISTERING...' : 'REGISTER'}
+            <span className="relative z-10 text-[#F2C29A] font-serif tracking-[0.12em] text-lg group-hover:text-white transition-colors font-heading">
+              {isSubmitting ? AUTH_COPY.sendingOtp : AUTH_COPY.sendOtpButton}
             </span>
           </Button>
+
+          <p className="text-center text-[#EAE0D5]/50 text-sm px-2">
+            {AUTH_COPY.newUserMessage}
+          </p>
         </form>
-      ) : (
-        <form className="w-full space-y-4 animate-fade-in-up-delay" onSubmit={handleOtpVerification}>
+      )}
+
+      {/* Step 2: OTP Verification */}
+      {step === 2 && (
+        <form className="w-full space-y-4 animate-fade-in-up-delay" onSubmit={(e) => handleOtpVerification(e)}>
           {error && (
             <div className="p-2.5 rounded-lg bg-red-500/10 border border-red-500/20">
               <p className="text-red-300 text-sm">{error}</p>
             </div>
           )}
 
-          <div className="text-center mb-2">
-            <div className="w-12 h-12 rounded-full bg-[#7A2F57]/30 border border-[#B76E79]/30 flex items-center justify-center mx-auto mb-2">
+          <div className="text-center mb-4">
+            <div className="w-14 h-14 rounded-full bg-[#7A2F57]/30 border border-[#B76E79]/30 flex items-center justify-center mx-auto mb-3">
               {verificationMethod === 'otp_email' ? (
-                <Mail className="w-6 h-6 text-[#F2C29A]" />
+                <Mail className="w-7 h-7 text-[#F2C29A]" />
               ) : verificationMethod === 'otp_whatsapp' ? (
-                <MessageCircle className="w-6 h-6 text-[#F2C29A]" />
+                <MessageCircle className="w-7 h-7 text-[#F2C29A]" />
               ) : (
-                <Smartphone className="w-6 h-6 text-[#F2C29A]" />
+                <Smartphone className="w-7 h-7 text-[#F2C29A]" />
               )}
             </div>
-            <p className="text-[#EAE0D5]/80 text-sm">
-              Enter the 6-digit code sent to <span className="text-[#F2C29A]">{verificationTarget}</span>
+            <p className="text-[#EAE0D5]/80 text-base mb-1">
+              {AUTH_COPY.otpEnterCode}
+            </p>
+            <p className="text-[#F2C29A] font-medium text-lg">
+              {phone}
             </p>
           </div>
 
-          <div className="flex justify-center gap-1.5 sm:gap-2">
+          {/* OTP Input - Large digits */}
+          <div className="flex justify-center gap-2 sm:gap-3">
             {otpDigits.map((digit, index) => (
               <input
                 key={index}
@@ -570,14 +484,16 @@ export default function RegisterPage() {
                 value={digit}
                 onChange={(e) => handleOtpChange(index, e.target.value)}
                 onKeyDown={(e) => handleOtpKeyDown(index, e)}
-                className="w-9 sm:w-11 h-12 text-center text-lg font-bold border-2 border-[#B76E79]/30 bg-[#0B0608]/60 text-[#F2C29A] rounded-lg focus:border-[#F2C29A] focus:outline-none"
+                disabled={isSubmitting || otpExpired}
+                className="w-12 sm:w-14 h-14 text-center text-xl font-bold border-2 border-[#B76E79]/30 bg-[#0B0608]/60 text-[#F2C29A] rounded-xl focus:border-[#F2C29A] focus:outline-none focus:shadow-[0_0_0_3px_rgba(242,194,154,0.1)]"
               />
             ))}
           </div>
 
+          {/* Timer and Resend */}
           <div className="text-center space-y-2">
             {!otpExpired ? (
-              <p className="text-sm text-[#EAE0D5]/70">Code expires in {formatTime(otpTimeLeft)}</p>
+              <p className="text-sm text-[#EAE0D5]/70">{AUTH_COPY.otpExpiresIn} {formatTime(otpTimeLeft)}</p>
             ) : (
               <p className="text-sm text-red-300">Code expired. Request a new one.</p>
             )}
@@ -590,23 +506,54 @@ export default function RegisterPage() {
               {resending
                 ? 'Sending…'
                 : resendCooldown > 0
-                ? `Resend in ${resendCooldown}s`
-                : 'Resend code'}
+                ? `${AUTH_COPY.otpResendIn} ${resendCooldown}s`
+                : AUTH_COPY.otpResend}
             </button>
           </div>
 
+          {/* Verify Button - Large */}
           <Button
             type="submit"
             disabled={isSubmitting || otpExpired || otpDigits.some(d => !d)}
-            className="w-full h-11 sm:h-12 relative overflow-hidden rounded-xl bg-transparent border border-[#B76E79]/40 group transition-all duration-500 hover:border-[#F2C29A]/60 hover:shadow-[0_0_30px_rgba(183,110,121,0.3)]"
+            className="w-full h-14 sm:h-16 relative overflow-hidden rounded-xl bg-transparent border border-[#B76E79]/40 group transition-all duration-500 hover:border-[#F2C29A]/60 hover:shadow-[0_0_30px_rgba(183,110,121,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <div className="absolute inset-0 bg-gradient-to-r from-[#7A2F57]/80 via-[#B76E79]/70 to-[#2A1208]/80 opacity-90"></div>
             <div className="animate-sheen"></div>
-            <span className="relative z-10 text-[#F2C29A] font-serif tracking-[0.12em] text-base group-hover:text-white transition-colors font-heading">
-              {isSubmitting ? 'VERIFYING...' : 'VERIFY & COMPLETE'}
+            <span className="relative z-10 text-[#F2C29A] font-serif tracking-[0.12em] text-lg group-hover:text-white transition-colors font-heading">
+              {isSubmitting ? AUTH_COPY.verifying : AUTH_COPY.verifyButton}
             </span>
           </Button>
+
+          <div className="text-center">
+            <button type="button" onClick={() => { setStep(1); setError(''); }}
+              className="text-sm text-[#8A6A5C] hover:text-[#EAE0D5]/80"
+            >
+              ← Change phone number
+            </button>
+          </div>
         </form>
+      )}
+
+      {/* Step 3: Optional Details + Success */}
+      {step === 3 && (
+        <div className="w-full space-y-4 animate-fade-in-up-delay">
+          {registrationSuccess && (
+            <div className="text-center p-6 rounded-xl bg-green-500/10 border border-green-500/20">
+              <div className="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-4">
+                <svg className="w-8 h-8 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <h3 className="text-xl text-white font-medium mb-2">{AUTH_COPY.accountCreated}</h3>
+              <p className="text-[#EAE0D5]/70 text-sm mb-4">
+                You can add your name and email later in your profile.
+              </p>
+              <p className="text-[#EAE0D5]/50 text-xs">
+                Redirecting you to our products...
+              </p>
+            </div>
+          )}
+        </div>
       )}
 
       <div className="w-full mt-6 sm:mt-8">

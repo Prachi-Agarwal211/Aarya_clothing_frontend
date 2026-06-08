@@ -3,63 +3,72 @@
  * 
  * SINGLE SOURCE OF TRUTH for all user-facing copy in authentication flows.
  * 
- * Simplicity-first: Indian users expect phone-first auth with minimal fields.
- * Phone number is auto-normalized to +91 E.164 on the backend.
- * Users just type their 10-digit number — that's it.
+ * Phone-first design for Indian users:
+ * 1. Enter phone number
+ * 2. Get OTP via SMS/WhatsApp
+ * 3. Auto-create account if new user
+ * 
+ * Password is optional/hidden — most Indian users prefer OTP.
  */
 
 export const AUTH_COPY = {
-  // === Core Model Explanation (used on Register) ===
-  bothEmailAndPhoneRequired: 
-    "Email for order updates & account recovery. Phone for OTP login via SMS or WhatsApp.",
-
   // === Phone Format — keep it dead simple ===
   phoneFormatHint: 
     "Enter your 10-digit mobile number. +91 is added automatically.",
 
   phoneFormatShort: 
-    "10-digit mobile number — works with or without +91.",
+    "10-digit mobile number",
 
   phoneFormatExample: 
     "e.g. 9876543210",
 
-  // === Identifier / Login Input ===
-  identifierPlaceholder: "Email, username, or phone number",
-  identifierPlaceholderWithHint: "Email, username, or phone number",
-
-  // === OTP Flow Guidance ===
-  otpDeliveryExplanation: 
-    "We'll send a one-time code to your email, SMS, or WhatsApp. You must have an account first.",
-
+  // === Login Page — Phone First ===
+  loginTitle: "Welcome to Aarya Clothing",
+  loginSubtitle: "Enter your phone number to get started",
+  phonePlaceholder: "Enter 10-digit phone number",
+  sendOtpButton: "GET OTP",
+  sendingOtp: "Sending OTP...",
+  
+  // === OTP Verification ===
+  otpSentMessage: "OTP sent to your phone",
+  otpEnterCode: "Enter the 6-digit code sent to",
+  otpExpiresIn: "Code expires in",
+  otpResend: "Resend OTP",
+  otpResendIn: "Resend in",
+  verifyButton: "VERIFY & CONTINUE",
+  verifying: "Verifying...",
   otpTroubleshooting: 
-    "Didn't receive the code? Check your messages, spam folder, or try a different method below.",
+    "Didn't receive the code? Check your messages or try WhatsApp method.",
 
-  otpMethodHelp: 
-    "Choose how you want to receive the code:",
-
-  // === Login Page Specific ===
-  loginPasswordTitle: "Sign in to your account",
+  // === New User Auto-Registration ===
+  newUserMessage: "New user? We'll create your account automatically after verification.",
+  accountCreated: "Account created successfully!",
+  
+  // === Optional Fields (shown after OTP for new users) ===
+  optionalName: "Your name (optional)",
+  optionalEmail: "Email for order updates (optional)",
+  
+  // === Legacy/Password Mode (hidden by default) ===
+  loginPasswordTitle: "Sign in with password",
   loginOtpTitle: "Login with OTP",
   loginOtpSubtitle: "Sign in with a one-time code",
-
-  needBothToRegister: 
-    "Email & phone both required to register.",
-
+  
   // === Error Recovery Messages ===
   errors: {
-    missingIdentifier: "Please enter your email, username, or phone number.",
+    missingPhone: "Please enter your phone number.",
+    invalidPhone: "Enter a valid 10-digit Indian mobile number.",
     invalidCredentials: "Invalid credentials. Please check and try again.",
     otpFailed: "Invalid or expired code. Please request a new one.",
     otpSendFailed: "Failed to send code. Please try again.",
-    accountNotVerified: "Account exists but isn't verified. Try registering again — we'll send a fresh code.",
+    tooManyRequests: "Too many requests. Please wait a moment.",
+    networkError: "Network error. Please check your connection.",
   },
 
-  // === Register Specific ===
-  registerPhoneHelp: 
-    "Required for OTP login. We'll auto-add +91 for Indian numbers.",
-
-  alreadyRegisteredButNotVerified: 
-    "Already registered but haven't verified? Fill in your details again — we'll send a fresh OTP.",
+  // === Product Share ===
+  shareTitle: "Share this product",
+  shareWhatsApp: "Share on WhatsApp",
+  shareCopyLink: "Copy Link",
+  linkCopied: "Link copied to clipboard!",
 };
 
 export default AUTH_COPY;

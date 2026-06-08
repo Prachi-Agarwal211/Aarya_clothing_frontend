@@ -208,7 +208,7 @@ export default function CustomerChatWidget() {
                 // - Chat button: z-[90] (below nav, above content)
                 // - Chat window: z-[95] (below nav, above content)
                 // - Cart drawer: z-[55] (below chat)
-                className="fixed right-6 p-4 bg-black text-white rounded-full shadow-2xl hover:bg-gray-800 hover:scale-105 transition-all z-[90] bottom-nav-offset md:bottom-6 md:z-50 flex items-center justify-center group"
+                className="fixed right-6 p-4 bg-black text-white rounded-full shadow-2xl hover:bg-gray-800 hover:scale-105 transition-all z-[90] bottom-chat-offset md:bottom-6 md:z-50 flex items-center justify-center group"
             >
                 <MessageSquare className="w-6 h-6" />
                 {/* Unread badge could go here */}
@@ -217,7 +217,7 @@ export default function CustomerChatWidget() {
     }
 
     return (
-        <div className={`fixed right-6 z-[95] transition-all duration-300 ease-in-out shadow-2xl rounded-2xl overflow-hidden bg-white border border-gray-200 flex flex-col bottom-nav-offset md:bottom-6 md:z-50 ${isMinimized ? 'w-72 h-14' : 'w-80 sm:w-96 h-[500px] max-h-[80vh]'}`}>
+        <div className={`fixed right-6 z-[95] transition-all duration-300 ease-in-out shadow-2xl rounded-2xl overflow-hidden bg-white border border-gray-200 flex flex-col bottom-chat-offset md:bottom-6 md:z-50 ${isMinimized ? 'w-72 h-14' : 'w-80 sm:w-96 h-[500px] max-h-[80vh]'}`}>
 
             {/* Header */}
             <div

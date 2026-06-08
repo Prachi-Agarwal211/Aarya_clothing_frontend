@@ -8,7 +8,6 @@ import { useCart } from '@/lib/cartContext';
 import { useAuth } from '@/lib/authContext';
 import { useStockStream } from '@/lib/hooks/useStockStream';
 import { getColorName } from '@/lib/colorMap';
-import { FREE_SHIPPING_THRESHOLD } from '@/lib/constants';
 
 export default function CartDrawer() {
   const { cart, loading, isOpen, closeCart, updateQuantity, removeItem, itemCount } = useCart();
@@ -283,40 +282,13 @@ export default function CartDrawer() {
         {/* Footer */}
         {cart?.items?.length > 0 && (
           <div className="border-t border-[#B76E79]/15 p-4 space-y-4">
-            {/* Free Shipping Progress */}
-            {(() => {
-              const subtotal = cart.subtotal || 0;
-              const remaining = Math.max(0, FREE_SHIPPING_THRESHOLD - subtotal);
-              const progress = Math.min(100, (subtotal / FREE_SHIPPING_THRESHOLD) * 100);
-              const isFreeShipping = subtotal >= FREE_SHIPPING_THRESHOLD;
-              return (
-                <div className="bg-[#7A2F57]/10 border border-[#B76E79]/15 rounded-xl p-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <Truck className="w-4 h-4 text-[#B76E79]" />
-                      <span className="text-xs text-[#EAE0D5]/70">
-                        {isFreeShipping ? (
-                          <span className="text-green-400 font-medium">🎉 You got free shipping!</span>
-                        ) : (
-                          <>Add <span className="text-[#F2C29A] font-medium">₹{remaining.toLocaleString()}</span> more for free shipping</>
-                        )}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="h-1.5 bg-[#0B0608]/40 rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full transition-all duration-700 ease-out"
-                      style={{
-                        width: `${progress}%`,
-                        background: isFreeShipping
-                          ? 'linear-gradient(90deg, #22c55e, #4ade80)'
-                          : 'linear-gradient(90deg, #7A2F57, #B76E79, #F2C29A)'
-                      }}
-                    />
-                  </div>
-                </div>
-              );
-            })()}
+            {/* Free Shipping Badge */}
+            <div className="bg-[#7A2F57]/10 border border-[#B76E79]/15 rounded-xl p-3">
+              <div className="flex items-center gap-2">
+                <Truck className="w-4 h-4 text-[#B76E79]" />
+                <span className="text-xs text-green-400 font-medium">🎉 Free shipping on all orders!</span>
+              </div>
+            </div>
 
             {/* Totals */}
             <div className="space-y-2">

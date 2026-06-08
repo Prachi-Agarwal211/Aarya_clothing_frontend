@@ -104,8 +104,10 @@ export default function LoginPageContent({ redirectUrl = '/products' }) {
       const [device_fingerprint, device_name] = await Promise.all([
         getDeviceFingerprint(), Promise.resolve(getDeviceName()),
       ]);
+      // Pass identifier as-is: backend _resolve_user_query handles email, username, and phone.
+      // Do NOT apply toE164() here — it would corrupt email/username identifiers.
       const result = await login({
-        identifier: toE164(identifier), password, remember_me: rememberMe,
+        identifier, password, remember_me: rememberMe,
         device_fingerprint, device_name,
       });
       logger.info('Login successful');

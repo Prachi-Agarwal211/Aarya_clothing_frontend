@@ -1,71 +1,27 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { X, Ruler, MessageCircle, Info } from 'lucide-react';
+import { X, Ruler, MessageCircle } from 'lucide-react';
 import Modal from '../ui/Modal';
-import { getCoreBaseUrl } from '@/lib/baseApi';
 
 /**
- * Size Guide Modal Component
+ * Simplified Size Guide Modal
  * 
- * Displays comprehensive size charts for different product categories
- * with measurement guides and fit type information.
+ * Shows a clean, simple size chart: S(36), M(38), L(40), XL(42), XXL(44), XXXL(46)
+ * No hip, chest, waist, shoulder complexity — just size letters and their numbers.
  */
-export default function SizeGuideModal({ isOpen, onClose, category = 'kurta' }) {
-  const [selectedCategory, setSelectedCategory] = useState(category);
-  const [sizeData, setSizeData] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState('chart'); // 'chart' or 'guide'
-
-  // Fetch size guide data
-  useEffect(() => {
-    if (isOpen) {
-      fetchSizeGuide(selectedCategory);
-    }
-  }, [isOpen, selectedCategory]);
-
-  const fetchSizeGuide = async (category) => {
-    setLoading(true);
-    try {
-      const response = await fetch(`${getCoreBaseUrl()}/api/v1/size-guide?category=${category}`, {
-        credentials: 'include',
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setSizeData(data);
-      }
-    } catch (error) {
-      console.error('Error fetching size guide:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Category display names
-  const categoryNames = {
-    kurta: 'Kurtas & Kurtis',
-    tops: 'Tops & Blouses',
-    bottoms: 'Bottoms & Leggings',
-    dress: 'Dresses & Gowns',
-    lehenga: 'Lehengas',
-    saree: 'Saree Blouses',
-    mens_shirt: "Men's Shirts & Kurtas",
-    mens_tshirt: "Men's T-Shirts",
-  };
-
-  // Measurement labels
-  const measurementLabels = {
-    chest_bust: 'Chest/Bust',
-    waist: 'Waist',
-    hip: 'Hip',
-    shoulder: 'Shoulder',
-    length: 'Length',
-    inseam: 'Inseam',
-  };
+export default function SizeGuideModal({ isOpen, onClose }) {
+  const sizeChart = [
+    { size: 'S', number: 36 },
+    { size: 'M', number: 38 },
+    { size: 'L', number: 40 },
+    { size: 'XL', number: 42 },
+    { size: 'XXL', number: 44 },
+    { size: 'XXXL', number: 46 },
+  ];
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} size="lg">
-      <div className="bg-[#0B0608] border border-[#B76E79]/20 rounded-xl overflow-hidden max-h-[90vh] flex flex-col">
+    <Modal isOpen={isOpen} onClose={onClose} size="md">
+      <div className="bg-[#0B0608] border border-[#B76E79]/20 rounded-xl overflow-hidden">
         {/* Header */}
         <div className="bg-gradient-to-r from-[#7A2F57] to-[#B76E79] p-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -81,301 +37,49 @@ export default function SizeGuideModal({ isOpen, onClose, category = 'kurta' }) 
           </button>
         </div>
 
-        {/* Category Selector */}
-        <div className="p-4 border-b border-[#B76E79]/20">
-          <label className="text-sm text-[#EAE0D5]/70 mb-2 block">Select Category</label>
-          <select
-            value={selectedCategory}
-            onChange={(e) => setSelectedCategory(e.target.value)}
-            className="w-full bg-[#0B0608]/40 border border-[#B76E79]/20 rounded-lg px-4 py-2.5 text-[#EAE0D5] focus:outline-none focus:border-[#B76E79] transition-colors"
-          >
-            {Object.entries(categoryNames).map(([key, name]) => (
-              <option key={key} value={key} className="bg-[#0B0608]">
-                {name}
-              </option>
-            ))}
-          </select>
-        </div>
+        {/* Simple Size Table */}
+        <div className="p-6">
+          <div className="overflow-hidden rounded-lg border border-[#B76E79]/20">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-[#7A2F57]/20">
+                  <th className="text-left py-3 px-6 text-[#F2C29A] font-semibold">Size</th>
+                  <th className="text-left py-3 px-6 text-[#F2C29A] font-semibold">Number</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sizeChart.map((row, index) => (
+                  <tr
+                    key={row.size}
+                    className={`border-t border-[#B76E79]/10 hover:bg-[#7A2F57]/10 transition-colors ${
+                      index % 2 === 0 ? 'bg-[#0B0608]/20' : 'bg-[#0B0608]/40'
+                    }`}
+                  >
+                    <td className="py-3.5 px-6 text-[#F2C29A] font-bold text-base">{row.size}</td>
+                    <td className="py-3.5 px-6 text-[#EAE0D5] text-base">{row.number}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
 
-        {/* Tabs */}
-        <div className="flex border-b border-[#B76E79]/20">
-          <button
-            onClick={() => setActiveTab('chart')}
-            className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
-              activeTab === 'chart'
-                ? 'bg-[#7A2F57]/20 text-[#F2C29A] border-b-2 border-[#B76E79]'
-                : 'text-[#EAE0D5]/60 hover:text-[#EAE0D5]'
-            }`}
-          >
-            Size Chart
-          </button>
-          <button
-            onClick={() => setActiveTab('guide')}
-            className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
-              activeTab === 'guide'
-                ? 'bg-[#7A2F57]/20 text-[#F2C29A] border-b-2 border-[#B76E79]'
-                : 'text-[#EAE0D5]/60 hover:text-[#EAE0D5]'
-            }`}
-          >
-            How to Measure
-          </button>
-        </div>
-
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-4">
-          {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="w-8 h-8 border-2 border-[#B76E79] border-t-transparent rounded-full animate-spin"></div>
-            </div>
-          ) : activeTab === 'chart' ? (
-            <SizeChart sizeData={sizeData} measurementLabels={measurementLabels} />
-          ) : (
-            <MeasurementGuide measurementGuide={sizeData?.measurement_guide} />
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="p-4 border-t border-[#B76E79]/20 bg-[#0B0608]/40">
-          <div className="flex items-start gap-3 mb-4">
-            <Info className="w-5 h-5 text-[#B76E79] flex-shrink-0 mt-0.5" />
-            <p className="text-xs text-[#EAE0D5]/60">
-              Measurements may vary slightly based on fabric and design. For custom fittings or special requirements, 
-              please contact our customer support team.
+          {/* Tips */}
+          <div className="mt-6 bg-[#7A2F57]/10 border border-[#B76E79]/20 rounded-lg p-4">
+            <p className="text-xs text-[#EAE0D5]/60 leading-relaxed">
+              When in between sizes, we recommend sizing up for comfort.
             </p>
           </div>
-          
+
+          {/* Chat Support */}
           <button
             onClick={() => window.open('/chat', '_blank')}
-            className="w-full flex items-center justify-center gap-2 bg-[#7A2F57]/20 hover:bg-[#7A2F57]/30 border border-[#B76E79]/40 text-[#F2C29A] px-4 py-3 rounded-lg transition-all hover:scale-[1.02]"
+            className="w-full mt-4 flex items-center justify-center gap-2 bg-[#7A2F57]/20 hover:bg-[#7A2F57]/30 border border-[#B76E79]/40 text-[#F2C29A] px-4 py-3 rounded-lg transition-all hover:scale-[1.02]"
           >
             <MessageCircle className="w-5 h-5" />
-            <span>Still Confused? Chat with Our Style Experts</span>
+            <span>Need Help? Chat with Our Style Experts</span>
           </button>
         </div>
       </div>
     </Modal>
-  );
-}
-
-/**
- * Size Chart Table Component
- */
-function SizeChart({ sizeData, measurementLabels }) {
-  // Default size chart for Aarya Clothing (Indian sizing)
-  // Maps standard sizes to chest/bust measurements
-  const defaultSizeChart = [
-    { size: 'S', chest: 36, chestCm: 91.4, waist: 30, waistCm: 76.2, hip: 38, hipCm: 96.5, length: 41, lengthCm: 104.1 },
-    { size: 'M', chest: 38, chestCm: 96.5, waist: 32, waistCm: 81.3, hip: 40, hipCm: 101.6, length: 42, lengthCm: 106.7 },
-    { size: 'L', chest: 40, chestCm: 101.6, waist: 34, waistCm: 86.4, hip: 42, hipCm: 106.7, length: 43, lengthCm: 109.2 },
-    { size: 'XL', chest: 42, chestCm: 106.7, waist: 36, waistCm: 91.4, hip: 44, hipCm: 111.8, length: 44, lengthCm: 111.8 },
-    { size: 'XXL', chest: 44, chestCm: 111.8, waist: 38, waistCm: 96.5, hip: 46, hipCm: 116.8, length: 45, lengthCm: 114.3 },
-    { size: 'XXXL', chest: 46, chestCm: 116.8, waist: 40, waistCm: 101.6, hip: 48, hipCm: 121.9, length: 46, lengthCm: 116.8 },
-  ];
-
-  // Use backend data if available, otherwise use default
-  const rawSizes = sizeData?.size_chart?.length > 0 ? sizeData.size_chart : defaultSizeChart;
-
-  // Normalize backend nested format {chest_bust: {inches, centimeters}} to flat {chest_bust, chest_bustCm}
-  const sizes = rawSizes.map(row => {
-    if (typeof row.size === 'object') return row; // already flat/default
-    const flat = { size: row.size };
-    for (const [key, val] of Object.entries(row)) {
-      if (key === 'size' || typeof val !== 'object' || val === null) {
-        flat[key] = val;
-      } else {
-        flat[key] = val.inches;
-        flat[key + 'Cm'] = val.centimeters;
-      }
-    }
-    return flat;
-  });
-
-  const measurements = sizes[0] ? Object.keys(sizes[0]).filter(k => k !== 'size') : [];
-
-  // Friendly measurement labels
-  const friendlyLabels = {
-    chest: 'Chest (inches)',
-    chestCm: 'Chest (cm)',
-    waist: 'Waist (inches)',
-    waistCm: 'Waist (cm)',
-    hip: 'Hip (inches)',
-    hipCm: 'Hip (cm)',
-    length: 'Length (inches)',
-    lengthCm: 'Length (cm)',
-    shoulder: 'Shoulder',
-    inseam: 'Inseam',
-    chest_bust: 'Chest/Bust',
-  };
-
-  // Map keys like "chest" and "chestCm" to friendly names
-  const getFriendlyLabel = (key) => {
-    if (friendlyLabels[key]) return friendlyLabels[key];
-    return key.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase());
-  };
-
-  // Group primary and secondary measurements
-  const primaryMeasurements = measurements.filter(k => !k.endsWith('Cm'));
-  const secondaryMeasurements = measurements.filter(k => k.endsWith('Cm'));
-
-  return (
-    <div className="space-y-4">
-      {/* Size Table */}
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-[#B76E79]/20">
-              <th className="text-left py-3 px-3 text-[#F2C29A] font-semibold sticky left-0 bg-[#0B0608] z-10">
-                Size
-              </th>
-              {primaryMeasurements.map((measurement) => (
-                <th
-                  key={measurement}
-                  className="text-center py-3 px-3 text-[#F2C29A] font-semibold whitespace-nowrap"
-                >
-                  {getFriendlyLabel(measurement)}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {sizes.map((size, index) => (
-              <tr
-                key={size.size}
-                className={`border-b border-[#B76E79]/10 hover:bg-[#7A2F57]/10 transition-colors ${
-                  index % 2 === 0 ? 'bg-[#0B0608]/20' : 'bg-[#0B0608]/40'
-                }`}
-              >
-                <td className="py-3 px-3 text-[#F2C29A] font-bold sticky left-0 bg-inherit z-10">
-                  {size.size}
-                </td>
-                {primaryMeasurements.map((measurement) => {
-                  const cmKey = measurement + 'Cm';
-                  const value = size[measurement];
-                  const cmValue = size[cmKey];
-                  return (
-                    <td key={measurement} className="text-center py-3 px-3 text-[#EAE0D5]">
-                      {value !== undefined && value !== null ? (
-                        <div className="flex flex-col items-center">
-                          <span className="font-medium">{value}"</span>
-                          {cmValue && (
-                            <span className="text-xs text-[#EAE0D5]/50">
-                              ({cmValue} cm)
-                            </span>
-                          )}
-                        </div>
-                      ) : (
-                        <span className="text-[#EAE0D5]/30">-</span>
-                      )}
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Size ↔ Number Reference */}
-      <div className="bg-[#7A2F57]/10 border border-[#B76E79]/20 rounded-lg p-4">
-        <h3 className="text-sm font-semibold text-[#F2C29A] mb-3">📐 Quick Size Reference</h3>
-        <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
-          {defaultSizeChart.map((s) => (
-            <div key={s.size} className="text-center bg-[#0B0608]/40 rounded-lg py-2 px-3">
-              <div className="text-lg font-bold text-[#F2C29A]">{s.size}</div>
-              <div className="text-sm text-[#EAE0D5]/70">= {s.chest}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Size Selection Tips */}
-      <div className="bg-[#7A2F57]/10 border border-[#B76E79]/20 rounded-lg p-4 mt-6">
-        <h3 className="text-sm font-semibold text-[#F2C29A] mb-2">💡 Size Selection Tips</h3>
-        <ul className="text-xs text-[#EAE0D5]/70 space-y-1.5 list-disc list-inside">
-          <li><strong>S (36)</strong> — Chest: 36&quot; / 91.4 cm</li>
-          <li><strong>M (38)</strong> — Chest: 38&quot; / 96.5 cm</li>
-          <li><strong>L (40)</strong> — Chest: 40&quot; / 101.6 cm</li>
-          <li><strong>XL (42)</strong> — Chest: 42&quot; / 106.7 cm</li>
-          <li><strong>XXL (44)</strong> — Chest: 44&quot; / 111.8 cm</li>
-          <li><strong>XXXL (46)</strong> — Chest: 46&quot; / 116.8 cm</li>
-          <li className="pt-1">For a relaxed fit, consider sizing up</li>
-          <li>When in between sizes, we recommend sizing up for comfort</li>
-        </ul>
-      </div>
-    </div>
-  );
-}
-
-/**
- * Measurement Guide Component
- */
-function MeasurementGuide({ measurementGuide }) {
-  if (!measurementGuide) {
-    return (
-      <div className="text-center py-12 text-[#EAE0D5]/60">
-        <p>Measurement guide not available.</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-4">
-      {Object.entries(measurementGuide).map(([key, data]) => (
-        <div
-          key={key}
-          className="bg-[#0B0608]/40 border border-[#B76E79]/20 rounded-lg p-4"
-        >
-          <h3 className="text-base font-semibold text-[#F2C29A] mb-2">
-            {data.name}
-          </h3>
-          <p className="text-sm text-[#EAE0D5]/70 mb-3">{data.description}</p>
-          
-          {data.tips && data.tips.length > 0 && (
-            <div className="bg-[#7A2F57]/10 rounded-lg p-3">
-              <p className="text-xs font-medium text-[#B76E79] mb-2">💡 Tips:</p>
-              <ul className="text-xs text-[#EAE0D5]/60 space-y-1">
-                {data.tips.map((tip, index) => (
-                  <li key={index} className="flex items-start gap-2">
-                    <span className="text-[#B76E79] mt-0.5">•</span>
-                    <span>{tip}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
-      ))}
-
-      {/* General Measurement Tips */}
-      <div className="bg-gradient-to-r from-[#7A2F57]/20 to-[#B76E79]/20 border border-[#B76E79]/20 rounded-lg p-4 mt-6">
-        <h3 className="text-sm font-semibold text-[#F2C29A] mb-3">📏 General Measurement Tips</h3>
-        <ul className="text-xs text-[#EAE0D5]/70 space-y-2">
-          <li className="flex items-start gap-2">
-            <span className="text-[#B76E79] mt-0.5">✓</span>
-            Use a flexible measuring tape for accurate measurements
-          </li>
-          <li className="flex items-start gap-2">
-            <span className="text-[#B76E79] mt-0.5">✓</span>
-            Keep the tape parallel to the floor for horizontal measurements
-          </li>
-          <li className="flex items-start gap-2">
-            <span className="text-[#B76E79] mt-0.5">✓</span>
-            Don&apos;t pull the tape too tight - it should be snug but comfortable
-          </li>
-          <li className="flex items-start gap-2">
-            <span className="text-[#B76E79] mt-0.5">✓</span>
-            Measure over light clothing or undergarments for best results
-          </li>
-          <li className="flex items-start gap-2">
-            <span className="text-[#B76E79] mt-0.5">✓</span>
-            Take measurements in the morning for most accurate results
-          </li>
-          <li className="flex items-start gap-2">
-            <span className="text-[#B76E79] mt-0.5">✓</span>
-            Have someone help you for more accurate back measurements
-          </li>
-        </ul>
-      </div>
-    </div>
   );
 }

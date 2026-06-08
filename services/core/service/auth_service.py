@@ -60,11 +60,26 @@ def _resolve_user_query(db: Session, identifier: str):
     from shared.phone_utils import normalize_phone_safe
     norm_phone = normalize_phone_safe(ident)
     if norm_phone and norm_phone != ident:
-        return (
+        user = (
             db.query(User)
             .filter(User.phone == norm_phone)
             .first()
         )
+        if user:
+            return user
+
+    # Second fallback: DB may store phones without +91 prefix (10-digit Indian
+    # numbers).  Try stripping the country code from the normalised value.
+    if norm_phone and norm_phone.startswith("+91") and len(norm_phone) > 3:
+        ten_digit = norm_phone[3:]  # strip "+91"
+        if ten_digit != ident and ten_digit != norm_phone:
+            user = (
+                db.query(User)
+                .filter(User.phone == ten_digit)
+                .first()
+            )
+            if user:
+                return user
 
     return None
 

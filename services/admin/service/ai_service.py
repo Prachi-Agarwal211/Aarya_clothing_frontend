@@ -873,7 +873,6 @@ def _execute_customer_tool(db: Session, tool_name: str, args: Dict) -> str:
 
         elif tool_name == "get_size_guide":
             product_id = int(args.get("product_id", 0))
-            measurements = args.get("measurements")
 
             product = db.execute(text("""
                 SELECT p.name, c.name as category
@@ -885,48 +884,14 @@ def _execute_customer_tool(db: Session, tool_name: str, args: Dict) -> str:
             if not product:
                 return json.dumps({"error": "Product not found"})
 
-            sizes = db.execute(text("""
-                SELECT DISTINCT size, quantity
-                FROM inventory
-                WHERE product_id = :pid AND size IS NOT NULL AND quantity > 0
-                ORDER BY
-                    CASE size
-                        WHEN 'XS' THEN 1 WHEN 'S' THEN 2 WHEN 'M' THEN 3
-                        WHEN 'L' THEN 4 WHEN 'XL' THEN 5 WHEN 'XXL' THEN 6
-                        ELSE 7
-                    END
-            """), {"pid": product_id}).fetchall()
-
-            size_chart = {
-                "XS": {"bust": "32-34", "waist": "24-26", "hips": "34-36"},
-                "S": {"bust": "34-36", "waist": "26-28", "hips": "36-38"},
-                "M": {"bust": "36-38", "waist": "28-30", "hips": "38-40"},
-                "L": {"bust": "38-40", "waist": "30-32", "hips": "40-42"},
-                "XL": {"bust": "40-42", "waist": "32-34", "hips": "42-44"},
-                "XXL": {"bust": "42-44", "waist": "34-36", "hips": "44-46"},
-            }
-
-            recommendation = None
-            if measurements:
-                try:
-                    bust = float(measurements.split('bust')[1].split(':')[1].split(',')[0].strip()) if 'bust' in measurements else None
-                    if bust:
-                        if bust <= 34: recommendation = "S"
-                        elif bust <= 36: recommendation = "M"
-                        elif bust <= 38: recommendation = "L"
-                        elif bust <= 40: recommendation = "XL"
-                        else: recommendation = "XXL"
-                except (ValueError, IndexError, TypeError):
-                    # Measurement parsing failed — skip recommendation
-                    pass
+            # Simple size chart: S=36, M=38, L=40, XL=42, XXL=44, XXXL=46
+            size_chart = "S=36, M=38, L=40, XL=42, XXL=44, XXXL=46. When in between sizes, size up for comfort."
 
             return json.dumps({
                 "product": product[0],
                 "category": product[1],
-                "available_sizes": [r[0] for r in sizes],
                 "size_chart": size_chart,
-                "recommendation": recommendation,
-                "note": "For best fit, compare your measurements with our size chart"
+                "note": "Size chart: S(36), M(38), L(40), XL(42), XXL(44), XXXL(46)"
             })
 
         elif tool_name == "get_shipping_estimate":

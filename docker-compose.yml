@@ -246,10 +246,10 @@ services:
       - EMAIL_OTP_USE_QUEUE=${EMAIL_OTP_USE_QUEUE:-true}
       - SMTP_SEND_MAX_ATTEMPTS=${SMTP_SEND_MAX_ATTEMPTS:-3}
       # Database connection pool (PgBouncer-compatible)
-      - DATABASE_POOL_SIZE=8
-      - DATABASE_MAX_OVERFLOW=4
-      # Worker count: 2 × CPU cores + 1, capped by PgBouncer budget
-      - UVICORN_WORKERS=2
+      - DATABASE_POOL_SIZE=20
+      - DATABASE_MAX_OVERFLOW=10
+      # Worker count: 4 workers on 4-core VPS
+      - UVICORN_WORKERS=4
     expose:
       - "5001"
     depends_on:
@@ -327,12 +327,10 @@ services:
       - AI_GLM_ENABLED=${AI_GLM_ENABLED:-true}
       - AI_NVIDIA_ENABLED=${AI_NVIDIA_ENABLED:-true}
       # Database connection pool (PgBouncer-compatible)
-      - DATABASE_POOL_SIZE=6
-      - DATABASE_MAX_OVERFLOW=2
-      # Commerce is the busiest service — 4 workers × 12 pool = 48 max connections
+      - DATABASE_POOL_SIZE=20
+      - DATABASE_MAX_OVERFLOW=10
+      # Commerce is the busiest service — 4 workers × 30 pool = 120 max connections
       - UVICORN_WORKERS=4
-      - DATABASE_POOL_SIZE=10
-      - DATABASE_MAX_OVERFLOW=2
       # Redis response caching for commerce (product listings, categories, etc.)
       - CACHE_BACKEND=redis
       - CACHE_URL=redis://:${REDIS_PASSWORD}@redis:6379/4
@@ -404,13 +402,10 @@ services:
       - DEBUG=${AARYA_DEBUG:-false}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       # Database connection pool (PgBouncer-compatible)
-      - DATABASE_POOL_SIZE=8
-      - DATABASE_MAX_OVERFLOW=4
+      - DATABASE_POOL_SIZE=20
+      - DATABASE_MAX_OVERFLOW=10
       # Payment needs reliable workers (webhook burst handling)
       - UVICORN_WORKERS=4
-      # Increase connection pool: 4 workers × 12 = 48 max DB connections
-      - DATABASE_POOL_SIZE=10
-      - DATABASE_MAX_OVERFLOW=2
     expose:
       - "5003"
     depends_on:
@@ -488,8 +483,8 @@ services:
       - AI_CUSTOMER_MAX_TOKENS=${AI_CUSTOMER_MAX_TOKENS:-512}
       - AI_ADMIN_MAX_TOKENS=${AI_ADMIN_MAX_TOKENS:-2048}
       # Database connection pool (PgBouncer-compatible)
-      - DATABASE_POOL_SIZE=8
-      - DATABASE_MAX_OVERFLOW=4
+      - DATABASE_POOL_SIZE=20
+      - DATABASE_MAX_OVERFLOW=10
     expose:
       - "5004"
     depends_on:
@@ -694,8 +689,8 @@ services:
       - CORE_SERVICE_URL=http://core:5001
       - INTERNAL_SERVICE_SECRET=${INTERNAL_SERVICE_SECRET:?INTERNAL_SERVICE_SECRET environment variable is required}
       # Database connection pool (PgBouncer-compatible)
-      - DATABASE_POOL_SIZE=8
-      - DATABASE_MAX_OVERFLOW=4
+      - DATABASE_POOL_SIZE=20
+      - DATABASE_MAX_OVERFLOW=10
     depends_on:
       postgres:
         condition: service_healthy

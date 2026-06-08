@@ -1,17 +1,30 @@
 import './globals.css';
 import { Cinzel, Playfair_Display } from 'next/font/google';
+import dynamic from 'next/dynamic';
 import { AuthProvider } from '../lib/authContext';
 import { CartProvider } from '../lib/cartContext';
 import { SiteConfigProvider } from '../lib/siteConfigContext';
-import CartDrawer from '../components/cart/CartDrawer';
 import SilkBackground from '../components/SilkBackgroundWrapper';
 import { ToastProvider } from '../components/ui/Toast';
 import { CartAnimationProvider } from '../components/cart/CartAnimation';
 import ErrorBoundary from '../components/ErrorBoundary';
-import CustomerChatWidget from '../components/chat/CustomerChatWidget';
-import BottomNavigation from '../components/common/BottomNavigation';
 import WebVitalsInit from '../components/WebVitalsInit';
 import { IntroVideoOverlayProvider } from '../lib/introVideoOverlayContext';
+
+// Dynamic imports for heavy components not needed on auth pages
+// These are client-only and add significant hydration overhead
+const CartDrawer = dynamic(() => import('../components/cart/CartDrawer'), {
+  ssr: false,
+  loading: () => null,
+});
+const CustomerChatWidget = dynamic(() => import('../components/chat/CustomerChatWidget'), {
+  ssr: false,
+  loading: () => null,
+});
+const BottomNavigation = dynamic(() => import('../components/common/BottomNavigation'), {
+  ssr: false,
+  loading: () => <div className="h-16 md:hidden" />, // prevent layout shift on mobile
+});
 
 // Optimize font loading with next/font/google
 const cinzel = Cinzel({
@@ -95,6 +108,7 @@ export default function RootLayout({ children }) {
                       <div className="relative z-10">
                         {children}
                       </div>
+                      {/* Dynamic: CartDrawer, BottomNav, ChatWidget lazy-loaded */}
                       <CartDrawer />
                       <BottomNavigation />
                       <CustomerChatWidget />

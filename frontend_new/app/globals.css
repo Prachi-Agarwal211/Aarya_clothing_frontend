@@ -2169,6 +2169,13 @@ main {
   bottom: calc(4rem + env(safe-area-inset-bottom, 0px));
 }
 
+/* Position chat widget above both bottom nav AND sticky CTA bars on mobile.
+   Sticky CTA bars (e.g. product page Add to Cart) use bottom-nav-offset at z-[99].
+   Chat uses this class to float above them. */
+.bottom-chat-offset {
+  bottom: calc(8rem + env(safe-area-inset-bottom, 0px));
+}
+
 /* Desktop override - ensures no weird positioning if class leaks */
 @media (min-width: 1024px) {
   .bottom-nav-offset {

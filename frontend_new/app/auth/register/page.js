@@ -12,7 +12,7 @@ import logger from '../../../lib/logger';
 import { getRedirectForRole, USER_ROLES } from '../../../lib/roles';
 import { useLogo, useSiteConfig } from '../../../lib/siteConfigContext';
 import { AUTH_COPY } from '../../../lib/authCopy';
-import { validatePhone } from '../../../lib/authHelpers';
+import { validatePhone, toE164 } from '../../../lib/authHelpers';
 
 const OTP_EXPIRY_SECONDS = 600;
 const RESEND_COOLDOWN_SECONDS = 30;
@@ -151,7 +151,7 @@ export default function RegisterPage() {
                                       verificationMethod === 'otp_email' ? 'otp_email' : 'otp_sms';
       
       const body = {
-        phone: phone.trim(),
+        phone: toE164(phone),
         verification_method: verificationMethodValue,
       };
       
@@ -195,7 +195,7 @@ export default function RegisterPage() {
                     verificationMethod === 'otp_email' ? 'EMAIL' : 'SMS';
     
     const body = {
-      phone: phone.trim(),
+      phone: toE164(phone),
       otp_type: otpType,
     };
     
@@ -249,7 +249,7 @@ export default function RegisterPage() {
     const otpType = verificationMethod === 'otp_whatsapp' ? 'WHATSAPP' : 
                     verificationMethod === 'otp_email' ? 'EMAIL' : 'SMS';
 
-    const body = { phone: phone.trim(), otp_code: otpValue, otp_type: otpType };
+    const body = { phone: toE164(phone), otp_code: otpValue, otp_type: otpType };
 
     try {
       const response = await fetch('/api/v1/auth/verify-otp-registration', {
@@ -346,9 +346,9 @@ export default function RegisterPage() {
 
           {/* Phone Number - Large and prominent */}
           <div className="space-y-2">
-            <label className="text-[#EAE0D5]/80 text-sm font-medium">Phone Number</label>
-            <div className="luxury-input-wrapper h-14 sm:h-16 rounded-xl relative group flex items-center px-4 bg-[#0B0608]/80 border border-[#B76E79]/30">
+            <label className="text-[#EAE0D5]/80 text-sm font-medium">Phone Number</label>              <div className="luxury-input-wrapper h-14 sm:h-16 rounded-xl relative group flex items-center px-4 bg-[#0B0608]/80 border border-[#B76E79]/30">
               <Phone className="w-5 h-5 sm:w-6 sm:h-6 text-[#B76E79] group-focus-within:text-[#F2C29A] transition-colors duration-300 shrink-0" aria-hidden="true" />
+              <span className="text-[#F2C29A] font-medium text-lg sm:text-xl ml-2 shrink-0 select-none">+91</span>
               <Input
                 id="phone-register"
                 name="phone-register"
@@ -361,9 +361,9 @@ export default function RegisterPage() {
                   const val = e.target.value.replace(/\D/g, '').slice(0, 10);
                   setPhone(val);
                 }}
-                placeholder={AUTH_COPY.phonePlaceholder}
+                placeholder="XXXXXXXXXX"
                 variant="minimal"
-                className="h-full pl-4 text-[#EAE0D5] placeholder:text-[#8A6A5C] text-lg sm:text-xl font-medium tracking-wider"
+                className="h-full pl-2 text-[#EAE0D5] placeholder:text-[#8A6A5C] text-lg sm:text-xl font-medium tracking-wider"
               />
             </div>
             <p className="text-[#EAE0D5]/50 text-xs px-1">
@@ -464,7 +464,7 @@ export default function RegisterPage() {
               {AUTH_COPY.otpEnterCode}
             </p>
             <p className="text-[#F2C29A] font-medium text-lg">
-              {phone}
+              +91 {phone}
             </p>
           </div>
 

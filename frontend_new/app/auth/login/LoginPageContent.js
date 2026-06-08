@@ -14,7 +14,7 @@ import { getDeviceFingerprint, getDeviceName } from '../../../lib/deviceFingerpr
 import { useLogo, useSiteConfig } from '../../../lib/siteConfigContext';
 import { getRedirectForRole, USER_ROLES } from '../../../lib/roles';
 import { AUTH_COPY } from '../../../lib/authCopy';
-import { validatePhone } from '../../../lib/authHelpers';
+import { validatePhone, toE164 } from '../../../lib/authHelpers';
 
 /**
  * Simplified login page — Phone-first OTP for Indian users.
@@ -105,7 +105,7 @@ export default function LoginPageContent({ redirectUrl = '/products' }) {
         getDeviceFingerprint(), Promise.resolve(getDeviceName()),
       ]);
       const result = await login({
-        identifier: identifier.trim(), password, remember_me: rememberMe,
+        identifier: toE164(identifier), password, remember_me: rememberMe,
         device_fingerprint, device_name,
       });
       logger.info('Login successful');
@@ -143,7 +143,7 @@ export default function LoginPageContent({ redirectUrl = '/products' }) {
       else if (verificationMethod === 'otp_email') otpType = 'EMAIL';
       
       // For phone-based login, send to phone
-      await authApi.sendLoginOtpRequest(identifier.trim(), otpType);
+      await authApi.sendLoginOtpRequest(toE164(identifier), otpType);
       setOtpSent(true);
       setOtpDigits(['', '', '', '', '', '']);
       setOtpTimeLeft(600);
@@ -182,7 +182,7 @@ export default function LoginPageContent({ redirectUrl = '/products' }) {
       
       // Existing user OTP login
       const result = await login({
-        identifier: identifier.trim(), 
+        identifier: toE164(identifier), 
         otp_code: otpValue, 
         login_method: 'otp',
         otp_type: otpType, 
@@ -271,6 +271,7 @@ export default function LoginPageContent({ redirectUrl = '/products' }) {
                 <label className="text-[#EAE0D5]/80 text-sm font-medium">Phone Number</label>
                 <div className="luxury-input-wrapper h-14 sm:h-16 rounded-xl relative group flex items-center px-4 bg-[#0B0608]/80 border border-[#B76E79]/30">
                   <Phone className="w-5 h-5 sm:w-6 sm:h-6 text-[#B76E79] group-focus-within:text-[#F2C29A] transition-colors duration-300 shrink-0" aria-hidden="true" />
+                  <span className="text-[#F2C29A] font-medium text-lg sm:text-xl ml-2 shrink-0 select-none">+91</span>
                   <Input
                     id="phone-login"
                     name="phone-login"
@@ -284,9 +285,9 @@ export default function LoginPageContent({ redirectUrl = '/products' }) {
                       const val = e.target.value.replace(/\D/g, '').slice(0, 10);
                       setIdentifier(val);
                     }}
-                    placeholder={AUTH_COPY.phonePlaceholder}
+                    placeholder="XXXXXXXXXX"
                     variant="minimal"
-                    className="h-full pl-4 text-[#EAE0D5] placeholder:text-[#8A6A5C] text-lg sm:text-xl font-medium tracking-wider"
+                    className="h-full pl-2 text-[#EAE0D5] placeholder:text-[#8A6A5C] text-lg sm:text-xl font-medium tracking-wider"
                   />
                 </div>
                 <p className="text-[#EAE0D5]/50 text-xs px-1">
@@ -390,7 +391,7 @@ export default function LoginPageContent({ redirectUrl = '/products' }) {
                   {AUTH_COPY.otpEnterCode}
                 </p>
                 <p className="text-[#F2C29A] font-medium text-lg">
-                  {identifier}
+                  +91 {identifier}
                 </p>
                 <p className={`text-sm mt-2 ${otpExpired ? 'text-red-300' : otpTimeLeft <= 30 ? 'text-amber-300' : 'text-[#EAE0D5]/70'}`}>
                   {otpExpired ? 'Code expired' : `${AUTH_COPY.otpExpiresIn} ${formatTime(otpTimeLeft)}`}

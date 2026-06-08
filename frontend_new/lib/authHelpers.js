@@ -5,6 +5,26 @@
  * @param {string} phone - Phone number to validate
  * @returns {Object} Validation result
  */
+/**
+ * Format a 10-digit Indian number to E.164 with +91 prefix.
+ * Idempotent: won't double-prefix if already has +91.
+ * @param {string} num - Raw 10-digit number or E.164 string
+ * @returns {string} E.164 formatted phone number
+ */
+export function toE164(num) {
+  if (!num) return '';
+  // Check for +91 BEFORE stripping non-digits (since + is non-digit)
+  if (num.startsWith('+91')) return num;
+  // Strip everything except digits and prepend +91
+  const digits = num.replace(/\D/g, '');
+  return '+91' + digits;
+}
+
+/**
+ * Validate phone number format (Indian and International)
+ * @param {string} phone - Phone number to validate
+ * @returns {Object} Validation result
+ */
 export function validatePhone(phone) {
   if (!phone || phone.trim() === '') {
     return { valid: false, message: 'Phone number is required' };

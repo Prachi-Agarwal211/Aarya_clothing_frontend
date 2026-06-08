@@ -43,10 +43,12 @@ async function fetchProductsAPI(params = {}) {
   logger.debug('[fetchProductsAPI] Response status:', 200);
 
   return response;
+}
 
 async function fetchCollectionsAPI() {
   const response = await coreClient.fetch('/api/v1/collections');
   return response;
+}
 
 export default function ProductsContent({ initialFilters, initialData }) {
   const [products, setProducts] = useState(initialData?.products || []);

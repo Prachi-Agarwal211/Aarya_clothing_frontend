@@ -194,10 +194,6 @@ export default function RegisterPage() {
     const otpType = verificationMethod === 'otp_whatsapp' ? 'WHATSAPP' : 
                     verificationMethod === 'otp_email' ? 'EMAIL' : 'SMS';
     
-    // Resend OTP using the dedicated send-verification-otp endpoint
-    const otpType = verificationMethod === 'otp_whatsapp' ? 'WHATSAPP' : 
-                    verificationMethod === 'otp_email' ? 'EMAIL' : 'SMS';
-    
     const body = {
       phone: phone.trim(),
       otp_type: otpType,

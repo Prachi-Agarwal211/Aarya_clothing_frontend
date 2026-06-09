@@ -948,7 +948,9 @@ class PaymentService:
 
     def _handle_captured_no_transaction(self, event_info, payment_id, razorpay_order_id, amount_paise, method):
         """Handle payment.captured when no transaction record exists — on-the-fly recovery."""
-        if not (payment_id and method in ["upi", "card", "netbanking"]):
+        # FIX: Added 'upi_qr' to method list — QR payments can arrive without a
+        # transaction record if the create-qr API call failed to save the transaction.
+        if not (payment_id and method in ["upi", "card", "netbanking", "upi_qr"]):
             logger.error(f"WEBHOOK_NO_TRANSACTION: payment_id={payment_id} method={method} — cannot recover")
             return
 
@@ -1066,15 +1068,23 @@ class PaymentService:
             logger.info(f"WEBHOOK: Payment authorized: {payment_id} txn={txn_locked.transaction_id}")
 
             # ── Step 3: Create order OUTSIDE lock ──
-            if method in ["upi", "card", "netbanking"] and not self._order_exists(transaction):
-                logger.info(f"WEBHOOK: Creating order from authorized event for txn={txn_locked.transaction_id}")
+            # FIX: Added 'wallet' to method list — wallet payments send 'authorized' first,
+            # then 'captured'. Without this, wallet payments could be authorized but
+            # never create an order if the 'captured' webhook is missed.
+            if method in ["upi", "card", "netbanking", "wallet"] and not self._order_exists(transaction):
+                logger.info(f"WEBHOOK: Creating order from authorized event for txn={txn_locked.transaction_id} method={method}")
                 self._create_order_from_webhook(transaction, event_info)
         except Exception as e:
             self.db.rollback()
             logger.error(f"WEBHOOK_AUTHORIZED_FAILED: {str(e)}")
 
     def _handle_order_paid(self, event_info: Dict[str, Any]):
-        """Handle order.paid webhook — link order to payment."""
+        """Handle order.paid webhook — link order to payment AND create order as safety net.
+
+        SAFETY NET: If payment.captured was missed or failed to process,
+        this handler ensures the order is still created. This prevents
+        the rare scenario where a customer paid but no order was ever created.
+        """
         try:
             payment_id = event_info.get("payment_id")
             razorpay_order_id = event_info.get("order_id")
@@ -1107,13 +1117,17 @@ class PaymentService:
                 elif transaction.status != "completed":
                     transaction.status = "completed"
                     transaction.completed_at = ist_naive()
-                self.db.flush()
-                
-                # Ensure order is linked
-                if transaction.order_id and not transaction.transaction_id:
-                    # transaction has order_id but order doesn't have transaction_id
-                    pass
-                    
+                self.db.commit()  # Commit status update
+
+                # SAFETY NET: If no order exists yet, create it now
+                # This handles the rare case where payment.captured was missed
+                if not self._order_exists(transaction):
+                    logger.info(
+                        f"WEBHOOK_ORDER_PAID_SAFETY: No order for payment={payment_id} "
+                        f"— creating from order.paid event"
+                    )
+                    self._create_order_from_webhook(transaction, event_info)
+
             logger.info(f"WEBHOOK: Order paid: {razorpay_order_id} payment={payment_id}")
         except Exception as e:
             self.db.rollback()

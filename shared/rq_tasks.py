@@ -39,19 +39,18 @@ def task_send_otp_email(email: str, otp_code: str, purpose: str = "verification"
 
 
 def task_send_otp_sms(phone: str, otp_code: str, purpose: str = "verification"):
-    """Send OTP via SMS (MSG91). Runs in RQ worker."""
+    """Send OTP via SMS (Fast2SMS). Runs in RQ worker."""
     logger.info(f"[RQ] Sending OTP SMS to {phone} (purpose={purpose})")
     try:
-        from service.sms_service import SmsService
+        from service.sms_service import sms_service
     except ImportError as e:
-        logger.error(f"[RQ] Cannot import SmsService (wrong worker context?): {e}")
+        logger.error(f"[RQ] Cannot import sms_service (wrong worker context?): {e}")
         return False
     try:
-        sms = SmsService()
-        if not sms.api_key:
+        if not sms_service.api_key:
             logger.warning("[RQ] SMS service not configured")
             return False
-        result = sms.send_otp(phone, otp_code, purpose)
+        result = sms_service.send_otp(phone, otp_code, purpose)
         return isinstance(result, dict) and result.get("success")
     except Exception as e:
         logger.error(f"[RQ] OTP SMS exception for {phone}: {e}")
@@ -59,19 +58,18 @@ def task_send_otp_sms(phone: str, otp_code: str, purpose: str = "verification"):
 
 
 def task_send_otp_whatsapp(phone: str, otp_code: str, purpose: str = "verification"):
-    """Send OTP via WhatsApp. Runs in RQ worker."""
+    """Send OTP via WhatsApp (Fast2SMS). Runs in RQ worker."""
     logger.info(f"[RQ] Sending OTP WhatsApp to {phone} (purpose={purpose})")
     try:
-        from service.whatsapp_service import WhatsAppService
+        from service.whatsapp_service import whatsapp_service
     except ImportError as e:
-        logger.error(f"[RQ] Cannot import WhatsAppService (wrong worker context?): {e}")
+        logger.error(f"[RQ] Cannot import whatsapp_service (wrong worker context?): {e}")
         return False
     try:
-        wa = WhatsAppService()
-        if not wa.api_key or not wa.phone_number_id:
+        if not whatsapp_service.api_key or not whatsapp_service.phone_number_id:
             logger.warning("[RQ] WhatsApp service not configured")
             return False
-        result = wa.send_otp(phone, otp_code)
+        result = whatsapp_service.send_otp(phone, otp_code)
         return isinstance(result, dict) and result.get("success")
     except Exception as e:
         logger.error(f"[RQ] OTP WhatsApp exception for {phone}: {e}")

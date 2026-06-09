@@ -45,7 +45,7 @@ from middleware.auth_middleware import init_auth, get_current_user, get_current_
 from middleware.csrf_middleware import CSRFMiddleware
 from shared.request_id_middleware import RequestIDMiddleware
 from exception_handler import setup_exception_handlers
-from shared.time_utils import now_ist
+from shared.time_utils import now_ist, ist_naive
 from shared.phone_utils import normalize_phone_safe
 
 
@@ -870,8 +870,41 @@ async def login_otp_request(
         except Exception as exc:
             logger.warning(f"login_otp_request rate limit error (skipping): {exc}")
 
+    from service.auth_service import _resolve_user_query
+    auth_service = AuthService(db)
+
+    # UNIFIED FLOW: Check if user exists first. If not, auto-register silently.
+    existing_user = _resolve_user_query(db, identifier)
+    if not existing_user:
+        try:
+            # Auto-register: UserCreate schema generates email/username/password/name from phone
+            user_data = UserCreate(phone=identifier)
+            user = User(
+                email=user_data.email,
+                username=user_data.username,
+                hashed_password=AuthService.get_password_hash(user_data.password),
+                role="customer",
+                is_active=True,
+                email_verified=False,
+                phone=user_data.phone,
+                full_name=user_data.full_name,
+                first_name=user_data.first_name,
+                last_name=user_data.last_name,
+                phone_verified=True,
+                signup_verification_method=f"otp_{otp_type.lower()}",
+                created_at=ist_naive(),
+                updated_at=ist_naive(),
+            )
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+            logger.info(f"[AUTH] Auto-registered new user via login-otp-request: user_id={user.id} phone={user.phone}")
+        except Exception as reg_err:
+            logger.error(f"[Auth Error] Auto-registration failed: {reg_err}")
+            raise HTTPException(status_code=400, detail="Failed to send OTP. Please try again.")
+
     try:
-        result = AuthService(db).send_login_otp(identifier=identifier, otp_type=otp_type)
+        result = auth_service.send_login_otp(identifier=identifier, otp_type=otp_type)
         return {
             "message": result.get("message", "OTP sent"),
             "otp_type": result.get("otp_type", otp_type),
@@ -1476,6 +1509,33 @@ async def update_current_user(
             parts = full_name.split()
             user.first_name = parts[0]
             user.last_name = " ".join(parts[1:]) if len(parts) > 1 else None
+    # Email update — replaces auto-generated placeholder from phone-first registration
+    if "email" in update_data and update_data["email"]:
+        new_email = update_data["email"].lower().strip()
+        if new_email != user.email:
+            # Check email uniqueness
+            existing_email = db.query(User).filter(
+                User.email == new_email, User.id != user.id
+            ).first()
+            if existing_email:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="An account with this email already exists."
+                )
+            user.email = new_email
+            # NOTE: Do NOT set email_verified = False here.
+            # The user is voluntarily providing their email during registration —
+            # no OTP verification is required. The phone OTP already verified identity.
+            # Re-derive username from the new email
+            base = new_email.split("@")[0]
+            base = "".join(c for c in base if c.isalnum() or c in "._-")[:50] or "user"
+            # Ensure username uniqueness
+            candidate = base
+            counter = 1
+            while db.query(User).filter(User.username == candidate, User.id != user.id).first():
+                candidate = f"{base}_{counter}"
+                counter += 1
+            user.username = candidate
 
     user.updated_at = now_ist()
     db.commit()

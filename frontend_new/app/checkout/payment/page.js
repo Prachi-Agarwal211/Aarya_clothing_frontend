@@ -364,11 +364,11 @@ export default function CheckoutPaymentPage() {
         throw new Error('Invalid QR code response from server');
       }
 
-      // Store pending_order_id from QR response
-      // Backend: notes["pending_order_id"] = str(pending_id)
-      const qrPendingId = qrResponse?.notes?.pending_order_id;
+      // Store pending_order_id from QR response (FIX: use direct field, not nested notes)
+      const qrPendingId = qrResponse?.pending_order_id;
       if (qrPendingId) {
         sessionStorage.setItem('pending_order_id', qrPendingId);
+        logger.info('Stored QR pending_order_id:', qrPendingId);
       }
 
       setQrCodeData(qrResponse);

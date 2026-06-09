@@ -53,8 +53,10 @@ async def _verify_payment_captured(payment_id: str, razorpay_order_id: str) -> d
     """
     Single verification path: verify payment is captured.
 
-    Tries Payment Service API first. Falls back to direct Razorpay API
-    if the payment service is unreachable.
+    Uses direct Razorpay API to fetch payment status. This is the recovery
+    path — we skip HMAC signature verification (which requires the original
+    checkout signature) and instead confirm the payment was actually captured
+    by Razorpay.
 
     Args:
         payment_id: Razorpay payment ID (pay_xxx)
@@ -66,28 +68,8 @@ async def _verify_payment_captured(payment_id: str, razorpay_order_id: str) -> d
     Raises:
         HTTPException: If payment is not captured or verification fails.
     """
-    import httpx as _httpx
     from core.config import settings as _settings
 
-    # Path 1: Payment Service API
-    payment_service_url = os.getenv("PAYMENT_SERVICE_URL", "http://payment:5003")
-    try:
-        async with _httpx.AsyncClient(timeout=5.0) as client:
-            verify_resp = await client.post(
-                f"{payment_service_url}/api/v1/payments/razorpay/verify-signature",
-                json={
-                    "razorpay_order_id": razorpay_order_id,
-                    "razorpay_payment_id": payment_id,
-                    "razorpay_signature": "",  # recovery path — verify status, not signature
-                },
-            )
-        if verify_resp.status_code == 200:
-            logger.info(f"Payment verified via Payment Service API: {payment_id}")
-            return {"status": "captured", "id": payment_id, "verified_by": "payment_service"}
-    except _httpx.RequestError:
-        logger.warning(f"Payment Service unavailable, falling back to direct Razorpay API")
-
-    # Path 2: Direct Razorpay API
     if not _settings.RAZORPAY_KEY_ID or not _settings.RAZORPAY_KEY_SECRET:
         logger.warning("Razorpay credentials not configured, cannot fetch payment")
         raise HTTPException(
@@ -113,9 +95,9 @@ async def _verify_payment_captured(payment_id: str, razorpay_order_id: str) -> d
     except Exception as e:
         logger.error(f"Failed to fetch payment from Razorpay: {e}")
         raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Failed to verify payment: {str(e)}",
-        )
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=f"Failed to verify payment: {str(e)}",
+            )
 
 
 def _get_order_service(db: Session) -> OrderService:

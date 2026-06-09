@@ -466,6 +466,7 @@ async def create_qr_code(
         close_by = now + 300  # 5 minutes in seconds
 
         notes = request.notes or {}
+        pending_id = None  # Initialize — may be set by commerce prepare call
 
         # If we have a cart snapshot, prepare a pending order in commerce
         if request.cart_snapshot and request.shipping_address:
@@ -477,7 +478,7 @@ async def create_qr_code(
                 prepare_resp = await httpx.AsyncClient().post(
                     f"{commerce_url}/api/v1/orders/internal/orders/prepare",
                     json={
-                        "user_id": current_user["id"],
+                        "user_id": current_user["user_id"],
                         "cart_snapshot": request.cart_snapshot,
                         "shipping_address": request.shipping_address,
                         "total_amount": float(request.amount) / 100.0,
@@ -492,7 +493,7 @@ async def create_qr_code(
                     pending_data = prepare_resp.json()
                     pending_id = pending_data.get("pending_order_id")
                     notes["pending_order_id"] = str(pending_id)
-                    logger.info(f"✓ QR_PENDING_ORDER_PREPARED: id={pending_id} for user={current_user['id']}")
+                    logger.info(f"✓ QR_PENDING_ORDER_PREPARED: id={pending_id} for user={current_user['user_id']}")
             except Exception as e:
                 logger.warning(f"⚠ Failed to prepare QR pending order: {e}")
 
@@ -517,18 +518,30 @@ async def create_qr_code(
         # Generate transaction ID
         transaction_id = f"txn_qr_{now}_{uuid.uuid4().hex[:8]}"
 
+        # FIX: Store cart_snapshot and shipping_address in gateway_response
+        # so _create_order_from_webhook can find order data via _checkout_meta
+        qr_gateway_response = {
+            "created_during": "create-qr",
+            "qr_code_id": qr_code_id,
+        }
+        if request.cart_snapshot:
+            qr_gateway_response["cart_snapshot"] = request.cart_snapshot
+        if request.shipping_address:
+            qr_gateway_response["shipping_address"] = request.shipping_address
+
         # Create transaction record
         # order_id is NULL at this point — the order is created AFTER payment succeeds
         transaction = PaymentTransaction(
             order_id=None,
-            user_id=current_user["id"],  # Use JWT user_id, not notes string
+            user_id=current_user["user_id"],  # Use JWT user_id, not notes string
             amount=request.amount / Decimal('100'),  # Convert paise to rupees
             currency="INR",
             payment_method="upi_qr",
             transaction_id=transaction_id,
             status="pending",
             razorpay_qr_code_id=qr_code_id,
-            description=request.description
+            description=request.description,
+            gateway_response=qr_gateway_response,
         )
 
         db.add(transaction)
@@ -543,7 +556,8 @@ async def create_qr_code(
             amount=request.amount,
             currency="INR",
             expires_at=close_by,
-            transaction_id=transaction_id
+            transaction_id=transaction_id,
+            pending_order_id=str(pending_id) if pending_id else None,
         )
 
     except HTTPException:

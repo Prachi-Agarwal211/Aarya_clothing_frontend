@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Mail, Smartphone, MessageCircle, Phone } from 'lucide-react';
@@ -34,8 +34,17 @@ const VERIFICATION_LABELS = {
  * 5. Optional: Add name and email later
  */
 export default function RegisterPage() {
-  const [step, setStep] = useState(1); // 1: Phone, 2: OTP, 3: Success
+  const [step, setStep] = useState(1); // 1: Phone, 2: OTP, 3: Profile (name+email), 4: Success
+  const [completeProfile] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return new URLSearchParams(window.location.search).get('completeProfile') === 'true';
+    }
+    return false;
+  });
   const [phone, setPhone] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [email, setEmail] = useState('');
   const [otpDigits, setOtpDigits] = useState(['', '', '', '', '', '']);
   const [verificationMethod, setVerificationMethod] = useState('otp_sms'); // Default SMS
   const [otpTimeLeft, setOtpTimeLeft] = useState(OTP_EXPIRY_SECONDS);
@@ -273,20 +282,67 @@ export default function RegisterPage() {
       const data = await response.json();
       logger.info('Registration & OTP verification successful', { userId: data?.user?.id });
 
-      if (data?.user) {
-        setAuthStatus(data.user);
+      // Do NOT call setAuthStatus here — it triggers immediate redirect
+      // via the isAuthenticated useEffect. We'll set it AFTER profile is
+      // saved (or skipped) in step 4.
+      setStep(3);
+      setRegistrationSuccess(true);
+    } catch (error) {
+      setError(error.message);
+      setIsSubmitting(false);
+    }
+  };
+
+  // Step 3: Save profile details (name + email) after OTP verification
+  const handleProfileSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setIsSubmitting(true);
+
+    try {
+      const body = {};
+      if (firstName.trim()) {
+        body.full_name = lastName.trim() ? `${firstName.trim()} ${lastName.trim()}` : firstName.trim();
+      }
+      if (email.trim()) {
+        body.email = email.trim();
       }
 
-      // Account created - show success and redirect
+      // Only call PATCH if there's something to save
+      if (Object.keys(body).length > 0) {
+        const response = await fetch('/api/v1/users/me', {
+          method: 'PATCH',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          const message = errorData.detail || 'Failed to save profile details';
+          throw new Error(message);
+        }
+
+        const updatedUser = await response.json();
+        logger.info('Profile updated after registration', { userId: updatedUser?.id });
+        setAuthStatus(updatedUser);
+      } else {
+        // No profile data to save — set auth status with empty object
+        // so the isAuthenticated redirect in step 4 works
+        setAuthStatus({});
+      }
+
+      // Move to success step
+      setStep(4);
       setRegistrationSuccess(true);
-      setStep(3);
-      
-      const role = data?.user?.role || USER_ROLES.CUSTOMER;
+
+      const role = USER_ROLES.CUSTOMER;
       setTimeout(() => {
         router.push(getRedirectForRole(role));
       }, 2000);
-    } catch (error) {
-      setError(error.message);
+    } catch (err) {
+      setError(err.message);
+    } finally {
       setIsSubmitting(false);
     }
   };
@@ -297,11 +353,18 @@ export default function RegisterPage() {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  // If redirected from login with ?completeProfile=true, skip to step 3
+  useEffect(() => {
+    if (completeProfile && isAuthenticated) {
+      setStep(3);
+    }
+  }, [completeProfile, isAuthenticated]);
+
   React.useEffect(() => {
-    if (isAuthenticated) {
+    if (isAuthenticated && !completeProfile) {
       router.push(getRedirectForRole(user?.role || USER_ROLES.CUSTOMER));
     }
-  }, [isAuthenticated, user, router]);
+  }, [isAuthenticated, user, router, completeProfile]);
 
   if (isAuthenticated) {
     return null;
@@ -326,11 +389,13 @@ export default function RegisterPage() {
         <h2 className="text-xl sm:text-2xl text-white/90 font-body">
           {step === 1 ? 'Create your account' : 
            step === 2 ? `Verify your ${verificationLabel}` :
+           step === 3 ? 'Complete your profile' :
            'Welcome to Aarya!'}
         </h2>
         <p className="text-[#8A6A5C] text-xs sm:text-sm uppercase tracking-[0.15em] font-light">
           {step === 1 ? 'Enter your phone number to get started' : 
            step === 2 ? 'Enter the code we sent you' :
+           step === 3 ? 'Tell us about yourself' :
            'Your account is ready'}
         </p>
       </div>
@@ -531,24 +596,110 @@ export default function RegisterPage() {
       )}
 
       {/* Step 3: Optional Details + Success */}
+      {/* Step 3: Profile details (name + email) */}
       {step === 3 && (
         <div className="w-full space-y-4 animate-fade-in-up-delay">
-          {registrationSuccess && (
-            <div className="text-center p-6 rounded-xl bg-green-500/10 border border-green-500/20">
-              <div className="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-4">
-                <svg className="w-8 h-8 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-              <h3 className="text-xl text-white font-medium mb-2">{AUTH_COPY.accountCreated}</h3>
-              <p className="text-[#EAE0D5]/70 text-sm mb-4">
-                You can add your name and email later in your profile.
-              </p>
-              <p className="text-[#EAE0D5]/50 text-xs">
-                Redirecting you to our products...
-              </p>
+          <div className="text-center mb-2">
+            <p className="text-[#EAE0D5]/70 text-sm">
+              Tell us a bit about yourself so we can personalize your experience.
+            </p>
+          </div>
+
+          {error && (
+            <div className="p-2.5 rounded-lg bg-red-500/10 border border-red-500/20">
+              <p className="text-red-300 text-sm">{error}</p>
             </div>
           )}
+
+          <form className="space-y-4" onSubmit={handleProfileSubmit}>
+            <div className="space-y-2">
+              <label className="text-[#EAE0D5]/80 text-sm font-medium">First Name *</label>
+              <div className="luxury-input-wrapper h-12 rounded-xl">
+                <input
+                  type="text"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  placeholder="Enter your first name"
+                  className="w-full h-full px-4 bg-transparent text-[#EAE0D5] placeholder:text-[#8A6A5C]"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[#EAE0D5]/80 text-sm font-medium">Last Name</label>
+              <div className="luxury-input-wrapper h-12 rounded-xl">
+                <input
+                  type="text"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  placeholder="Enter your last name"
+                  className="w-full h-full px-4 bg-transparent text-[#EAE0D5] placeholder:text-[#8A6A5C]"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[#EAE0D5]/80 text-sm font-medium">Email Address</label>
+              <div className="luxury-input-wrapper h-12 rounded-xl relative group flex items-center">
+                <Mail className="w-5 h-5 text-[#B76E79] group-focus-within:text-[#F2C29A] transition-colors duration-300 ml-4 shrink-0" aria-hidden="true" />
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="your@email.com"
+                  className="w-full h-full px-3 bg-transparent text-[#EAE0D5] placeholder:text-[#8A6A5C]"
+                />
+              </div>
+              <p className="text-[#EAE0D5]/40 text-xs px-1">
+                We'll use this for order updates and account recovery. No spam, ever.
+              </p>
+            </div>
+
+            <Button
+              type="submit"
+              disabled={isSubmitting || !firstName.trim()}
+              className="w-full h-14 relative overflow-hidden rounded-xl bg-transparent border border-[#B76E79]/40 group transition-all duration-500 hover:border-[#F2C29A]/60 hover:shadow-[0_0_30px_rgba(183,110,121,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-[#7A2F57]/80 via-[#B76E79]/70 to-[#2A1208]/80 opacity-90"></div>
+              <div className="animate-sheen"></div>
+              <span className="relative z-10 text-[#F2C29A] font-serif tracking-[0.12em] text-lg group-hover:text-white transition-colors font-heading">
+                {isSubmitting ? 'Saving...' : 'Continue'}
+              </span>
+            </Button>
+
+            <button
+              type="button"
+              onClick={() => {
+                // Set auth status now that we're skipping the profile form
+                // Auth is already set from login — just redirect
+                setStep(4);
+                setRegistrationSuccess(true);
+                const role = USER_ROLES.CUSTOMER;
+                setTimeout(() => { router.push(getRedirectForRole(role)); }, 2000);
+              }}
+              className="w-full text-sm text-[#8A6A5C] hover:text-[#EAE0D5]/80 py-2"
+            >
+              Skip for now
+            </button>
+          </form>
+        </div>
+      )}
+
+      {/* Step 4: Success */}
+      {step === 4 && registrationSuccess && (
+        <div className="w-full space-y-4 animate-fade-in-up-delay">
+          <div className="text-center p-6 rounded-xl bg-green-500/10 border border-green-500/20">
+            <div className="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-4">
+              <svg className="w-8 h-8 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <h3 className="text-xl text-white font-medium mb-2">{AUTH_COPY.accountCreated}</h3>
+            <p className="text-[#EAE0D5]/50 text-xs">
+              Redirecting you to our products...
+            </p>
+          </div>
         </div>
       )}
 

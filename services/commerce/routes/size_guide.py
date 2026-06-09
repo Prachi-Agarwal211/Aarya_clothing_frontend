@@ -8,7 +8,8 @@ import logging
 from typing import Optional, List
 from fastapi import APIRouter, Query
 
-logger = logging.getLogger(__name__)router = APIRouter(prefix="/api/v1/size-guide", tags=["Size Guide"])
+logger = logging.getLogger(__name__)
+router = APIRouter(prefix="/api/v1/size-guide", tags=["Size Guide"])
 
 
 # ==================== Size Guide Endpoints ====================

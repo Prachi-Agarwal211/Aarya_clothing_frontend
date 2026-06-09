@@ -9,11 +9,11 @@ global:
   evaluation_interval: 15s   # How often to evaluate rules
   scrape_timeout: 10s
 
-# Alertmanager (future: wire up with Slack/email/webhook)
-# alerting:
-#   alertmanagers:
-#     - static_configs:
-#         - targets: ['alertmanager:9093']
+# Alertmanager — receives fired alerts from Prometheus and routes to Slack/email/webhook
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['alertmanager:9093']
 
 # Rule files for alerting and recording rules
 rule_files:

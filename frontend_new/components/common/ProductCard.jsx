@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -22,6 +22,17 @@ const ensureFullUrl = (url) => {
 
 const ProductCard = ({ product, className, priority = false }) => {
   const [imageError, setImageError] = useState(false);
+  // Connection-aware image quality — computed once on mount
+  const imageQuality = useMemo(() => {
+    if (typeof window === 'undefined') return 75;
+    const base = window.innerWidth < 768 ? 65 : 75;
+    if ('connection' in navigator) {
+      const conn = navigator.connection;
+      if (conn.saveData || conn.effectiveType === '2g' || conn.effectiveType === 'slow-2g') return 50;
+      if (conn.effectiveType === '3g') return 60;
+    }
+    return base;
+  }, []);
   // Support both old shape {id,name,price,image,category,isNew,originalPrice}
   // and new DB-driven shape {id,name,price,mrp,image_url,collection_name,is_new_arrival,discount_percentage}
   const id = product.id;
@@ -88,7 +99,7 @@ const ProductCard = ({ product, className, priority = false }) => {
               sizes="(max-width: 640px) 280px, (max-width: 1024px) 320px, 360px"
               className="object-cover transition-all duration-700 group-hover:scale-110 group-hover:brightness-110"
               priority={priority}
-              quality={75}
+              quality={imageQuality}
               placeholder="blur"
               blurDataURL="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjUwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCBmaWxsPSIjMUYxQTFBIiB3aWR0aD0iNDAwIiBoZWlnaHQ9IjUwMCIvPjwvc3ZnPg=="
               onError={() => setImageError(true)}

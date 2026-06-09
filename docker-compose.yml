@@ -132,8 +132,8 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1G
-          cpus: '0.75'
+          memory: 2G
+          cpus: '1.0'
     networks:
       - backend_network
     restart: unless-stopped
@@ -485,6 +485,8 @@ services:
       # Database connection pool (PgBouncer-compatible)
       - DATABASE_POOL_SIZE=20
       - DATABASE_MAX_OVERFLOW=10
+      # 4 workers on 4-core VPS — matches core/commerce/payment
+      - UVICORN_WORKERS=4
     expose:
       - "5004"
     depends_on:
@@ -540,7 +542,7 @@ services:
       - "3000"
     healthcheck:
       test: ["CMD-SHELL", "node -e \"fetch('http://localhost:3000').then(r => { process.exit(r.ok ? 0 : 1) }).catch(() => process.exit(1))\" || exit 1"]
-      interval: 30s
+      interval: 15s
       timeout: 10s
       retries: 3
       start_period: 60s
@@ -735,6 +737,33 @@ services:
       - ./backups/postgres:/backups
     networks:
       - backend_network
+
+  # ============================================================
+  # ALERTMANAGER — Alert Routing & Notifications
+  # ============================================================
+  # Receives fired alerts from Prometheus and routes to Slack/email/webhook.
+  # Web UI: http://localhost:9093 (expose only in dev; use Grafana in prod)
+
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    container_name: aarya_alertmanager
+    profiles: ["monitoring"]
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+    volumes:
+      - ./docker/prometheus/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager_data:/alertmanager
+    expose:
+      - "9093"
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.25'
+    networks:
+      - backend_network
+    restart: unless-stopped
 
   # ============================================================
   # PROMETHEUS — Metrics Collection
@@ -999,4 +1028,6 @@ volumes:
   grafana_data:
     driver: local
   nginx_cache:
+    driver: local
+  alertmanager_data:
     driver: local

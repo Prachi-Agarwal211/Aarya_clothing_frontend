@@ -153,12 +153,9 @@ export default function LoginPageContent({ redirectUrl = '/products' }) {
       setResendCooldown(30);
       setTimeout(() => otpRefs.current[0]?.focus(), 100);
     } catch (err) {
-      // Detect 'no account' error and guide user to register
-      if (err.message && err.message.toLowerCase().includes('no account found')) {
-        setError('No account found. Please create an account first.');
-      } else {
-        setError(err.message || AUTH_COPY.errors.otpSendFailed);
-      }
+      // All errors shown generically — no need to distinguish 'no account'
+      // since the backend auto-registers new users silently
+      setError(err.message || AUTH_COPY.errors.otpSendFailed);
     } finally {
       setIsSubmitting(false);
     }
@@ -195,9 +192,16 @@ export default function LoginPageContent({ redirectUrl = '/products' }) {
       
       logger.info('OTP Login successful');
       if (result?.user) setAuthStatus(result.user);
-      const role = result?.user?.role || user?.role || USER_ROLES.CUSTOMER;
-      const target = redirectUrl && redirectUrl !== '/products' ? redirectUrl : getRedirectForRole(role);
-      setTimeout(() => router.push(target), 400);
+      // NEW USER: If name is placeholder (auto-registered), redirect to profile completion
+      const userName = result?.user?.full_name || '';
+      const isNewUser = userName.startsWith('Customer');
+      if (isNewUser) {
+        setTimeout(() => router.push('/auth/register?completeProfile=true'), 400);
+      } else {
+        const role = result?.user?.role || user?.role || USER_ROLES.CUSTOMER;
+        const target = redirectUrl && redirectUrl !== '/products' ? redirectUrl : getRedirectForRole(role);
+        setTimeout(() => router.push(target), 400);
+      }
     } catch (err) {
       logger.error('OTP Login failed:', err);
       setError(err.message || AUTH_COPY.errors.otpFailed);

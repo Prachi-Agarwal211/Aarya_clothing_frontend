@@ -58,6 +58,9 @@ class UserProfileUpdate(UserProfileBase):
     phone: Optional[str] = Field(
         None, min_length=10, max_length=20, description="Phone number (optional)"
     )
+    email: Optional[EmailStr] = Field(
+        None, description="Real email address (replaces auto-generated placeholder)"
+    )
 
 
 class UserBase(BaseModel):

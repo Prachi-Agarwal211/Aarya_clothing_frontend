@@ -4,7 +4,8 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter, usePathname } from 'next/navigation';
-import { Search, ShoppingBag, User, Menu, X, LayoutDashboard, LogOut } from 'lucide-react';
+import { ShoppingBag, User, Menu, X, LayoutDashboard, LogOut } from 'lucide-react';
+import SearchAutocomplete from '@/components/search/SearchAutocomplete';
 import { getRedirectForRole } from '@/lib/roles';
 import { cn } from '@/lib/utils';
 import { useCart } from '@/lib/cartContext';
@@ -20,25 +21,6 @@ const NAV_LINKS = [
   { name: 'About', href: '/#about', anchor: '#about' },
   { name: 'Contact', href: '/#footer', anchor: '#footer' },
 ];
-
-/**
- * Debounce hook for search input
- */
-function useDebounce(value, delay) {
-  const [debouncedValue, setDebouncedValue] = useState(value);
-
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedValue(value);
-    }, delay);
-
-    return () => {
-      clearTimeout(handler);
-    };
-  }, [value, delay]);
-
-  return debouncedValue;
-}
 
 /**
  * EnhancedHeader - Header with glass effect and logo image
@@ -59,8 +41,6 @@ const EnhancedHeader = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [activeSection, setActiveSection] = useState(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const debouncedSearchQuery = useDebounce(searchQuery, 300);
   const { itemCount, toggleCart } = useCart();
   const { isAuthenticated, user, logout } = useAuth();
   const tickingRef = useRef(false);
@@ -135,21 +115,6 @@ const EnhancedHeader = () => {
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
-
-  // Search query is submitted manually via Enter key or button click.
-  // The debounced value is used for potential autocomplete in the future,
-  // but we do NOT auto-navigate on debounce to avoid rapid route changes.
-
-  /**
-   * Submit search — navigates to search page.
-   */
-  const handleSearchSubmit = useCallback((query) => {
-    const trimmed = (query || searchQuery).trim();
-    if (trimmed) {
-      router.push(`/search?q=${encodeURIComponent(trimmed)}`);
-      setSearchQuery('');
-    }
-  }, [searchQuery, router]);
 
   /**
    * Smooth scroll to an anchor section on the landing page.
@@ -302,25 +267,18 @@ const EnhancedHeader = () => {
                   Sign In
                 </button>
               )}
-              <div className="relative">
-                <label htmlFor="search-input" className="sr-only">
-                  Search products
-                </label>
-              <input
-                  id="search-input"
-                  suppressHydrationWarning
-                  type="search"
+              <div className="relative w-64">
+                <SearchAutocomplete
                   placeholder="Search..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      handleSearchSubmit();
+                  onSearchSelect={(item) => {
+                    if (item.type === 'product') {
+                      router.push(`/products/${item.slug || item.id}`);
+                    } else if (item.type === 'category') {
+                      router.push(`/products?collection_id=${item.id}`);
+                    } else if (item.type === 'search') {
+                      router.push(`/search?q=${encodeURIComponent(item.query)}`);
                     }
                   }}
-                  className="w-full px-4 py-2 bg-transparent border border-[#3D322C] rounded-lg text-[#EAE0D5] placeholder-[#8B7D77] focus:outline-none focus:border-[#F2C29A] transition-all duration-300"
-                  aria-label="Search products"
                 />
               </div>
               <button
@@ -447,24 +405,19 @@ const EnhancedHeader = () => {
 
           {/* Mobile Search Input */}
           <div className="w-full max-w-xs mt-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#8B7D77]" />
-              <input
-                type="search"
-                placeholder="Search products..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    setIsMobileMenuOpen(false);
-                    handleSearchSubmit();
-                  }
-                }}
-                className="w-full pl-10 pr-4 py-3 bg-[#0B0608]/60 border border-[#3D322C] rounded-xl text-[#EAE0D5] placeholder-[#8B7D77] focus:outline-none focus:border-[#F2C29A] transition-all duration-300 text-base"
-                aria-label="Search products"
-              />
-            </div>
+            <SearchAutocomplete
+              placeholder="Search products..."
+              onSearchSelect={(item) => {
+                setIsMobileMenuOpen(false);
+                if (item.type === 'product') {
+                  router.push(`/products/${item.slug || item.id}`);
+                } else if (item.type === 'category') {
+                  router.push(`/products?collection_id=${item.id}`);
+                } else if (item.type === 'search') {
+                  router.push(`/search?q=${encodeURIComponent(item.query)}`);
+                }
+              }}
+            />
           </div>
           <div className="flex gap-8 mt-8" role="navigation" aria-label="Mobile account actions">
             {isAuthenticated ? (

@@ -336,7 +336,7 @@ const HeroSection = ({
         <svg className="w-5 h-5 text-[#F2C29A]/50" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 9l-7 7-7-7" /></svg>
       </div>
 
-      {/* Tagline and Buttons Container - bottom-24 on mobile clears the 64px bottom nav */}
+      {/* Tagline and Buttons Container - bottom-24 on mobile clears the 64px bottom nav + safe area */}
       <div className="absolute bottom-24 sm:bottom-20 left-0 right-0 z-30 w-full px-4">
         {/* Tagline - Just above the buttons */}
         <div

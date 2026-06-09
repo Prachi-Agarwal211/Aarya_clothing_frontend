@@ -567,11 +567,11 @@ class OrderService:
                 "order": existing,
             }
 
-        # 4. Verify Razorpay payment signature (skip if recovery path already did this)
-        if not skip_signature_verification:
+        # 4. Verify Razorpay payment signature (skip if recovery/QR path already did this)
+        if not effective_skip:
             logger.info(
                 f"PAYMENT_VERIFY_START: user={user_id} payment_id={transaction_id} "
-                f"razorpay_order_id={razorpay_order_id} sig_len={len(payment_signature)}"
+                f"razorpay_order_id={razorpay_order_id} sig_len={len(payment_signature) if payment_signature else 0}"
             )
             try:
                 import httpx as _httpx

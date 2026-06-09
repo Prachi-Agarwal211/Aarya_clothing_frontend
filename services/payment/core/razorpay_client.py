@@ -432,6 +432,8 @@ class RazorpayClient:
                     "currency": "INR",
                     "status": qr_entity.get("status"),
                     "method": "upi_qr",
+                    # FIX: Extract QR code notes (includes pending_order_id from create_qr_code)
+                    "notes": qr_entity.get("notes", {}),
                 })
             
             return event_info

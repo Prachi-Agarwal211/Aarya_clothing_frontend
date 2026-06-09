@@ -90,6 +90,7 @@ class QrCodeCreateResponse(BaseModel):
     currency: str
     expires_at: int  # Unix timestamp
     transaction_id: Optional[str] = None
+    pending_order_id: Optional[str] = None  # FIX: Include pending_order_id so frontend can pass it to register_payment
 
 
 class QrCodeStatusResponse(BaseModel):

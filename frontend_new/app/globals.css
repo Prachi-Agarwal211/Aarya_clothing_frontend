@@ -417,9 +417,11 @@ html {
     0 2px 3px rgba(0, 0, 0, 0.5);
 }
 
-/* Button text */
-button, .btn {
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+/* Button text — desktop only, skip on mobile for performance */
+@media (hover: hover) and (pointer: fine) {
+  button, .btn {
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  }
 }
 
 /* ============================================
@@ -1839,17 +1841,19 @@ textarea:focus-visible,
     0 0 0 4px rgba(242, 194, 154, 0.5);
 }
 
-/* Minimum touch target size (44x44px) */
-button,
-a,
-input[type="button"],
-input[type="submit"],
-input[type="checkbox"],
-input[type="radio"],
-[role="button"],
-[tabindex] {
-  min-height: 44px;
-  min-width: 44px;
+/* Touch target size (44x44px) — MOBILE ONLY to avoid breaking desktop layouts */
+@media (hover: none) and (pointer: coarse) {
+  button,
+  a,
+  input[type="button"],
+  input[type="submit"],
+  input[type="checkbox"],
+  input[type="radio"],
+  [role="button"],
+  [tabindex] {
+    min-height: 44px;
+    min-width: 44px;
+  }
 }
 
 /* ==================== LINK & UNDERLINE STYLING ==================== */
@@ -2032,19 +2036,11 @@ a[role="button"] *:hover,
   }
 }
 
-/* Text Resizing - supports up to 200% zoom */
-.text-scalable {
-  font-size: clamp(0.875rem, 2vw, 1rem);
-}
-
-.heading-scalable {
-  font-size: clamp(1.5rem, 4vw, 3rem);
-}
-
 /* Prevent horizontal scroll on text resize */
 body {
-  overflow-x: hidden;
   word-wrap: break-word;
+  overflow-wrap: break-word;
+  overflow-x: hidden;
 }
 
 /* Error state accessibility */
@@ -2118,15 +2114,8 @@ html {
 }
 
 /* Page fade-in on route change */
-@keyframes page-fade-in {
-  from { opacity: 0; transform: translateY(6px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
 main {
   animation: page-fade-in 0.25s ease-out;
-}
-@media (prefers-reduced-motion: reduce) {
-  main { animation: none; }
 }
 
 /* Scroll-reveal utility */
@@ -2138,13 +2127,6 @@ main {
 .reveal-on-scroll.revealed {
   opacity: 1;
   transform: translateY(0);
-}
-@media (prefers-reduced-motion: reduce) {
-  .reveal-on-scroll {
-    opacity: 1;
-    transform: none;
-    transition: none;
-  }
 }
 
 /* iOS safe-area bottom padding utility */

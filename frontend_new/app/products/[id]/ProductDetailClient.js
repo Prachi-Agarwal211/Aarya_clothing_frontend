@@ -495,7 +495,7 @@ export default function ProductDetailClient({ initialProduct, initialReviews }) 
       </div>
 
       {product && (
-        <div className="fixed inset-x-0 lg:hidden bg-[#0B0608]/95 backdrop-blur-md border-t border-[#B76E79]/15 px-3 py-3 z-[99] flex items-center gap-3 bottom-nav-offset">
+        <div className="fixed inset-x-0 lg:hidden bg-[#0B0608]/95 backdrop-blur-md border-t border-[#B76E79]/15 px-3 py-3 z-[101] flex items-center gap-3 bottom-nav-offset">
           <div className="flex-1 min-w-0">
             <p className="text-[#F2C29A] font-semibold text-sm line-clamp-1">{product.name}</p>
             <p className="text-[#F2C29A] font-bold">{formatCurrency(product.price)}</p>

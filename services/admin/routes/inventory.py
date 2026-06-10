@@ -7,6 +7,7 @@ auditing movement history, and surfacing low/out-of-stock dashboards.
 
 from __future__ import annotations
 
+import logging
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -17,8 +18,31 @@ from core.redis_client import redis_client
 from database.database import get_db
 from shared.auth_middleware import require_admin, require_staff
 from shared.time_utils import now_ist
+from service.cache_purge import purge_product_caches
 
 router = APIRouter(tags=["Admin Inventory"])
+logger = logging.getLogger(__name__)
+
+
+def _sync_product_total_stock(db: Session, product_id) -> None:
+    """Sync the denormalized products.total_stock with actual SUM(inventory.quantity).
+
+    Called after every stock mutation so the admin product list always reflects
+    accurate stock without requiring a manual reconciliation run.
+    """
+    if product_id is None:
+        return
+    try:
+        db.execute(
+            text(
+                "UPDATE products SET total_stock = COALESCE(("
+                "  SELECT SUM(quantity) FROM inventory WHERE product_id = :pid"
+                "), 0), updated_at = :now WHERE id = :pid"
+            ),
+            {"pid": int(product_id), "now": now_ist().replace(tzinfo=None)},
+        )
+    except Exception:
+        logger.warning(f"Failed to sync total_stock for product {product_id}")
 
 
 @router.post("/api/v1/admin/inventory", status_code=201, tags=["Admin Inventory"])
@@ -50,8 +74,11 @@ async def admin_create_inventory(
         },
     )
     inv_id = result.scalar()
+    # Sync denormalized total_stock after creating inventory
+    _sync_product_total_stock(db, data["product_id"])
     db.commit()
     redis_client.invalidate_pattern("products:*")
+    await purge_product_caches(data["product_id"])
     return {"id": inv_id, "message": "Inventory record created"}
 
 
@@ -64,7 +91,7 @@ async def admin_update_inventory(
 ):
     """Update an inventory record (admin/staff only)."""
     inv = db.execute(
-        text("SELECT id FROM inventory WHERE id = :id"),
+        text("SELECT id, product_id FROM inventory WHERE id = :id"),
         {"id": inventory_id},
     ).fetchone()
     if not inv:
@@ -92,8 +119,12 @@ async def admin_update_inventory(
         text(f"UPDATE inventory SET {', '.join(sets)} WHERE id = :id"),
         params,
     )
+    # Sync denormalized total_stock if quantity changed
+    if "quantity" in data:
+        _sync_product_total_stock(db, inv._mapping["product_id"])
     db.commit()
     redis_client.invalidate_pattern("products:*")
+    await purge_product_caches(inv._mapping["product_id"])
     return {"message": "Inventory updated", "id": inventory_id}
 
 
@@ -231,6 +262,7 @@ async def admin_adjust_inventory(
         raise HTTPException(status_code=404, detail="Variant not found")
 
     current_qty = int(variant._mapping["quantity"])
+    product_id = variant._mapping["product_id"]
     delta = payload.get("delta")
     set_to = payload.get("set_to")
     if delta is None and set_to is None:
@@ -254,7 +286,7 @@ async def admin_adjust_inventory(
         ),
         {
             "inventory_id": variant_id,
-            "product_id": int(variant._mapping["product_id"]) if variant._mapping["product_id"] is not None else None,
+            "product_id": int(product_id) if product_id is not None else None,
             "adjustment": movement_delta,
             "reason": payload.get("reason") or "manual",
             "notes": payload.get("notes"),
@@ -262,8 +294,11 @@ async def admin_adjust_inventory(
             "now": now,
         },
     )
+    # Sync denormalized total_stock so product list reflects accurate stock
+    _sync_product_total_stock(db, product_id)
     db.commit()
     redis_client.invalidate_pattern("products:*")
+    await purge_product_caches(product_id)
     return {
         "id": variant_id,
         "previous_quantity": current_qty,
@@ -349,6 +384,7 @@ async def admin_adjust_inventory_by_sku(
         raise HTTPException(status_code=404, detail="Variant not found for SKU")
 
     variant_id = int(variant._mapping["id"])
+    product_id = variant._mapping["product_id"]
     current_qty = int(variant._mapping["quantity"])
     delta = int(adjustment)
     new_qty = max(0, current_qty + delta)
@@ -367,7 +403,7 @@ async def admin_adjust_inventory_by_sku(
         ),
         {
             "inventory_id": variant_id,
-            "product_id": int(variant._mapping["product_id"]) if variant._mapping["product_id"] is not None else None,
+            "product_id": int(product_id) if product_id is not None else None,
             "adjustment": movement_delta,
             "reason": payload.get("reason") or "manual",
             "notes": payload.get("notes"),
@@ -375,8 +411,11 @@ async def admin_adjust_inventory_by_sku(
             "now": now,
         },
     )
+    # Sync denormalized total_stock
+    _sync_product_total_stock(db, product_id)
     db.commit()
     redis_client.invalidate_pattern("products:*")
+    await purge_product_caches(product_id)
     return {
         "id": variant_id,
         "sku": sku,

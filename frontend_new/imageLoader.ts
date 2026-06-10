@@ -13,6 +13,12 @@ import type { ImageLoaderProps } from "next/image";
  * 3. Frontend fetches API → Backend converts to full R2 URL
  * 4. Frontend <Image> → This loader optimizes via Cloudflare CDN
  *
+ * Image Flow (Browser Direct):
+ *   <Image> → this loader → direct R2 URL → browser fetches from Cloudflare edge
+ *
+ * NOTE: A previous version routed through /_next/image which created an infinite
+ * loop with the custom loader. The loader now returns the direct R2 public URL.
+ *
  * R2 Configuration (dynamic via env var):
  * - Bucket: aarya-clothing-images
  * - Public URL: configured via NEXT_PUBLIC_R2_PUBLIC_URL env var
@@ -23,39 +29,6 @@ import type { ImageLoaderProps } from "next/image";
 const R2_PUBLIC_URL =
   (typeof process !== "undefined" && process.env?.NEXT_PUBLIC_R2_PUBLIC_URL) ||
   "https://pub-7846c786f7154610b57735df47899fa0.r2.dev";
-
-const normalizeSrc = (src: string): string => {
-  // If it's already a full URL, keep it as is
-  if (src.startsWith("http://") || src.startsWith("https://")) {
-    return src;
-  }
-  // Remove leading slash for relative paths
-  return src.startsWith("/") ? src.slice(1) : src;
-};
-
-/**
- * Encodes a URL for use in Cloudflare Images CDN path.
- * Cloudflare requires URL-encoding for remote image URLs to prevent
- * path parsing issues with special characters like ://
- * 
- * Example:
- *   https://example.com/image.jpg → https%3A%2F%2Fexample.com%2Fimage.jpg
- */
-const encodeForCloudflare = (url: string): string => {
-  // Only encode if it's a full URL (contains protocol)
-  if (url.startsWith("http://") || url.startsWith("https://")) {
-    return encodeURIComponent(url);
-  }
-  return url;
-};
-
-const isR2Url = (src: string): boolean => {
-  // Check if this is an R2 URL (either full URL or relative path that should go to R2)
-  return (
-    src.includes("pub-") && src.includes("r2.dev") ||
-    src.includes(R2_PUBLIC_URL)
-  );
-};
 
 const isLocalStaticAsset = (src: string): boolean => {
   // These are the ONLY images that should be served from /public
@@ -100,34 +73,34 @@ export default function cloudflareLoader({
     fullUrl = `${normalizedR2Base}${cleanPath}`;
   }
 
-  // Return direct R2 URL - Cloudflare Image Resizing via /cdn-cgi/image/
-  // requires the "Image Resizing" paid addon which is not enabled on this domain.
-  // R2 public bucket already serves via Cloudflare CDN with caching.
-  // Include width/quality in query for Next.js <Image> to consider the loader "implements width"
-  // (actual resizing not performed server-side; CDN serves original).
-  const params = new URLSearchParams();
-  if (width) params.set('w', String(width));
-  if (quality) params.set('q', String(quality));
-  const query = params.toString() ? `?${params.toString()}` : '';
-  return encodeURI(`${fullUrl}${query}`);
+  // Return the direct R2 URL so the browser fetches the image directly.
+  //
+  // IMPORTANT: Do NOT route through /_next/image here — that creates an infinite
+  // loop with a custom loader (the browser fetches /_next/image, which calls the
+  // loader again, which returns /_next/image again, ad infinitum).
+  //
+  // The R2 public URL serves images directly from Cloudflare's edge network.
+  // For bandwidth-conscious sites, enable Cloudflare Image Resizing on your own
+  // domain and use the /cdn-cgi/image/ endpoint there instead of R2.dev.
+  return fullUrl;
 }
 
 /**
  * Usage Examples:
- * 
+ *
  * 1. Basic usage:
  *    <Image src="/products/shirt.jpg" width={800} height={600} />
- *    → /cdn-cgi/image/width=800,quality=75/products/shirt.jpg
- * 
- * 2. With quality override:
- *    <Image src="/hero.jpg" width={1600} quality={85} />
- *    → /cdn-cgi/image/width=1600,quality=85/hero.jpg
- * 
- * 3. Responsive images:
- *    <Image src="/product.jpg" width={400} sizes="(max-width: 768px) 100vw, 50vw" />
- *    → Multiple CDN URLs for different breakpoints
- * 
- * 4. Remote images (R2 storage):
+ *    → https://pub-xxx.r2.dev/products/shirt.jpg (direct R2 URL)
+ *
+ * 2. Full R2 URL:
  *    <Image src="https://pub-xxx.r2.dev/images/product.jpg" width={800} />
- *    → /cdn-cgi/image/width=800,quality=75/https://pub-xxx.r2.dev/images/product.jpg
+ *    → https://pub-xxx.r2.dev/images/product.jpg (passed through as-is)
+ *
+ * 3. Relative path from backend:
+ *    <Image src="/collections/summer.jpg" width={400} />
+ *    → https://pub-xxx.r2.dev/collections/summer.jpg
+ *
+ * 4. Local static asset:
+ *    <Image src="/logo.png" width={120} />
+ *    → /logo.png (served from /public)
  */

@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Eye, EyeOff, Mail, Lock, MessageCircle, Smartphone, Phone } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, MessageCircle, Smartphone, Phone, User } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -15,6 +15,14 @@ import { useLogo, useSiteConfig } from '../../../lib/siteConfigContext';
 import { getRedirectForRole, USER_ROLES } from '../../../lib/roles';
 import { AUTH_COPY } from '../../../lib/authCopy';
 import { validatePhone, toE164 } from '../../../lib/authHelpers';
+import { userApi } from '../../../lib/customerApi';
+
+/** Validate email format */
+function validateEmail(email) {
+  if (!email || !email.trim()) return { valid: true, message: '' }; // email is optional
+  const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return re.test(email) ? { valid: true, message: '' } : { valid: false, message: 'Please enter a valid email address' };
+}
 
 /**
  * Simplified login page — Phone-first OTP for Indian users.
@@ -40,12 +48,27 @@ export default function LoginPageContent({ redirectUrl = '/products' }) {
   const [otpTimeLeft, setOtpTimeLeft] = useState(600);
   const [otpExpired, setOtpExpired] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
+  const [accountNotFound, setAccountNotFound] = useState(false);
+
+  // Profile completion — backward-compat for users auto-registered before auto-registration was removed.
+  // These users have pending_@aaryaclothing.in emails and need to complete their profile on first login.
+  // New users must register via /auth/register instead. This code can be removed once no such users remain.
+  const [showProfileForm, setShowProfileForm] = useState(false);
+  const [checkingProfile, setCheckingProfile] = useState(false);
+  const [profileFirstName, setProfileFirstName] = useState('');
+  const [profileLastName, setProfileLastName] = useState('');
+  const [profileEmail, setProfileEmail] = useState('');
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [newUserResult, setNewUserResult] = useState(null);
 
   const otpRefs = useRef([]);
   const router = useRouter();
   const { login, user, isAuthenticated, setAuthStatus, loading } = useAuth();
   const logoUrl = useLogo();
   const { smsOtpEnabled, whatsappEnabled } = useSiteConfig();
+
+  // Derived: is the current verification method email-based?
+  const isEmailMode = verificationMethod === 'otp_email';
 
   // Auto-fix OTP method if channel is disabled
   useEffect(() => {
@@ -83,7 +106,21 @@ export default function LoginPageContent({ redirectUrl = '/products' }) {
   const switchMode = (newMode) => {
     setMode(newMode);
     setError('');
+    setAccountNotFound(false);
     setIsSubmitting(false);
+    setOtpSent(false);
+    setOtpDigits(['', '', '', '', '', '']);
+    setOtpTimeLeft(600);
+    setOtpExpired(false);
+    setResendCooldown(0);
+  };
+
+  // Reset identifier when switching between email/phone OTP methods
+  const switchVerificationMethod = (method) => {
+    setVerificationMethod(method);
+    setIdentifier('');
+    setError('');
+    setAccountNotFound(false);
     setOtpSent(false);
     setOtpDigits(['', '', '', '', '', '']);
     setOtpTimeLeft(600);
@@ -104,8 +141,6 @@ export default function LoginPageContent({ redirectUrl = '/products' }) {
       const [device_fingerprint, device_name] = await Promise.all([
         getDeviceFingerprint(), Promise.resolve(getDeviceName()),
       ]);
-      // Pass identifier as-is: backend _resolve_user_query handles email, username, and phone.
-      // Do NOT apply toE164() here — it would corrupt email/username identifiers.
       const result = await login({
         identifier, password, remember_me: rememberMe,
         device_fingerprint, device_name,
@@ -123,29 +158,36 @@ export default function LoginPageContent({ redirectUrl = '/products' }) {
 
   // === OTP: REQUEST ===
   const handleRequestOtp = async () => {
-    // For new flow, identifier is just the phone number
-    const phone = identifier.replace(/\D/g, '');
-    
     if (!identifier) {
-      setError(AUTH_COPY.errors.missingPhone);
+      setError(isEmailMode ? 'Email is required' : AUTH_COPY.errors.missingPhone);
       return;
     }
-    
-    const phoneValidation = validatePhone(identifier);
-    if (!phoneValidation.valid) {
-      setError(phoneValidation.message || AUTH_COPY.errors.invalidPhone);
-      return;
+
+    // Validate based on mode
+    if (isEmailMode) {
+      const emailValidation = validateEmail(identifier);
+      if (!emailValidation.valid) {
+        setError(emailValidation.message);
+        return;
+      }
+    } else {
+      const phoneValidation = validatePhone(identifier);
+      if (!phoneValidation.valid) {
+        setError(phoneValidation.message || AUTH_COPY.errors.invalidPhone);
+        return;
+      }
     }
-    
+
     setError('');
+    setAccountNotFound(false);
     setIsSubmitting(true);
     try {
-      let otpType = 'SMS'; // Default to SMS for phone-first flow
+      let otpType = 'SMS';
       if (verificationMethod === 'otp_whatsapp') otpType = 'WHATSAPP';
-      else if (verificationMethod === 'otp_email') otpType = 'EMAIL';
-      
-      // For phone-based login, send to phone
-      await authApi.sendLoginOtpRequest(toE164(identifier), otpType);
+      else if (isEmailMode) otpType = 'EMAIL';
+
+      const apiIdentifier = isEmailMode ? identifier.trim() : toE164(identifier);
+      await authApi.sendLoginOtpRequest(apiIdentifier, otpType);
       setOtpSent(true);
       setOtpDigits(['', '', '', '', '', '']);
       setOtpTimeLeft(600);
@@ -153,9 +195,13 @@ export default function LoginPageContent({ redirectUrl = '/products' }) {
       setResendCooldown(30);
       setTimeout(() => otpRefs.current[0]?.focus(), 100);
     } catch (err) {
-      // All errors shown generically — no need to distinguish 'no account'
-      // since the backend auto-registers new users silently
-      setError(err.message || AUTH_COPY.errors.otpSendFailed);
+      const msg = err.message || AUTH_COPY.errors.otpSendFailed;
+      if (msg.includes('No account found') || msg.includes('Please create an account')) {
+        // Store the flag so we can render a richer error with register link
+        setAccountNotFound(true);
+      } else {
+        setError(msg);
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -170,18 +216,20 @@ export default function LoginPageContent({ redirectUrl = '/products' }) {
     }
     setError('');
     setIsSubmitting(true);
+    setCheckingProfile(true); // Block redirect guard while we determine if user is new
     try {
-      let otpType = 'SMS'; // Default to SMS for phone-first flow
+      let otpType = 'SMS';
       if (verificationMethod === 'otp_whatsapp') otpType = 'WHATSAPP';
-      else if (verificationMethod === 'otp_email') otpType = 'EMAIL';
+      else if (isEmailMode) otpType = 'EMAIL';
       
       const [device_fingerprint, device_name] = await Promise.all([
         getDeviceFingerprint(), Promise.resolve(getDeviceName()),
       ]);
+
+      const apiIdentifier = isEmailMode ? identifier.trim() : toE164(identifier);
       
-      // Existing user OTP login
       const result = await login({
-        identifier: toE164(identifier), 
+        identifier: apiIdentifier,
         otp_code: otpValue, 
         login_method: 'otp',
         otp_type: otpType, 
@@ -192,12 +240,18 @@ export default function LoginPageContent({ redirectUrl = '/products' }) {
       
       logger.info('OTP Login successful');
       if (result?.user) setAuthStatus(result.user);
-      // NEW USER: If name is placeholder (auto-registered), redirect to profile completion
+
+      // NEW USER: If name is empty/placeholder (auto-registered), show inline profile form
       const userName = result?.user?.full_name || '';
-      const isNewUser = userName.startsWith('Customer');
+      const userEmail = result?.user?.email || '';
+      const isNewUser = !userName || userName.startsWith('Customer') || userEmail.startsWith('pending_');
       if (isNewUser) {
-        setTimeout(() => router.push('/auth/register?completeProfile=true'), 400);
+        setNewUserResult(result);
+        setShowProfileForm(true);
+        // Don't clear checkingProfile — keep blocking redirect until profile form is shown or skipped
       } else {
+        // Existing user — clear the guard so the redirect can proceed
+        setCheckingProfile(false);
         const role = result?.user?.role || user?.role || USER_ROLES.CUSTOMER;
         const target = redirectUrl && redirectUrl !== '/products' ? redirectUrl : getRedirectForRole(role);
         setTimeout(() => router.push(target), 400);
@@ -206,9 +260,63 @@ export default function LoginPageContent({ redirectUrl = '/products' }) {
       logger.error('OTP Login failed:', err);
       setError(err.message || AUTH_COPY.errors.otpFailed);
       setOtpDigits(['', '', '', '', '', '']);
+      setCheckingProfile(false); // Clear guard on error so user can retry
       setTimeout(() => otpRefs.current[0]?.focus(), 50);
     } finally {
       setIsSubmitting(false);
+      // NOTE: Do NOT clear checkingProfile here!
+      // React batches state updates, so showProfileForm is stale (still false)
+      // in this synchronous finally block even after setShowProfileForm(true).
+      // The guard is cleared by: handleProfileSubmit, skip handler, or the else branch above.
+    }
+  };
+
+  // === PROFILE: SAVE (for new users after OTP verification) ===
+  const handleProfileSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+
+    if (!profileFirstName.trim()) {
+      setError('Please enter your first name');
+      return;
+    }
+
+    if (profileEmail.trim()) {
+      const emailCheck = validateEmail(profileEmail);
+      if (!emailCheck.valid) {
+        setError(emailCheck.message);
+        return;
+      }
+    }
+
+    setProfileSaving(true);
+    try {
+      const body = {};
+      const fullName = profileLastName.trim()
+        ? `${profileFirstName.trim()} ${profileLastName.trim()}`
+        : profileFirstName.trim();
+      body.full_name = fullName;
+      if (profileEmail.trim()) {
+        body.email = profileEmail.trim();
+      }
+
+      const updatedUser = await userApi.updateProfile(body);
+      logger.info('Profile updated after registration', { userId: updatedUser?.id });
+      
+      // Update auth state with the real user data
+      if (updatedUser) setAuthStatus(updatedUser);
+
+      // Clear checkingProfile so redirect guard can fire normally
+      setCheckingProfile(false);
+
+      // Redirect to target
+      const role = updatedUser?.role || newUserResult?.user?.role || USER_ROLES.CUSTOMER;
+      const target = redirectUrl && redirectUrl !== '/products' ? redirectUrl : getRedirectForRole(role);
+      setTimeout(() => router.push(target), 300);
+    } catch (err) {
+      setError(err.message || 'Failed to save profile. Please try again.');
+    } finally {
+      setProfileSaving(false);
     }
   };
 
@@ -219,7 +327,6 @@ export default function LoginPageContent({ redirectUrl = '/products' }) {
     setOtpDigits(next);
     setError('');
     if (digit && index < 5) otpRefs.current[index + 1]?.focus();
-    // Auto-submit when all 6 digits entered
     if (next.every((d) => d) && !isSubmitting) setTimeout(() => handleOtpVerify(next.join('')), 50);
   };
 
@@ -232,13 +339,17 @@ export default function LoginPageContent({ redirectUrl = '/products' }) {
     await handleRequestOtp();
   };
 
-  // Redirect if already authenticated
-  if (isAuthenticated && !loading) {
+  // Redirect if already authenticated (but NOT if checking profile or showing profile form)
+  if (isAuthenticated && !loading && !showProfileForm && !checkingProfile) {
     const role = user?.role || USER_ROLES.CUSTOMER;
     const target = redirectUrl && redirectUrl !== '/products' ? redirectUrl : getRedirectForRole(role);
     router.push(target);
     return null;
   }
+
+  const displayIdentifier = isEmailMode
+    ? identifier.trim()
+    : `+91 ${identifier}`;
 
   return (
     <div className="w-full max-w-md md:max-w-lg flex flex-col items-center">
@@ -254,60 +365,173 @@ export default function LoginPageContent({ redirectUrl = '/products' }) {
 
       {/* Title */}
       <div className="text-center mb-4 sm:mb-5 space-y-1 animate-fade-in-up-delay">
-        <h2 className="text-xl sm:text-2xl text-white/90 font-body">{AUTH_COPY.loginTitle}</h2>
+        <h2 className="text-xl sm:text-2xl text-white/90 font-body">
+          {showProfileForm ? 'Complete your profile' : AUTH_COPY.loginTitle}
+        </h2>
         <p className="text-[#8A6A5C] text-xs sm:text-sm uppercase tracking-[0.15em] font-light">
-          {AUTH_COPY.loginSubtitle}
+          {showProfileForm ? 'Tell us about yourself so we can personalize your experience' : AUTH_COPY.loginSubtitle}
         </p>
       </div>
 
       {/* Error */}
-      {error && (
+      {(error || accountNotFound) && (
         <div className="w-full p-2.5 rounded-lg bg-red-500/10 border border-red-500/20 mb-3">
-          <p className="text-red-300 text-sm">{error}</p>
+          {accountNotFound ? (
+            <div className="text-sm">
+              <p className="text-red-300">No account found with this {isEmailMode ? 'email' : 'phone number'}.</p>
+              <Link
+                href="/auth/register"
+                className="text-[#F2C29A] hover:text-white font-medium underline mt-1 inline-block"
+                onClick={() => setAccountNotFound(false)}
+              >
+                Create an account →
+              </Link>
+            </div>
+          ) : (
+            <p className="text-red-300 text-sm">{error}</p>
+          )}
+        </div>
+      )}
+
+      {/* === PROFILE COMPLETION (New users after OTP verification) === */}
+      {showProfileForm && (
+        <div className="w-full space-y-4 animate-fade-in-up-delay">
+          <form onSubmit={handleProfileSubmit} className="space-y-4">
+            {/* First Name */}
+            <div className="space-y-2">
+              <label className="text-[#EAE0D5]/80 text-sm font-medium">First Name *</label>
+              <div className="luxury-input-wrapper h-12 sm:h-14 rounded-xl relative group flex items-center px-4 bg-[#0B0608]/80 border border-[#B76E79]/30">
+                <User className="w-5 h-5 text-[#B76E79] group-focus-within:text-[#F2C29A] transition-colors duration-300 shrink-0" aria-hidden="true" />
+                <input
+                  type="text"
+                  value={profileFirstName}
+                  onChange={(e) => setProfileFirstName(e.target.value)}
+                  placeholder="Enter your first name"
+                  required
+                  className="w-full h-full px-3 bg-transparent text-[#EAE0D5] placeholder:text-[#8A6A5C] text-sm sm:text-base outline-none"
+                />
+              </div>
+            </div>
+
+            {/* Last Name */}
+            <div className="space-y-2">
+              <label className="text-[#EAE0D5]/80 text-sm font-medium">Last Name</label>
+              <div className="luxury-input-wrapper h-12 sm:h-14 rounded-xl relative group flex items-center px-4 bg-[#0B0608]/80 border border-[#B76E79]/30">
+                <User className="w-5 h-5 text-[#B76E79] group-focus-within:text-[#F2C29A] transition-colors duration-300 shrink-0" aria-hidden="true" />
+                <input
+                  type="text"
+                  value={profileLastName}
+                  onChange={(e) => setProfileLastName(e.target.value)}
+                  placeholder="Enter your last name (optional)"
+                  className="w-full h-full px-3 bg-transparent text-[#EAE0D5] placeholder:text-[#8A6A5C] text-sm sm:text-base outline-none"
+                />
+              </div>
+            </div>
+
+            {/* Email */}
+            <div className="space-y-2">
+              <label className="text-[#EAE0D5]/80 text-sm font-medium">Email Address</label>
+              <div className="luxury-input-wrapper h-12 sm:h-14 rounded-xl relative group flex items-center px-4 bg-[#0B0608]/80 border border-[#B76E79]/30">
+                <Mail className="w-5 h-5 text-[#B76E79] group-focus-within:text-[#F2C29A] transition-colors duration-300 shrink-0" aria-hidden="true" />
+                <input
+                  type="email"
+                  value={profileEmail}
+                  onChange={(e) => setProfileEmail(e.target.value)}
+                  placeholder="your@email.com (optional)"
+                  className="w-full h-full px-3 bg-transparent text-[#EAE0D5] placeholder:text-[#8A6A5C] text-sm sm:text-base outline-none"
+                />
+              </div>
+              <p className="text-[#EAE0D5]/40 text-xs px-1">
+                We'll use this for order updates and account recovery. No spam, ever.
+              </p>
+            </div>
+
+            {/* Save & Continue Button */}
+            <Button 
+              type="submit" 
+              disabled={profileSaving || !profileFirstName.trim()}
+              className="w-full h-14 sm:h-16 relative overflow-hidden rounded-xl bg-transparent border border-[#B76E79]/40 group transition-all duration-500 hover:border-[#F2C29A]/60 hover:shadow-[0_0_30px_rgba(183,110,121,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-[#7A2F57]/80 via-[#B76E79]/70 to-[#2A1208]/80 opacity-90"></div>
+              <div className="animate-sheen"></div>
+              <span className="relative z-10 text-[#F2C29A] font-serif tracking-[0.12em] text-lg group-hover:text-white transition-colors font-heading">
+                {profileSaving ? 'Saving...' : 'Save & Continue'}
+              </span>
+            </Button>
+
+            <p className="text-center text-[#EAE0D5]/40 text-xs px-1">
+              You can update these later from your profile settings.
+            </p>
+          </form>
         </div>
       )}
 
       {/* === OTP MODE (Default for Indian users) === */}
-      {mode === 'otp' && (
+      {!showProfileForm && mode === 'otp' && (
         <div className="w-full space-y-4 animate-fade-in-up-delay">
           {!otpSent ? (
             <>
-              {/* Phone Number Input - Large and prominent */}
+              {/* Identifier Input — phone or email based on selected method */}
               <div className="space-y-2">
-                <label className="text-[#EAE0D5]/80 text-sm font-medium">Phone Number</label>
+                <label className="text-[#EAE0D5]/80 text-sm font-medium">
+                  {isEmailMode ? 'Email Address' : 'Phone Number'}
+                </label>
                 <div className="luxury-input-wrapper h-14 sm:h-16 rounded-xl relative group flex items-center px-4 bg-[#0B0608]/80 border border-[#B76E79]/30">
-                  <Phone className="w-5 h-5 sm:w-6 sm:h-6 text-[#B76E79] group-focus-within:text-[#F2C29A] transition-colors duration-300 shrink-0" aria-hidden="true" />
-                  <span className="text-[#F2C29A] font-medium text-lg sm:text-xl ml-2 shrink-0 select-none">+91</span>
-                  <Input
-                    id="phone-login"
-                    name="phone-login"
-                    type="tel"
-                    inputMode="numeric"
-                    autoComplete="tel"
-                    required
-                    value={identifier}
-                    onChange={(e) => {
-                      // Only allow digits, max 10
-                      const val = e.target.value.replace(/\D/g, '').slice(0, 10);
-                      setIdentifier(val);
-                    }}
-                    placeholder="XXXXXXXXXX"
-                    variant="minimal"
-                    className="h-full pl-2 text-[#EAE0D5] placeholder:text-[#8A6A5C] text-lg sm:text-xl font-medium tracking-wider"
-                  />
+                  {isEmailMode ? (
+                    <Mail className="w-5 h-5 sm:w-6 sm:h-6 text-[#B76E79] group-focus-within:text-[#F2C29A] transition-colors duration-300 shrink-0" aria-hidden="true" />
+                  ) : (
+                    <>
+                      <Phone className="w-5 h-5 sm:w-6 sm:h-6 text-[#B76E79] group-focus-within:text-[#F2C29A] transition-colors duration-300 shrink-0" aria-hidden="true" />
+                      <span className="text-[#F2C29A] font-medium text-lg sm:text-xl ml-2 shrink-0 select-none">+91</span>
+                    </>
+                  )}
+                  {isEmailMode ? (
+                    <Input
+                      id="email-login"
+                      name="email-login"
+                      type="email"
+                      inputMode="email"
+                      autoComplete="email"
+                      required
+                      value={identifier}
+                      onChange={(e) => setIdentifier(e.target.value)}
+                      placeholder="your@email.com"
+                      variant="minimal"
+                      className="h-full pl-3 text-[#EAE0D5] placeholder:text-[#8A6A5C] text-base sm:text-lg font-medium"
+                    />
+                  ) : (
+                    <Input
+                      id="phone-login"
+                      name="phone-login"
+                      type="tel"
+                      inputMode="numeric"
+                      autoComplete="tel"
+                      required
+                      value={identifier}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                        setIdentifier(val);
+                      }}
+                      placeholder="XXXXXXXXXX"
+                      variant="minimal"
+                      className="h-full pl-2 text-[#EAE0D5] placeholder:text-[#8A6A5C] text-lg sm:text-xl font-medium tracking-wider"
+                    />
+                  )}
                 </div>
                 <p className="text-[#EAE0D5]/50 text-xs px-1">
-                  {AUTH_COPY.phoneFormatHint}
+                  {isEmailMode
+                    ? 'We\'ll send a verification code to this email address.'
+                    : AUTH_COPY.phoneFormatHint}
                 </p>
               </div>
 
-              {/* OTP Method Selector - Simple icons */}
+              {/* OTP Method Selector */}
               <div className="space-y-2">
                 <p className="text-[#EAE0D5]/60 text-xs uppercase tracking-widest">Send OTP via</p>
                 <div className="flex gap-3">
                   <button 
                     type="button" 
-                    onClick={() => setVerificationMethod('otp_sms')}
+                    onClick={() => switchVerificationMethod('otp_sms')}
                     disabled={!smsOtpEnabled}
                     className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-xl border-2 transition-all duration-300 ${
                       !smsOtpEnabled 
@@ -323,7 +547,7 @@ export default function LoginPageContent({ redirectUrl = '/products' }) {
                   
                   <button 
                     type="button" 
-                    onClick={() => setVerificationMethod('otp_whatsapp')}
+                    onClick={() => switchVerificationMethod('otp_whatsapp')}
                     disabled={!whatsappEnabled}
                     className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-xl border-2 transition-all duration-300 ${
                       !whatsappEnabled 
@@ -339,7 +563,7 @@ export default function LoginPageContent({ redirectUrl = '/products' }) {
                   
                   <button 
                     type="button" 
-                    onClick={() => setVerificationMethod('otp_email')}
+                    onClick={() => switchVerificationMethod('otp_email')}
                     className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-xl border-2 transition-all duration-300 ${
                       verificationMethod === 'otp_email'
                         ? 'bg-[#7A2F57]/20 border-[#F2C29A]/60 shadow-[0_0_20px_rgba(242,194,154,0.15)]'
@@ -361,11 +585,11 @@ export default function LoginPageContent({ redirectUrl = '/products' }) {
                 <span>Remember me on this device</span>
               </label>
 
-              {/* Send OTP Button - Large and prominent */}
+              {/* Send OTP Button */}
               <Button 
                 type="button" 
                 onClick={handleRequestOtp} 
-                disabled={isSubmitting || !identifier || identifier.length < 10}
+                disabled={isSubmitting || !identifier || (isEmailMode ? !identifier.includes('@') : identifier.length < 10)}
                 className="w-full h-14 sm:h-16 relative overflow-hidden rounded-xl bg-transparent border border-[#B76E79]/40 group transition-all duration-500 hover:border-[#F2C29A]/60 hover:shadow-[0_0_30px_rgba(183,110,121,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-[#7A2F57]/80 via-[#B76E79]/70 to-[#2A1208]/80 opacity-90"></div>
@@ -375,7 +599,6 @@ export default function LoginPageContent({ redirectUrl = '/products' }) {
                 </span>
               </Button>
 
-              {/* New user message */}
               <p className="text-center text-[#EAE0D5]/50 text-sm px-2">
                 {AUTH_COPY.newUserMessage}
               </p>
@@ -397,7 +620,7 @@ export default function LoginPageContent({ redirectUrl = '/products' }) {
                   {AUTH_COPY.otpEnterCode}
                 </p>
                 <p className="text-[#F2C29A] font-medium text-lg">
-                  +91 {identifier}
+                  {displayIdentifier}
                 </p>
                 <p className={`text-sm mt-2 ${otpExpired ? 'text-red-300' : otpTimeLeft <= 30 ? 'text-amber-300' : 'text-[#EAE0D5]/70'}`}>
                   {otpExpired ? 'Code expired' : `${AUTH_COPY.otpExpiresIn} ${formatTime(otpTimeLeft)}`}
@@ -451,10 +674,10 @@ export default function LoginPageContent({ redirectUrl = '/products' }) {
               </p>
 
               <div className="text-center">
-                <button type="button" onClick={() => { setOtpSent(false); setError(''); }}
+                <button type="button" onClick={() => { setOtpSent(false); setError(''); setAccountNotFound(false); }}
                   className="text-sm text-[#8A6A5C] hover:text-[#EAE0D5]/80"
                 >
-                  ← Change phone number
+                  ← Change {isEmailMode ? 'email' : 'phone number'}
                 </button>
               </div>
             </>
@@ -463,7 +686,7 @@ export default function LoginPageContent({ redirectUrl = '/products' }) {
       )}
 
       {/* === PASSWORD MODE (Hidden by default) === */}
-      {mode === 'password' && (
+      {!showProfileForm && mode === 'password' && (
         <form className="w-full space-y-3 sm:space-y-3.5 animate-fade-in-up-delay" onSubmit={handlePasswordLogin} noValidate>
           <div className="luxury-input-wrapper h-11 sm:h-12 rounded-xl relative group flex items-center px-4">
             <Mail className="w-4 h-4 sm:w-5 sm:h-5 text-[#B76E79] group-focus-within:text-[#F2C29A] transition-colors duration-300 shrink-0" aria-hidden="true" />
@@ -516,26 +739,27 @@ export default function LoginPageContent({ redirectUrl = '/products' }) {
         </form>
       )}
 
-      {/* Footer */}
-      <div className="w-full mt-4 sm:mt-5 space-y-3">
-        {/* Mode Switcher - Subtle */}
-        <div className="text-center">
-          <button 
-            type="button" 
-            onClick={() => switchMode(mode === 'otp' ? 'password' : 'otp')}
-            className="text-xs text-[#8A6A5C] hover:text-[#EAE0D5]/80 transition-colors"
-          >
-            {mode === 'otp' ? 'Use password instead' : 'Use OTP instead (recommended)'}
-          </button>
+      {/* Footer (hidden during profile form) */}
+      {!showProfileForm && (
+        <div className="w-full mt-4 sm:mt-5 space-y-3">
+          <div className="text-center">
+            <button 
+              type="button" 
+              onClick={() => switchMode(mode === 'otp' ? 'password' : 'otp')}
+              className="text-xs text-[#8A6A5C] hover:text-[#EAE0D5]/80 transition-colors"
+            >
+              {mode === 'otp' ? 'Use password instead' : 'Use OTP instead (recommended)'}
+            </button>
+          </div>
+          
+          <p className="text-center text-[#8A6A5C] text-xs sm:text-sm tracking-wide">
+            New here?{' '}
+            <Link href="/auth/register" className="text-[#C27A4E] hover:text-[#F2C29A] transition-colors ml-1 uppercase text-sm font-bold tracking-widest">
+              Create account
+            </Link>
+          </p>
         </div>
-        
-        <p className="text-center text-[#8A6A5C] text-xs sm:text-sm tracking-wide">
-          New here?{' '}
-          <Link href="/auth/register" className="text-[#C27A4E] hover:text-[#F2C29A] transition-colors ml-1 uppercase text-sm font-bold tracking-widest">
-            Create account
-          </Link>
-        </p>
-      </div>
+      )}
     </div>
   );
 }

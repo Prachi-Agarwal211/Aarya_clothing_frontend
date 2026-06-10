@@ -39,6 +39,7 @@ import {
   ArrowUpRight,
   RefreshCw,
 } from 'lucide-react';
+import AISystemOverview from '@/components/admin/super/AISystemOverview';
 import {
   LineChart,
   Line,
@@ -54,7 +55,6 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
-import AISystemOverview from '@/components/admin/super/AISystemOverview';
 
 // Suggested queries for quick access
 const SUGGESTED_QUERIES = [

@@ -92,25 +92,24 @@ class UserCreate(UserBase):
 
     @model_validator(mode="after")
     def phone_only_defaults(self):
-        """When phone is the only identifier (no email/password), generate defaults.
+        """When phone is the only identifier (no email/password), generate minimal defaults.
 
-        This enables the simplified Indian phone-first registration flow:
-        just enter phone → get OTP → account created automatically.
+        Phone-first registration: user enters phone → OTP → profile form.
+        We do NOT generate placeholder emails — the user must provide a real
+        email during the profile completion step.
         """
         phone_only = not self.email and not self.password
         if phone_only:
-            # Auto-generate email from phone (system placeholder — user can update later)
             digits = "".join(filter(str.isdigit, self.phone or ""))
-            self.email = f"{digits}@aaryaclothing.in"
-            # Auto-generate username from phone
+            # Use a clearly temporary email that will be replaced by the user
+            self.email = f"pending_{digits[-8:]}@aaryaclothing.in"
             self.username = f"user_{digits[-8:]}"
-            # Auto-generate a random password (user will use OTP login)
             self.password = token_urlsafe(12)
-            # Set names to phone-based defaults if not provided
+            # No placeholder names — user must provide real name in profile form
             if not self.first_name:
-                self.first_name = "Customer"
+                self.first_name = None
             if not self.last_name:
-                self.last_name = digits[-4:]
+                self.last_name = None
         return self
 
     @model_validator(mode="after")
@@ -126,7 +125,9 @@ class UserCreate(UserBase):
     @computed_field
     @property
     def full_name(self) -> str:
-        return f"{self.first_name.strip()} {self.last_name.strip()}".strip()
+        first = (self.first_name or "").strip()
+        last = (self.last_name or "").strip()
+        return f"{first} {last}".strip()
 
     @validator("phone")
     def validate_phone(cls, v):
@@ -139,21 +140,21 @@ class UserCreate(UserBase):
 
         # Normalize Indian numbers to E.164 format
         if len(digits) == 10:
-            # Plain 10-digit Indian number: 9929986743
+            # Plain 10-digit Indian number (e.g. 9876543210)
             if digits[0] in "6789":
                 return f"+91{digits}"
             raise ValueError(
                 "Invalid phone number format. Phone must start with 6/7/8/9."
             )
         elif len(digits) == 11 and digits.startswith("0"):
-            # With leading zero: 09929986743
+            # With leading zero (e.g. 09876543210)
             if digits[1] in "6789":
                 return f"+91{digits[1:]}"
             raise ValueError(
                 "Invalid phone number format. Phone must start with 6/7/8/9."
             )
         elif len(digits) == 12 and digits.startswith("91"):
-            # Country code without +: 919929986743 (from +91XXXXXXXXXX or 91XXXXXXXXXX)
+            # Country code without + (e.g. 919876543210)
             if digits[2] in "6789":
                 return f"+{digits}"
             raise ValueError(

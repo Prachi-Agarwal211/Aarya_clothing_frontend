@@ -110,8 +110,7 @@ def enrich_product(product, user_role: Optional[str] = None) -> dict:
                     if inv.color and not is_hex_color(inv.color)
                     else hex_to_color_name(getattr(inv, "color_hex", "") or "")
                 ),
-                "image_url": getattr(inv, "image_url", None),
-                "quantity": inv.quantity,
+                "image_url": r2_url(getattr(inv, "image_url", "") or ""),
                 "available_quantity": inv.available_quantity,
                 "in_stock": not inv.is_out_of_stock,
             }

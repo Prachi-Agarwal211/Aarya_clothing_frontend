@@ -37,6 +37,8 @@ from shared.auth_middleware import require_admin, require_staff
 from shared.time_utils import now_ist
 from shared.color_utils import get_nearest_color_name
 from utils.url_helpers import get_r2_public_url
+from routes.inventory import _sync_product_total_stock
+from service.cache_purge import purge_product_caches
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +80,40 @@ async def admin_list_products(
     if featured is True:
         where_parts.append("p.is_featured = true")
     where_clause = ("WHERE " + " AND ".join(where_parts)) if where_parts else ""
+    # Total count (with same filters, no LIMIT)
+    total_row = db.execute(
+        text(f"""
+        SELECT COUNT(DISTINCT p.id)
+        FROM products p
+        LEFT JOIN inventory i ON i.product_id = p.id
+        {where_clause}
+    """),
+        params,
+    ).fetchone()
+    total_count = total_row[0] if total_row else 0
+
+    # Aggregate stats (always across ALL products, not filtered)
+    stats_row = db.execute(
+        text("""
+        SELECT
+            COUNT(*) AS total,
+            COUNT(*) FILTER (WHERE p.is_active) AS active,
+            COUNT(*) FILTER (WHERE COALESCE(s.stock, 0) = 0) AS out_of_stock,
+            COUNT(*) FILTER (WHERE COALESCE(s.stock, 0) > 0 AND COALESCE(s.stock, 0) <= 10) AS low_stock
+        FROM products p
+        LEFT JOIN (
+            SELECT product_id, SUM(quantity) AS stock
+            FROM inventory GROUP BY product_id
+        ) s ON s.product_id = p.id
+    """),
+    ).fetchone()
+    aggregate_stats = {
+        "total": stats_row[0] if stats_row else 0,
+        "active": stats_row[1] if stats_row else 0,
+        "out_of_stock": stats_row[2] if stats_row else 0,
+        "low_stock": stats_row[3] if stats_row else 0,
+    }
+
     rows = db.execute(
         text(f"""
         SELECT p.id, p.name, p.slug, p.base_price, p.mrp, p.short_description,
@@ -127,7 +163,7 @@ async def admin_list_products(
                 "primary_image": get_r2_public_url(img) if img else None,
             }
         )
-    return products
+    return {"products": products, "total": total_count, "stats": aggregate_stats}
 
 
 @router.post("/api/v1/admin/products", status_code=201, tags=["Admin Products"])
@@ -184,6 +220,7 @@ async def admin_create_product(
     redis_client.invalidate_pattern("products:*")
     redis_client.invalidate_pattern("public:landing:*")
     redis_client.invalidate_pattern("landing:featured:*")
+    await purge_product_caches(product_id)
     return {
         "id": product_id,
         "name": data.name,
@@ -246,6 +283,7 @@ async def admin_update_product(
     redis_client.invalidate_pattern("products:*")
     redis_client.invalidate_pattern("public:landing:*")
     redis_client.invalidate_pattern("landing:featured:*")
+    await purge_product_caches(pid)
     return {"message": "Product updated", "id": product_id}
 
 
@@ -320,6 +358,7 @@ async def admin_delete_product(
     redis_client.invalidate_pattern("query:products:*")
     redis_client.invalidate_pattern("public:landing:*")
     redis_client.invalidate_pattern("landing:featured:*")
+    await purge_product_caches(pid)
 
 
 # --- Bulk operations ---
@@ -379,6 +418,7 @@ async def admin_bulk_price_update(
             updated += 1
     db.commit()
     redis_client.invalidate_pattern("products:*")
+    await purge_product_caches()
     return {"updated": updated}
 
 
@@ -409,6 +449,7 @@ async def admin_bulk_status_update(
     redis_client.invalidate_pattern("products:*")
     redis_client.invalidate_pattern("public:landing:*")
     redis_client.invalidate_pattern("landing:featured:*")
+    await purge_product_caches()
     return {"updated": len(data.product_ids)}
 
 
@@ -436,6 +477,7 @@ async def admin_bulk_assign_collection(
     )
     db.commit()
     redis_client.invalidate_pattern("products:*")
+    await purge_product_caches()
     return {"updated": len(data.product_ids), "collection_id": data.collection_id}
 
 
@@ -462,8 +504,21 @@ async def admin_bulk_inventory_update(
             updated += 1
         else:
             errors.append({"sku": sku, "error": "SKU not found"})
+    # Sync total_stock for all affected products
+    synced_pids = set()
+    for item in updates:
+        sku = (item.get("sku") or "").strip()
+        if sku:
+            row = db.execute(
+                text("SELECT product_id FROM inventory WHERE sku = :sku"),
+                {"sku": sku},
+            ).fetchone()
+            if row and row[0] and row[0] not in synced_pids:
+                _sync_product_total_stock(db, row[0])
+                synced_pids.add(row[0])
     db.commit()
     redis_client.invalidate_pattern("products:*")
+    await purge_product_caches()
     return {"updated": updated, "errors": errors}
 
 
@@ -493,6 +548,7 @@ async def admin_bulk_delete_products(
     db.commit()
     redis_client.invalidate_pattern("products:*")
     redis_client.invalidate_pattern("public:landing:*")
+    await purge_product_caches()
     return {"deleted": deleted}
 
 
@@ -559,6 +615,7 @@ async def admin_upload_product_image(
     db.commit()
     redis_client.invalidate_pattern("products:*")
     redis_client.invalidate_pattern("public:landing:*")
+    await purge_product_caches(resolved_product_id)
     return {
         "id": image_id,
         "product_id": resolved_product_id,
@@ -603,6 +660,7 @@ async def admin_delete_product_image(
     db.commit()
     redis_client.invalidate_pattern("products:*")
     redis_client.invalidate_pattern("public:landing:*")
+    await purge_product_caches(resolved_product_id)
 
 
 @router.patch(
@@ -851,6 +909,8 @@ async def admin_create_product_variant(
         },
     )
     inv_id = result.scalar()
+    # Sync denormalized total_stock after creating variant
+    _sync_product_total_stock(db, pid)
     db.commit()
     redis_client.invalidate_pattern("products:*")
     return {"id": inv_id, "message": "Variant created", "sku": data.sku}
@@ -922,6 +982,9 @@ async def admin_update_product_variant(
         params["sku"] = data.sku
     # `price` is intentionally ignored — variant-level pricing was removed.
     db.execute(text(f"UPDATE inventory SET {', '.join(sets)} WHERE id = :id"), params)
+    # Sync denormalized total_stock if quantity changed
+    if data.quantity is not None:
+        _sync_product_total_stock(db, pid)
     db.commit()
     redis_client.invalidate_pattern("products:*")
     return {"message": "Variant updated"}
@@ -953,6 +1016,8 @@ async def admin_delete_product_variant(
     )
     if not result.fetchone():
         raise HTTPException(status_code=404, detail="Variant not found")
+    # Sync denormalized total_stock after deleting variant
+    _sync_product_total_stock(db, pid)
     db.commit()
     redis_client.invalidate_pattern("products:*")
 
@@ -988,6 +1053,8 @@ async def admin_adjust_variant_stock(
         text("UPDATE inventory SET quantity = :qty, updated_at = :now WHERE id = :id"),
         {"qty": new_qty, "id": inv[0], "now": now_ist()},
     )
+    # Sync denormalized total_stock so product list reflects accurate stock
+    _sync_product_total_stock(db, pid)
     db.commit()
     redis_client.invalidate_pattern("products:*")
     return {"id": inv[0], "new_quantity": new_qty, "adjustment": data.adjustment}

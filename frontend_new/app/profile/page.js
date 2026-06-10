@@ -12,13 +12,17 @@ import {
   AlertCircle,
   ShieldCheck,
   Loader2,
+  LogOut,
 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { userApi, authApi } from '@/lib/customerApi';
 import { setAuthData } from '@/lib/baseApi';
 import { useAuth } from '@/lib/authContext';
 
 export default function ProfilePage() {
-  const { user, loading: authLoading, updateUser } = useAuth();
+  const { user, loading: authLoading, updateUser, logout } = useAuth();
+  const router = useRouter();
+  const [loggingOut, setLoggingOut] = useState(false);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
@@ -395,6 +399,23 @@ export default function ProfilePage() {
             <p className="text-sm text-[#EAE0D5]/50 mt-1">
               Channel (email vs SMS) follows your verification status in Account verification above — there is no separate toggle yet.
             </p>
+          </div>
+          <div className="py-3 border-b border-[#B76E79]/10">
+            <button
+              onClick={async () => {
+                if (loggingOut) return;
+                setLoggingOut(true);
+                try {
+                  await logout();
+                } catch { /* ignore */ }
+                router.push('/');
+              }}
+              disabled={loggingOut}
+              className="flex items-center gap-2 px-4 py-2.5 w-full sm:w-auto border border-[#B76E79]/30 text-[#B76E79] rounded-xl hover:border-[#B76E79]/60 hover:text-[#F2C29A] transition-colors disabled:opacity-50"
+            >
+              <LogOut className={`w-4 h-4 ${loggingOut ? 'animate-pulse' : ''}`} />
+              {loggingOut ? 'Logging out...' : 'Sign Out'}
+            </button>
           </div>
           <div className="pt-2">
             <button className="text-sm text-[#B76E79] hover:text-[#F2C29A] transition-colors">

@@ -348,13 +348,11 @@ html {
    PREMIUM TYPOGRAPHY ENHANCEMENTS
    ============================================ */
 
-/* Enhanced Gold Text */
+/* Enhanced Gold Text — reduced from 4 to 2 shadow layers for GPU perf */
 .text-\[\#F2C29A\] {
   text-shadow: 
     0 1px 3px rgba(0, 0, 0, 0.9),
-    0 2px 6px rgba(0, 0, 0, 0.6),
-    0 0 20px rgba(242, 194, 154, 0.25),
-    0 0 40px rgba(242, 194, 154, 0.1);
+    0 0 20px rgba(242, 194, 154, 0.25);
 }
 
 /* Premium Heading Style */
@@ -388,26 +386,21 @@ html {
   width: 100%;
 }
 
-/* Light text (#EAE0D5) */
+/* Light text (#EAE0D5) — single shadow layer */
 .text-\[\#EAE0D5\] {
-  text-shadow: 
-    0 1px 2px rgba(0, 0, 0, 0.7),
-    0 2px 4px rgba(0, 0, 0, 0.5);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
 }
 
-/* Rose gold text (#B76E79) */
+/* Rose gold text (#B76E79) — single shadow layer */
 .text-\[\#B76E79\] {
   text-shadow: 
     0 1px 2px rgba(0, 0, 0, 0.7),
-    0 2px 4px rgba(0, 0, 0, 0.5),
     0 0 12px rgba(183, 110, 121, 0.25);
 }
 
-/* Secondary text (#8A6A5C) */
+/* Secondary text (#8A6A5C) — single shadow */
 .text-\[\#8A6A5C\] {
-  text-shadow: 
-    0 1px 2px rgba(0, 0, 0, 0.6),
-    0 2px 3px rgba(0, 0, 0, 0.4);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
 }
 
 /* Input text */
@@ -438,42 +431,23 @@ input:-webkit-autofill:active {
   caret-color: #EAE0D5 !important;
 }
 
-/* Enhanced Luxury Input */
+/* Enhanced Luxury Input — optimized: removed ::before blur filter (GPU-heavy) */
 .luxury-input-wrapper {
   background: rgba(25, 20, 30, 0.35);
-  backdrop-filter: blur(12px);
+  backdrop-filter: blur(8px);
   border: 1px solid rgba(183, 110, 121, 0.25);
   box-shadow: 
     inset 0 2px 8px rgba(0, 0, 0, 0.4),
     0 4px 20px rgba(0, 0, 0, 0.15);
-  transition: all 0.4s var(--transition-smooth);
-  position: relative;
-}
-
-/* Input Focus Glow Effect */
-.luxury-input-wrapper::before {
-  content: '';
-  position: absolute;
-  inset: -1px;
-  background: linear-gradient(135deg, #B76E79, #F2C29A, #7A2F57);
-  border-radius: inherit;
-  z-index: -1;
-  opacity: 0;
-  transition: opacity 0.4s ease;
-  filter: blur(6px);
-}
-
-.luxury-input-wrapper:focus-within::before {
-  opacity: 0.5;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
 }
 
 .luxury-input-wrapper:focus-within {
   background: rgba(35, 25, 40, 0.45);
-  backdrop-filter: blur(16px);
+  backdrop-filter: blur(8px);
   border: 1px solid rgba(242, 194, 154, 0.4);
   box-shadow: 
     inset 0 2px 12px rgba(0, 0, 0, 0.5),
-    0 4px 25px rgba(0, 0, 0, 0.2),
     0 0 20px rgba(183, 110, 121, 0.15);
   transform: translateY(-1px);
 }
@@ -651,35 +625,10 @@ input[type="checkbox"]:focus {
 
 .glass-card {
   background: rgba(11, 6, 8, 0.3);
-  backdrop-filter: blur(16px);
+  backdrop-filter: blur(8px);
   border: 1px solid rgba(183, 110, 121, 0.15);
   border-radius: 1.5rem;
-  box-shadow: 
-    0 8px 32px rgba(0, 0, 0, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
-  position: relative;
-  overflow: hidden;
-}
-
-/* Glass Card Shine Effect */
-.glass-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    rgba(255, 255, 255, 0.03),
-    transparent
-  );
-  transition: left 0.6s ease;
-}
-
-.glass-card:hover::before {
-  left: 100%;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
 }
 
 .glass-card-hover {

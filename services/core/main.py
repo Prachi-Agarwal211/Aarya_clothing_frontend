@@ -873,35 +873,18 @@ async def login_otp_request(
     from service.auth_service import _resolve_user_query
     auth_service = AuthService(db)
 
-    # UNIFIED FLOW: Check if user exists first. If not, auto-register silently.
+    # UNIFIED FLOW: Check if user exists first. If not, reject with a clear message.
+    # Auto-registration is intentionally disabled — users must register via /auth/register first.
     existing_user = _resolve_user_query(db, identifier)
     if not existing_user:
-        try:
-            # Auto-register: UserCreate schema generates email/username/password/name from phone
-            user_data = UserCreate(phone=identifier)
-            user = User(
-                email=user_data.email,
-                username=user_data.username,
-                hashed_password=AuthService.get_password_hash(user_data.password),
-                role="customer",
-                is_active=True,
-                email_verified=False,
-                phone=user_data.phone,
-                full_name=user_data.full_name,
-                first_name=user_data.first_name,
-                last_name=user_data.last_name,
-                phone_verified=True,
-                signup_verification_method=f"otp_{otp_type.lower()}",
-                created_at=ist_naive(),
-                updated_at=ist_naive(),
-            )
-            db.add(user)
-            db.commit()
-            db.refresh(user)
-            logger.info(f"[AUTH] Auto-registered new user via login-otp-request: user_id={user.id} phone={user.phone}")
-        except Exception as reg_err:
-            logger.error(f"[Auth Error] Auto-registration failed: {reg_err}")
-            raise HTTPException(status_code=400, detail="Failed to send OTP. Please try again.")
+        if "@" in identifier:
+            raise HTTPException(status_code=404, detail="No account found with this email. Please create an account first.")
+        # Phone-based: normalise to E.164 for lookup
+        normalized_phone = normalize_phone_safe(identifier)
+        if normalized_phone and normalized_phone != identifier:
+            existing_user = _resolve_user_query(db, normalized_phone)
+        if not existing_user:
+            raise HTTPException(status_code=404, detail="No account found with this phone number. Please create an account first.")
 
     try:
         result = auth_service.send_login_otp(identifier=identifier, otp_type=otp_type)

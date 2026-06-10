@@ -66,21 +66,21 @@ const ProductCard = ({ product, className, priority = false }) => {
           {/* Tappable image area — navigates to product on mobile */}
           <Link href={productHref} className="absolute inset-0 z-10 lg:pointer-events-none" aria-label={`View ${name}`} />
 
-          {/* Premium New Badge with Animation */}
+          {/* Sale Badge — top-right so it doesn't overlap NEW */}
+          {originalPrice && originalPrice > price && (
+            <div className="absolute top-4 right-4 z-20">
+              <span className="px-3 py-1 text-xs tracking-wider text-white bg-[#7A2F57] font-medium rounded-full">
+                {Math.round((1 - price / originalPrice) * 100)}% OFF
+              </span>
+            </div>
+          )}
+
+          {/* Premium New Badge with Animation — top-left */}
           {isNew && (
             <div className="absolute top-4 left-4 z-20">
               <span className="relative px-4 py-1.5 text-xs tracking-[0.2em] text-[#050203] bg-gradient-to-r from-[#F2C29A] via-[#EAE0D5] to-[#F2C29A] font-cinzel font-semibold rounded-full overflow-hidden">
                 <span className="relative z-10">NEW</span>
                 <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent animate-shimmer" />
-              </span>
-            </div>
-          )}
-
-          {/* Sale Badge */}
-          {originalPrice && originalPrice > price && (
-            <div className="absolute top-4 left-4 z-20">
-              <span className="px-3 py-1 text-xs tracking-wider text-white bg-[#7A2F57] font-medium rounded-full">
-                {Math.round((1 - price / originalPrice) * 100)}% OFF
               </span>
             </div>
           )}

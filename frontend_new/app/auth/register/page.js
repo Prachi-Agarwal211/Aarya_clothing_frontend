@@ -13,6 +13,7 @@ import { getRedirectForRole, USER_ROLES } from '../../../lib/roles';
 import { useLogo, useSiteConfig } from '../../../lib/siteConfigContext';
 import { AUTH_COPY } from '../../../lib/authCopy';
 import { validatePhone, toE164 } from '../../../lib/authHelpers';
+import { userApi } from '../../../lib/customerApi';
 
 const OTP_EXPIRY_SECONDS = 600;
 const RESEND_COOLDOWN_SECONDS = 30;
@@ -282,9 +283,9 @@ export default function RegisterPage() {
       const data = await response.json();
       logger.info('Registration & OTP verification successful', { userId: data?.user?.id });
 
-      // Do NOT call setAuthStatus here — it triggers immediate redirect
-      // via the isAuthenticated useEffect. We'll set it AFTER profile is
-      // saved (or skipped) in step 4.
+      // Set auth status with the verified user data so the profile PATCH
+      // endpoint can authenticate, and so the auth context knows about the user.
+      if (data?.user) setAuthStatus(data.user);
       setStep(3);
       setRegistrationSuccess(true);
     } catch (error) {
@@ -310,20 +311,7 @@ export default function RegisterPage() {
 
       // Only call PATCH if there's something to save
       if (Object.keys(body).length > 0) {
-        const response = await fetch('/api/v1/users/me', {
-          method: 'PATCH',
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          const message = errorData.detail || 'Failed to save profile details';
-          throw new Error(message);
-        }
-
-        const updatedUser = await response.json();
+        const updatedUser = await userApi.updateProfile(body);
         logger.info('Profile updated after registration', { userId: updatedUser?.id });
         setAuthStatus(updatedUser);
       } else {
@@ -668,20 +656,9 @@ export default function RegisterPage() {
               </span>
             </Button>
 
-            <button
-              type="button"
-              onClick={() => {
-                // Set auth status now that we're skipping the profile form
-                // Auth is already set from login — just redirect
-                setStep(4);
-                setRegistrationSuccess(true);
-                const role = USER_ROLES.CUSTOMER;
-                setTimeout(() => { router.push(getRedirectForRole(role)); }, 2000);
-              }}
-              className="w-full text-sm text-[#8A6A5C] hover:text-[#EAE0D5]/80 py-2"
-            >
-              Skip for now
-            </button>
+            <p className="text-center text-[#EAE0D5]/40 text-xs px-1">
+              You can update these later from your profile settings.
+            </p>
           </form>
         </div>
       )}

@@ -352,8 +352,9 @@ async def list_products(
     else:
         db_search = None
 
-    # Build cache key — CRITICAL: include user_role to prevent admin inventory data leaking to customers
-    cache_params = f"role={user_role or 'public'}:cat={category_id}:col={collection}:min={min_price}:max={max_price}:sizes={sizes}:colors={colors}:sort={sort}:order={order}:page={page}:limit={limit}"
+    # Build cache key — role removed for public catalog to 2x cache efficiency
+    # Admin vs customer see same catalog data; inventory details are filtered in _enrich_product
+    cache_params = f"cat={category_id}:col={collection}:min={min_price}:max={max_price}:sizes={sizes}:colors={colors}:sort={sort}:order={order}:page={page}:limit={limit}"
     cache_key_hash = hashlib.md5(cache_params.encode()).hexdigest()[:12]
     cache_key = f"products:list:{cache_key_hash}"
 
@@ -435,8 +436,10 @@ async def list_products(
             "has_more": offset + limit < total
         }
 
-    # Use L1+L2 cache for non-search queries (run sync Redis in thread pool to avoid blocking event loop)
-    if not db_search:
+    # Use L1+L2 cache for customer/public requests only.
+    # Admin inventory data differs (_enrich_inventory returns quantity vs in_stock),
+    # so we must NOT share cached data between roles.
+    if not db_search and not is_staff(user_role):
         try:
             cached_result = await asyncio.to_thread(
                 cache.get_or_set_sync, cache_key, _fetch_products, ttl=120
@@ -445,7 +448,7 @@ async def list_products(
         except Exception as e:
             logger.warning(f"Cache miss fallback for products list: {e}")
 
-    # Fallback: direct DB query (for search or cache failure)
+    # Fallback: direct DB query (for search, admin, or cache failure)
     return _fetch_products()
 
 
@@ -506,7 +509,11 @@ async def get_new_arrivals(
 ):
     """Get new arrival products."""
     user_role = current_user.get("role") if current_user else None
-    cache_key = f"products:new_arrivals:{limit}:role={user_role or 'public'}"
+
+    # Use L1+L2 cache for customer/public requests only.
+    # Admin inventory data differs (_enrich_inventory returns quantity vs in_stock),
+    # so we must NOT share cached data between roles.
+    cache_key = f"products:new_arrivals:{limit}"
 
     def _fetch():
         products = db.query(Product).options(
@@ -519,11 +526,13 @@ async def get_new_arrivals(
         ).order_by(Product.created_at.desc()).limit(limit).all()
         return [_enrich_product(p, db, user_role) for p in products]
 
-    try:
-        return await asyncio.to_thread(cache.get_or_set_sync, cache_key, _fetch, ttl=120)
-    except Exception as e:
-        logger.warning(f"Cache miss fallback for new-arrivals: {e}")
-        return _fetch()
+    if not is_staff(user_role):
+        try:
+            return await asyncio.to_thread(cache.get_or_set_sync, cache_key, _fetch, ttl=120)
+        except Exception as e:
+            logger.warning(f"Cache miss fallback for new-arrivals: {e}")
+
+    return _fetch()
 
 
 @router.get("/featured")
@@ -534,7 +543,10 @@ async def get_featured_products(
 ):
     """Get featured products."""
     user_role = current_user.get("role") if current_user else None
-    cache_key = f"products:featured:{limit}:role={user_role or 'public'}"
+
+    # Use L1+L2 cache for customer/public requests only.
+    # Admin inventory data differs, so we must NOT share cached data between roles.
+    cache_key = f"products:featured:{limit}"
 
     def _fetch():
         products = db.query(Product).options(
@@ -547,11 +559,13 @@ async def get_featured_products(
         ).order_by(Product.created_at.desc()).limit(limit).all()
         return [_enrich_product(p, db, user_role) for p in products]
 
-    try:
-        return await asyncio.to_thread(cache.get_or_set_sync, cache_key, _fetch, ttl=120)
-    except Exception as e:
-        logger.warning(f"Cache miss fallback for featured: {e}")
-        return _fetch()
+    if not is_staff(user_role):
+        try:
+            return await asyncio.to_thread(cache.get_or_set_sync, cache_key, _fetch, ttl=120)
+        except Exception as e:
+            logger.warning(f"Cache miss fallback for featured: {e}")
+
+    return _fetch()
 
 
 # IMPORTANT: /browse route MUST come before /{product_id} to avoid route matching conflicts
@@ -602,8 +616,9 @@ async def browse_products(
     if not effective_sort_by:
         effective_sort_by = "newest"
 
-    # Build cache key — include role to prevent admin data leaking to customers
-    cache_params = f"role={user_role or 'public'}:cid={category_id}:slug={category_slug}:min={min_price}:max={max_price}:size={size}:color={color}:sort={effective_sort_by}:stock={in_stock_only}:skip={effective_skip}:limit={limit}"
+    # Build cache key — role removed for public catalog to 2x cache efficiency
+    # Inventory visibility is handled in _enrich_product, not the DB query
+    cache_params = f"cid={category_id}:slug={category_slug}:min={min_price}:max={max_price}:size={size}:color={color}:sort={effective_sort_by}:stock={in_stock_only}:skip={effective_skip}:limit={limit}"
     cache_key_hash = hashlib.md5(cache_params.encode()).hexdigest()[:12]
     cache_key = f"products:browse:{cache_key_hash}"
 
@@ -647,9 +662,11 @@ async def browse_products(
                 color_subq = select(Inventory.product_id).where(Inventory.color.in_(color_list)).scalar_subquery()
                 query = query.filter(Product.id.in_(color_subq))
 
-        # In-stock filter
+        # In-stock filter — use actual DB columns, not the @property is_out_of_stock
         if in_stock_only:
-            in_stock_subq = select(Inventory.product_id).where(Inventory.quantity > 0).scalar_subquery()
+            in_stock_subq = select(Inventory.product_id).where(
+                (Inventory.quantity - Inventory.reserved_quantity) > 0
+            ).scalar_subquery()
             query = query.filter(Product.id.in_(in_stock_subq))
 
         # Sorting
@@ -690,14 +707,16 @@ async def browse_products(
             }
         }
 
-    # Use L1+L2 cache for browse queries (run sync Redis in thread pool to avoid blocking event loop)
-    try:
-        cached_result = await asyncio.to_thread(
-            cache.get_or_set_sync, cache_key, _fetch_browse, ttl=60
-        )
-        return cached_result
-    except Exception as e:
-        logger.warning(f"Cache miss fallback for browse: {e}")
+    # Use L1+L2 cache for customer/public requests only.
+    # Admin inventory data differs, so we must NOT share cached data between roles.
+    if not is_staff(user_role):
+        try:
+            cached_result = await asyncio.to_thread(
+                cache.get_or_set_sync, cache_key, _fetch_browse, ttl=60
+            )
+            return cached_result
+        except Exception as e:
+            logger.warning(f"Cache miss fallback for browse: {e}")
 
     return _fetch_browse()
 
@@ -766,7 +785,11 @@ async def get_related_products(
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
 
-    related = db.query(Product).filter(
+    related = db.query(Product).options(
+        joinedload(Product.collection),
+        selectinload(Product.images),
+        selectinload(Product.variants),
+    ).filter(
         Product.category_id == product.category_id,
         Product.id != product_id,
         Product.is_active == True,

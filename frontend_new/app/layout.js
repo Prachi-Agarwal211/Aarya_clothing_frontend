@@ -8,6 +8,7 @@ import { ToastProvider } from '../components/ui/Toast';
 import { CartAnimationProvider } from '../components/cart/CartAnimation';
 import ErrorBoundary from '../components/ErrorBoundary';
 import WebVitalsInit from '../components/WebVitalsInit';
+import ServiceWorkerInit from '../components/ServiceWorkerInit';
 import { IntroVideoOverlayProvider } from '../lib/introVideoOverlayContext';
 import ClientShell from '../components/ClientShell';
 
@@ -82,6 +83,7 @@ export default function RootLayout({ children }) {
         <div className="fixed inset-0 z-0 bg-gradient-to-b from-[#050203]/40 via-transparent to-[#050203]/90 pointer-events-none" aria-hidden="true" />
 
         <WebVitalsInit />
+        <ServiceWorkerInit />
         <ErrorBoundary>
           <AuthProvider>
             <CartProvider>
@@ -105,7 +107,6 @@ export default function RootLayout({ children }) {
         
         {/* Razorpay SDK - preload for faster checkout */}
         <link rel="preconnect" href="https://checkout.razorpay.com" />
-        {/* NOTE: Removed broken /sw.js ServiceWorker registration (no sw.js exists; was causing SSL + registration errors in dev https://localhost). */}
       </body>
     </html>
   );

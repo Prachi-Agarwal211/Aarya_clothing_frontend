@@ -84,7 +84,7 @@ export default function LandingPageConfig() {
         landingApi.getConfig(),
         landingApi.getImages(),
         landingApi.getLandingProducts('newArrivals'),
-        productsApi.list({ limit: 200 }),
+        productsApi.list({ limit: 100, skip: 0 }),
         siteConfigApi.getConfig(),
       ]);
 

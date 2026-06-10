@@ -31,6 +31,7 @@ export default function CheckoutConfirmPage() {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
+      isRegisteringRef.current = false;
       if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
     };
   }, []);
@@ -189,6 +190,7 @@ export default function CheckoutConfirmPage() {
           : undefined,
       };
       if (qrCodeId) payload.qr_code_id = qrCodeId;
+      logger.info('Registering payment payload:', JSON.stringify({ address_id: payload.address_id, has_txn: !!payload.transaction_id, has_qr: !!payload.qr_code_id, has_sig: !!payload.razorpay_signature }));
 
       logger.info(
         `Registering payment: transaction_id=${txnId || 'N/A'} ` +
@@ -196,8 +198,22 @@ export default function CheckoutConfirmPage() {
       );
 
       // ── STEP 1: Register the payment (signature verify + cart snapshot) ──
-      const result = await ordersApi.registerPayment(payload);
-      logger.info('Payment registration result:', result);
+      let result;
+      try {
+        result = await ordersApi.registerPayment(payload);
+        logger.info('Payment registration result:', result);
+      } catch (regErr) {
+        // Payment registration failed — but the user may have already paid.
+        // Try polling for the order anyway (webhook may have created it).
+        const pid = txnId || qrCodeId;
+        if (pid) {
+          logger.warn('Payment registration failed, attempting to poll for order via webhook:', regErr?.message);
+          setPolling(true);
+          pollForOrder(pid);
+          return;
+        }
+        throw regErr;
+      }
 
       // Check if order already existed (webhook processed first)
       if (result?.status === 'success' && result?.order) {
@@ -322,16 +338,25 @@ export default function CheckoutConfirmPage() {
           </div>
           <h2 className="text-xl font-bold text-red-400 mb-2">Something went wrong</h2>
           <p className="text-[#EAE0D5]/70 mb-4">{error}</p>
-          <button
-            onClick={() => {
-              setError(null);
-              setLoading(true);
-              registerAndPoll();
-            }}
-            className="px-6 py-2 bg-gradient-to-r from-[#7A2F57] to-[#B76E79] text-white rounded-xl hover:opacity-90 transition-opacity"
-          >
-            Try Again
-          </button>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <button
+              onClick={() => {
+                isRegisteringRef.current = false;
+                setError(null);
+                setLoading(true);
+                registerAndPoll();
+              }}
+              className="px-6 py-2 bg-gradient-to-r from-[#7A2F57] to-[#B76E79] text-white rounded-xl hover:opacity-90 transition-opacity"
+            >
+              Try Again
+            </button>
+            <Link
+              href="/profile/orders"
+              className="px-6 py-2 border border-[#B76E79]/30 text-[#B76E79] rounded-xl hover:border-[#B76E79]/60 hover:text-[#F2C29A] transition-colors text-center"
+            >
+              Check My Orders
+            </Link>
+          </div>
         </div>
         <div className="p-4 bg-[#7A2F57]/10 border border-[#B76E79]/10 rounded-xl text-center">
           <p className="text-sm text-[#EAE0D5]/70">

@@ -2,12 +2,11 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
-import {
-  Plus, Search, RefreshCw, Package, Edit, Trash2, Image as ImageIcon,
+import Image from 'next/image';import { Plus, Search, RefreshCw, Package, Edit, Trash2, Image as ImageIcon,
   AlertCircle, CheckSquare, Square, X, Save,
   Eye, EyeOff, Star, Sparkles, IndianRupee, ChevronDown,
-  ChevronRight, Minus, Warehouse, Upload, XCircle, ArrowRight
+  ChevronRight, Minus, Warehouse, Upload, XCircle, ArrowRight,
+  ChevronLeft, ChevronsLeft, ChevronsRight
 } from 'lucide-react';
 import { productsApi, collectionsApi, categoriesApi } from '@/lib/adminApi';
 import logger from '@/lib/logger';
@@ -651,6 +650,9 @@ export default function ProductsPage() {
   const [search, setSearch] = useState('');
   const [filterCollection, setFilterCollection] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
+  const [page, setPage] = useState(1);
+  const [totalProducts, setTotalProducts] = useState(0);
+  const [stats, setStats] = useState({ total: 0, active: 0, low_stock: 0, out_of_stock: 0 });
   const [selected, setSelected] = useState(new Set());
   const [showBulkPrice, setShowBulkPrice] = useState(false);
   const [bulkLoading, setBulkLoading] = useState(false);
@@ -661,14 +663,23 @@ export default function ProductsPage() {
   const [editingProduct, setEditingProduct] = useState(null);      // For EditProductModal
   const [variantContext, setVariantContext] = useState(null);       // { product, variant, reloadFn }
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => { fetchData(); }, [page]);
+  useEffect(() => {
+    collectionsApi.list().then(cd => {
+      setCollections(Array.isArray(cd) ? cd : cd?.items || cd?.categories || cd?.collections || []);
+    }).catch(() => {});
+  }, []);
 
   const fetchData = async () => {
     try {
       setLoading(true); setError(null);
-      const [pd, cd] = await Promise.all([productsApi.list({ limit: 200 }), collectionsApi.list()]);
-      setProducts(Array.isArray(pd) ? pd : pd?.products || []);
-      setCollections(Array.isArray(cd) ? cd : cd?.items || cd?.categories || cd?.collections || []);
+      const PAGE_SIZE = 50;
+      const skip = (page - 1) * PAGE_SIZE;
+      const pd = await productsApi.list({ limit: PAGE_SIZE, skip });
+      const productsList = Array.isArray(pd) ? pd : pd?.products || pd?.items || [];
+      setProducts(productsList);
+      setTotalProducts(pd?.total ?? productsList.length);
+      if (pd?.stats) setStats(pd.stats);
     } catch { setError('Failed to load products.'); }
     finally { setLoading(false); }
   };
@@ -716,12 +727,12 @@ export default function ProductsPage() {
     }
   };
 
-  // Stats
-  const stats = {
-    total: products.length,
-    active: products.filter(p => p.is_active).length,
-    lowStock: products.filter(p => p.total_stock > 0 && p.total_stock <= 10).length,
-    outOfStock: products.filter(p => p.total_stock === 0).length,
+  // Stats — use global counts from backend, not per-page filtering
+  const displayStats = {
+    total: stats.total || totalProducts || products.length,
+    active: stats.active || 0,
+    lowStock: stats.low_stock || 0,
+    outOfStock: stats.out_of_stock || 0,
   };
 
   return (
@@ -777,10 +788,10 @@ export default function ProductsPage() {
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: 'Total Products', value: stats.total, color: 'text-[#F2C29A]', border: 'border-[#B76E79]/20', bg: 'bg-[#7A2F57]/10', Icon: Package },
-          { label: 'Active', value: stats.active, color: 'text-green-400', border: 'border-green-500/20', bg: 'bg-green-500/5', Icon: Eye },
-          { label: 'Low Stock', value: stats.lowStock, color: 'text-yellow-400', border: 'border-yellow-500/20', bg: 'bg-yellow-500/5', Icon: AlertCircle },
-          { label: 'Out of Stock', value: stats.outOfStock, color: 'text-red-400', border: 'border-red-500/20', bg: 'bg-red-500/5', Icon: XCircle },
+          { label: 'Total Products', value: displayStats.total, color: 'text-[#F2C29A]', border: 'border-[#B76E79]/20', bg: 'bg-[#7A2F57]/10', Icon: Package },
+          { label: 'Active', value: displayStats.active, color: 'text-green-400', border: 'border-green-500/20', bg: 'bg-green-500/5', Icon: Eye },
+          { label: 'Low Stock', value: displayStats.lowStock, color: 'text-yellow-400', border: 'border-yellow-500/20', bg: 'bg-yellow-500/5', Icon: AlertCircle },
+          { label: 'Out of Stock', value: displayStats.outOfStock, color: 'text-red-400', border: 'border-red-500/20', bg: 'bg-red-500/5', Icon: XCircle },
         ].map(({ label, value, color, border, bg, Icon }) => (
           <div key={label} className={`${bg} backdrop-blur-md border ${border} rounded-2xl p-4`}>
             <div className="flex items-center justify-between mb-2">
@@ -868,6 +879,7 @@ export default function ProductsPage() {
             <Package className="w-12 h-12 mb-3" /><p>No products found</p>
           </div>
         ) : (
+          <>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
@@ -901,6 +913,36 @@ export default function ProductsPage() {
               </tbody>
             </table>
           </div>
+          {/* Pagination Controls */}
+          {totalProducts > 50 && (
+            <div className="flex items-center justify-between px-4 py-3 border-t border-[#B76E79]/10">
+              <p className="text-xs text-[#EAE0D5]/50">
+                Showing {((page - 1) * 50) + 1}–{Math.min(page * 50, totalProducts)} of {totalProducts}
+              </p>
+              <div className="flex items-center gap-1">
+                <button onClick={() => setPage(1)} disabled={page === 1}
+                  className="p-2 rounded-lg border border-[#B76E79]/15 text-[#EAE0D5]/50 hover:bg-[#B76E79]/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+                  <ChevronsLeft className="w-4 h-4" />
+                </button>
+                <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
+                  className="p-2 rounded-lg border border-[#B76E79]/15 text-[#EAE0D5]/50 hover:bg-[#B76E79]/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <span className="px-3 py-1.5 text-sm text-[#F2C29A] font-medium">
+                  {page} / {Math.ceil(totalProducts / 50)}
+                </span>
+                <button onClick={() => setPage(p => p + 1)} disabled={page * 50 >= totalProducts}
+                  className="p-2 rounded-lg border border-[#B76E79]/15 text-[#EAE0D5]/50 hover:bg-[#B76E79]/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+                <button onClick={() => setPage(Math.ceil(totalProducts / 50))} disabled={page * 50 >= totalProducts}
+                  className="p-2 rounded-lg border border-[#B76E79]/15 text-[#EAE0D5]/50 hover:bg-[#B76E79]/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+                  <ChevronsRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
+          </>
         )}
       </div>
     </div>

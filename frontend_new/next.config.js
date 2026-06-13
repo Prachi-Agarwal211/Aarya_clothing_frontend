@@ -61,12 +61,7 @@ const nextConfig = {
     contentSecurityPolicy:
       "default-src 'self'; frame-ancestors 'self'; base-uri 'self'; connect-src 'self' https: wss: data: blob:;",
 
-    // Images are served directly from Cloudflare R2 CDN.
-    // No need for Next.js server-side optimization — R2 already handles caching
-    // and Cloudflare's edge network delivers images with optimal performance.
-    // Setting unoptimized: true avoids 400 errors when Next.js tries to fetch
-    // images from R2 for server-side resizing.
-    unoptimized: true,
+    unoptimized: false,
     qualities: [25, 50, 65, 75, 85, 100],
   },
 

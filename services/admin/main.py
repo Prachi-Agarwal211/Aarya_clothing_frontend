@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 from core.config import settings
 from core.exception_handler import setup_exception_handlers
 from core.redis_client import redis_client
-from database.database import get_db, init_db
+from database.database import get_db, init_db, engine
 from service.event_handlers import OrderCreatedHandler
 from shared.auth_middleware import initialize_auth_middleware
 from shared.event_bus import EventBus
@@ -183,7 +183,6 @@ async def health_root():
     """Health check — lightweight, no DB session dependency."""
     db_status = "healthy"
     try:
-        from database.database import engine
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
     except Exception:

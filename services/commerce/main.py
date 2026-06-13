@@ -44,7 +44,7 @@ logger = logging.getLogger(__name__)
 from core.config import settings
 from core.redis_client import redis_client
 from core.advanced_cache import cache, cached
-from database.database import get_db, init_db, SessionLocal, get_db_context
+from database.database import get_db, init_db, SessionLocal, get_db_context, engine
 from search.meilisearch_client import (
     init_products_index,
     sync_all_products,
@@ -412,7 +412,6 @@ async def health_check():
     redis_status = "healthy" if redis_client.ping() else "unhealthy"
     db_status = "healthy"
     try:
-        from database.database import engine
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
     except Exception:
@@ -433,7 +432,6 @@ async def health_api():
     redis_status = "healthy" if redis_client.ping() else "unhealthy"
     db_status = "healthy"
     try:
-        from database.database import engine
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
     except Exception:

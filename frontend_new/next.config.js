@@ -62,7 +62,7 @@ const nextConfig = {
       "default-src 'self'; frame-ancestors 'self'; base-uri 'self'; connect-src 'self' https: wss: data: blob:;",
 
     unoptimized: false,
-    qualities: [25, 50, 75, 100],
+    qualities: [25, 50, 65, 75, 85, 100],
   },
 
   // Performance

@@ -28,13 +28,12 @@ export default function ProfileLayout({ children }) {
   // CRITICAL: Only run this check when on profile routes to avoid navigation conflicts
   // after logout when user navigates to other pages (e.g., homepage → Sign In)
   useEffect(() => {
-    // Only enforce auth check on profile routes
     const isProfileRoute = pathname.startsWith('/profile');
     
     if (!loading && !isAuthenticated && !isLoggingOut && isProfileRoute) {
       const loginUrl = new URL('/auth/login', window.location.origin);
       loginUrl.searchParams.set('redirect_url', pathname);
-      router.push(loginUrl.toString()); // Use router.push for SPA navigation
+      router.replace(loginUrl.toString()); // replace so back button doesn't loop
       return;
     }
   }, [loading, isAuthenticated, isLoggingOut, pathname, router]);
@@ -50,16 +49,15 @@ export default function ProfileLayout({ children }) {
     
     try {
       await logout();
-      router.push('/');
     } catch (error) {
       logger.error('Logout failed:', error);
-      // Still redirect to home even if logout API fails
-      router.push('/');
     } finally {
+      // Clean up state BEFORE navigating away
       setIsLoggingOut(false);
-      // Dispatch custom event for coordination with other components
       window.dispatchEvent(new CustomEvent('customer-logout-end'));
     }
+    // Navigate after all state cleanup is done
+    router.replace('/');
   }, [isLoggingOut, logout, router]);
 
   // Show loading state while checking auth
@@ -69,6 +67,19 @@ export default function ProfileLayout({ children }) {
         <div className="text-center">
           <div className="w-12 h-12 border-2 border-[#B76E79]/30 border-t-[#F2C29A] rounded-full animate-spin mx-auto mb-4" />
           <p className="text-[#EAE0D5]/70">Loading...</p>
+        </div>
+      </main>
+    );
+  }
+
+  // If we're logging out, show a safe empty state instead of rendering children
+  // that would try to fetch authenticated data and get 401 errors
+  if (isLoggingOut) {
+    return (
+      <main className="min-h-screen bg-[#050203] text-[#EAE0D5] flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 border-2 border-[#B76E79]/30 border-t-[#F2C29A] rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-[#EAE0D5]/70">Logging out...</p>
         </div>
       </main>
     );

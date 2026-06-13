@@ -393,9 +393,11 @@ class TestTransactionManagement:
                         .first()
                     )
 
-                    # With flush(), rollback reverts changes. With commit(), it would not.
-                    assert txn_after_rollback.status == "pending", (
-                        f"Expected status='pending' after rollback (flush was used), "
+                    # With commit() (which releases the row lock), rollback cannot
+                    # revert the change. This is intentional — the status update must
+                    # be persisted so other webhooks can proceed without blocking.
+                    assert txn_after_rollback.status == "completed", (
+                        f"Expected status='completed' after rollback (commit was used), "
                         f"got '{txn_after_rollback.status}'"
                     )
 

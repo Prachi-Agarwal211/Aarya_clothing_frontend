@@ -131,14 +131,10 @@ class CartService:
             if img and not img.startswith("http"):
                 item["image"] = _r2_url(img)
 
-        # No reservation system - stock checked at checkout
+        # Stock is checked at checkout, not reserved during browsing
         cart_data["reservation_expires_at"] = None
 
         return cart_data
-
-    def _get_earliest_reservation_expiry(self, user_id: int) -> Optional[str]:
-        """No reservation system - always returns None."""
-        return None
 
     def save_cart(self, user_id: int, cart_data: Dict) -> bool:
         """Save cart data to cache."""
@@ -244,13 +240,10 @@ class CartService:
                     detail=f"Only {available} items available",
                 )
 
-        # Note: Locking is handled by the caller (CartConcurrencyManager/cart_operation_lock).
-        # No inner lock needed here — avoids deadlock and double-locking overhead.
         try:
-            result = self._add_to_cart_unlocked(
+            result = self._add_to_cart_internal(
                 user_id, product, inventory, sku, price, quantity, variant_id
             )
-            # Commit the database transaction
             if self.db:
                 self.db.commit()
             return result
@@ -259,7 +252,7 @@ class CartService:
                 self.db.rollback()
             raise
 
-    def _add_to_cart_unlocked(
+    def _add_to_cart_internal(
         self,
         user_id: int,
         product,
@@ -269,7 +262,7 @@ class CartService:
         quantity: int,
         variant_id: Optional[int],
     ) -> Dict:
-        """Internal add-to-cart logic (must be called under lock)."""
+        """Internal add-to-cart logic."""
         # Get current cart
         cart = self.get_cart(user_id)
 
@@ -352,16 +345,12 @@ class CartService:
         new_quantity: int,
         variant_id: Optional[int] = None,
     ) -> Dict:
-        """Update item quantity in cart.
-        
-        NOTE: Caller (CartConcurrencyManager) holds the distributed lock.
-        No inner lock here — avoids double-locking and deadlock.
-        """
-        return self._update_quantity_unlocked(
+        """Update item quantity in cart."""
+        return self._update_quantity_internal(
             user_id, product_id, new_quantity, variant_id
         )
 
-    def _update_quantity_unlocked(
+    def _update_quantity_internal(
         self,
         user_id: int,
         product_id: int,
@@ -451,14 +440,10 @@ class CartService:
         return cart
 
     def clear_cart(self, user_id: int) -> Dict:
-        """Clear cart.
-        
-        NOTE: Caller (CartConcurrencyManager) holds the distributed lock.
-        No inner lock here — avoids double-locking and deadlock.
-        """
-        return self._clear_cart_unlocked(user_id)
+        """Clear cart."""
+        return self._clear_cart_internal(user_id)
 
-    def _clear_cart_unlocked(self, user_id: int) -> Dict:
+    def _clear_cart_internal(self, user_id: int) -> Dict:
         # Delete cart
         cart_key = f"{self.CART_KEY_PREFIX}{user_id}"
         redis_client.delete_cache(cart_key)

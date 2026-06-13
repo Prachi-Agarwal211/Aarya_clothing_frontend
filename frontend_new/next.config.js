@@ -21,21 +21,19 @@ const nextConfig = {
     output: 'standalone',
   }),
 
-  // Image Optimization with Cloudflare Images CDN
+  // Image Optimization — Next.js built-in optimizer
+  // Resizes images server-side to the exact width each <Image> requests.
+  // R2 images are proxied through /_next/image and served at the correct size.
   images: {
-    // Use custom loader for Cloudflare Images
-    loader: 'custom',
-    loaderFile: './imageLoader.ts',
-
     // Modern image formats - AVIF preferred, WebP fallback
     formats: ['image/avif', 'image/webp'],
 
     // Responsive breakpoints for different screen sizes
-    deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
+    deviceSizes: [640, 750, 828, 1080, 1200, 1920],
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
 
-    // Cache optimized images for 1 hour (reduced from 30 days for faster updates)
-    minimumCacheTTL: 3600,
+    // Cache optimized images for 7 days
+    minimumCacheTTL: 604800,
 
     // Allow images from Cloudflare R2 storage
     remotePatterns: [
@@ -44,7 +42,6 @@ const nextConfig = {
         hostname: 'pub-7846c786f7154610b57735df47899fa0.r2.dev',
         pathname: '/**',
       },
-      // Allow any R2 bucket (adjust if using multiple buckets)
       {
         protocol: 'https',
         hostname: '*.r2.cloudflarestorage.com',
@@ -61,14 +58,10 @@ const nextConfig = {
     // Security settings
     dangerouslyAllowSVG: false,
     contentDispositionType: 'attachment',
-    // connect-src allows same-origin fetch/XHR from optimized image URLs where applicable
     contentSecurityPolicy:
       "default-src 'self'; frame-ancestors 'self'; base-uri 'self'; connect-src 'self' https: wss: data: blob:;",
 
-    // Prevent unoptimized mode - always use optimization
     unoptimized: false,
-
-    // Qualities for Next.js 16+ compatibility (fixes unconfigured-qualities warning)
     qualities: [25, 50, 75, 100],
   },
 
@@ -151,9 +144,29 @@ const nextConfig = {
           // are handled exclusively by Nginx to avoid duplicate/conflicting headers.
         ]
       },
-      // All HTML/SSR routes — never cache.
+      // Public product/collection catalog pages — short CDN cache (60s stale, 30s revalidate)
+      // These are the same for every visitor (no user-specific content)
       {
-        source: '/((?!_next/).*)',
+        source: '/products/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, s-maxage=60, stale-while-revalidate=30'
+          }
+        ]
+      },
+      {
+        source: '/collections/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, s-maxage=60, stale-while-revalidate=30'
+          }
+        ]
+      },
+      // All other HTML/SSR routes — never cache (personalized content)
+      {
+        source: '/((?!_next/|products|collections).*)',
         headers: [
           {
             key: 'Cache-Control',

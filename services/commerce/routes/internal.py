@@ -22,6 +22,7 @@ from core.config import settings
 from core.redis_client import redis_client
 from database.database import get_db
 from models.order import Order
+from models.pending_order import PendingOrder
 from models.product_image import ProductImage
 
 logger = logging.getLogger(__name__)
@@ -293,6 +294,27 @@ async def internal_create_order_from_payment(
 
     order_service = OrderService(db)
 
+    # ── FALLBACK: If no pending_order_id provided, try to find one by razorpay_order_id ──
+    # This handles the case where the payment service's prepare endpoint failed,
+    # so pending_order_id wasn't stored in Razorpay notes, but register_payment
+    # created a new pending order with the same razorpay_order_id.
+    if not pending_order_id and razorpay_order_id:
+        fallback_pending = (
+            db.query(PendingOrder)
+            .filter(
+                PendingOrder.razorpay_order_id == razorpay_order_id,
+                PendingOrder.user_id == user_id,
+            )
+            .order_by(PendingOrder.created_at.desc())
+            .first()
+        )
+        if fallback_pending:
+            pending_order_id = fallback_pending.id
+            logger.info(
+                f"FALLBACK_PENDING_ORDER: found pending_id={pending_order_id} "
+                f"by razorpay_order_id={razorpay_order_id} user={user_id}"
+            )
+
     try:
         logger.info(f"INTERNAL_ORDER_CREATE: user={user_id} payment={payment_id} pending_id={pending_order_id}")
 
@@ -353,21 +375,62 @@ async def internal_create_order_from_payment(
                 "items": items_data,
             },
         }
-    except (ValueError, HTTPException) as exc:
-        # Lock timeout or concurrency conflict — another process may be
-        # creating the order. Wait briefly and check for the existing order.
-        # create_order_from_pending_id raises ValueError on lock timeout,
-        # create_order_from_pending_order raises HTTPException(409).
-        # We retry on BOTH. Permanent validation errors (400/404) from
-        # variant-not-found etc. will also retry once — harmless since
-        # the idempotency SELECT won't find an order and we re-raise.
-        is_lock_contention = (
-            isinstance(exc, ValueError)
-            or (isinstance(exc, HTTPException) and exc.status_code == 409)
-        )
-        if not is_lock_contention:
-            raise
-        logger.warning(f"INTERNAL_ORDER_CREATE_RETRY: user={user_id} payment={payment_id} error={exc}")
+    except HTTPException as exc:
+        # Distinguish between retryable errors (lock/409) and permanent errors (400/404/500)
+        if exc.status_code == 409:
+            # Lock contention — another process is creating the order. Retry.
+            logger.warning(f"INTERNAL_ORDER_CREATE_LOCK: user={user_id} payment={payment_id}")
+            for attempt in range(5):
+                await asyncio.sleep(0.5)
+                retry_existing = db.execute(text("""
+                    SELECT id FROM orders 
+                    WHERE transaction_id = :payment_id 
+                       OR razorpay_payment_id = :payment_id
+                       OR razorpay_order_id = :razorpay_order_id
+                    LIMIT 1
+                """), {
+                    "payment_id": payment_id,
+                    "razorpay_order_id": razorpay_order_id or ""
+                }).fetchone()
+                if retry_existing:
+                    logger.info(f"LOCK_WAIT_RESOLVED: order {retry_existing[0]} found after {attempt + 1} attempts")
+                    return {"found": True, "order_id": retry_existing[0]}
+            logger.error(f"LOCK_TIMEOUT: payment={payment_id} after 5 attempts")
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Order is being processed from another payment notification.",
+            )
+        # Permanent validation error (400/404) — don't retry, raise immediately
+        raise
+    except ValueError as exc:
+        # ValueError from create_order_from_pending_id = pending order not found or lock timeout
+        # Distinguish: lock timeout messages contain "lock", everything else is a permanent error
+        error_msg = str(exc).lower()
+        is_lock_timeout = "lock" in error_msg or "acquire" in error_msg
+        if not is_lock_timeout:
+            # Permanent error (e.g., "Pending order 123 not found") — try recovery
+            logger.warning(f"INTERNAL_ORDER_CREATE_VALUE_ERROR: user={user_id} payment={payment_id} error={exc}")
+            # Try to find existing order first
+            retry_existing = db.execute(text("""
+                SELECT id FROM orders 
+                WHERE transaction_id = :payment_id 
+                   OR razorpay_payment_id = :payment_id
+                   OR razorpay_order_id = :razorpay_order_id
+                LIMIT 1
+            """), {
+                "payment_id": payment_id,
+                "razorpay_order_id": razorpay_order_id or ""
+            }).fetchone()
+            if retry_existing:
+                logger.info(f"VALUE_ERROR_RECOVERY: order {retry_existing[0]} found for payment={payment_id}")
+                return {"found": True, "order_id": retry_existing[0]}
+            # No existing order and no pending order — cannot create order
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Cannot create order: {exc}",
+            )
+        # Lock timeout — retry like 409
+        logger.warning(f"INTERNAL_ORDER_CREATE_LOCK_TIMEOUT: user={user_id} payment={payment_id}")
         for attempt in range(5):
             await asyncio.sleep(0.5)
             retry_existing = db.execute(text("""
@@ -383,13 +446,10 @@ async def internal_create_order_from_payment(
             if retry_existing:
                 logger.info(f"LOCK_WAIT_RESOLVED: order {retry_existing[0]} found after {attempt + 1} attempts")
                 return {"found": True, "order_id": retry_existing[0]}
-        logger.error(f"LOCK_TIMEOUT: payment={payment_id} after 5 attempts")
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Order is being processed from another payment notification.",
         )
-    except HTTPException:
-        raise
     except Exception as exc:
         logger.error(f"INTERNAL_ORDER_CREATE_ERROR: user={user_id} error={exc}", exc_info=True)
         raise HTTPException(

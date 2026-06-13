@@ -9,8 +9,8 @@ import { useCart } from '@/lib/cartContext';
 import { useAuth } from '@/lib/authContext';
 import logger from '@/lib/logger';
 
-const POLL_INTERVAL = 2000; // 2 seconds
-const POLL_TIMEOUT = 60000; // 60 seconds max wait
+const POLL_INTERVAL = 3000; // 3 seconds
+const POLL_TIMEOUT = 60000; // 60 seconds — after this show "processing" state not error
 
 export default function CheckoutConfirmPage() {
   const router = useRouter();
@@ -20,6 +20,7 @@ export default function CheckoutConfirmPage() {
   const [loading, setLoading] = useState(true);
   const [polling, setPolling] = useState(false);
   const [error, setError] = useState(null);
+  const [orderProcessing, setOrderProcessing] = useState(false); // gentle post-timeout state
   const [paymentRegistered, setPaymentRegistered] = useState(false);
   const [paymentId, setPaymentId] = useState(null);
   const isRegisteringRef = useRef(false);
@@ -62,6 +63,8 @@ export default function CheckoutConfirmPage() {
   // Poll for order by payment_id
   const pollForOrder = useCallback(async (pid) => {
     const startTime = Date.now();
+    // Read Razorpay order ID from session (stable across polls)
+    const razorpayOrderId = sessionStorage.getItem('razorpay_order_id');
 
     const poll = async () => {
       if (!mountedRef.current) return;
@@ -96,13 +99,32 @@ export default function CheckoutConfirmPage() {
         // Order not yet created — check timeout
         if (Date.now() - startTime >= POLL_TIMEOUT) {
           if (mountedRef.current) {
-            setError(
-              'Your payment was successful, but order creation is taking longer than expected. ' +
-              'Please check your orders page in a few minutes. ' +
-              'Payment ID: ' + pid
-            );
             setPolling(false);
             setLoading(false);
+            // Try order recovery before showing processing state
+            if (razorpayOrderId && razorpayOrderId !== 'null') {
+              try {
+                const recoveryResult = await ordersApi.recoverFromPayment(pid, razorpayOrderId);
+                if (recoveryResult && (recoveryResult.id || recoveryResult.order_id)) {
+                  const recoveredOrder = recoveryResult.order || recoveryResult;
+                  setOrder(recoveredOrder);
+                  sessionStorage.setItem('order_created', recoveredOrder?.id || 'done');
+                  try { await clearCart(); } catch (e) { /* non-fatal */ }
+                  sessionStorage.removeItem('checkout_address_id');
+                  sessionStorage.removeItem('payment_id');
+                  sessionStorage.removeItem('razorpay_order_id');
+                  sessionStorage.removeItem('payment_signature');
+                  sessionStorage.removeItem('qr_code_id');
+                  sessionStorage.removeItem('pending_order_id');
+                  return;
+                }
+              } catch (recoveryErr) {
+                logger.warn('Order recovery failed:', recoveryErr?.message);
+              }
+            }
+            // Show gentle "processing" state — not an error.
+            // Payment succeeded, order will appear in My Orders shortly.
+            setOrderProcessing(true);
           }
           return;
         }
@@ -114,10 +136,8 @@ export default function CheckoutConfirmPage() {
         if (Date.now() - startTime < POLL_TIMEOUT && mountedRef.current) {
           pollTimerRef.current = setTimeout(poll, POLL_INTERVAL);
         } else if (mountedRef.current) {
-          setError(
-            'Unable to confirm your order status. Please check your orders page. ' +
-            'Payment ID: ' + pid
-          );
+          // Show gentle processing state after timeout, not an error
+          setOrderProcessing(true);
           setPolling(false);
           setLoading(false);
         }
@@ -328,7 +348,57 @@ export default function CheckoutConfirmPage() {
     );
   }
 
-  // Show error with retry
+  // Gentle processing state — payment was captured, order is being created async
+  if (orderProcessing && !order) {
+    const pid = paymentId || sessionStorage.getItem('payment_id') || '';
+    return (
+      <div className="space-y-6">
+        <div className="p-8 bg-[#0B0608]/40 backdrop-blur-md border border-amber-500/20 rounded-2xl text-center">
+          <div className="w-20 h-20 mx-auto mb-6 bg-amber-500/10 rounded-full flex items-center justify-center">
+            <Clock className="w-10 h-10 text-amber-400 animate-pulse" />
+          </div>
+          <h2 className="text-xl font-bold text-amber-400 mb-2">Your order is being processed</h2>
+          <p className="text-[#EAE0D5]/80 mb-2">
+            Your payment was received successfully.
+          </p>
+          <p className="text-[#EAE0D5]/60 text-sm mb-6">
+            Our system is finalising your order — this usually takes a few seconds.
+            It will appear in <strong className="text-[#F2C29A]">My Orders</strong> shortly.
+          </p>
+          {pid && (
+            <p className="text-xs text-[#EAE0D5]/40 mb-6 font-mono">
+              Payment ID: {pid}
+            </p>
+          )}
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <Link
+              href="/profile/orders"
+              className="flex-1 sm:flex-none px-8 py-3 bg-gradient-to-r from-[#7A2F57] to-[#B76E79] text-white rounded-xl hover:opacity-90 transition-opacity text-center font-medium"
+            >
+              Check My Orders
+            </Link>
+            <Link
+              href="/products"
+              className="flex-1 sm:flex-none px-8 py-3 border border-[#B76E79]/30 text-[#B76E79] rounded-xl hover:border-[#B76E79]/60 hover:text-[#F2C29A] transition-colors text-center"
+            >
+              Continue Shopping
+            </Link>
+          </div>
+        </div>
+        <div className="p-4 bg-[#7A2F57]/10 border border-[#B76E79]/10 rounded-xl text-center">
+          <p className="text-sm text-[#EAE0D5]/70">
+            If your order doesn’t appear in 5 minutes, contact us at{' '}
+            <a href="mailto:support@aaryaclothing.com" className="text-[#B76E79] hover:text-[#F2C29A]">
+              support@aaryaclothing.com
+            </a>
+            {pid && <> with Payment ID: <strong className="text-[#EAE0D5]/80 font-mono text-xs">{pid}</strong></>}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error with retry (only for genuine registration failures, not timeouts)
   if (error && !order) {
     return (
       <div className="space-y-6">
@@ -343,6 +413,7 @@ export default function CheckoutConfirmPage() {
               onClick={() => {
                 isRegisteringRef.current = false;
                 setError(null);
+                setOrderProcessing(false);
                 setLoading(true);
                 registerAndPoll();
               }}

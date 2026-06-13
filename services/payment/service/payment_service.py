@@ -115,51 +115,58 @@ def _preserve_checkout_meta(transaction, new_gateway_response):
 def _audit_payment_event(db: Session, event_type: str, success: bool, **kwargs):
     """Log a payment-order event to the payment_order_audit table.
 
-    FIX: Does NOT commit — caller manages transaction lifecycle.
-    This prevents partial commits that break the caller's transaction boundary.
+    Uses a separate SAVEPOINT so the INSERT survives caller rollbacks.
+    The savepoint is rolled back after use to avoid cluttering the outer transaction.
     """
     try:
         from sqlalchemy import text
-        
+
         def _serialize_if_needed(value):
             if isinstance(value, (dict, list, tuple)):
                 return json.dumps(value, default=str)
             return value
 
-        db.execute(text("""
-            INSERT INTO payment_order_audit (
-                event_type, event_id, razorpay_order_id, razorpay_payment_id,
-                razorpay_signature, qr_code_id, payment_method, user_id, order_id,
-                pending_order_id, transaction_id, amount, currency, cart_items,
-                shipping_address, success, error_message, error_details, response_data
-            ) VALUES (
-                :event_type, :event_id, :razorpay_order_id, :razorpay_payment_id,
-                :razorpay_signature, :qr_code_id, :payment_method, :user_id, :order_id,
-                :pending_order_id, :transaction_id, :amount, :currency, :cart_items,
-                :shipping_address, :success, :error_message, :error_details, :response_data
-            )
-        """), {
-            "event_type": event_type,
-            "event_id": kwargs.get("event_id"),
-            "razorpay_order_id": kwargs.get("razorpay_order_id"),
-            "razorpay_payment_id": kwargs.get("razorpay_payment_id"),
-            "razorpay_signature": kwargs.get("razorpay_signature"),
-            "qr_code_id": kwargs.get("qr_code_id"),
-            "payment_method": kwargs.get("payment_method"),
-            "user_id": kwargs.get("user_id"),
-            "order_id": kwargs.get("order_id"),
-            "pending_order_id": kwargs.get("pending_order_id"),
-            "transaction_id": kwargs.get("transaction_id"),
-            "amount": kwargs.get("amount"),
-            "currency": kwargs.get("currency", "INR"),
-            "cart_items": _serialize_if_needed(kwargs.get("cart_items")),
-            "shipping_address": kwargs.get("shipping_address"),
-            "success": success,
-            "error_message": kwargs.get("error_message"),
-            "error_details": _serialize_if_needed(kwargs.get("error_details")),
-            "response_data": _serialize_if_needed(kwargs.get("response_data")),
-        })
-        # FIX: Do NOT commit here — let caller manage transaction
+        # Create a savepoint — the audit INSERT will survive a subsequent
+        # db.rollback() of the outer transaction.
+        savepoint = db.begin_nested()
+        try:
+            db.execute(text("""
+                INSERT INTO payment_order_audit (
+                    event_type, event_id, razorpay_order_id, razorpay_payment_id,
+                    razorpay_signature, qr_code_id, payment_method, user_id, order_id,
+                    pending_order_id, transaction_id, amount, currency, cart_items,
+                    shipping_address, success, error_message, error_details, response_data
+                ) VALUES (
+                    :event_type, :event_id, :razorpay_order_id, :razorpay_payment_id,
+                    :razorpay_signature, :qr_code_id, :payment_method, :user_id, :order_id,
+                    :pending_order_id, :transaction_id, :amount, :currency, :cart_items,
+                    :shipping_address, :success, :error_message, :error_details, :response_data
+                )
+            """), {
+                "event_type": event_type,
+                "event_id": kwargs.get("event_id"),
+                "razorpay_order_id": kwargs.get("razorpay_order_id"),
+                "razorpay_payment_id": kwargs.get("razorpay_payment_id"),
+                "razorpay_signature": kwargs.get("razorpay_signature"),
+                "qr_code_id": kwargs.get("qr_code_id"),
+                "payment_method": kwargs.get("payment_method"),
+                "user_id": kwargs.get("user_id"),
+                "order_id": kwargs.get("order_id"),
+                "pending_order_id": kwargs.get("pending_order_id"),
+                "transaction_id": kwargs.get("transaction_id"),
+                "amount": kwargs.get("amount"),
+                "currency": kwargs.get("currency", "INR"),
+                "cart_items": _serialize_if_needed(kwargs.get("cart_items")),
+                "shipping_address": kwargs.get("shipping_address"),
+                "success": success,
+                "error_message": kwargs.get("error_message"),
+                "error_details": _serialize_if_needed(kwargs.get("error_details")),
+                "response_data": _serialize_if_needed(kwargs.get("response_data")),
+            })
+            savepoint.commit()  # Commit the savepoint — audit survives outer rollback
+        except Exception:
+            savepoint.rollback()  # Clean up savepoint on failure
+            raise
     except Exception as e:
         logger.error(f"Failed to write audit log: {e}")
         # Don't raise — audit logging should never break the main flow
@@ -792,13 +799,6 @@ class PaymentService:
             # Now rollback — audit is already written (or failed silently)
             self.db.rollback()
 
-            # Mark webhook as failed (best-effort — session may be broken after rollback)
-            if 'webhook_event' in locals():
-                try:
-                    webhook_event.processing_error = str(e)
-                    self.db.commit()
-                except Exception:
-                    pass  # Session broken — log is already in audit table
             raise WebhookException(f"Webhook processing failed: {str(e)}")
     
     def _handle_payment_captured(self, event_info: Dict[str, Any]):
@@ -1502,9 +1502,14 @@ class PaymentService:
         the cross-service boundary. Uses the commerce internal API instead of
         directly modifying the orders table.
 
+        CRITICAL: Does NOT send internal transaction_id to avoid overwriting
+        the order's transaction_id which was already set to the Razorpay
+        payment_id during order creation. Overwriting it would break the
+        frontend polling endpoint (GET /api/v1/orders/by-payment/{payment_id}).
+
         Args:
             order_id: Commerce order ID
-            transaction_id: Internal payment transaction ID
+            transaction_id: Internal payment transaction ID (NOT sent to commerce)
             razorpay_payment_id: Razorpay payment ID
             razorpay_order_id: Razorpay order ID
             payment_method: Payment method (e.g., "razorpay")
@@ -1522,14 +1527,22 @@ class PaymentService:
                 return False
 
             payload = {}
-            if transaction_id:
-                payload["transaction_id"] = transaction_id
+            # FIX: Do NOT send internal transaction_id to commerce.
+            # The order's transaction_id is already set to the Razorpay payment_id
+            # during order creation. Sending the internal txn_id would overwrite it,
+            # breaking frontend polling (find_order_by_payment checks transaction_id).
+            # if transaction_id:
+            #     payload["transaction_id"] = transaction_id
             if razorpay_payment_id:
                 payload["razorpay_payment_id"] = razorpay_payment_id
             if razorpay_order_id:
                 payload["razorpay_order_id"] = razorpay_order_id
             if payment_method:
                 payload["payment_method"] = payment_method
+
+            # If nothing to update, skip the HTTP call
+            if not payload:
+                return True
 
             client = _get_http_client()
             response = client.post(
@@ -1540,7 +1553,7 @@ class PaymentService:
             if response.status_code == 200:
                 logger.info(
                     f"ORDER_LINKED_PAYMENT: order_id={order_id} "
-                    f"txn_id={transaction_id} payment={razorpay_payment_id}"
+                    f"payment={razorpay_payment_id} razorpay_order={razorpay_order_id}"
                 )
                 return True
             else:

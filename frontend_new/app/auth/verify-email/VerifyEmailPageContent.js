@@ -29,7 +29,7 @@ function VerifyEmailPageContent() {
   const otpRefs = useRef([]);
   const router = useRouter();
   const queryParams = useSearchParams();
-  const { checkAuth, isAuthenticated, setAuthStatus } = useAuth();
+  const { checkAuth, isAuthenticated, setAuthStatus, loading } = useAuth();
 
   // Get email and method from query params
   useEffect(() => {
@@ -153,9 +153,24 @@ function VerifyEmailPageContent() {
       await checkAuth();
       setStatus(data?.message || 'Verification successful.');
 
-      // Redirect to success page or products
+      // Check if user needs to complete profile (pending_ email = new user)
+      // Consistent with LoginPageContent.js — catches all placeholder patterns
+      const userEmail = data?.user?.email || '';
+      const userName = data?.user?.full_name || '';
+      const needsProfile = !userName.trim()
+        || userName.startsWith('Customer')
+        || userName.startsWith('User')
+        || !userEmail.trim()
+        || userEmail.startsWith('pending_')
+        || userEmail.endsWith('@example.com');
+
       setTimeout(() => {
-        router.push('/products');
+        if (needsProfile) {
+          // Redirect to register page with completeProfile flag so they can add name + email
+          router.push('/auth/register?completeProfile=true');
+        } else {
+          router.push('/products');
+        }
       }, 1500);
 
     } catch (err) {
@@ -259,7 +274,18 @@ function VerifyEmailPageContent() {
     }
   };
 
-  if (isAuthenticated) {
+  // Redirect authenticated users who WERE already authenticated when loading
+  // completed. This only fires after the initial auth check finishes, not during
+  // the OTP verify flow (where the user becomes authenticated mid-page).
+  const [authCheckDone, setAuthCheckDone] = useState(false);
+  useEffect(() => {
+    if (!loading) {
+      setAuthCheckDone(true);
+    }
+  }, [loading]);
+  // If auth check is complete AND user is authenticated AND it's not because
+  // we just verified OTP (no status message), redirect away.
+  if (authCheckDone && isAuthenticated && !status && !isVerifying) {
     router.push('/products');
     return null;
   }

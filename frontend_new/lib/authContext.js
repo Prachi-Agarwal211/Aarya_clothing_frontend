@@ -21,8 +21,7 @@
  * ```
  */
 
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { authApi, apiFetch } from './customerApi';
 import { getStoredUser, clearAuthData, setAuthData } from './baseApi';
 import { USER_ROLES, hasRole, isAdmin, isStaff, isSuperAdmin } from './roles';
@@ -31,6 +30,25 @@ import logger from './logger';
 
 
 const AuthContext = createContext(null);
+
+/**
+ * Returns true when the user has a real email AND a non-placeholder name.
+ * Incomplete = auto-generated pending_ email or system placeholder name.
+ */
+function profileIsComplete(userData) {
+  if (!userData) return true; // unauthenticated — not incomplete
+  const email = userData.email || '';
+  const name  = userData.full_name || '';
+  const emailOk = email.trim() !== ''
+    && !email.startsWith('pending_')
+    && !email.endsWith('@aaryaclothing.in')
+    && !email.endsWith('@example.com');
+  const nameOk = name.trim() !== ''
+    && !name.startsWith('Customer')
+    && !name.startsWith('User_')
+    && !/^[0-9a-f-]{30,}$/i.test(name); // UUID-like generated name
+  return emailOk && nameOk;
+}
 
 /**
  * AuthProvider Component
@@ -71,6 +89,7 @@ export function AuthProvider({ children }) {
         setIsAuthenticated(true);
         // Sync localStorage with fresh backend data
         localStorage.setItem('user', JSON.stringify(userData));
+        // isProfileComplete is derived via useMemo from user state
       } catch (err) {
         // Backend session expired or invalid
         logger.warn('Backend session verification failed:', err.message);
@@ -261,14 +280,15 @@ export function AuthProvider({ children }) {
    */
   const setAuthStatus = useCallback((userData) => {
     if (!userData) return;
-    
     setAuthData({ user: userData });
     setUser(userData);
     setIsAuthenticated(true);
     setLoading(false);
-    
     logger.info('Auth status manually set for user:', userData.id);
   }, []);
+
+  // Derived from user — no extra state needed
+  const isProfileComplete = useMemo(() => profileIsComplete(user), [user]);
 
   const value = {
     // State
@@ -276,6 +296,7 @@ export function AuthProvider({ children }) {
     loading,
     isAuthenticated,
     authError,
+    isProfileComplete,
 
     // Actions
     login,

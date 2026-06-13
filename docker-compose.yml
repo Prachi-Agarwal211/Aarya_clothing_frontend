@@ -263,9 +263,9 @@ services:
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
       interval: 15s
-      timeout: 10s
+      timeout: 30s
       retries: 3
-      start_period: 30s
+      start_period: 60s
     deploy:
       resources:
         limits:
@@ -352,9 +352,9 @@ services:
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5002/health"]
       interval: 15s
-      timeout: 10s
+      timeout: 30s
       retries: 3
-      start_period: 30s
+      start_period: 60s
     deploy:
       resources:
         limits:
@@ -421,9 +421,9 @@ services:
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5003/health"]
       interval: 15s
-      timeout: 10s  # Increased from 5s to handle connection pool initialization
+      timeout: 30s
       retries: 3
-      start_period: 30s
+      start_period: 60s
     deploy:
       resources:
         limits:
@@ -502,9 +502,9 @@ services:
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5004/health"]
       interval: 15s
-      timeout: 10s  # Increased from 5s to handle connection pool initialization
+      timeout: 30s
       retries: 3
-      start_period: 30s
+      start_period: 60s
     deploy:
       resources:
         limits:

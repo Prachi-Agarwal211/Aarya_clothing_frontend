@@ -179,10 +179,13 @@ app.include_router(collections_router)
 
 
 @app.get("/health", tags=["Health"])
-async def health_root(db: Session = Depends(get_db)):
+async def health_root():
+    """Health check — lightweight, no DB session dependency."""
     db_status = "healthy"
     try:
-        db.execute(text("SELECT 1"))
+        from database.database import engine
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
     except Exception:
         db_status = "unhealthy"
     return {

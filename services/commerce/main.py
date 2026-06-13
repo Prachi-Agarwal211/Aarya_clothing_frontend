@@ -402,12 +402,19 @@ else:
 
 
 @app.get("/health", tags=["Health"])
-async def health_check(db: Session = Depends(get_db)):
-    """Health check endpoint."""
+async def health_check():
+    """Health check endpoint — lightweight, no DB session dependency.
+
+    Uses a one-off DB connection (not from the pool) to avoid pool exhaustion
+    when the healthcheck fires every 15s from Docker. The pool has a finite
+    size (20+10 overflow) and a health probe shouldn't consume a slot.
+    """
     redis_status = "healthy" if redis_client.ping() else "unhealthy"
     db_status = "healthy"
     try:
-        db.execute(text("SELECT 1"))
+        from database.database import engine
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
     except Exception:
         db_status = "unhealthy"
 
@@ -421,12 +428,14 @@ async def health_check(db: Session = Depends(get_db)):
 
 
 @app.get("/api/v1/health", tags=["Health"])
-async def health_api(db: Session = Depends(get_db)):
-    """API health check endpoint."""
+async def health_api():
+    """API health check endpoint — lightweight, no DB session dependency."""
     redis_status = "healthy" if redis_client.ping() else "unhealthy"
     db_status = "healthy"
     try:
-        db.execute(text("SELECT 1"))
+        from database.database import engine
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
     except Exception:
         db_status = "unhealthy"
     return {

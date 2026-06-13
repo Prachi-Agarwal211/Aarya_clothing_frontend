@@ -117,6 +117,8 @@ def main():
                     print(f"  Deleted {result.rowcount} rows from {table_name}")
             except Exception as e:
                 print(f"  Warning: Could not delete from {table_name}: {e}")
+                # Rollback aborted transaction so subsequent operations can proceed
+                conn.rollback()
 
         conn.commit()
         print(f"\nUser {user_id} ({phone_e164}) has been removed. They can now register again.")

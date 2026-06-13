@@ -41,7 +41,7 @@ export const AUTH_COPY = {
     "Didn't receive the code? Check your messages or try WhatsApp method.",
 
   // === New User Auto-Registration ===
-  newUserMessage: "New user? We'll create your account automatically after verification.",
+  newUserMessage: "New to Aarya? We'll create your account automatically after verification.",
   accountCreated: "Account created successfully!",
   
   // === Optional Fields (shown after OTP for new users) ===

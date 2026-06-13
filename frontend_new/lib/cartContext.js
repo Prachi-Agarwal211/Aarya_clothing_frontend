@@ -132,91 +132,145 @@ export function CartProvider({ children }) {
 
   // Reset cart when user logs out (authenticated → unauthenticated transition)
   // CRITICAL: Must NOT fire during the initial auth check window on mobile.
-  const prevAuthRef = useRef(false);
+  // We track the previous auth state to detect a genuine true→false transition
+  // (logout) vs. the initial false state before checkAuth completes.
+  const prevAuthRef = useRef(!authLoading && !isAuthenticated);
 
   useEffect(() => {
+    // Only reset cart on a genuine logout (true → false transition)
+    // Not during initial load when authLoading is true or just finished
     const wasAuthenticated = prevAuthRef.current;
     prevAuthRef.current = !authLoading && isAuthenticated;
 
     if (!authLoading && wasAuthenticated && !isAuthenticated) {
       // Genuine logout — clear everything
       if (isUnmountingRef.current) return;
+
       setCart(EMPTY_CART);
       setHasFetched(false);
       setError(null);
-      try { localStorage.removeItem('cart'); } catch (_) {}
+      setIsSyncing(false);
+      clearPersistedCart();
     }
-  }, [isAuthenticated, authLoading]);
+  }, [isAuthenticated, authLoading, clearPersistedCart]);
 
-  // Fetch cart from backend
+  // Fetch cart when user is authenticated
   const fetchCart = useCallback(async (force = false) => {
-    if (!isAuthenticated) { setCart(EMPTY_CART); return; }
+    // Don't fetch if not authenticated
+    if (!isAuthenticated) {
+      setCart(EMPTY_CART);
+      return;
+    }
+
+    // Prevent duplicate fetches or if component is unmounting
     if (fetchingRef.current || isUnmountingRef.current) return;
     if (hasFetched && !force) return;
 
-    fetchingRef.current = true;
-    setLoading(true);
-    setError(null);
+    // Prevent multiple sync operations
+    if (isSyncing) return;
+
+    // Acquire lock to prevent race conditions
+    await mutexRef.current.lock();
 
     try {
+      fetchingRef.current = true;
+      setIsSyncing(true);
+      setLoading(true);
+      setError(null);
+
       const data = await cartApi.get();
+
       if (!isUnmountingRef.current) {
         setCart(data);
         setHasFetched(true);
-        try { localStorage.setItem('cart', JSON.stringify(data)); } catch (_) {}
       }
     } catch (err) {
       logger.error('Error fetching cart:', err);
       if (!isUnmountingRef.current) {
         setError(err.message);
+        // Show empty cart on error
         setCart(EMPTY_CART);
-        setHasFetched(true);
+        setHasFetched(true); // Set to true even on error to prevent infinite loops
       }
     } finally {
-      if (!isUnmountingRef.current) setLoading(false);
+      if (!isUnmountingRef.current) {
+        setLoading(false);
+        setIsSyncing(false);
+      }
       fetchingRef.current = false;
+      mutexRef.current.unlock();
     }
-  }, [hasFetched, isAuthenticated]);
+  }, [hasFetched, isAuthenticated, isSyncing]);
 
-  // Fetch cart when auth state becomes ready
+  // Persist cart to localStorage whenever it changes (for authenticated users)
+  useEffect(() => {
+    if (isAuthenticated && cart && cart.items) {
+      try {
+        localStorage.setItem('cart', JSON.stringify(cart));
+      } catch (err) {
+        logger.error('Failed to persist cart to localStorage:', err);
+      }
+    }
+  }, [cart, isAuthenticated]);
+
+  // Fetch cart when auth state changes - ONLY ONCE per session
   useEffect(() => {
     if (!authLoading && isAuthenticated && !hasFetched && !fetchingRef.current) {
       fetchCart();
     }
+    // Intentional: hasFetched and fetchCart excluded from deps — fetchingRef guards against re-fetch loops
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, authLoading]);
 
   // Open cart drawer
   const openCart = useCallback(() => {
     setIsOpen(true);
-    if (isAuthenticated && !hasFetched) fetchCart();
+    if (isAuthenticated && !hasFetched) {
+      fetchCart();
+    }
   }, [hasFetched, fetchCart, isAuthenticated]);
 
   const closeCart = useCallback(() => setIsOpen(false), []);
   
   const toggleCart = useCallback(() => {
     setIsOpen(prev => {
-      const next = !prev;
-      if (next && isAuthenticated && !hasFetched) fetchCart();
-      return next;
+      const newState = !prev;
+      if (newState && isAuthenticated && !hasFetched) {
+        fetchCart();
+      }
+      return newState;
     });
   }, [hasFetched, fetchCart, isAuthenticated]);
 
   // Add item to cart
   const addItem = useCallback(async (productId, quantity = 1, variant = null) => {
-    if (!isAuthenticated) throw new Error('Please login to add items to cart');
-
-    setError(null);
-    if (!hasFetched) await fetchCart();
-
-    const variantCandidate = typeof variant === 'object' && variant !== null ? variant.id : variant;
-    const parsedVariantId = Number(variantCandidate);
-    const normalizedVariantId = Number.isInteger(parsedVariantId) && parsedVariantId > 0 ? parsedVariantId : null;
+    if (!isAuthenticated) {
+      throw new Error('Please login to add items to cart');
+    }
 
     try {
+      setError(null);
+
+      // If cart hasn't been fetched yet, fetch it first
+      if (!hasFetched) {
+        await fetchCart();
+      }
+
+      const variantCandidate =
+        typeof variant === 'object' && variant !== null
+          ? variant.id
+          : variant;
+      const parsedVariantId = Number(variantCandidate);
+      const normalizedVariantId = Number.isInteger(parsedVariantId) && parsedVariantId > 0
+        ? parsedVariantId
+        : null;
+
       const data = await cartApi.addItem(productId, quantity, normalizedVariantId);
       setCart(data);
+
+      // Open cart drawer to show the added item
       setIsOpen(true);
+
       return data;
     } catch (err) {
       logger.error('Error adding to cart:', err);
@@ -227,10 +281,12 @@ export function CartProvider({ children }) {
 
   // Update item quantity with Optimistic UI
   const updateQuantity = useCallback(async (productId, quantity, variantId = null) => {
-    if (!isAuthenticated) throw new Error('Please login to update cart');
+    if (!isAuthenticated) {
+      throw new Error('Please login to update cart');
+    }
     
+    // OPTIMISTIC UPDATE: Update local state immediately
     const previousCart = { ...cart };
-    // Optimistic update
     setCart(prev => {
       const newItems = prev.items.map(item => {
         if (item.product_id === productId && (!variantId || item.variant_id === variantId)) {
@@ -238,6 +294,7 @@ export function CartProvider({ children }) {
         }
         return item;
       });
+      // Recalculate totals approximately (server will provide exact ones)
       const itemCount = newItems.reduce((sum, i) => sum + i.quantity, 0);
       return { ...prev, items: newItems, item_count: itemCount };
     });
@@ -245,11 +302,12 @@ export function CartProvider({ children }) {
     try {
       setError(null);
       const data = await cartApi.updateItem(productId, quantity, variantId);
-      setCart(data);
+      setCart(data); // Sync with real server data
       return data;
     } catch (err) {
       logger.error('Error updating quantity:', err);
-      setCart(previousCart); // Rollback
+      // ROLLBACK: Restore previous cart state on failure
+      setCart(previousCart);
       setError(err.message);
       throw err;
     }
@@ -257,10 +315,12 @@ export function CartProvider({ children }) {
 
   // Remove item from cart
   const removeItem = useCallback(async (productId, variantId = null) => {
-    if (!isAuthenticated) throw new Error('Please login to modify cart');
+    if (!isAuthenticated) {
+      throw new Error('Please login to modify cart');
+    }
     
-    setError(null);
     try {
+      setError(null);
       const data = await cartApi.removeItem(productId, variantId);
       setCart(data);
       return data;
@@ -273,20 +333,25 @@ export function CartProvider({ children }) {
 
   // Clear entire cart
   const clearCart = useCallback(async () => {
-    if (!isAuthenticated) throw new Error('Please login to modify cart');
+    if (!isAuthenticated) {
+      throw new Error('Please login to modify cart');
+    }
 
-    setError(null);
     try {
+      setError(null);
       await cartApi.clear();
       setCart(EMPTY_CART);
-      try { localStorage.removeItem('cart'); } catch (_) {}
+      // Also clear persisted guest cart
+      clearPersistedCart();
     } catch (err) {
       logger.error('Error clearing cart:', err);
       setError(err.message);
       throw err;
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, clearPersistedCart]);
 
+  // Memoize context value to prevent unnecessary re-renders
+  // Only include stable references and primitive values in deps
   const refreshCart = useCallback(() => fetchCart(true), [fetchCart]);
 
   const value = useMemo(() => ({
@@ -305,12 +370,18 @@ export function CartProvider({ children }) {
     toggleCart,
     refreshCart,
     clearError: () => setError(null),
+    persistCartToLocalStorage,
+    loadCartFromLocalStorage,
+    clearPersistedCart,
+    // Intentional: fetchCart excluded — it's stable via useCallback and only used internally
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [
     cart,
     loading,
     error,
     isOpen,
     isAuthenticated,
+    // Include stable callbacks only (they're memoized with useCallback)
     addItem,
     updateQuantity,
     removeItem,
@@ -318,6 +389,10 @@ export function CartProvider({ children }) {
     openCart,
     closeCart,
     toggleCart,
+    // fetchCart is NOT included - refreshCart wraps it via useCallback
+    persistCartToLocalStorage,
+    loadCartFromLocalStorage,
+    clearPersistedCart,
     refreshCart,
   ]);
 

@@ -712,7 +712,7 @@ async def browse_products(
     if not is_staff(user_role):
         try:
             cached_result = await asyncio.to_thread(
-                cache.get_or_set_sync, cache_key, _fetch_browse, ttl=60
+                cache.get_or_set_sync, cache_key, _fetch_browse, ttl=120
             )
             return cached_result
         except Exception as e:

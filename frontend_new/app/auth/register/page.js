@@ -58,12 +58,6 @@ export default function RegisterPage() {
 
   const router = useRouter();
   const { user, isAuthenticated, setAuthStatus } = useAuth();
-
-  // Track whether user was already authenticated when this page loaded.
-  // If yes, we redirect away (they shouldn't be on /auth/register).
-  // If they BECAME authenticated during this flow (after OTP verify),
-  // we must NOT redirect — they need to complete Step 3 (profile).
-  const wasAlreadyAuthenticatedRef = useRef(isAuthenticated);
   const logoUrl = useLogo();
   const { smsOtpEnabled, whatsappEnabled } = useSiteConfig();
   const otpRefs = useRef([]);
@@ -304,34 +298,27 @@ export default function RegisterPage() {
   const handleProfileSubmit = async (e) => {
     e.preventDefault();
     setError('');
-
-    // Validate required fields
-    if (!firstName.trim()) {
-      setError('Please enter your first name.');
-      return;
-    }
-    if (!email.trim()) {
-      setError('Email is required for order confirmations and account recovery.');
-      return;
-    }
-    // Basic email format check
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email.trim())) {
-      setError('Please enter a valid email address.');
-      return;
-    }
-
     setIsSubmitting(true);
 
     try {
-      const body = {
-        full_name: lastName.trim() ? `${firstName.trim()} ${lastName.trim()}` : firstName.trim(),
-        email: email.trim(),
-      };
+      const body = {};
+      if (firstName.trim()) {
+        body.full_name = lastName.trim() ? `${firstName.trim()} ${lastName.trim()}` : firstName.trim();
+      }
+      if (email.trim()) {
+        body.email = email.trim();
+      }
 
-      const updatedUser = await userApi.updateProfile(body);
-      logger.info('Profile updated after registration', { userId: updatedUser?.id });
-      setAuthStatus(updatedUser);
+      // Only call PATCH if there's something to save
+      if (Object.keys(body).length > 0) {
+        const updatedUser = await userApi.updateProfile(body);
+        logger.info('Profile updated after registration', { userId: updatedUser?.id });
+        setAuthStatus(updatedUser);
+      } else {
+        // No profile data to save — set auth status with empty object
+        // so the isAuthenticated redirect in step 4 works
+        setAuthStatus({});
+      }
 
       // Move to success step
       setStep(4);
@@ -361,20 +348,13 @@ export default function RegisterPage() {
     }
   }, [completeProfile, isAuthenticated]);
 
-  // Only redirect away if the user was ALREADY authenticated when they
-  // opened this page (e.g. they refreshed). If they became authenticated
-  // during THIS registration flow (after OTP verify), do NOT redirect —
-  // they still need to complete Step 3 (profile with name + email).
   React.useEffect(() => {
-    if (isAuthenticated && !completeProfile && wasAlreadyAuthenticatedRef.current) {
+    if (isAuthenticated && !completeProfile) {
       router.push(getRedirectForRole(user?.role || USER_ROLES.CUSTOMER));
     }
   }, [isAuthenticated, user, router, completeProfile]);
 
-  // When ?completeProfile=true, user is authenticated but we still need to render
-  // Step 3 so they can provide name + email. Only hide if already auth'd WITHOUT
-  // the completeProfile flag (meaning they shouldn't be on this page at all).
-  if (isAuthenticated && wasAlreadyAuthenticatedRef.current && !completeProfile) {
+  if (isAuthenticated) {
     return null;
   }
 
@@ -403,7 +383,7 @@ export default function RegisterPage() {
         <p className="text-[#8A6A5C] text-xs sm:text-sm uppercase tracking-[0.15em] font-light">
           {step === 1 ? 'Enter your phone number to get started' : 
            step === 2 ? 'Enter the code we sent you' :
-           step === 3 ? 'Your account is almost ready' :
+           step === 3 ? 'Tell us about yourself' :
            'Your account is ready'}
         </p>
       </div>
@@ -609,7 +589,7 @@ export default function RegisterPage() {
         <div className="w-full space-y-4 animate-fade-in-up-delay">
           <div className="text-center mb-2">
             <p className="text-[#EAE0D5]/70 text-sm">
-              We need your name and email to send order confirmations and keep your account secure.
+              Tell us a bit about yourself so we can personalize your experience.
             </p>
           </div>
 
@@ -648,7 +628,7 @@ export default function RegisterPage() {
             </div>
 
             <div className="space-y-2">
-              <label className="text-[#EAE0D5]/80 text-sm font-medium">Email Address *</label>
+              <label className="text-[#EAE0D5]/80 text-sm font-medium">Email Address</label>
               <div className="luxury-input-wrapper h-12 rounded-xl relative group flex items-center">
                 <Mail className="w-5 h-5 text-[#B76E79] group-focus-within:text-[#F2C29A] transition-colors duration-300 ml-4 shrink-0" aria-hidden="true" />
                 <input
@@ -656,18 +636,17 @@ export default function RegisterPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="your@email.com"
-                  required
                   className="w-full h-full px-3 bg-transparent text-[#EAE0D5] placeholder:text-[#8A6A5C]"
                 />
               </div>
               <p className="text-[#EAE0D5]/40 text-xs px-1">
-                Required for order confirmations and account recovery. No spam, ever.
+                We'll use this for order updates and account recovery. No spam, ever.
               </p>
             </div>
 
             <Button
               type="submit"
-              disabled={isSubmitting || !firstName.trim() || !email.trim()}
+              disabled={isSubmitting || !firstName.trim()}
               className="w-full h-14 relative overflow-hidden rounded-xl bg-transparent border border-[#B76E79]/40 group transition-all duration-500 hover:border-[#F2C29A]/60 hover:shadow-[0_0_30px_rgba(183,110,121,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <div className="absolute inset-0 bg-gradient-to-r from-[#7A2F57]/80 via-[#B76E79]/70 to-[#2A1208]/80 opacity-90"></div>

@@ -103,16 +103,14 @@ export default function LandingClient({ landingData }) {
         <div className="relative z-10">
           <EnhancedHeader />
 
-          {/* Mobile: show local vertical images; Desktop: show API-provided slides */}
+          {/* Hero slides from database/API for both mobile and desktop */}
+          {/* Ensure imageMobile falls back to image for consistent mobile display */}
           <HeroSection
             tagline={landingData.hero?.tagline}
-            slides={isMobile
-              ? [
-                  { image: 'https://pub-7846c786f7154610b57735df47899fa0.r2.dev/landing/432315a38f1d.png', imageMobile: 'https://pub-7846c786f7154610b57735df47899fa0.r2.dev/landing/432315a38f1d.png', alt: 'Handcrafted elegance' },
-                  { image: 'https://pub-7846c786f7154610b57735df47899fa0.r2.dev/landing/effab78654fd.png', imageMobile: 'https://pub-7846c786f7154610b57735df47899fa0.r2.dev/landing/effab78654fd.png', alt: 'Timeless designs' },
-                ]
-              : landingData.hero?.slides
-            }
+            slides={(landingData.hero?.slides || []).map(s => ({
+              ...s,
+              imageMobile: s.imageMobile || s.image
+            }))}
             buttons={(() => {
               const apiButtons = landingData.hero?.buttons || [];
               const hasShopLink = apiButtons.some(b => b.link === '/products');

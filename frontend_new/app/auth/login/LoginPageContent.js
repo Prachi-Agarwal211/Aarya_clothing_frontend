@@ -19,7 +19,7 @@ import { userApi } from '../../../lib/customerApi';
 
 /** Validate email format */
 function validateEmail(email) {
-  if (!email || !email.trim()) return { valid: false, message: 'Email is required' };
+  if (!email || !email.trim()) return { valid: true, message: '' }; // email is optional
   const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return re.test(email) ? { valid: true, message: '' } : { valid: false, message: 'Please enter a valid email address' };
 }
@@ -146,25 +146,9 @@ export default function LoginPageContent({ redirectUrl = '/products' }) {
         device_fingerprint, device_name,
       });
       logger.info('Login successful');
-
-      // Check if user needs profile completion.
-      // New users who registered via phone have no real name or email yet.
-      const userName = result?.user?.full_name || '';
-      const userEmail = result?.user?.email || '';
-      const isNewUser = !userName.trim()
-        || userName.startsWith('Customer')
-        || userName.startsWith('User')
-        || !userEmail.trim()
-        || userEmail.startsWith('pending_')
-        || userEmail.endsWith('@example.com');
-      if (isNewUser) {
-        setNewUserResult(result);
-        setShowProfileForm(true);
-      } else {
-        const role = result?.user?.role || user?.role || USER_ROLES.CUSTOMER;
-        const target = redirectUrl && redirectUrl !== '/products' ? redirectUrl : getRedirectForRole(role);
-        setTimeout(() => router.push(target), 500);
-      }
+      const role = result?.user?.role || user?.role || USER_ROLES.CUSTOMER;
+      const target = redirectUrl && redirectUrl !== '/products' ? redirectUrl : getRedirectForRole(role);
+      setTimeout(() => router.push(target), 500);
     } catch (err) {
       logger.error('Login failed:', err);
       setError(err.message || AUTH_COPY.errors.invalidCredentials);
@@ -257,17 +241,10 @@ export default function LoginPageContent({ redirectUrl = '/products' }) {
       logger.info('OTP Login successful');
       if (result?.user) setAuthStatus(result.user);
 
-      // NEW USER: If name is empty/placeholder or email is missing, show inline profile form.
-      // This catches: fresh phone-only registrations, users with auto-generated names,
-      // and users with pending/example emails.
+      // NEW USER: If name is empty/placeholder (auto-registered), show inline profile form
       const userName = result?.user?.full_name || '';
       const userEmail = result?.user?.email || '';
-      const isNewUser = !userName.trim()
-        || userName.startsWith('Customer')
-        || userName.startsWith('User')
-        || !userEmail.trim()
-        || userEmail.startsWith('pending_')
-        || userEmail.endsWith('@example.com');
+      const isNewUser = !userName || userName.startsWith('Customer') || userEmail.startsWith('pending_');
       if (isNewUser) {
         setNewUserResult(result);
         setShowProfileForm(true);
@@ -304,25 +281,24 @@ export default function LoginPageContent({ redirectUrl = '/products' }) {
       return;
     }
 
-    if (!profileEmail.trim()) {
-      setError('Email is required for order confirmations and account recovery.');
-      return;
-    }
-
-    const emailCheck = validateEmail(profileEmail);
-    if (!emailCheck.valid) {
-      setError(emailCheck.message);
-      return;
+    if (profileEmail.trim()) {
+      const emailCheck = validateEmail(profileEmail);
+      if (!emailCheck.valid) {
+        setError(emailCheck.message);
+        return;
+      }
     }
 
     setProfileSaving(true);
     try {
-      const body = {
-        full_name: profileLastName.trim()
-          ? `${profileFirstName.trim()} ${profileLastName.trim()}`
-          : profileFirstName.trim(),
-        email: profileEmail.trim(),
-      };
+      const body = {};
+      const fullName = profileLastName.trim()
+        ? `${profileFirstName.trim()} ${profileLastName.trim()}`
+        : profileFirstName.trim();
+      body.full_name = fullName;
+      if (profileEmail.trim()) {
+        body.email = profileEmail.trim();
+      }
 
       const updatedUser = await userApi.updateProfile(body);
       logger.info('Profile updated after registration', { userId: updatedUser?.id });
@@ -339,8 +315,6 @@ export default function LoginPageContent({ redirectUrl = '/products' }) {
       setTimeout(() => router.push(target), 300);
     } catch (err) {
       setError(err.message || 'Failed to save profile. Please try again.');
-      // Clear checkingProfile so the user can still proceed even if save fails
-      setCheckingProfile(false);
     } finally {
       setProfileSaving(false);
     }
@@ -395,7 +369,7 @@ export default function LoginPageContent({ redirectUrl = '/products' }) {
           {showProfileForm ? 'Complete your profile' : AUTH_COPY.loginTitle}
         </h2>
         <p className="text-[#8A6A5C] text-xs sm:text-sm uppercase tracking-[0.15em] font-light">
-          {showProfileForm ? 'We need your name and email for order confirmations' : AUTH_COPY.loginSubtitle}
+          {showProfileForm ? 'Tell us about yourself so we can personalize your experience' : AUTH_COPY.loginSubtitle}
         </p>
       </div>
 
@@ -456,27 +430,26 @@ export default function LoginPageContent({ redirectUrl = '/products' }) {
 
             {/* Email */}
             <div className="space-y-2">
-              <label className="text-[#EAE0D5]/80 text-sm font-medium">Email Address *</label>
+              <label className="text-[#EAE0D5]/80 text-sm font-medium">Email Address</label>
               <div className="luxury-input-wrapper h-12 sm:h-14 rounded-xl relative group flex items-center px-4 bg-[#0B0608]/80 border border-[#B76E79]/30">
                 <Mail className="w-5 h-5 text-[#B76E79] group-focus-within:text-[#F2C29A] transition-colors duration-300 shrink-0" aria-hidden="true" />
                 <input
                   type="email"
                   value={profileEmail}
                   onChange={(e) => setProfileEmail(e.target.value)}
-                  placeholder="your@email.com"
-                  required
+                  placeholder="your@email.com (optional)"
                   className="w-full h-full px-3 bg-transparent text-[#EAE0D5] placeholder:text-[#8A6A5C] text-sm sm:text-base outline-none"
                 />
               </div>
               <p className="text-[#EAE0D5]/40 text-xs px-1">
-                Required for order confirmations and account recovery. No spam, ever.
+                We'll use this for order updates and account recovery. No spam, ever.
               </p>
             </div>
 
             {/* Save & Continue Button */}
             <Button 
               type="submit" 
-              disabled={profileSaving || !profileFirstName.trim() || !profileEmail.trim()}
+              disabled={profileSaving || !profileFirstName.trim()}
               className="w-full h-14 sm:h-16 relative overflow-hidden rounded-xl bg-transparent border border-[#B76E79]/40 group transition-all duration-500 hover:border-[#F2C29A]/60 hover:shadow-[0_0_30px_rgba(183,110,121,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <div className="absolute inset-0 bg-gradient-to-r from-[#7A2F57]/80 via-[#B76E79]/70 to-[#2A1208]/80 opacity-90"></div>

@@ -660,19 +660,47 @@ class OrderService:
         pending.razorpay_order_id = razorpay_order_id
         self.db.commit()
 
+        # For QR code payments, use qr_code_id as payment_id since Razorpay
+        # may not have returned a transaction_id yet (webhook still processing).
+        resolved_payment_id = transaction_id or qr_code_id
+
+        # ──── SYNCHRONOUS ORDER CREATION ────
+        # After payment verification, create the order immediately so the
+        # frontend doesn't have to wait for the webhook. The webhook handler
+        # is idempotent and will find the existing order if called.
+        #
+        # This reduces the user's wait from 2-8 seconds (webhook latency +
+        # polling delay) to ~200ms (in-process order creation).
+        order = None
+        try:
+            txn_id = transaction_id or qr_code_id or ""
+            if txn_id:
+                order = self.create_order_from_pending_id(
+                    pending_id=pending.id,
+                    transaction_id=txn_id,
+                    payment_method="razorpay",
+                )
+                logger.info(
+                    f"✓ ORDER_CREATED_SYNCHRONOUSLY: order_id={order.id} "
+                    f"user={user_id} payment={resolved_payment_id}"
+                )
+        except Exception as e:
+            # Order creation failed synchronously — the webhook handler will
+            # retry and recover. This should be rare (stock issues, DB errors).
+            logger.error(
+                f"⚠ SYNCHRONOUS_ORDER_FAILED: user={user_id} payment={resolved_payment_id} "
+                f"error={e}. Webhook will recover."
+            )
+
         # NOTE: Cart is NOT cleared here. The cart is cleared by the frontend
         # after the order is confirmed (CheckoutConfirmPage calls clearCart()).
         # This prevents data loss if the webhook fails — the pending_order
         # snapshot already has the cart data, and the cart remains as a backup.
-
-        logger.info(
-            f"✓ REGISTER_PAYMENT_SUCCESS: user={user_id} payment={transaction_id} "
-            f"pending_id={pending_order_id}"
-        )
         return {
             "status": "payment_registered",
-            "payment_id": transaction_id,
+            "payment_id": resolved_payment_id,
             "pending_order_id": pending_order_id,
+            "order": order,  # Present when order created synchronously
         }
 
     def find_order_by_payment(
@@ -683,11 +711,13 @@ class OrderService:
         """
         Find an order by payment identifier.
 
-        Checks transaction_id, razorpay_payment_id, and razorpay_order_id
-        to cover all identifier placements (standard + QR code payments).
+        Checks transaction_id, razorpay_payment_id, razorpay_order_id,
+        and pending_order_id (for QR code payments where qr_code_id
+        is used as payment_id before Razorpay returns a real payment_id).
 
         Called by the frontend polling endpoint after payment registration.
         """
+        # Try direct order field matches first
         order = (
             self.db.query(Order)
             .filter(
@@ -700,6 +730,24 @@ class OrderService:
         )
         if order:
             return self.get_order_by_id(order.id)
+
+        # Fallback: if payment_id looks like a QR code ID or pending order was
+        # created with this ID, check via pending_order -> order linkage
+        if payment_id and payment_id.startswith("qr_"):
+            from models.pending_order import PendingOrder
+            pending = (
+                self.db.query(PendingOrder)
+                .filter(
+                    PendingOrder.user_id == user_id,
+                    PendingOrder.status == "order_created",
+                    PendingOrder.order_id.isnot(None),
+                )
+                .order_by(PendingOrder.created_at.desc())
+                .first()
+            )
+            if pending and pending.order_id:
+                return self.get_order_by_id(pending.order_id)
+
         return None
 
     def create_order_from_pending_order(

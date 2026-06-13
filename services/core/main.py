@@ -871,30 +871,106 @@ async def login_otp_request(
             logger.warning(f"login_otp_request rate limit error (skipping): {exc}")
 
     from service.auth_service import _resolve_user_query
+    from schemas.auth import UserCreate, VerificationMethod
     auth_service = AuthService(db)
 
-    # UNIFIED FLOW: Check if user exists first. If not, reject with a clear message.
-    # Auto-registration is intentionally disabled — users must register via /auth/register first.
+    # UNIFIED FLOW: Check if user exists first.
+    # If YES and active → send login OTP
+    # If YES but inactive → send registration OTP (re-verify flow)
+    # If NO → auto-register the user and send registration OTP
     existing_user = _resolve_user_query(db, identifier)
-    if not existing_user:
-        if "@" in identifier:
-            raise HTTPException(status_code=404, detail="No account found with this email. Please create an account first.")
-        # Phone-based: normalise to E.164 for lookup
-        normalized_phone = normalize_phone_safe(identifier)
-        if normalized_phone and normalized_phone != identifier:
-            existing_user = _resolve_user_query(db, normalized_phone)
-        if not existing_user:
-            raise HTTPException(status_code=404, detail="No account found with this phone number. Please create an account first.")
-
+    
+    if existing_user and existing_user.is_active:
+        # Active existing user: send login OTP
+        try:
+            result = auth_service.send_login_otp(identifier=identifier, otp_type=otp_type)
+            return {
+                "message": result.get("message", "OTP sent"),
+                "otp_type": result.get("otp_type", otp_type),
+                "expires_in": result.get("expires_in", 600),
+                "is_new_user": False,
+            }
+        except ValueError as e:
+            logger.error(f"[Auth Error] {str(e)}")
+            raise HTTPException(status_code=400, detail=str(e))
+    
+    if existing_user and not existing_user.is_active:
+        # Inactive user: send registration OTP to allow re-verification
+        # Previously this would fail with "This account has not been verified yet"
+        # because send_login_otp rejects inactive users. Now we send a registration
+        # OTP so the user can complete their verification.
+        from service.otp_service import OTPService as OTP  # noqa: F811
+        from schemas.otp import OTPType as OTPEnum
+        
+        logger.info(f"[Re-Verify] Inactive user {existing_user.id}, sending registration OTP")
+        
+        otp_type_lower = (otp_type or "SMS").lower()
+        otp_type_enum = {
+            "sms": OTPEnum.SMS,
+            "whatsapp": OTPEnum.WHATSAPP,
+            "email": OTPEnum.EMAIL,
+        }.get(otp_type_lower, OTPEnum.SMS)
+        
+        otp_service = OTP(db)
+        otp_request_data = {
+            "phone": existing_user.phone if otp_type_enum in (OTPEnum.SMS, OTPEnum.WHATSAPP) else None,
+            "email": existing_user.email if otp_type_enum == OTPEnum.EMAIL else None,
+            "otp_type": otp_type_enum,
+            "purpose": "registration",
+        }
+        from schemas.otp import OTPSendRequest as OTPReq
+        otp_request = OTPReq(**{k: v for k, v in otp_request_data.items() if v is not None})
+        try:
+            result = otp_service.send_otp(otp_request)
+            if result.get("success"):
+                return {
+                    "message": "Verification OTP sent. Please check your phone.",
+                    "otp_type": otp_type,
+                    "expires_in": result.get("expires_in", 600),
+                    "is_new_user": False,
+                    "requires_verification": True,
+                }
+            raise HTTPException(status_code=400, detail=result.get("error", "Failed to send OTP"))
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+    
+    # NEW USER: Auto-register with phone, send registration OTP
+    # This makes the login page work seamlessly for new users too
+    
+    # Only auto-register for phone numbers (not email addresses)
+    # Email auto-registration doesn't make sense on a phone-first login page
+    if "@" in identifier:
+        raise HTTPException(
+            status_code=404,
+            detail="No account found with this email. Please create an account first."
+        )
+    
+    logger.info(f"[Auto-Register] No user found for phone, auto-registering")
+    
+    # Determine OTP delivery method from the requested otp_type
+    otp_type_lower = (otp_type or "SMS").lower()
+    if otp_type_lower in ("sms", "whatsapp"):
+        verification_method = f"otp_{otp_type_lower}"
+    else:
+        verification_method = "otp_sms"
+    
+    # Create user with just the phone number (auto-generates email/username/password)
     try:
-        result = auth_service.send_login_otp(identifier=identifier, otp_type=otp_type)
+        user_data = UserCreate(
+            phone=identifier,
+            verification_method=VerificationMethod(verification_method),
+        )
+        result = auth_service.create_user(user_data)
+        
         return {
-            "message": result.get("message", "OTP sent"),
-            "otp_type": result.get("otp_type", otp_type),
-            "expires_in": result.get("expires_in", 600),
+            "message": "Account created. Please verify with the OTP sent to your phone.",
+            "otp_type": otp_type,
+            "expires_in": result.get("otp_expires_at") or 600,
+            "is_new_user": True,
+            "requires_verification": result.get("requires_verification", True),
         }
     except ValueError as e:
-        logger.error(f"[Auth Error] {str(e)}")
+        logger.error(f"[Auto-Register Error] {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
 
 
@@ -927,17 +1003,45 @@ async def login_otp_verify(
         logger.warning(f"Rate limiting error (skipping): {e}")
 
     try:
+        from service.auth_service import _resolve_user_query
+
+        # Resolve user first (may have been auto-registered in login_otp_request)
+        user = _resolve_user_query(db, request.identifier)
+        if not user:
+            # Normalize phone and retry
+            from shared.phone_utils import normalize_phone_safe
+            norm_phone = normalize_phone_safe(request.identifier)
+            if norm_phone:
+                user = _resolve_user_query(db, norm_phone)
+        
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found. Please try registering again.")
+        
         client_ip = http_request.client.host if http_request.client else None
         client_ua = http_request.headers.get("user-agent")
-        result = AuthService(db).verify_login_otp(
-            identifier=request.identifier,
-            otp_code=request.otp_code,
-            remember_me=request.remember_me,
-            device_fingerprint=request.device_fingerprint,
-            device_name=request.device_name,
-            last_ip=client_ip,
-            user_agent=client_ua,
-        )
+        
+        # UNIFIED: Handle BOTH login and registration verification
+        # - Active user: login OTP verify (existing flow)
+        # - Inactive user: registration verify (activate + issue tokens)
+        if user.is_active:
+            # Existing user: standard login OTP verification
+            result = AuthService(db).verify_login_otp(
+                identifier=request.identifier,
+                otp_code=request.otp_code,
+                remember_me=request.remember_me,
+                device_fingerprint=request.device_fingerprint,
+                device_name=request.device_name,
+                last_ip=client_ip,
+                user_agent=client_ua,
+            )
+        else:
+            # New user (auto-registered): activate account via registration verification
+            result = AuthService(db).verify_user_registration(
+                user_id=user.id,
+                otp_code=request.otp_code,
+                otp_method=f"otp_{request.otp_type.lower()}" if request.otp_type else "otp_sms",
+            )
+        
         try:
             redis_client.create_session(
                 result["session_id"],
@@ -957,6 +1061,8 @@ async def login_otp_verify(
     except ValueError as e:
         logger.error(f"[Auth Error] {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
     except Exception as exc:  # pragma: no cover — defensive
         logger.error(f"OTP login error: {exc}")
         raise HTTPException(status_code=500, detail="Internal server error")

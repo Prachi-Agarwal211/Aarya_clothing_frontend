@@ -320,7 +320,7 @@ async def get_landing_all(db: Session = Depends(get_db)):
             "brand_name": config_dict.get("brand_name", "Aarya Clothing"),
         }
 
-        redis_client.set_cache("public:landing:all", result, ttl=60)
+        redis_client.set_cache("public:landing:all", result, ttl=120)
         return _no_browser_cache(JSONResponse(content=result))
 
     except Exception as exc:

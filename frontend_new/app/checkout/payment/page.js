@@ -26,6 +26,7 @@ export default function CheckoutPaymentPage() {
   const router = useRouter();
   const { cart } = useCart();
   const { user, isAuthenticated, loading: authLoading } = useAuth();
+  const [processing, setProcessing] = useState(false);
   const [error, setError] = useState(null);
   const [stockError, setStockError] = useState(null);
   const [razorpayReady, setRazorpayReady] = useState(false);
@@ -125,13 +126,6 @@ export default function CheckoutPaymentPage() {
     try {
       setRedirectProcessing(true);
       setError(null);
-
-      // Validate cart has items and total > 0
-      if (!cart?.items?.length || (cart.total || 0) <= 0) {
-        setError('Your cart is empty or has a total of zero. Please add items before checking out.');
-        setRedirectProcessing(false);
-        return;
-      }
 
       // Generate idempotency key BEFORE payment to prevent duplicate orders
       const idempotencyKey = `order_${user?.id || 'guest'}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -301,13 +295,6 @@ export default function CheckoutPaymentPage() {
     try {
       setQrPaymentState('generating');
       setQrError(null);
-
-      // Validate cart has items and total > 0
-      if (!cart?.items?.length || (cart.total || 0) <= 0) {
-        setQrError('Your cart is empty or has a total of zero. Please add items before checking out.');
-        setQrPaymentState('idle');
-        return;
-      }
 
       // Validate stock
       try {
@@ -770,7 +757,7 @@ export default function CheckoutPaymentPage() {
           {qrPaymentState === 'idle' && (
             <button
               onClick={handleQrPayment}
-              disabled={qrPaymentState === 'generating' || qrPaymentState === 'waiting'}
+              disabled={processing}
               className="w-full flex items-center justify-center gap-2 px-8 py-3.5 bg-gradient-to-r from-[#7A2F57] to-[#B76E79] text-white font-semibold rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50"
             >
               <QrCode className="w-5 h-5" />
@@ -786,7 +773,7 @@ export default function CheckoutPaymentPage() {
         <div className="space-y-3">
           <button
             onClick={handleDirectPayment}
-            disabled={redirectProcessing}
+            disabled={processing || redirectProcessing}
             className="w-full flex items-center justify-center gap-2 px-8 py-3.5 bg-gradient-to-r from-[#7A2F57] to-[#B76E79] text-white font-semibold rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50"
           >
             {redirectProcessing ? (

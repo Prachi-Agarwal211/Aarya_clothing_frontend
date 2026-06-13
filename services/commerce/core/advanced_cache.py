@@ -62,7 +62,7 @@ class AdvancedCache:
                 self._enforce_l1_limits()
                 self.local_cache[key] = {
                     'data': cached_data,
-                    'expires_at': now + min(ttl, 60) # Keep L1 short-lived to prevent staleness
+                    'expires_at': now + min(ttl, 120) # Keep L1 short-lived to prevent staleness
                 }
                 return cached_data
         except Exception as e:
@@ -79,7 +79,7 @@ class AdvancedCache:
             self._enforce_l1_limits()
             self.local_cache[key] = {
                 'data': data,
-                'expires_at': now + min(cache_ttl, 60)
+                'expires_at': now + min(cache_ttl, 120)
             }
 
             # Store L2
@@ -118,7 +118,7 @@ class AdvancedCache:
                 self._enforce_l1_limits()
                 self.local_cache[key] = {
                     'data': cached_data,
-                    'expires_at': now + min(ttl, 60)
+                    'expires_at': now + min(ttl, 120)
                 }
                 return cached_data
         except Exception as e:
@@ -132,7 +132,7 @@ class AdvancedCache:
             self._enforce_l1_limits()
             self.local_cache[key] = {
                 'data': data,
-                'expires_at': now + min(cache_ttl, 60)
+                'expires_at': now + min(cache_ttl, 120)
             }
 
             try:

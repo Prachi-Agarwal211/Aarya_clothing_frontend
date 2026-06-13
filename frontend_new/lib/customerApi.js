@@ -140,22 +140,6 @@ export const ordersApi = {
   getById: (id) =>
     commerceClient.get(`/api/v1/orders/${id}`),
 
-  /**
-   * Recover order from a successful payment if normal checkout failed.
-   * Verifies payment with Razorpay, creates order if missing.
-   */
-  recoverFromPayment: (paymentId, razorpayOrderId, addressId = null) => {
-    if (!razorpayOrderId) {
-      return Promise.reject(new Error('razorpay_order_id is required for payment recovery'));
-    }
-    const params = new URLSearchParams({
-      payment_id: paymentId,
-      razorpay_order_id: razorpayOrderId,
-    });
-    if (addressId) params.set('address_id', addressId);
-    return commerceClient.post(`/api/v1/orders/recover-from-payment?${params.toString()}`);
-  },
-
   cancel: (id) =>
     commerceClient.post(`/api/v1/orders/${id}/cancel`),
 

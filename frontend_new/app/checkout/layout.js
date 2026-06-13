@@ -4,46 +4,15 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import Image from 'next/image';
-import { Check, ChevronRight, AlertTriangle, X } from 'lucide-react';
+import { Check, ChevronRight } from 'lucide-react';
 import EnhancedHeader from '@/components/landing/EnhancedHeader';
 import Footer from '@/components/landing/Footer';
 import { useCart } from '@/lib/cartContext';
-import { useAuth } from '@/lib/authContext';
-import { userApi } from '@/lib/customerApi';
 import { cn } from '@/lib/utils';
-import logger from '@/lib/logger';
 
 export default function CheckoutLayout({ children }) {
   const pathname = usePathname();
   const { cart, itemCount, refreshCart } = useCart();
-  const { isProfileComplete, updateUser } = useAuth();
-
-  const [profileBannerDismissed, setProfileBannerDismissed] = useState(false);
-  const [profileForm, setProfileForm] = useState({ name: '', email: '' });
-  const [profileSaving, setProfileSaving] = useState(false);
-  const [profileSaved, setProfileSaved] = useState(false);
-
-  // Don't show banner on confirm page (payment already done)
-  const showProfileBanner = !isProfileComplete && !profileBannerDismissed && !profileSaved
-    && !pathname.includes('confirm');
-
-  const handleProfileSave = async (e) => {
-    e.preventDefault();
-    if (!profileForm.name.trim() || !profileForm.email.trim()) return;
-    setProfileSaving(true);
-    try {
-      const updated = await userApi.updateProfile({
-        full_name: profileForm.name.trim(),
-        email: profileForm.email.trim(),
-      });
-      updateUser(updated);
-      setProfileSaved(true);
-    } catch (err) {
-      logger.error('Profile update failed:', err);
-    } finally {
-      setProfileSaving(false);
-    }
-  };
 
   // Fetch cart once when checkout mounts
   useEffect(() => {
@@ -121,51 +90,6 @@ export default function CheckoutLayout({ children }) {
                 </div>
               </div>
             </div>
-
-            {/* Profile completion banner — non-blocking, shown before payment */}
-            {showProfileBanner && (
-              <div className="mb-6 p-4 bg-amber-500/10 border border-amber-500/25 rounded-2xl">
-                <div className="flex items-start justify-between gap-3 mb-3">
-                  <div className="flex items-center gap-2">
-                    <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0" />
-                    <p className="text-sm text-amber-300 font-medium">
-                      Add your email to receive order confirmation
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => setProfileBannerDismissed(true)}
-                    className="text-[#EAE0D5]/40 hover:text-[#EAE0D5] transition-colors flex-shrink-0"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-                <form onSubmit={handleProfileSave} className="flex flex-col sm:flex-row gap-2">
-                  <input
-                    type="text"
-                    placeholder="Your name"
-                    value={profileForm.name}
-                    onChange={e => setProfileForm(f => ({ ...f, name: e.target.value }))}
-                    required
-                    className="flex-1 px-3 py-2 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-xl text-sm text-[#EAE0D5] placeholder-[#EAE0D5]/30 focus:outline-none focus:border-[#F2C29A]/40"
-                  />
-                  <input
-                    type="email"
-                    placeholder="your@email.com"
-                    value={profileForm.email}
-                    onChange={e => setProfileForm(f => ({ ...f, email: e.target.value }))}
-                    required
-                    className="flex-1 px-3 py-2 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-xl text-sm text-[#EAE0D5] placeholder-[#EAE0D5]/30 focus:outline-none focus:border-[#F2C29A]/40"
-                  />
-                  <button
-                    type="submit"
-                    disabled={profileSaving || !profileForm.name.trim() || !profileForm.email.trim()}
-                    className="px-4 py-2 bg-gradient-to-r from-[#7A2F57] to-[#B76E79] text-white text-sm rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50 whitespace-nowrap"
-                  >
-                    {profileSaving ? 'Saving...' : 'Save'}
-                  </button>
-                </form>
-              </div>
-            )}
 
             {/* Content */}
             <div className="grid lg:grid-cols-3 gap-6 lg:gap-8">

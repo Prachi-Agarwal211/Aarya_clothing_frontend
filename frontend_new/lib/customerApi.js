@@ -145,6 +145,22 @@ export const ordersApi = {
 
   track: (id) =>
     commerceClient.get(`/api/v1/orders/${id}/tracking`),
+
+  /**
+   * Recover an order from a successful payment when the normal checkout flow failed.
+   * Called by the checkout confirm page when polling times out but payment was captured.
+   */
+  recoverFromPayment: (paymentId, razorpayOrderId, addressId = null) => {
+    if (!razorpayOrderId) {
+      return Promise.reject(new Error('razorpay_order_id is required for payment recovery'));
+    }
+    const params = new URLSearchParams({
+      payment_id: paymentId,
+      razorpay_order_id: razorpayOrderId,
+    });
+    if (addressId) params.set('address_id', addressId);
+    return commerceClient.post(`/api/v1/orders/recover-from-payment?${params.toString()}`);
+  },
 };
 
 // ==================== Addresses API ====================

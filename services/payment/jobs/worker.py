@@ -1,11 +1,16 @@
 """
 RQ Worker Entry Point
 ======================
-Starts the Redis Queue worker that processes background jobs.
+Starts the Redis Queue worker that processes background jobs AND runs
+periodic payment recovery every 5 minutes.
 
-The worker monitors the 'payment-jobs' queue. If no jobs are enqueued,
-it simply waits. Currently no code enqueues jobs to this queue as the
-recovery system was deprecated.
+The worker monitors the 'payment-jobs' queue for external job requests
+(admin-enqueued recovery tasks, etc.) while independently running
+the orphan payment recovery cycle in a background thread.
+
+This guarantees that any completed payment without an order is caught
+within 5 minutes, even if the frontend redirect failed or the user
+never reached the confirmation page.
 
 For local debugging:
     python -m jobs.worker
@@ -17,6 +22,7 @@ import os
 import sys
 import time
 import logging
+import threading
 from rq import Worker, Queue, Connection
 import redis
 
@@ -32,6 +38,10 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 REDIS_URL = os.getenv("REDIS_URL", "redis://redis:6379/2")
 QUEUE_NAME = "payment-jobs"
 WORKER_NAME = os.getenv("WORKER_NAME", f"rq:worker:payment-{os.getpid()}")
+
+# ── Recovery cycle config ──
+RECOVERY_INTERVAL_SECONDS = int(os.getenv("RECOVERY_INTERVAL_SECONDS", "300"))  # 5 min
+from jobs.recover_orders import run_recovery_cycle
 
 
 def _get_redis_connection():
@@ -54,13 +64,44 @@ def _get_redis_connection():
     )
 
 
-def start_worker():
-    """Start the RQ worker to process payment jobs with auto-reconnect.
+def recovery_loop():
+    """Run the order recovery cycle every N seconds in a background thread.
 
+    The recovery thread is a daemon — it shuts down automatically when the
+    main process exits. This avoids any race with process termination.
+    """
+    logger.info(
+        f"Recovery thread started: checking every {RECOVERY_INTERVAL_SECONDS}s "
+        f"for orphan payments"
+    )
+
+    # Wait briefly on startup so dependent services (commerce) are ready
+    logger.info("Waiting 30s before first recovery cycle (allowing services to start)...")
+    time.sleep(30)
+
+    # Run immediately after initial wait, then every N seconds
+    while True:
+        try:
+            run_recovery_cycle()
+        except Exception as e:
+            logger.error(f"Recovery cycle error: {e}", exc_info=True)
+
+        time.sleep(RECOVERY_INTERVAL_SECONDS)
+
+
+def start_worker():
+    """Start the RQ worker + recovery thread with auto-reconnect.
+
+    Starts the recovery thread first, then enters the RQ worker loop.
     If the worker crashes (e.g. long Redis outage), sleeps briefly so Docker
     doesn't restart-loop, then lets the caller re-invoke.
     """
     logger.info(f"Starting worker '{WORKER_NAME}' on queue '{QUEUE_NAME}' at {REDIS_URL}")
+
+    # ── Start background recovery thread ──
+    recovery_thread = threading.Thread(target=recovery_loop, daemon=True)
+    recovery_thread.start()
+    logger.info("✓ Recovery thread started (daemon)")
 
     redis_conn = _get_redis_connection()
 

@@ -558,11 +558,28 @@ class OTPService:
     ) -> Dict[str, Any]:
         """Send OTP via RQ queue (async) with sync fallback.
 
-        Returns immediately after enqueueing. The actual SMTP/SMS/WhatsApp
-        call happens in the RQ worker, removing blocking I/O from the
-        request path.
+        CRITICAL FIX: For registration and password_reset purposes, send
+        synchronously so delivery failures are caught immediately. Previously,
+        all OTPs were enqueued to RQ and ``send_otp()`` returned ``True``
+        before the SMS/email was actually delivered. If the RQ worker failed
+        (wrong API key, API error, worker not running), the user was created
+        as ``is_active=False`` but never received the OTP — stuck forever.
+
+        Login OTPs still use RQ (non-critical — user already has an account).
         """
         otp_type = (otp_type or "EMAIL").upper()
+
+        # CRITICAL PATH: Registration and password-reset OTPs must be sent
+        # synchronously. If delivery fails, the caller (create_user, etc.)
+        # must know immediately so it can clean up or report the error.
+        _sync_purposes = ("registration", "password_reset")
+        if purpose in _sync_purposes:
+            logger.info(
+                f"[OTP] Sending {otp_type} synchronously for purpose={purpose}"
+            )
+            return self._dispatch_otp_sync(otp_type, email, phone, otp_code, purpose)
+
+        # Non-critical OTPs (login, etc.) can use the RQ queue.
         try:
             from shared.rq_tasks import (
                 get_rq_queue,

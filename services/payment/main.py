@@ -43,7 +43,7 @@ from schemas.payment import (
     QrCodeCreateRequest, QrCodeCreateResponse, QrCodeStatusResponse
 )
 from core.razorpay_client import get_razorpay_client
-from service.payment_service import PaymentService
+from service.payment_service import PaymentService, _preserve_checkout_meta
 from exception_handler import setup_exception_handlers
 
 
@@ -69,8 +69,9 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.warning(f"⚠ Payment service: Razorpay client not initialized - {str(e)}")
 
-    # Recovery job scheduler removed — recovery system deprecated
-    # Normal order creation is reliable; no safety net needed
+    # Recovery runs from RQ worker background thread (worker.py → recover_orders.py)
+    # Every 5 minutes, the recovery loop finds orphan payments without orders
+    # and creates them via the commerce service API.
 
     logger.info("✓ Payment service started")
     yield
@@ -474,21 +475,24 @@ async def create_qr_code(
                 import httpx
                 commerce_url = os.environ.get("COMMERCE_SERVICE_URL", "http://commerce:5002")
                 internal_secret = os.environ.get("INTERNAL_SERVICE_SECRET")
-                
-                prepare_resp = await httpx.AsyncClient().post(
-                    f"{commerce_url}/api/v1/orders/internal/orders/prepare",
-                    json={
-                        "user_id": current_user["user_id"],
-                        "cart_snapshot": request.cart_snapshot,
-                        "shipping_address": request.shipping_address,
-                        "total_amount": float(request.amount) / 100.0,
-                        "subtotal": float(notes.get("subtotal", float(request.amount) / 100.0)),
-                        "discount_applied": float(notes.get("discount_applied", 0)),
-                        "shipping_cost": float(notes.get("shipping_cost", 0)),
-                    },
-                    headers={"X-Internal-Secret": internal_secret},
-                    timeout=5.0
-                )
+
+                # FIX: Use context manager to avoid leaking httpx.AsyncClient per request.
+                # The old code created a new AsyncClient() every call and never closed it,
+                # leaking connection pools and file descriptors under load.
+                async with httpx.AsyncClient(timeout=5.0) as client:
+                    prepare_resp = await client.post(
+                        f"{commerce_url}/api/v1/orders/internal/orders/prepare",
+                        json={
+                            "user_id": current_user["user_id"],
+                            "cart_snapshot": request.cart_snapshot,
+                            "shipping_address": request.shipping_address,
+                            "total_amount": float(request.amount) / 100.0,
+                            "subtotal": float(notes.get("subtotal", float(request.amount) / 100.0)),
+                            "discount_applied": float(notes.get("discount_applied", 0)),
+                            "shipping_cost": float(notes.get("shipping_cost", 0)),
+                        },
+                        headers={"X-Internal-Secret": internal_secret},
+                    )
                 if prepare_resp.status_code == 200:
                     pending_data = prepare_resp.json()
                     pending_id = pending_data.get("pending_order_id")
@@ -575,15 +579,29 @@ async def create_qr_code(
           tags=["QR Code Payments"])
 async def check_qr_status(
     qr_code_id: str,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),  # FIX #7: Auth required
 ):
     """
     Check the status of a QR code payment.
 
     Fetches current status from Razorpay and updates local transaction.
+    FIX #7: Now requires authentication and verifies the transaction
+    belongs to the requesting user, preventing enumeration attacks.
     """
     try:
         from models.payment import PaymentTransaction
+        from service.payment_service import _preserve_checkout_meta
+
+        # FIX #7: Verify the QR code belongs to this user
+        transaction = db.query(PaymentTransaction).filter(
+            PaymentTransaction.razorpay_qr_code_id == qr_code_id
+        ).first()
+        if transaction and transaction.user_id != current_user["user_id"]:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="QR code does not belong to this user",
+            )
 
         # Fetch QR status from Razorpay
         razorpay_client = get_razorpay_client()
@@ -601,15 +619,23 @@ async def check_qr_status(
 
         # Update local transaction if payment was completed
         if qr_status == "paid" and payment_id:
-            transaction = db.query(PaymentTransaction).filter(
-                PaymentTransaction.razorpay_qr_code_id == qr_code_id
-            ).first()
+            # Re-fetch inside the paid block in case we skipped the initial
+            # lookup (transaction was None when QR was just created)
+            if not transaction:
+                transaction = db.query(PaymentTransaction).filter(
+                    PaymentTransaction.razorpay_qr_code_id == qr_code_id
+                ).first()
 
             if transaction and transaction.status == "pending":
                 transaction.status = "completed"
                 transaction.razorpay_payment_id = payment_id
                 transaction.completed_at = ist_naive()
-                transaction.gateway_response = qr_data
+                # FIX #1: Preserve checkout metadata (cart_snapshot, shipping_address,
+                # pending_order_id) before overwriting gateway_response with QR status data.
+                # Without this, the webhook's _create_order_from_webhook cannot find the
+                # pending order or shipping address, causing orders to be created without
+                # linking to the PendingOrder snapshot.
+                _preserve_checkout_meta(transaction, qr_data)
                 db.commit()
 
                 logger.info(f"QR payment completed: {qr_code_id}, payment_id: {payment_id}")

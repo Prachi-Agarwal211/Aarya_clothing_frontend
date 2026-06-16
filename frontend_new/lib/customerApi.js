@@ -375,6 +375,7 @@ export const authApi = {
         identifier: credentials.identifier,
         otp_code: credentials.otp_code,
         remember_me: credentials.remember_me || false,
+        otp_type: credentials.otp_type || 'SMS',
         device_fingerprint: credentials.device_fingerprint,
         device_name: credentials.device_name
       });
@@ -383,10 +384,13 @@ export const authApi = {
     return coreClient.post('/api/v1/auth/login', credentials);
   },
 
-  sendLoginOtpRequest: (identifier, otpType = 'EMAIL') =>
+  sendLoginOtpRequest: (identifier, otpType) =>
     coreClient.post('/api/v1/auth/login-otp-request', {
       identifier: identifier.trim(),
-      otp_type: otpType,
+      // Don't send a default — let the backend auto-detect the best channel.
+      // The old default of 'EMAIL' was wrong for phone-first users who have
+      // a fake pending_@aaryaclothing.in email address.
+      ...(otpType ? { otp_type: otpType } : {}),
     }),
 
   logout: () =>

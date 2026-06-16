@@ -16,7 +16,7 @@ import Footer from '@/components/landing/Footer';
 import { commerceClient } from '@/lib/baseApi';
 
 const STATUS_CONFIG = {
-  confirmed:  { label: 'Order Confirmed',  icon: Package,     color: 'text-blue-400',   bg: 'bg-blue-500/10',   border: 'border-blue-500/20' },
+  confirmed:  { label: 'Shipping',        icon: Package,     color: 'text-blue-400',   bg: 'bg-blue-500/10',   border: 'border-blue-500/20' },
   shipped:    { label: 'Shipped',          icon: Truck,       color: 'text-yellow-400', bg: 'bg-yellow-500/10', border: 'border-yellow-500/20' },
   delivered:  { label: 'Delivered',        icon: CheckCircle, color: 'text-green-400',  bg: 'bg-green-500/10',  border: 'border-green-500/20' },
   cancelled:  { label: 'Cancelled',        icon: XCircle,     color: 'text-red-400',    bg: 'bg-red-500/10',    border: 'border-red-500/20' },

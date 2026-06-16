@@ -142,7 +142,6 @@ def _find_existing_order(
             existing = (
                 db.query(Order)
                 .filter(combined)
-                .with_for_update(skip_locked=True)
                 .order_by(Order.created_at.desc())
                 .first()
             )
@@ -268,6 +267,7 @@ class OrderService:
         discount_applied: Decimal = Decimal(0),
         shipping_cost: Decimal = Decimal(0),
         order_notes: Optional[str] = None,
+        razorpay_payment_id: Optional[str] = None,
     ) -> Order:
         """Internal helper to build an Order object from a list of items."""
         order = Order(
@@ -281,6 +281,7 @@ class OrderService:
             payment_method=payment_method,
             transaction_id=transaction_id,
             razorpay_order_id=razorpay_order_id,
+            razorpay_payment_id=razorpay_payment_id,
             pending_order_id=pending_order_id,
             order_notes=order_notes,
         )
@@ -333,15 +334,24 @@ class OrderService:
         pending_id: int,
         transaction_id: str,
         payment_method: str = "razorpay",
+        razorpay_payment_id: Optional[str] = None,
+        qr_code_id: Optional[str] = None,
     ) -> Order:
         """Create order from a pending order snapshot (webhook recovery).
 
         Uses distributed Redis lock on the payment_id to prevent race with
         the frontend order creation path (create_order). On IntegrityError
         from concurrent duplicate, falls back to finding the existing order.
+
+        After order creation, writes a payment_transactions record (if missing)
+        so that find_order_by_payment(qr_code_id) can find the order via the
+        payment_transactions bridge query.
         """
         # ── DISTRIBUTED LOCK ──
-        lock_value = transaction_id
+        # CRITICAL FIX: Use pending_id as lock key so both frontend and webhook
+        # paths block on the SAME lock. Previously used transaction_id which was
+        # different for each path (pay_xxx vs qr_xxx), causing races.
+        lock_value = f"pending_{pending_id}"
         lock_token = _acquire_order_lock(lock_value)
         if not lock_token:
             raise ValueError(f"Could not acquire lock for pending order {pending_id}")
@@ -392,6 +402,7 @@ class OrderService:
                 payment_method=payment_method,
                 transaction_id=transaction_id,
                 razorpay_order_id=pending.razorpay_order_id,
+                razorpay_payment_id=razorpay_payment_id or transaction_id,
                 pending_order_id=pending.id,
                 discount_applied=pending.discount_applied,
                 shipping_cost=pending.shipping_cost,
@@ -405,6 +416,46 @@ class OrderService:
             pending.order_created_at = now_ist()
             self.db.commit()
 
+            # ── BRIDGE: Create payment_transactions record ──
+            # Without this, find_order_by_payment(qr_code_id) cannot find the order
+            # via the payment_transactions bridge and must fall back to the broad
+            # pending_orders query.
+            if qr_code_id:
+                try:
+                    self.db.execute(
+                        text("""
+                            INSERT INTO payment_transactions (
+                                order_id, user_id, amount, currency, payment_method,
+                                razorpay_order_id, razorpay_payment_id, razorpay_signature,
+                                status, created_at, completed_at, transaction_id,
+                                razorpay_qr_code_id
+                            ) VALUES (
+                                :order_id, :user_id, :amount, 'INR', :payment_method,
+                                :razorpay_order_id, :razorpay_payment_id, '',
+                                'completed', NOW(), NOW(), :transaction_id,
+                                :qr_code_id
+                            )
+                            ON CONFLICT (transaction_id) DO NOTHING
+                        """),
+                        {
+                            "order_id": order.id,
+                            "user_id": pending.user_id,
+                            "amount": order.total_amount,
+                            "payment_method": payment_method,
+                            "razorpay_order_id": pending.razorpay_order_id or "",
+                            "razorpay_payment_id": transaction_id,
+                            "transaction_id": transaction_id,
+                            "qr_code_id": qr_code_id,
+                        },
+                    )
+                    self.db.commit()
+                    logger.info(
+                        f"BRIDGE_CREATED: payment_transactions for order={order.id} "
+                        f"qr_code_id={qr_code_id} transaction_id={transaction_id}"
+                    )
+                except Exception as e:
+                    logger.warning(f"BRIDGE_CREATE_FAILED (non-fatal): {e}")
+
             return order
 
         except IntegrityError as ie:
@@ -413,6 +464,21 @@ class OrderService:
                 f"PENDING_ORDER_RACE_RECOVER: pending_id={pending_id} "
                 f"transaction={transaction_id} {ie}"
             )
+            # CRITICAL FIX: Check by pending_order_id FIRST (most specific identifier).
+            # Both the webhook and frontend paths set pending_order_id on the order,
+            # so this will find the existing order even if different transaction_ids
+            # were used (webhook uses pay_xxx, frontend uses qr_xxx for QR payments).
+            ordered = (
+                self.db.query(Order)
+                .filter(
+                    Order.pending_order_id == pending_id,
+                )
+                .first()
+            )
+            if ordered:
+                logger.info(f"RACE_RECOVERED_BY_PENDING_ID: order {ordered.id} for pending_id={pending_id}")
+                return ordered
+            # Fallback to transaction_id (QR code ID may differ from payment ID)
             ordered = (
                 self.db.query(Order)
                 .filter(
@@ -664,33 +730,18 @@ class OrderService:
         # may not have returned a transaction_id yet (webhook still processing).
         resolved_payment_id = transaction_id or qr_code_id
 
-        # ──── SYNCHRONOUS ORDER CREATION ────
-        # After payment verification, create the order immediately so the
-        # frontend doesn't have to wait for the webhook. The webhook handler
-        # is idempotent and will find the existing order if called.
-        #
-        # This reduces the user's wait from 2-8 seconds (webhook latency +
-        # polling delay) to ~200ms (in-process order creation).
+        # ──── WEBHOOK CREATES ORDER (no synchronous path) ────
+        # The synchronous order creation block was REMOVED because it caused
+        # duplicate orders in the QR+Razorpay flow: user generates QR → switches
+        # to Razorpay direct → both paths create orders for the same payment.
+        # The webhook (payment.captured or qr_code.credited) is the single source
+        # of truth for order creation. The frontend polls find_order_by_payment()
+        # until the webhook creates the order (typically 2-15 seconds).
         order = None
-        try:
-            txn_id = transaction_id or qr_code_id or ""
-            if txn_id:
-                order = self.create_order_from_pending_id(
-                    pending_id=pending.id,
-                    transaction_id=txn_id,
-                    payment_method="razorpay",
-                )
-                logger.info(
-                    f"✓ ORDER_CREATED_SYNCHRONOUSLY: order_id={order.id} "
-                    f"user={user_id} payment={resolved_payment_id}"
-                )
-        except Exception as e:
-            # Order creation failed synchronously — the webhook handler will
-            # retry and recover. This should be rare (stock issues, DB errors).
-            logger.error(
-                f"⚠ SYNCHRONOUS_ORDER_FAILED: user={user_id} payment={resolved_payment_id} "
-                f"error={e}. Webhook will recover."
-            )
+        logger.info(
+            f"DEFERRED_TO_WEBHOOK: user={user_id} payment={resolved_payment_id} "
+            f"qr={qr_code_id} pending={pending_order_id}"
+        )
 
         # NOTE: Cart is NOT cleared here. The cart is cleared by the frontend
         # after the order is confirmed (CheckoutConfirmPage calls clearCart()).
@@ -700,7 +751,7 @@ class OrderService:
             "status": "payment_registered",
             "payment_id": resolved_payment_id,
             "pending_order_id": pending_order_id,
-            "order": order,  # Present when order created synchronously
+            "order": None,  # Always None — webhook creates order asynchronously
         }
 
     def find_order_by_payment(
@@ -716,6 +767,11 @@ class OrderService:
         is used as payment_id before Razorpay returns a real payment_id).
 
         Called by the frontend polling endpoint after payment registration.
+
+        CRITICAL FIX: For QR code payments, the frontend polls with a qr_code_id
+        (like 'qr_xxxx') that NEVER matches any order's transaction_id. We must
+        search through the pending_orders table to find the order linked to the
+        QR code's pending_order, then return the order.
         """
         # Try direct order field matches first
         order = (
@@ -731,9 +787,28 @@ class OrderService:
         if order:
             return self.get_order_by_id(order.id)
 
-        # Fallback: if payment_id looks like a QR code ID or pending order was
-        # created with this ID, check via pending_order -> order linkage
+        # Fallback 1: if payment_id looks like a QR code ID, check via
+        # pending_orders -> order linkage (qr_code_id stored in transaction)
         if payment_id and payment_id.startswith("qr_"):
+            # CRITICAL FIX: Use raw SQL to query payment_transactions (commerce
+            # service does not have this model imported — ORM import would crash).
+            # 'text' is already imported at file level from sqlalchemy.
+            # SECURITY: Filter by user_id to prevent cross-user order leakage.
+            row = self.db.execute(
+                text("""
+                    SELECT order_id FROM payment_transactions
+                    WHERE (razorpay_qr_code_id = :qr_id OR transaction_id = :qr_id)
+                    AND user_id = :uid
+                    AND order_id IS NOT NULL
+                    ORDER BY created_at DESC
+                    LIMIT 1
+                """),
+                {"qr_id": payment_id, "uid": user_id},
+            ).fetchone()
+            if row and row[0]:
+                return self.get_order_by_id(row[0])
+
+            # Fallback: Check pending_orders that were created with this QR code
             from models.pending_order import PendingOrder
             pending = (
                 self.db.query(PendingOrder)
@@ -748,6 +823,21 @@ class OrderService:
             if pending and pending.order_id:
                 return self.get_order_by_id(pending.order_id)
 
+        # Fallback 2: Search payment_transactions by this payment_id to find order
+        generic_row = self.db.execute(
+            text("""
+                SELECT order_id FROM payment_transactions
+                WHERE (transaction_id = :pid OR razorpay_payment_id = :pid)
+                AND user_id = :uid
+                AND order_id IS NOT NULL
+                ORDER BY created_at DESC
+                LIMIT 1
+            """),
+            {"pid": payment_id, "uid": user_id},
+        ).fetchone()
+        if generic_row and generic_row[0]:
+            return self.get_order_by_id(generic_row[0])
+
         return None
 
     def create_order_from_pending_order(
@@ -757,6 +847,7 @@ class OrderService:
         payment_id: str,
         razorpay_order_id: Optional[str] = None,
         payment_signature: Optional[str] = None,
+        qr_code_id: Optional[str] = None,
     ) -> Order:
         """
         Create an order from a pending_order record (called by webhook handler).
@@ -775,6 +866,8 @@ class OrderService:
             payment_id: Razorpay payment ID (pay_xxx)
             razorpay_order_id: Razorpay order ID (order_xxx)
             payment_signature: HMAC signature for verification
+            qr_code_id: Razorpay QR code ID (qr_xxx) — used to link payment_transactions
+                for frontend polling (find_order_by_payment).
 
         Returns:
             Created Order object
@@ -794,7 +887,15 @@ class OrderService:
             raise HTTPException(status_code=400, detail="payment_id or razorpay_order_id is required")
 
         # ── DISTRIBUTED LOCK ──
-        lock_value = payment_id or razorpay_order_id
+        # CRITICAL FIX: Use pending_order_id as lock key when available, so both
+        # the frontend (create_order_from_pending_id) and webhook paths block on
+        # the SAME lock. Previously used payment_id which was different for each
+        # path (pay_xxx vs qr_xxx), causing races that created duplicate orders.
+        _lock_pending_id = pending_order_data.get("pending_order_id")
+        if _lock_pending_id:
+            lock_value = f"pending_{_lock_pending_id}"
+        else:
+            lock_value = payment_id or razorpay_order_id
         lock_token = _acquire_order_lock(lock_value)
         if not lock_token:
             # Lock timed out — try to find existing order
@@ -811,7 +912,6 @@ class OrderService:
             existing = (
                 self.db.query(Order)
                 .filter(Order.transaction_id == lookup_id, Order.user_id == user_id)
-                .with_for_update(skip_locked=True)
                 .first()
             )
             if existing:
@@ -828,7 +928,6 @@ class OrderService:
                         Order.razorpay_order_id == razorpay_order_id,
                         Order.user_id == user_id,
                     )
-                    .with_for_update(skip_locked=True)
                     .first()
                 )
                 if existing_by_razorpay:
@@ -885,6 +984,33 @@ class OrderService:
             ).scalar()
             invoice_number = f"INV-{year}-{seq_val:06d}"
 
+            # CRITICAL FIX: Find pending_order_id to set on the order.
+            # Without this, orders created by the webhook fallback path have
+            # pending_order_id=NULL, making them invisible to subsequent
+            # _order_exists() checks in other webhook event handlers.
+            pending_order_id_val = None
+            if pending_order_data:
+                # Check for pending_order_id in the data payload
+                poid = pending_order_data.get("pending_order_id")
+                if poid:
+                    pending_order_id_val = int(str(poid))
+            if not pending_order_id_val and razorpay_order_id:
+                # Try to find by razorpay_order_id
+                try:
+                    pending = (
+                        self.db.query(PendingOrder)
+                        .filter(
+                            PendingOrder.razorpay_order_id == razorpay_order_id,
+                            PendingOrder.user_id == user_id,
+                        )
+                        .order_by(PendingOrder.created_at.desc())
+                        .first()
+                    )
+                    if pending:
+                        pending_order_id_val = pending.id
+                except Exception:
+                    pass
+
             # Create the order
             order = Order(
                 user_id=user_id,
@@ -907,6 +1033,7 @@ class OrderService:
                 else "[CREATED FROM WEBHOOK/RECOVERY]",
                 razorpay_order_id=razorpay_order_id,
                 razorpay_payment_id=payment_id,
+                pending_order_id=pending_order_id_val,
             )
 
             self.db.add(order)
@@ -968,7 +1095,7 @@ class OrderService:
             except IntegrityError as ie:
                 self.db.rollback()
                 logger.warning(f"WEBHOOK_ORDER_RACE_RECOVER: user={user_id} payment={payment_id} {ie}")
-                dup = _find_existing_order(self.db, user_id, payment_id, razorpay_order_id)
+                dup = _find_existing_order(self.db, user_id, payment_id, razorpay_order_id, pending_order_id=pending_order_id_val)
                 if dup:
                     return dup
                 raise HTTPException(
@@ -977,17 +1104,21 @@ class OrderService:
                 )
 
             # Create payment transaction record (best-effort)
+            # CRITICAL: Include razorpay_qr_code_id so find_order_by_payment(qr_code_id)
+            # can find this order via the payment_transactions bridge query.
             try:
                 self.db.execute(
                     _text("""
                         INSERT INTO payment_transactions (
                             order_id, user_id, amount, currency, payment_method,
                             razorpay_order_id, razorpay_payment_id, razorpay_signature,
-                            status, created_at, completed_at, transaction_id
+                            status, created_at, completed_at, transaction_id,
+                            razorpay_qr_code_id
                         ) VALUES (
                             :order_id, :user_id, :amount, 'INR', 'razorpay',
                             :razorpay_order_id, :razorpay_payment_id, :signature,
-                            'completed', NOW(), NOW(), :transaction_id
+                            'completed', NOW(), NOW(), :transaction_id,
+                            :qr_code_id
                         )
                         ON CONFLICT (transaction_id) DO NOTHING
                     """),
@@ -999,6 +1130,7 @@ class OrderService:
                         "razorpay_payment_id": payment_id,
                         "signature": payment_signature or "",
                         "transaction_id": payment_id,
+                        "qr_code_id": qr_code_id or None,
                     },
                 )
                 self.db.commit()

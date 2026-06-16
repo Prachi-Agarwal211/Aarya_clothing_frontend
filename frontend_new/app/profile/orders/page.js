@@ -12,7 +12,7 @@ import { useAlertToast } from '@/lib/useAlertToast';
 import { getErrorMessage, logError } from '@/lib/errorHandlers';
 
 const STATUS_CONFIG = {
-  confirmed: { label: 'Processing Your Order', color: 'text-purple-400', bg: 'bg-purple-400/10', icon: Clock },
+  confirmed: { label: 'Shipping', color: 'text-purple-400', bg: 'bg-purple-400/10', icon: Clock },
   shipped:   { label: 'Shipped', color: 'text-cyan-400', bg: 'bg-cyan-400/10', icon: Truck },
   delivered: { label: 'Delivered', color: 'text-green-400', bg: 'bg-green-400/10', icon: CheckCircle },
   cancelled: { label: 'Order Cancelled', color: 'text-red-400', bg: 'bg-red-400/10', icon: XCircle },
@@ -251,7 +251,7 @@ export default function OrdersPage() {
         >
           <option value="all">All Orders</option>
           <option value="active">Active Orders</option>
-          <option value="confirmed">Processing</option>
+          <option value="confirmed">Shipping</option>
           <option value="shipped">Shipped</option>
           <option value="delivered">Delivered</option>
           <option value="cancelled">Cancelled</option>

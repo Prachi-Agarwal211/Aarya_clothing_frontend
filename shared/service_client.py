@@ -231,10 +231,23 @@ class CoreServiceClient(ServiceClient):
         return await self.get("/api/v1/users/by-email", params={"email": email}, auth_token=auth_token)
     
     async def verify_user(self, user_id: int, auth_token: str = None) -> bool:
-        """Verify user exists and is active."""
+        """Verify user exists and is active.
+
+        CRITICAL FIX: Default to True when 'is_active' is missing from the
+        response. The old default of False caused every user to be reported
+        as inactive whenever the core service returned a partial response
+        (e.g. different schema version, network truncation, etc.), which
+        silently blocked orders, payments, and other downstream flows.
+        """
         try:
             user = await self.get_user(user_id, auth_token)
-            return user.get("is_active", False)
+            if "is_active" not in user:
+                logger.warning(
+                    "verify_user: core service response missing 'is_active' "
+                    "for user_id=%s — defaulting to True",
+                    user_id,
+                )
+            return user.get("is_active", True)
         except ServiceError:
             return False
     

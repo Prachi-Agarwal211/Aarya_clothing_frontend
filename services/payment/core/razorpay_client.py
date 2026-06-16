@@ -370,6 +370,11 @@ class RazorpayClient:
                     "email": payment_entity.get("email"),
                     "contact": payment_entity.get("contact"),
                     "qr_code_id": payload.get("qr_code", {}).get("entity", {}).get("id"),
+                    # CRITICAL FIX: Extract payment entity notes (contains pending_order_id)
+                    # Without this, the webhook _create_order_from_webhook cannot find
+                    # the pending_order_id and falls to pending_order_data fallback path,
+                    # which creates orders WITHOUT pending_order_id, causing duplicates.
+                    "notes": payment_entity.get("notes", {}),
                 })
             
             elif event_type == "payment.failed":
@@ -406,6 +411,8 @@ class RazorpayClient:
                     "email": payment_entity.get("email"),
                     "contact": payment_entity.get("contact"),
                     "qr_code_id": payload.get("qr_code", {}).get("entity", {}).get("id"),
+                    # CRITICAL FIX: Extract payment entity notes (contains pending_order_id)
+                    "notes": payment_entity.get("notes", {}),
                 })
             
             elif event_type == "order.paid":

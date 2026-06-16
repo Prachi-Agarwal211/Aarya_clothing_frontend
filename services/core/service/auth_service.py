@@ -240,7 +240,21 @@ class AuthService:
                 if phone_exists:
                     raise ValueError("This phone number is already registered with another account. Please use a different number or sign in.")
 
-            user.hashed_password = self.get_password_hash(user_data.password)
+            # CRITICAL FIX: Guard against None password — phone-first users
+            # go through phone_only_defaults which auto-generates a password,
+            # but edge cases (schema changes, direct callers) could still
+            # pass None, causing bcrypt to crash.
+            if user_data.password:
+                user.hashed_password = self.get_password_hash(user_data.password)
+            elif not user.hashed_password:
+                # User has no password at all (never completed registration).
+                # Generate a random one so they can use OTP login.
+                temp_password = secrets.token_urlsafe(16)
+                user.hashed_password = self.get_password_hash(temp_password)
+                logger.warning(
+                    f"RESUME_NO_PASSWORD: user={user.id} — generated temp password. "
+                    f"User must complete registration via OTP."
+                )
             user.signup_verification_method = getattr(user_data, "verification_method", "otp_email")
             if new_phone:
                 norm_new = normalize_phone_safe(new_phone.strip()) if isinstance(new_phone, str) else new_phone
@@ -330,9 +344,26 @@ class AuthService:
         if not user: raise ValueError("User not found")
 
         user.is_active = True
+
+        # CRITICAL FIX: Set verification flags correctly.
+        # For phone-first users (email is pending_XXX@aaryaclothing.in), the phone
+        # OTP already proved identity, so phone_verified=True. We also mark
+        # email_verified=True if the email is a fake placeholder — the user
+        # proved identity via phone, and the fake email doesn't need separate
+        # verification. This prevents downstream services from rejecting users
+        # who only have phone verification.
         method = str(otp_method).lower()
+        is_phone_first = (
+            user.email
+            and user.email.startswith("pending_")
+            and "@aaryaclothing.in" in user.email
+        )
         if any(m in method for m in ("sms", "whatsapp", "phone")):
             user.phone_verified = True
+            # For phone-first users, also mark email as verified since the
+            # phone OTP already proved identity and the email is a placeholder.
+            if is_phone_first:
+                user.email_verified = True
         else:
             user.email_verified = True
 

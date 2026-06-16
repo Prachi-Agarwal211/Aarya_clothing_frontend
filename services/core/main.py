@@ -904,12 +904,34 @@ async def login_otp_request(
         
         logger.info(f"[Re-Verify] Inactive user {existing_user.id}, sending registration OTP")
         
-        otp_type_lower = (otp_type or "SMS").lower()
-        otp_type_enum = {
-            "sms": OTPEnum.SMS,
-            "whatsapp": OTPEnum.WHATSAPP,
-            "email": OTPEnum.EMAIL,
-        }.get(otp_type_lower, OTPEnum.SMS)
+        # CRITICAL FIX: Auto-detect the best delivery channel for inactive users.
+        # Phone-first users have a fake email (pending_XXX@aaryaclothing.in) — sending
+        # OTP there is useless. Always prefer SMS/WhatsApp when the user has a phone,
+        # regardless of what the frontend requested.
+        has_phone = existing_user.phone and existing_user.phone.strip()
+        is_phone_first = (
+            existing_user.email
+            and existing_user.email.startswith("pending_")
+            and "@aaryaclothing.in" in existing_user.email
+        )
+        
+        if is_phone_first and has_phone:
+            # Phone-first user: force SMS (or WhatsApp if configured and requested)
+            otp_type_lower = (otp_type or "SMS").lower()
+            otp_type_enum = {
+                "whatsapp": OTPEnum.WHATSAPP,
+            }.get(otp_type_lower, OTPEnum.SMS)  # default to SMS, never EMAIL for phone-first
+        elif has_phone:
+            # Has phone but not phone-first: respect user's choice but prefer SMS
+            otp_type_lower = (otp_type or "SMS").lower()
+            otp_type_enum = {
+                "sms": OTPEnum.SMS,
+                "whatsapp": OTPEnum.WHATSAPP,
+                "email": OTPEnum.EMAIL,
+            }.get(otp_type_lower, OTPEnum.SMS)
+        else:
+            # No phone: must use email
+            otp_type_enum = OTPEnum.EMAIL
         
         otp_service = OTP(db)
         otp_request_data = {
@@ -923,9 +945,11 @@ async def login_otp_request(
         try:
             result = otp_service.send_otp(otp_request)
             if result.get("success"):
+                # Return which channel was actually used so frontend can show correct UI
+                actual_otp_type = result.get("otp_type", otp_type)
                 return {
                     "message": "Verification OTP sent. Please check your phone.",
-                    "otp_type": otp_type,
+                    "otp_type": actual_otp_type,
                     "expires_in": result.get("expires_in", 600),
                     "is_new_user": False,
                     "requires_verification": True,
@@ -1036,10 +1060,17 @@ async def login_otp_verify(
             )
         else:
             # New user (auto-registered): activate account via registration verification
+            #
+            # CRITICAL FIX: Determine otp_method from the user's stored
+            # signup_verification_method instead of relying on request.otp_type
+            # (which the frontend often doesn't send). The old code defaulted
+            # to "otp_sms" for ALL users, meaning email-OTP registrants got
+            # email_verified=False, which could later block login attempts.
+            signup_method = getattr(user, "signup_verification_method", None) or "otp_sms"
             result = AuthService(db).verify_user_registration(
                 user_id=user.id,
                 otp_code=request.otp_code,
-                otp_method=f"otp_{request.otp_type.lower()}" if request.otp_type else "otp_sms",
+                otp_method=signup_method,
             )
         
         try:

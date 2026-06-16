@@ -92,7 +92,7 @@ def _preserve_checkout_meta(transaction, new_gateway_response):
     gateway_response and re-attaches it under '_checkout_meta' so it survives the
     round-trip through multiple webhook handlers.
 
-    Called from: _handle_payment_captured, _handle_payment_authorized, _handle_order_paid
+    Called from: _handle_payment_captured, _handle_payment_authorized, _handle_order_paid, _handle_qr_code_event
     """
     preserved_keys = ["pending_order_id", "cart_snapshot", "shipping_address", "created_during"]
     meta = {}
@@ -861,10 +861,20 @@ class PaymentService:
                 )
                 if user_id_from_notes:
                     query = query.filter(PaymentTransaction.user_id == int(user_id_from_notes))
-                transaction = (
-                    query.order_by(PaymentTransaction.created_at.desc())
-                    .first()
-                )
+                else:
+                    # FIX #2: REFUSE to match without user_id — this caused cross-user
+                    # order linkage when two users had QR payments for the same amount.
+                    # 4 confirmed incidents in production. Log critical and abort.
+                    logger.critical(
+                        f"QR_AMOUNT_FALLBACK_BLOCKED: amount={amount_rupees} payment_id={payment_id} "
+                        f"— no user_id in notes, refusing to match to prevent cross-user linkage"
+                    )
+                    transaction = None  # Explicit — fall through to no-transaction handler
+                if user_id_from_notes:  # Only search if we have a user_id
+                    transaction = (
+                        query.order_by(PaymentTransaction.created_at.desc())
+                        .first()
+                    )
 
             if not transaction:
                 # ── No transaction found — on-the-fly recovery ──
@@ -990,6 +1000,7 @@ class PaymentService:
             transaction_id=payment_id,
             razorpay_payment_id=payment_id,
             razorpay_order_id=razorpay_order_id,
+            razorpay_qr_code_id=event_info.get("qr_code_id"),
             status="completed",
             completed_at=ist_naive(),
             gateway_response=event_info,
@@ -1000,14 +1011,14 @@ class PaymentService:
         self._create_order_from_webhook(transaction, event_info)
 
     def _handle_payment_authorized(self, event_info: Dict[str, Any]):
-        """Handle payment authorized webhook — update transaction AND create order immediately.
+        """Handle payment authorized webhook — update transaction status ONLY.
 
-        CRITICAL FIX: Embedded checkout (UPI collect) sends 'authorized' webhook FIRST,
-        then 'captured' webhook. We must create the order NOW, not wait for 'captured'
-        (which may fail or arrive out of order).
+        CRITICAL: Only payment.captured (single source of truth) creates orders.
+        The authorized event means funds are RESERVED, not captured. Creating an
+        order here caused DUPLICATE orders when payment.captured fired ~1-2s later.
 
         ARCHITECTURE: Same as _handle_payment_captured — find WITHOUT lock,
-        brief lock for status update, commit (releases lock), then HTTP call.
+        brief lock for status update, commit (releases lock). No HTTP call needed.
         """
         try:
             payment_id = event_info.get("payment_id")
@@ -1065,15 +1076,13 @@ class PaymentService:
                 txn_locked.status = "authorized"
             self.db.commit()  # Lock released
 
-            logger.info(f"WEBHOOK: Payment authorized: {payment_id} txn={txn_locked.transaction_id}")
+            logger.info(f"WEBHOOK: Payment authorized: {payment_id} txn={txn_locked.transaction_id} method={method} — waiting for captured event")
 
-            # ── Step 3: Create order OUTSIDE lock ──
-            # FIX: Added 'wallet' to method list — wallet payments send 'authorized' first,
-            # then 'captured'. Without this, wallet payments could be authorized but
-            # never create an order if the 'captured' webhook is missed.
-            if method in ["upi", "card", "netbanking", "wallet"] and not self._order_exists(transaction):
-                logger.info(f"WEBHOOK: Creating order from authorized event for txn={txn_locked.transaction_id} method={method}")
-                self._create_order_from_webhook(transaction, event_info)
+            # ── Step 3: Only update status — DO NOT create order ──
+            # CRITICAL: Only payment.captured (single source of truth) creates orders.
+            # The authorized event means funds are RESERVED, not captured. Creating an
+            # order here causes DUPLICATE orders when payment.captured fires ~1-2s later.
+            # The payment.captured handler is the single source of truth for order creation.
         except Exception as e:
             self.db.rollback()
             logger.error(f"WEBHOOK_AUTHORIZED_FAILED: {str(e)}")
@@ -1119,14 +1128,16 @@ class PaymentService:
                     transaction.completed_at = ist_naive()
                 self.db.commit()  # Commit status update
 
-                # SAFETY NET: If no order exists yet, create it now
-                # This handles the rare case where payment.captured was missed
+                # SAFETY NET: Check if order exists - log warning if not.
+                # DO NOT create order from order.paid event - this causes duplicates.
+                # The payment.captured handler is the single source of truth for order creation.
+                # If order.captured was missed, the recovery worker will handle it.
                 if not self._order_exists(transaction):
-                    logger.info(
-                        f"WEBHOOK_ORDER_PAID_SAFETY: No order for payment={payment_id} "
-                        f"— creating from order.paid event"
+                    logger.warning(
+                        f"WEBHOOK_ORDER_PAID_MISSING_ORDER: payment={payment_id} "
+                        f"user={transaction.user_id} - payment.captured did not create order. "
+                        f"Recovery worker should handle this."
                     )
-                    self._create_order_from_webhook(transaction, event_info)
 
             logger.info(f"WEBHOOK: Order paid: {razorpay_order_id} payment={payment_id}")
         except Exception as e:
@@ -1145,7 +1156,7 @@ class PaymentService:
             amount_paise = event_info.get("amount")
 
             if event_info["event_type"] == "qr_code.created":
-                # QR code created — just store the qr_code_id
+                # QR code created — store the qr_code_id AND preserve checkout metadata
                 if qr_code_id:
                     transaction = (
                         self.db.query(PaymentTransaction)
@@ -1162,7 +1173,12 @@ class PaymentService:
                         if txn_locked:
                             if not txn_locked.razorpay_qr_code_id:
                                 txn_locked.razorpay_qr_code_id = qr_code_id
-                            txn_locked.gateway_response = event_info
+                            # CRITICAL: Preserve checkout metadata (pending_order_id, cart_snapshot,
+                            # shipping_address) BEFORE overwriting gateway_response with webhook data.
+                            # Without this, the original checkout data set during QR code creation
+                            # is lost — and when qr_code.credited fires later, _preserve_checkout_meta
+                            # has nothing left to preserve, breaking order creation and frontend polling.
+                            _preserve_checkout_meta(txn_locked, event_info)
                             self.db.commit()
                         logger.info(f"WEBHOOK: QR created: {qr_code_id}")
 
@@ -1184,16 +1200,49 @@ class PaymentService:
                     )
                 if not transaction and payment_id and amount_paise:
                     amount_rupees = Decimal(str(amount_paise)) / Decimal('100')
-                    transaction = (
+                    # CRITICAL FIX: Extract user_id from QR notes to prevent matching
+                    # the WRONG user's transaction. When two users both have ₹500 QR
+                    # payments pending, the old amount-only fallback could pick the
+                    # wrong transaction, causing Payment → Wrong Order linkage.
+                    user_id_from_notes = event_info.get("notes", {}).get("user_id")
+                    if not user_id_from_notes:
+                        # Also check nested payload path
+                        user_id_from_notes = (
+                            event_info.get("payload", {})
+                            .get("payment", {})
+                            .get("entity", {})
+                            .get("notes", {})
+                            .get("user_id")
+                        )
+                    query = (
                         self.db.query(PaymentTransaction)
                         .filter(
                             PaymentTransaction.status == "pending",
                             PaymentTransaction.payment_method == "upi_qr",
                             PaymentTransaction.amount == amount_rupees,
                         )
-                        .order_by(PaymentTransaction.created_at.desc())
-                        .first()
                     )
+                    if user_id_from_notes:
+                        query = query.filter(PaymentTransaction.user_id == int(user_id_from_notes))
+                        logger.info(
+                            f"QR_AMOUNT_FALLBACK_WITH_USER: user_id={user_id_from_notes} "
+                            f"amount={amount_rupees} — filtering by user to avoid misrouting"
+                        )
+                    else:
+                        # FIX #2: REFUSE to match without user_id — this caused cross-user
+                        # order linkage when two users had QR payments for the same amount.
+                        # 4 confirmed incidents in production. Log critical and abort.
+                        logger.critical(
+                            f"QR_AMOUNT_FALLBACK_BLOCKED: amount={amount_rupees} payment_id={payment_id} "
+                            f"— no user_id in notes, refusing to match to prevent cross-user linkage"
+                        )
+                        transaction = None  # Explicit — fall through, don't match wrong user
+                    if user_id_from_notes:  # Only search if we have a user_id
+                        transaction = (
+                            query
+                            .order_by(PaymentTransaction.created_at.desc())
+                            .first()
+                        )
 
                 if not transaction:
                     return
@@ -1210,7 +1259,12 @@ class PaymentService:
 
                 if payment_id and not txn_locked.razorpay_payment_id:
                     txn_locked.razorpay_payment_id = payment_id
-                txn_locked.gateway_response = event_info
+                # CRITICAL: Call _preserve_checkout_meta BEFORE overwriting gateway_response
+                # to save pending_order_id, cart_snapshot, and shipping_address from the
+                # original QR creation data. Without this, the _create_order_from_webhook
+                # path cannot find the pending_order_id, creating orders without linking
+                # to the PendingOrder, which breaks frontend polling (find_order_by_payment).
+                _preserve_checkout_meta(txn_locked, event_info)
                 if txn_locked.status != "completed":
                     txn_locked.status = "completed"
                     txn_locked.completed_at = ist_naive()
@@ -1272,6 +1326,11 @@ class PaymentService:
                             pending_order_id = nested_meta.get("pending_order_id")
                 if not pending_order_id:
                     pending_order_id = transaction.gateway_response.get("pending_order_id")
+                # Also check the raw payload notes from the webhook (qr_code.credited may have it)
+                if not pending_order_id:
+                    raw_notes = event_info.get("notes", {})
+                    if isinstance(raw_notes, dict):
+                        pending_order_id = raw_notes.get("pending_order_id")
 
             # Fallback: If no pending_order_id, try to use snapshot from transaction first (most accurate)
             pending_order_data = {}
@@ -1337,6 +1396,11 @@ class PaymentService:
                 "pending_order_id": pending_order_id,
                 "pending_order_data": pending_order_data,
                 "payment_method": transaction.payment_method,
+                # CRITICAL: Pass qr_code_id through so commerce can store it in
+                # payment_transactions.razorpay_qr_code_id. This ensures that when
+                # the frontend polls find_order_by_payment(qr_code_id), it can find
+                # the order even if payment.captured fired before qr_code.credited.
+                "qr_code_id": event_info.get("qr_code_id") or transaction.razorpay_qr_code_id,
             }
 
             logger.info(
@@ -1437,6 +1501,41 @@ class PaymentService:
             if order_id:
                 conditions.append("razorpay_order_id = :order_id")
                 params["order_id"] = order_id
+
+            # CRITICAL FIX: Also check by pending_order_id from checkout metadata.
+            # QR code payments create orders with transaction_id = qr_xxx but the
+            # webhook checks by pay_xxx - these miss each other. The order DOES have
+            # a pending_order_id set. Checking by pending_order_id bridges this gap.
+            pending_id = None
+            if transaction.gateway_response and isinstance(transaction.gateway_response, dict):
+                # 1. Check top-level gateway_response (before any webhook processed)
+                pending_id = transaction.gateway_response.get("pending_order_id")
+                # 2. Check _checkout_meta (after _preserve_checkout_meta runs)
+                if not pending_id:
+                    checkout_meta = transaction.gateway_response.get("_checkout_meta", {})
+                    if isinstance(checkout_meta, dict):
+                        pending_id = checkout_meta.get("pending_order_id")
+                        # 3. Check nested _checkout_meta (multiple handler overwrites)
+                        if not pending_id:
+                            nested = checkout_meta.get("_checkout_meta", {})
+                            if isinstance(nested, dict):
+                                pending_id = nested.get("pending_order_id")
+                # 4. Check Razorpay payment notes (webhook payload)
+                if not pending_id:
+                    notes = transaction.gateway_response.get("notes", {})
+                    if isinstance(notes, dict):
+                        pending_id = notes.get("pending_order_id")
+                    elif isinstance(notes, str):
+                        try:
+                            import json
+                            pending_id = json.loads(notes).get("pending_order_id")
+                        except Exception:
+                            pass
+            if pending_id is not None:
+                pending_id_val = int(str(pending_id))
+                if pending_id_val not in [v for v in params.values() if isinstance(v, int)]:
+                    conditions.append("pending_order_id = :pending_id")
+                    params["pending_id"] = pending_id_val
 
             if not conditions:
                 return False

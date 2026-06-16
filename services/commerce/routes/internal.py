@@ -278,21 +278,34 @@ async def internal_create_order_from_payment(
     # ── IDEMPOTENCY CHECK ──
     # Before attempting order creation, check if an order already exists.
     # This is cheap and prevents unnecessary lock contention.
-    existing = db.execute(text("""
-        SELECT id FROM orders 
-        WHERE transaction_id = :payment_id 
-           OR razorpay_payment_id = :payment_id
-           OR razorpay_order_id = :razorpay_order_id
-        LIMIT 1
-    """), {
-        "payment_id": payment_id,
-        "razorpay_order_id": razorpay_order_id or ""
-    }).fetchone()
+    #
+    # CRITICAL: Build query dynamically — only include razorpay_order_id
+    # when actually provided. Using razorpay_order_id='' (None fallback)
+    # caused ALL QR payment webhooks to match the FIRST order with empty
+    # razorpay_order_id (order #838), creating cross-user contamination
+    # where different users' payments all linked to the same wrong order.
+    idem_params = {"payment_id": payment_id}
+    idem_where = """
+        SELECT id FROM orders
+        WHERE (transaction_id = :payment_id
+           OR razorpay_payment_id = :payment_id)
+    """
+    if razorpay_order_id:
+        idem_where += " OR razorpay_order_id = :razorpay_order_id"
+        idem_params["razorpay_order_id"] = razorpay_order_id
+    idem_where += " LIMIT 1"
+    existing = db.execute(text(idem_where), idem_params).fetchone()
     if existing:
         logger.info(f"IDEMPOTENCY_HIT: order {existing[0]} already exists for payment={payment_id}")
         return {"found": True, "order_id": existing[0]}
 
     order_service = OrderService(db)
+
+    # ── Accept qr_code_id from payment service webhook payload ──
+    # This ensures the order's payment_transactions record contains the QR code ID,
+    # allowing the frontend's find_order_by_payment(qr_code_id) to find the order
+    # even when payment.captured fires before qr_code.credited.
+    qr_code_id = body.get("qr_code_id")
 
     # ── FALLBACK: If no pending_order_id provided, try to find one by razorpay_order_id ──
     # This handles the case where the payment service's prepare endpoint failed,
@@ -316,13 +329,14 @@ async def internal_create_order_from_payment(
             )
 
     try:
-        logger.info(f"INTERNAL_ORDER_CREATE: user={user_id} payment={payment_id} pending_id={pending_order_id}")
+        logger.info(f"INTERNAL_ORDER_CREATE: user={user_id} payment={payment_id} pending_id={pending_order_id} qr_code_id={qr_code_id}")
 
         if pending_order_id:
             order = order_service.create_order_from_pending_id(
                 pending_id=pending_order_id,
                 transaction_id=payment_id,
                 payment_method=body.get("payment_method", "razorpay"),
+                qr_code_id=qr_code_id,
             )
         elif pending_order_data:
             order = order_service.create_order_from_pending_order(
@@ -331,6 +345,7 @@ async def internal_create_order_from_payment(
                 payment_id=payment_id,
                 razorpay_order_id=razorpay_order_id,
                 payment_signature=payment_signature,
+                qr_code_id=qr_code_id,
             )
         else:
             raise HTTPException(status_code=400, detail="pending_order_id or pending_order_data is required")
@@ -382,16 +397,17 @@ async def internal_create_order_from_payment(
             logger.warning(f"INTERNAL_ORDER_CREATE_LOCK: user={user_id} payment={payment_id}")
             for attempt in range(5):
                 await asyncio.sleep(0.5)
-                retry_existing = db.execute(text("""
-                    SELECT id FROM orders 
-                    WHERE transaction_id = :payment_id 
-                       OR razorpay_payment_id = :payment_id
-                       OR razorpay_order_id = :razorpay_order_id
-                    LIMIT 1
-                """), {
-                    "payment_id": payment_id,
-                    "razorpay_order_id": razorpay_order_id or ""
-                }).fetchone()
+                retry_params = {"payment_id": payment_id}
+                retry_where = """
+                    SELECT id FROM orders
+                    WHERE (transaction_id = :payment_id
+                       OR razorpay_payment_id = :payment_id)
+                """
+                if razorpay_order_id:
+                    retry_where += " OR razorpay_order_id = :razorpay_order_id"
+                    retry_params["razorpay_order_id"] = razorpay_order_id
+                retry_where += " LIMIT 1"
+                retry_existing = db.execute(text(retry_where), retry_params).fetchone()
                 if retry_existing:
                     logger.info(f"LOCK_WAIT_RESOLVED: order {retry_existing[0]} found after {attempt + 1} attempts")
                     return {"found": True, "order_id": retry_existing[0]}
@@ -411,16 +427,17 @@ async def internal_create_order_from_payment(
             # Permanent error (e.g., "Pending order 123 not found") — try recovery
             logger.warning(f"INTERNAL_ORDER_CREATE_VALUE_ERROR: user={user_id} payment={payment_id} error={exc}")
             # Try to find existing order first
-            retry_existing = db.execute(text("""
-                SELECT id FROM orders 
-                WHERE transaction_id = :payment_id 
-                   OR razorpay_payment_id = :payment_id
-                   OR razorpay_order_id = :razorpay_order_id
-                LIMIT 1
-            """), {
-                "payment_id": payment_id,
-                "razorpay_order_id": razorpay_order_id or ""
-            }).fetchone()
+            val_params = {"payment_id": payment_id}
+            val_where = """
+                SELECT id FROM orders
+                WHERE (transaction_id = :payment_id
+                   OR razorpay_payment_id = :payment_id)
+            """
+            if razorpay_order_id:
+                val_where += " OR razorpay_order_id = :razorpay_order_id"
+                val_params["razorpay_order_id"] = razorpay_order_id
+            val_where += " LIMIT 1"
+            retry_existing = db.execute(text(val_where), val_params).fetchone()
             if retry_existing:
                 logger.info(f"VALUE_ERROR_RECOVERY: order {retry_existing[0]} found for payment={payment_id}")
                 return {"found": True, "order_id": retry_existing[0]}
@@ -433,16 +450,17 @@ async def internal_create_order_from_payment(
         logger.warning(f"INTERNAL_ORDER_CREATE_LOCK_TIMEOUT: user={user_id} payment={payment_id}")
         for attempt in range(5):
             await asyncio.sleep(0.5)
-            retry_existing = db.execute(text("""
-                SELECT id FROM orders 
-                WHERE transaction_id = :payment_id 
-                   OR razorpay_payment_id = :payment_id
-                   OR razorpay_order_id = :razorpay_order_id
-                LIMIT 1
-            """), {
-                "payment_id": payment_id,
-                "razorpay_order_id": razorpay_order_id or ""
-            }).fetchone()
+            lock_params = {"payment_id": payment_id}
+            lock_where = """
+                SELECT id FROM orders
+                WHERE (transaction_id = :payment_id
+                   OR razorpay_payment_id = :payment_id)
+            """
+            if razorpay_order_id:
+                lock_where += " OR razorpay_order_id = :razorpay_order_id"
+                lock_params["razorpay_order_id"] = razorpay_order_id
+            lock_where += " LIMIT 1"
+            retry_existing = db.execute(text(lock_where), lock_params).fetchone()
             if retry_existing:
                 logger.info(f"LOCK_WAIT_RESOLVED: order {retry_existing[0]} found after {attempt + 1} attempts")
                 return {"found": True, "order_id": retry_existing[0]}
@@ -451,6 +469,12 @@ async def internal_create_order_from_payment(
             detail="Order is being processed from another payment notification.",
         )
     except Exception as exc:
+        # CRITICAL: Rollback session on any error to prevent
+        # PendingRollbackError cascade that corrupts subsequent requests.
+        try:
+            db.rollback()
+        except Exception:
+            pass
         logger.error(f"INTERNAL_ORDER_CREATE_ERROR: user={user_id} error={exc}", exc_info=True)
         raise HTTPException(
             status_code=500, detail=f"Internal order creation failed: {exc}"

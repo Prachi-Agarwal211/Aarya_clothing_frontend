@@ -162,8 +162,10 @@ logging.getLogger("uvicorn.access").addFilter(HealthCheckFilter())
 
 # Service-to-service: Commerce triggers transactional email via Core SMTP
 from api_internal_notify import router as internal_notify_router
+from api_webhooks import router as webhooks_router
 
 app.include_router(internal_notify_router, prefix="/api/v1")
+app.include_router(webhooks_router, prefix="/api/v1")
 
 
 LOCAL_TEST_IPS = {"127.0.0.1", "::1", "localhost", "testclient"}

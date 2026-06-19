@@ -37,7 +37,15 @@ class VerificationMethod(str, Enum):
 class UserProfileBase(BaseModel):
     """Base schema for user profile."""
 
-    full_name: Optional[str] = Field(None, min_length=1, max_length=100)
+    full_name: Optional[str] = Field(None, max_length=100)
+
+    @validator("full_name", pre=True)
+    def normalize_full_name(cls, v):
+        """Convert empty strings to None — prevents ResponseValidationError
+        for phone-first users who haven't completed their profile yet."""
+        if isinstance(v, str) and not v.strip():
+            return None
+        return v
     phone: str = Field(
         ..., min_length=10, max_length=20, description="Phone number is required"
     )
@@ -54,7 +62,7 @@ class UserProfileResponse(UserProfileBase):
 class UserProfileUpdate(UserProfileBase):
     """Schema for updating user profile."""
 
-    full_name: Optional[str] = Field(None, min_length=1, max_length=100)
+    full_name: Optional[str] = Field(None, max_length=100)
     phone: Optional[str] = Field(
         None, min_length=10, max_length=20, description="Phone number (optional)"
     )

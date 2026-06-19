@@ -11,7 +11,7 @@ providers:
     updateIntervalSeconds: 30
     allowUiUpdates: true
     options:
-      path: /var/lib/grafana/dashboards
+      path: /var/lib/grafana/dashboards_custom
       foldersFromFilesStructure: false
       # Explicitly load these dashboard files:
       #   system-overview.json

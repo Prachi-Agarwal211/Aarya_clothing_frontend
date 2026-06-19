@@ -104,9 +104,7 @@ async def register_payment(
 
 
 @router.get(
-    "/api/v1/orders/by-payment/{payment_id}",
-    response_model=Optional[OrderResponse],
-)
+    "/api/v1/orders/by-payment/{payment_id}")
 async def get_order_by_payment(
     payment_id: str,
     db: Session = Depends(get_db),
@@ -116,7 +114,7 @@ async def get_order_by_payment(
     Polling endpoint: returns the order created for a payment, or null.
 
     Called by the checkout confirmation page after registering a payment.
-    Returns the full order once the webhook creates it, or ``{"found": false}``
+    Returns the full order once the webhook creates it, or ``null``
     if the webhook hasn't processed the payment yet.
     """
     order_service = OrderService(db)
@@ -126,7 +124,7 @@ async def get_order_by_payment(
     )
     if order:
         return order
-    return {"found": False, "payment_id": payment_id}
+    return None
 
 
 @router.get("/api/v1/orders", response_model=List[OrderResponse])

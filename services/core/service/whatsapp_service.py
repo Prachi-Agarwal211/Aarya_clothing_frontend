@@ -25,6 +25,11 @@ class WhatsAppService:
         self.api_key = settings.FAST2SMS_API_KEY
         self.phone_number_id = settings.FAST2SMS_PHONE_NUMBER_ID
         self.base_url = "https://www.fast2sms.com/dev/whatsapp"
+        # Force IPv4 — Fast2SMS IP whitelist only recognises IPv4 addresses.
+        # Without this, httpx prefers IPv6 (dual-stack server) and Fast2SMS
+        # returns 414 "IP is blacklisted" because the IPv6 address isn't whitelisted.
+        self._transport = httpx.HTTPTransport(local_address="0.0.0.0")
+        self._client = httpx.Client(timeout=30.0, transport=self._transport)
         logger.info("Fast2SMS WhatsApp service initialized successfully")
 
     def _format_phone_number(self, phone: str) -> str:
@@ -73,24 +78,23 @@ class WhatsAppService:
         )
 
         try:
-            with httpx.Client(timeout=30.0) as client:
-                response = client.get(url)
+            response = self._client.get(url)
 
-                if response.status_code not in (200, 201, 202):
-                    error_msg = response.text
-                    logger.error(f"[WhatsApp] HTTP {response.status_code}: {error_msg}")
-                    return {"success": False, "error": f"Fast2SMS API Error ({response.status_code}): {error_msg}"}
+            if response.status_code not in (200, 201, 202):
+                error_msg = response.text
+                logger.error(f"[WhatsApp] HTTP {response.status_code}: {error_msg}")
+                return {"success": False, "error": f"Fast2SMS API Error ({response.status_code}): {error_msg}"}
 
-                result = response.json()
+            result = response.json()
 
-                if result.get("return") is True:
-                    message_id = result.get("request_id", "")
-                    logger.info(f"[WhatsApp] Message sent to {formatted_phone} (ID: {message_id})")
-                    return {"success": True, "message_id": message_id}
-                else:
-                    error_msg = result.get("message", "Unknown error")
-                    logger.error(f"[WhatsApp] API error: {error_msg}")
-                    return {"success": False, "error": error_msg}
+            if result.get("return") is True:
+                message_id = result.get("request_id", "")
+                logger.info(f"[WhatsApp] Message sent to {formatted_phone} (ID: {message_id})")
+                return {"success": True, "message_id": message_id}
+            else:
+                error_msg = result.get("message", "Unknown error")
+                logger.error(f"[WhatsApp] API error: {error_msg}")
+                return {"success": False, "error": error_msg}
 
         except httpx.ConnectError:
             logger.error("[WhatsApp] Connection error to Fast2SMS API")

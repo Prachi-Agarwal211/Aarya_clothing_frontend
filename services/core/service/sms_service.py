@@ -26,6 +26,11 @@ class SMSService:
         self.route = settings.FAST2SMS_SMS_ROUTE
         self.sender_id = settings.FAST2SMS_SMS_SENDER_ID
         self.flash = settings.FAST2SMS_SMS_FLASH
+        # Force IPv4 — Fast2SMS IP whitelist only recognises IPv4 addresses.
+        # Without this, httpx prefers IPv6 (dual-stack server) and Fast2SMS
+        # returns 414 "IP is blacklisted" because the IPv6 address isn't whitelisted.
+        self._transport = httpx.HTTPTransport(local_address="0.0.0.0")
+        self._client = httpx.Client(timeout=30.0, transport=self._transport)
         logger.info("Fast2SMS SMS service initialized successfully")
 
     def _format_phone_number(self, phone: str) -> str:
@@ -73,24 +78,23 @@ class SMSService:
         }
 
         try:
-            with httpx.Client(timeout=30.0) as client:
-                response = client.get(self.base_url, params=params)
+            response = self._client.get(self.base_url, params=params)
 
-                if response.status_code != 200:
-                    error_msg = response.text
-                    logger.error(f"[SMS] HTTP {response.status_code}: {error_msg}")
-                    return {"success": False, "error": f"Fast2SMS API Error ({response.status_code}): {error_msg}"}
+            if response.status_code != 200:
+                error_msg = response.text
+                logger.error(f"[SMS] HTTP {response.status_code}: {error_msg}")
+                return {"success": False, "error": f"Fast2SMS API Error ({response.status_code}): {error_msg}"}
 
-                result = response.json()
+            result = response.json()
 
-                if result.get("return") is True:
-                    message_id = result.get("request_id", "")
-                    logger.info(f"[SMS] Message sent to {formatted_phone} (ID: {message_id})")
-                    return {"success": True, "message_id": message_id}
-                else:
-                    error_msg = result.get("message", "Unknown error")
-                    logger.error(f"[SMS] API error: {error_msg}")
-                    return {"success": False, "error": error_msg}
+            if result.get("return") is True:
+                message_id = result.get("request_id", "")
+                logger.info(f"[SMS] Message sent to {formatted_phone} (ID: {message_id})")
+                return {"success": True, "message_id": message_id}
+            else:
+                error_msg = result.get("message", "Unknown error")
+                logger.error(f"[SMS] API error: {error_msg}")
+                return {"success": False, "error": error_msg}
 
         except httpx.ConnectError:
             logger.error("[SMS] Connection error to Fast2SMS API")

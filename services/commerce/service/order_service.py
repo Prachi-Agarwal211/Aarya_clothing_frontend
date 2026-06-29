@@ -506,7 +506,8 @@ class OrderService:
                 selectinload(Order.items).options(
                     joinedload(OrderItem.variant),
                     joinedload(OrderItem.product),  # Load product for image fallback
-                )
+                ),
+                selectinload(Order.tracking),  # Eagerly load tracking to prevent lazy-load failures with PgBouncer
             )
             .filter(Order.user_id == user_id)
         )

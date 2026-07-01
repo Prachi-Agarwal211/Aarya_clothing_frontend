@@ -24,7 +24,7 @@ from database.database import get_db
 from models.order import Order, OrderStatus
 from models.pending_order import PendingOrder
 from models.address import Address
-from schemas.order import OrderResponse, SetDeliveryState
+from schemas.order import OrderResponse
 from service.order_service import OrderService
 from shared.auth_middleware import get_current_user, require_staff
 from shared.time_utils import now_ist
@@ -118,8 +118,6 @@ def _enrich_order_response(order: Order) -> OrderResponse:
             "size": item.size,
             "color": item.color,
             "color_hex": item.color_hex or (getattr(item.variant, 'color_hex', None) if item.variant else None),
-            "hsn_code": item.hsn_code,
-            "gst_rate": item.gst_rate,
             "quantity": item.quantity,
             "unit_price": item.unit_price,
             "price": item.price,
@@ -162,12 +160,6 @@ def _enrich_order_response(order: Order) -> OrderResponse:
         invoice_number=order.invoice_number,
         subtotal=order.subtotal,
         shipping_cost=order.shipping_cost,
-        gst_amount=order.gst_amount,
-        cgst_amount=order.cgst_amount,
-        sgst_amount=order.sgst_amount,
-        igst_amount=order.igst_amount,
-        place_of_supply=order.place_of_supply,
-        customer_gstin=order.customer_gstin,
         total_amount=order.total_amount,
         payment_method=order.payment_method,
         transaction_id=order.transaction_id,
@@ -326,38 +318,7 @@ async def recover_order_from_payment(
         )
 
 
-@router.post("/{order_id}/set-delivery-state", response_model=OrderResponse)
-async def set_order_delivery_state(
-    order_id: int,
-    delivery_state: SetDeliveryState,
-    request: Request,
-    current_user: dict = Depends(require_staff),
-    db: Session = Depends(get_db),
-):
-    """Set delivery state for order (admin only)."""
-    order_service = _get_order_service(db)
 
-    try:
-        order = order_service.get_order_by_id(order_id)
-        if not order:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND, detail="Order not found"
-            )
-
-        # Update delivery state (this would be implemented in order_service)
-        # For now, this is a placeholder for the actual implementation
-        raise HTTPException(
-            status_code=status.HTTP_501_NOT_IMPLEMENTED,
-            detail="Delivery state update not yet implemented",
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error setting delivery state: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to set delivery state",
-        )
 
 
 # ==================== Invoice Generation ====================
@@ -370,13 +331,12 @@ async def generate_invoice(
     db: Session = Depends(get_db),
 ):
     """
-    Generate GST-compliant invoice PDF for an order.
+    Generate invoice PDF for an order.
 
     Returns a downloadable PDF file with:
-    - Company header with GSTIN
+    - Company header
     - Customer details (billing/shipping)
-    - Order items with HSN codes
-    - Tax breakdown (CGST+SGST or IGST)
+    - Order items
     - Payment information
     - Terms and conditions
     """
@@ -447,6 +407,9 @@ async def generate_invoice(
         # Return as downloadable PDF
         filename = f"Invoice_{invoice_data['invoice_number']}.pdf"
 
+        # Seek to start before returning (buffer position is at end after R2 upload)
+        pdf_buffer.seek(0)
+
         return StreamingResponse(
             pdf_buffer,
             media_type="application/pdf",
@@ -467,97 +430,7 @@ async def generate_invoice(
 
 
 def prepare_invoice_data(order: Order, db: Session) -> dict:
-    """Prepare invoice data from order."""
-    from shared.size_guide_data import get_hsn_code
-
-    # Determine if intra-state or inter-state
-    # Assuming company is in Maharashtra (GSTIN starts with 27)
-    company_state_code = "27"  # Maharashtra
-    delivery_state = order.place_of_supply or "Maharashtra"
-
-    # Map state name to code (simplified - in production use full mapping)
-    state_codes = {
-        "Maharashtra": "27",
-        "Delhi": "07",
-        "Karnataka": "29",
-        "Tamil Nadu": "33",
-        "Gujarat": "24",
-        "Rajasthan": "08",
-        "Uttar Pradesh": "09",
-        "West Bengal": "19",
-        "Telangana": "36",
-        "Andhra Pradesh": "37",
-        "Kerala": "32",
-        "Punjab": "03",
-        "Haryana": "06",
-        "Madhya Pradesh": "23",
-        "Bihar": "10",
-    }
-
-    delivery_state_code = state_codes.get(delivery_state, "27")
-    is_intra_state = company_state_code == delivery_state_code
-
-    # Calculate tax rates
-    gst_rate = (
-        float(order.gst_amount / order.total_amount * 100)
-        if order.total_amount > 0
-        else 12
-    )
-    cgst_rate = gst_rate / 2 if is_intra_state else 0
-    sgst_rate = gst_rate / 2 if is_intra_state else 0
-    igst_rate = gst_rate if not is_intra_state else 0
-
-    # Prepare line items
-    items = []
-    for item in order.items:
-        # Get product to fetch HSN code
-        from models.product import Product
-
-        product = db.query(Product).filter(Product.id == item.product_id).first()
-        hsn_code = (
-            product.hsn_code
-            if product and product.hsn_code
-            else get_hsn_code(
-                product.category.name if product and product.category else "kurta"
-            )
-        )
-
-        # FIX: Handle product not found or missing category gracefully
-        if not product:
-            hsn_code = "6204"  # Default HSN for clothing (women's suits/ensembles)
-            product_name = item.product_name or f"Product {item.product_id}"
-        elif not product.category:
-            hsn_code = "6204"  # Default HSN for clothing (women's suits/ensembles)
-            product_name = product.name
-        else:
-            product_name = product.name
-
-        # Calculate item totals (discount is at order level, not item level)
-        unit_price = (
-            float(item.unit_price)
-            if item.unit_price
-            else float(item.price) / max(item.quantity, 1)
-        )
-        quantity = item.quantity
-        taxable_value = unit_price * quantity
-        item_gst = taxable_value * (gst_rate / 100)
-        item_total = taxable_value + item_gst
-
-        items.append(
-            {
-                "name": product_name,
-                "size": item.size or "NA",
-                "color": item.color or "NA",
-                "hsn_code": hsn_code,
-                "quantity": quantity,
-                "mrp": unit_price,
-                "discount": 0,
-                "taxable_value": taxable_value,
-                "gst_rate": gst_rate,
-                "total": item_total,
-            }
-        )
-
+    """Prepare invoice data from order (simplified — no GST)."""
     # Extract customer details from shipping address (JSON)
     import json
 
@@ -578,13 +451,11 @@ def prepare_invoice_data(order: Order, db: Session) -> dict:
             f"{shipping_addr.get('city', '')} {shipping_addr.get('state', '')} {shipping_addr.get('pincode', '')}".strip(),
         ]
         shipping_address = "\n".join([line for line in address_lines if line])
-        billing_address = shipping_address  # Same as shipping for simplicity
+        billing_address = shipping_address
     except (AttributeError, KeyError, TypeError, json.JSONDecodeError):
-        # Failed to parse shipping address — use fallback
         customer_name = "Customer"
         customer_phone = "NA"
         customer_email = "NA"
-        # Try to parse from plain text address format "Name, address, phone"
         plain_addr = str(order.shipping_address or "")
         if "Phone:" in plain_addr:
             parts = plain_addr.split("Phone:")
@@ -595,46 +466,47 @@ def prepare_invoice_data(order: Order, db: Session) -> dict:
         shipping_address = plain_addr
         billing_address = plain_addr
 
+    # Prepare line items
+    items = []
+    for item in order.items:
+        from models.product import Product
+        product = db.query(Product).filter(Product.id == item.product_id).first()
+        product_name = product.name if product else (item.product_name or f"Product {item.product_id}")
+
+        unit_price = (
+            float(item.unit_price)
+            if item.unit_price
+            else float(item.price) / max(item.quantity, 1)
+        )
+        quantity = item.quantity
+        item_total = unit_price * quantity
+
+        items.append(
+            {
+                "name": product_name,
+                "size": item.size or "NA",
+                "color": item.color or "NA",
+                "quantity": quantity,
+                "mrp": unit_price,
+                "total": item_total,
+            }
+        )
+
     # Calculate totals
-    total_taxable_value = sum(item["taxable_value"] for item in items)
-    total_discount = sum(item["discount"] for item in items)
-    total_gst = float(order.gst_amount)
-    cgst_amount = (
-        float(order.cgst_amount)
-        if order.cgst_amount
-        else (total_gst / 2 if is_intra_state else 0)
-    )
-    sgst_amount = (
-        float(order.sgst_amount)
-        if order.sgst_amount
-        else (total_gst / 2 if is_intra_state else 0)
-    )
-    igst_amount = (
-        float(order.igst_amount)
-        if order.igst_amount
-        else (total_gst if not is_intra_state else 0)
-    )
+    total_discount = 0
     shipping_cost = float(order.shipping_cost) if order.shipping_cost else 0
     grand_total = float(order.total_amount)
 
-    # Amount in words (simplified - use proper library in production)
     amount_in_words = number_to_words(int(grand_total))
-
-    # Payment details
     transaction_id = order.transaction_id or "NA"
-    card_last4 = "0000"  # Would extract from payment details
 
-    # Estimated delivery (7 days from order date) - convert to IST first
     from datetime import timedelta
     from zoneinfo import ZoneInfo
-    
+
     ist_created_at = order.created_at.astimezone(ZoneInfo("Asia/Kolkata")) if order.created_at.tzinfo else order.created_at
     estimated_delivery = (ist_created_at + timedelta(days=7)).strftime("%d %B %Y")
-
-    # Tracking status
     tracking_status = order.status.value.replace("_", " ").title()
 
-    # Logo base64 (to ensure it loads in PDF)
     import base64
     logo_base64 = ""
     try:
@@ -653,24 +525,13 @@ def prepare_invoice_data(order: Order, db: Session) -> dict:
         if hasattr(order.payment_method, "value")
         else str(order.payment_method),
         "transaction_id": transaction_id,
-        "card_last4": card_last4,
         "customer_name": customer_name,
         "customer_email": customer_email,
         "customer_phone": customer_phone,
         "billing_address": billing_address,
         "shipping_address": shipping_address,
-        "customer_gstin": order.customer_gstin,
-        "place_of_supply": delivery_state,
         "items": items,
-        "total_taxable_value": total_taxable_value,
         "total_discount": total_discount,
-        "total_gst": total_gst,
-        "cgst_rate": cgst_rate,
-        "cgst_amount": cgst_amount,
-        "sgst_rate": sgst_rate,
-        "sgst_amount": sgst_amount,
-        "igst_rate": igst_rate,
-        "igst_amount": igst_amount,
         "shipping_cost": shipping_cost,
         "subtotal": float(order.subtotal),
         "grand_total": grand_total,

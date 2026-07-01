@@ -116,14 +116,14 @@ export const SkeletonTextBlock = ({ lines = 3, className }) => (
 export const SkeletonTable = ({ rows = 5, columns = 4, className }) => (
   <div className={cn('space-y-3', className)}>
     {/* Header */}
-    <div className="flex gap-4 p-4 bg-[#0B0608]/40 rounded-xl">
+    <div className="flex gap-4 p-4 bg-[#0A0A0A]/40 rounded-xl">
       {Array.from({ length: columns }).map((_, i) => (
         <Skeleton key={i} variant="text" className="flex-1 h-4" />
       ))}
     </div>
     {/* Rows */}
     {Array.from({ length: rows }).map((_, rowIndex) => (
-      <div key={rowIndex} className="flex gap-4 p-4 bg-[#0B0608]/40 rounded-xl">
+      <div key={rowIndex} className="flex gap-4 p-4 bg-[#0A0A0A]/40 rounded-xl">
         {Array.from({ length: columns }).map((_, colIndex) => (
           <Skeleton key={colIndex} variant="text" className="flex-1 h-4" />
         ))}
@@ -140,7 +140,7 @@ export const SkeletonDashboard = ({ className }) => (
     {/* Stats Grid */}
     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
       {Array.from({ length: 4 }).map((_, i) => (
-        <div key={i} className="p-6 bg-[#0B0608]/40 rounded-2xl space-y-3">
+        <div key={i} className="p-6 bg-[#0A0A0A]/40 rounded-2xl space-y-3">
           <Skeleton variant="text" className="w-1/2 h-3" />
           <Skeleton variant="text" className="w-3/4 h-8" />
         </div>
@@ -189,7 +189,7 @@ export const SkeletonCheckout = ({ className }) => (
   <div className={cn('grid lg:grid-cols-3 gap-8', className)}>
     <div className="lg:col-span-2 space-y-4">
       {Array.from({ length: 3 }).map((_, i) => (
-        <div key={i} className="p-4 bg-[#0B0608]/40 rounded-2xl flex gap-4">
+        <div key={i} className="p-4 bg-[#0A0A0A]/40 rounded-2xl flex gap-4">
           <Skeleton variant="thumbnail" className="w-24 h-28" />
           <div className="flex-1 space-y-2">
             <Skeleton variant="text" className="w-3/4" />
@@ -199,7 +199,7 @@ export const SkeletonCheckout = ({ className }) => (
         </div>
       ))}
     </div>
-    <div className="p-6 bg-[#0B0608]/40 rounded-2xl space-y-4">
+    <div className="p-6 bg-[#0A0A0A]/40 rounded-2xl space-y-4">
       <Skeleton variant="text" className="w-1/2 h-6" />
       <SkeletonTextBlock lines={4} />
       <Skeleton variant="button" className="w-full h-12" />

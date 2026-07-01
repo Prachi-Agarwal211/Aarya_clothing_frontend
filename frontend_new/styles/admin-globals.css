@@ -78,7 +78,7 @@ a.touch-target,
 }
 
 *:focus-visible {
-  outline: 2px solid #B76E79;
+  outline: 2px solid #E07B8B;
   outline-offset: 2px;
 }
 
@@ -89,9 +89,9 @@ input:focus-visible,
 select:focus-visible,
 textarea:focus-visible,
 [tabindex]:focus-visible {
-  outline: 2px solid #B76E79;
+  outline: 2px solid #E07B8B;
   outline-offset: 2px;
-  box-shadow: 0 0 0 4px rgba(183, 110, 121, 0.2);
+  box-shadow: 0 0 0 4px rgba(224, 123, 139, 0.2);
 }
 
 /* =============================================================================
@@ -203,7 +203,7 @@ textarea:focus-visible,
   top: 0;
   bottom: 0;
   width: 2rem;
-  background: linear-gradient(to left, rgba(11, 6, 8, 0.8), transparent);
+  background: linear-gradient(to left, rgba(10, 10, 10, 0.8), transparent);
   pointer-events: none;
   opacity: 0;
   transition: opacity var(--transition-base);
@@ -267,8 +267,8 @@ textarea:focus-visible,
   position: absolute;
   top: -40px;
   left: 0;
-  background: #7A2F57;
-  color: #F2C29A;
+  background: #9333EA;
+  color: #FFD700;
   padding: 8px 16px;
   z-index: 100;
   transition: top var(--transition-fast);

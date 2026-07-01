@@ -48,24 +48,24 @@ export default function StaffDashboardLayout({ children }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#050203] flex items-center justify-center">
+      <div className="min-h-screen bg-[#000000] flex items-center justify-center">
         <div className="text-center">
-          <div className="w-12 h-12 border-2 border-[#B76E79]/30 border-t-[#F2C29A] rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-[#EAE0D5]/70">Loading staff dashboard...</p>
+          <div className="w-12 h-12 border-2 border-[#E07B8B]/30 border-t-[#FFD700] rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-[#F5F5F5]/70">Loading staff dashboard...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#050203]">
+    <div className="min-h-screen bg-[#000000]">
       {/* Background Pattern */}
       <div
         className="fixed inset-0 z-0 pointer-events-none"
         style={{
           background: `
-            radial-gradient(ellipse at 20% 20%, rgba(122, 47, 87, 0.1) 0%, transparent 50%),
-            radial-gradient(ellipse at 80% 80%, rgba(183, 110, 121, 0.08) 0%, transparent 50%)
+            radial-gradient(ellipse at 20% 20%, rgba(147, 51, 234, 0.1) 0%, transparent 50%),
+            radial-gradient(ellipse at 80% 80%, rgba(224, 123, 139, 0.08) 0%, transparent 50%)
           `
         }}
       />

@@ -141,8 +141,8 @@ export default function AdminReturnDetailsPage() {
   if (loading) {
     return (
       <div className="space-y-6">
-        <div className="animate-pulse h-8 w-48 bg-[#B76E79]/10 rounded" />
-        <div className="animate-pulse h-96 bg-[#B76E79]/10 rounded-2xl" />
+        <div className="animate-pulse h-8 w-48 bg-[#E07B8B]/10 rounded" />
+        <div className="animate-pulse h-96 bg-[#E07B8B]/10 rounded-2xl" />
       </div>
     );
   }
@@ -150,11 +150,11 @@ export default function AdminReturnDetailsPage() {
   if (!returnData) {
     return (
       <div className="text-center py-12">
-        <AlertCircle className="w-16 h-16 text-[#B76E79]/30 mx-auto mb-4" />
-        <p className="text-[#EAE0D5]/50">Return request not found</p>
+        <AlertCircle className="w-16 h-16 text-[#E07B8B]/30 mx-auto mb-4" />
+        <p className="text-[#F5F5F5]/50">Return request not found</p>
         <Link
           href="/admin/returns"
-          className="inline-block mt-4 px-6 py-2 bg-gradient-to-r from-[#7A2F57] to-[#B76E79] text-white rounded-xl"
+          className="inline-block mt-4 px-6 py-2 bg-gradient-to-r from-[#9333EA] to-[#E07B8B] text-white rounded-xl"
         >
           Back to Returns
         </Link>
@@ -171,7 +171,7 @@ export default function AdminReturnDetailsPage() {
         {/* Back Button */}
         <Link
           href="/admin/returns"
-          className="inline-flex items-center gap-2 text-[#B76E79] hover:text-[#F2C29A] transition-colors"
+          className="inline-flex items-center gap-2 text-[#E07B8B] hover:text-[#FFD700] transition-colors"
         >
           <ChevronLeft className="w-4 h-4" />
           Back to Returns
@@ -180,8 +180,8 @@ export default function AdminReturnDetailsPage() {
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-[#F2C29A]">Return Request #{returnData.return_number}</h1>
-            <p className="text-[#EAE0D5]/50 mt-1">
+            <h1 className="text-2xl font-bold text-[#FFD700]">Return Request #{returnData.return_number}</h1>
+            <p className="text-[#F5F5F5]/50 mt-1">
               Created on {formatDate(returnData.created_at)}
             </p>
           </div>
@@ -190,7 +190,7 @@ export default function AdminReturnDetailsPage() {
               <StatusIcon className="w-4 h-4" />
               {statusConfig.label}
             </span>
-            <span className="px-3 py-1.5 rounded-full text-sm bg-[#7A2F57]/20 text-[#EAE0D5]/70">
+            <span className="px-3 py-1.5 rounded-full text-sm bg-[#9333EA]/20 text-[#F5F5F5]/70">
               {returnTypeLabel}
             </span>
           </div>
@@ -200,31 +200,31 @@ export default function AdminReturnDetailsPage() {
           {/* Main Content */}
           <div className="md:col-span-2 space-y-6">
             {/* Status Timeline */}
-            <div className="p-6 bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl">
-              <h3 className="text-lg font-medium text-[#F2C29A] mb-4">Return Status Timeline</h3>
+            <div className="p-6 bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl">
+              <h3 className="text-lg font-medium text-[#FFD700] mb-4">Return Status Timeline</h3>
               <div className="relative">
                 {returnData.timeline?.map((event, index) => (
                   <div key={index} className="flex gap-4 pb-6 last:pb-0">
                     <div className="flex flex-col items-center">
                       <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                        index === returnData.timeline.length - 1 ? 'bg-[#B76E79]' : 'bg-[#7A2F57]/30'
+                        index === returnData.timeline.length - 1 ? 'bg-[#E07B8B]' : 'bg-[#9333EA]/30'
                       }`}>
                         {index === returnData.timeline.length - 1 ? (
                           <StatusIcon className="w-4 h-4 text-white" />
                         ) : (
-                          <CheckCircle className="w-4 h-4 text-[#EAE0D5]/50" />
+                          <CheckCircle className="w-4 h-4 text-[#F5F5F5]/50" />
                         )}
                       </div>
                       {index < returnData.timeline.length - 1 && (
-                        <div className="w-0.5 h-full bg-[#B76E79]/20 mt-2" />
+                        <div className="w-0.5 h-full bg-[#E07B8B]/20 mt-2" />
                       )}
                     </div>
                     <div>
-                      <p className="font-medium text-[#EAE0D5] capitalize">{event.status}</p>
-                      <p className="text-sm text-[#EAE0D5]/50">{event.note}</p>
+                      <p className="font-medium text-[#F5F5F5] capitalize">{event.status}</p>
+                      <p className="text-sm text-[#F5F5F5]/50">{event.note}</p>
                       <div className="flex items-center gap-2 mt-1">
-                        <p className="text-xs text-[#EAE0D5]/30">{formatDate(event.date)}</p>
-                        <span className="text-xs text-[#B76E79]">• {event.actor}</span>
+                        <p className="text-xs text-[#F5F5F5]/30">{formatDate(event.date)}</p>
+                        <span className="text-xs text-[#E07B8B]">• {event.actor}</span>
                       </div>
                     </div>
                   </div>
@@ -233,33 +233,33 @@ export default function AdminReturnDetailsPage() {
             </div>
 
             {/* Items */}
-            <div className="p-6 bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl">
-              <h3 className="text-lg font-medium text-[#F2C29A] mb-4">Items Being Returned</h3>
+            <div className="p-6 bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl">
+              <h3 className="text-lg font-medium text-[#FFD700] mb-4">Items Being Returned</h3>
               <div className="space-y-4">
                 {returnData.items?.map((item, index) => (
-                  <div key={index} className="flex gap-4 p-4 bg-[#7A2F57]/10 rounded-xl">
-                    <div className="w-20 h-24 bg-[#7A2F57]/20 rounded-lg flex items-center justify-center">
-                      <Package className="w-8 h-8 text-[#B76E79]/30" />
+                  <div key={index} className="flex gap-4 p-4 bg-[#9333EA]/10 rounded-xl">
+                    <div className="w-20 h-24 bg-[#9333EA]/20 rounded-lg flex items-center justify-center">
+                      <Package className="w-8 h-8 text-[#E07B8B]/30" />
                     </div>
                     <div className="flex-1">
                       <div className="flex items-start justify-between">
                         <div>
-                          <p className="font-medium text-[#EAE0D5]">{item.name}</p>
-                          <p className="text-sm text-[#EAE0D5]/50">
+                          <p className="font-medium text-[#F5F5F5]">{item.name}</p>
+                          <p className="text-sm text-[#F5F5F5]/50">
                             SKU: {item.sku}
                           </p>
-                          <p className="text-sm text-[#EAE0D5]/50">
+                          <p className="text-sm text-[#F5F5F5]/50">
                             Size: {item.size} • Color: {item.color} • Qty: {item.quantity}
                           </p>
                         </div>
                         <Link
                           href={`/admin/products/${item.product_id}`}
-                          className="text-[#B76E79] hover:underline text-sm"
+                          className="text-[#E07B8B] hover:underline text-sm"
                         >
                           View Product
                         </Link>
                       </div>
-                      <p className="text-[#F2C29A] mt-2">{formatCurrency(item.price)}</p>
+                      <p className="text-[#FFD700] mt-2">{formatCurrency(item.price)}</p>
                     </div>
                   </div>
                 ))}
@@ -267,16 +267,16 @@ export default function AdminReturnDetailsPage() {
             </div>
 
             {/* Reason & Description & Video */}
-            <div className="p-6 bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl">
-              <h3 className="text-lg font-medium text-[#F2C29A] mb-4">Return Reason & Evidence</h3>
+            <div className="p-6 bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl">
+              <h3 className="text-lg font-medium text-[#FFD700] mb-4">Return Reason & Evidence</h3>
               <div className="space-y-4">
                 <div>
-                  <p className="text-sm text-[#EAE0D5]/50">Reason</p>
-                  <p className="text-[#EAE0D5] font-medium">{REASON_LABELS[returnData.reason] || returnData.reason}</p>
+                  <p className="text-sm text-[#F5F5F5]/50">Reason</p>
+                  <p className="text-[#F5F5F5] font-medium">{REASON_LABELS[returnData.reason] || returnData.reason}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-[#EAE0D5]/50">Description</p>
-                  <p className="text-[#EAE0D5]">{returnData.description}</p>
+                  <p className="text-sm text-[#F5F5F5]/50">Description</p>
+                  <p className="text-[#F5F5F5]">{returnData.description}</p>
                 </div>
                 
                 {/* Video Evidence - CRITICAL for approval */}
@@ -286,7 +286,7 @@ export default function AdminReturnDetailsPage() {
                       <Video className="w-5 h-5 text-red-400" />
                       <p className="text-sm font-medium text-red-400">Video Evidence Submitted</p>
                     </div>
-                    <div className="relative rounded-xl overflow-hidden bg-[#0B0608]/80 border border-red-500/30">
+                    <div className="relative rounded-xl overflow-hidden bg-[#0A0A0A]/80 border border-red-500/30">
                       <video
                         src={returnData.video_url}
                         controls
@@ -307,7 +307,7 @@ export default function AdminReturnDetailsPage() {
                       <AlertCircle className="w-5 h-5 text-red-400" />
                       <p className="text-sm font-medium text-red-400">No Video Evidence</p>
                     </div>
-                    <p className="text-xs text-[#EAE0D5]/70 mt-1">
+                    <p className="text-xs text-[#F5F5F5]/70 mt-1">
                       No video was submitted with this return request. Consider declining this request unless there is other strong evidence of a legitimate issue.
                     </p>
                   </div>
@@ -315,10 +315,10 @@ export default function AdminReturnDetailsPage() {
                 
                 {returnData.images?.length > 0 && (
                   <div>
-                    <p className="text-sm text-[#EAE0D5]/50 mb-2">Attached Images</p>
+                    <p className="text-sm text-[#F5F5F5]/50 mb-2">Attached Images</p>
                     <div className="flex gap-2 flex-wrap">
                       {returnData.images.map((img, idx) => (
-                        <div key={idx} className="relative w-24 h-24 bg-[#7A2F57]/20 rounded-lg overflow-hidden flex-shrink-0">
+                        <div key={idx} className="relative w-24 h-24 bg-[#9333EA]/20 rounded-lg overflow-hidden flex-shrink-0">
                           <Image
                             src={img}
                             alt={`Evidence image ${idx + 1}`}
@@ -335,17 +335,17 @@ export default function AdminReturnDetailsPage() {
             </div>
 
             {/* Customer Shipping Address */}
-            <div className="p-6 bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl">
-              <h3 className="text-lg font-medium text-[#F2C29A] mb-4">Customer Shipping Address</h3>
+            <div className="p-6 bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl">
+              <h3 className="text-lg font-medium text-[#FFD700] mb-4">Customer Shipping Address</h3>
               <div className="flex gap-3">
-                <MapPin className="w-5 h-5 text-[#B76E79] flex-shrink-0 mt-0.5" />
-                <div className="text-[#EAE0D5]">
+                <MapPin className="w-5 h-5 text-[#E07B8B] flex-shrink-0 mt-0.5" />
+                <div className="text-[#F5F5F5]">
                   <p className="font-medium">{returnData.shipping_address?.name}</p>
-                  <p className="text-sm text-[#EAE0D5]/70">{returnData.shipping_address?.address}</p>
-                  <p className="text-sm text-[#EAE0D5]/70">
+                  <p className="text-sm text-[#F5F5F5]/70">{returnData.shipping_address?.address}</p>
+                  <p className="text-sm text-[#F5F5F5]/70">
                     {returnData.shipping_address?.city}, {returnData.shipping_address?.state} - {returnData.shipping_address?.pincode}
                   </p>
-                  <p className="text-sm text-[#EAE0D5]/70 mt-1">
+                  <p className="text-sm text-[#F5F5F5]/70 mt-1">
                     <Phone className="w-3 h-3 inline mr-1" />
                     {returnData.shipping_address?.phone}
                   </p>
@@ -357,50 +357,50 @@ export default function AdminReturnDetailsPage() {
           {/* Sidebar */}
           <div className="space-y-6">
             {/* Customer Info */}
-            <div className="p-6 bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl">
-              <h3 className="text-lg font-medium text-[#F2C29A] mb-4">Customer Information</h3>
+            <div className="p-6 bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl">
+              <h3 className="text-lg font-medium text-[#FFD700] mb-4">Customer Information</h3>
               <div className="space-y-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-[#7A2F57]/20 rounded-full flex items-center justify-center">
-                    <span className="text-[#F2C29A] font-medium">
+                  <div className="w-10 h-10 bg-[#9333EA]/20 rounded-full flex items-center justify-center">
+                    <span className="text-[#FFD700] font-medium">
                       {returnData.customer?.name?.charAt(0)}
                     </span>
                   </div>
                   <div>
-                    <p className="font-medium text-[#EAE0D5]">{returnData.customer?.name}</p>
-                    <p className="text-xs text-[#EAE0D5]/50">{returnData.customer?.email}</p>
+                    <p className="font-medium text-[#F5F5F5]">{returnData.customer?.name}</p>
+                    <p className="text-xs text-[#F5F5F5]/50">{returnData.customer?.email}</p>
                   </div>
                 </div>
-                <div className="pt-3 border-t border-[#B76E79]/10">
+                <div className="pt-3 border-t border-[#E07B8B]/10">
                   <div className="flex justify-between text-sm">
-                    <span className="text-[#EAE0D5]/50">Total Orders</span>
-                    <span className="text-[#EAE0D5]">{returnData.customer?.total_orders}</span>
+                    <span className="text-[#F5F5F5]/50">Total Orders</span>
+                    <span className="text-[#F5F5F5]">{returnData.customer?.total_orders}</span>
                   </div>
                   <div className="flex justify-between text-sm mt-2">
-                    <span className="text-[#EAE0D5]/50">Total Spent</span>
-                    <span className="text-[#EAE0D5]">{formatCurrency(returnData.customer?.total_spent)}</span>
+                    <span className="text-[#F5F5F5]/50">Total Spent</span>
+                    <span className="text-[#F5F5F5]">{formatCurrency(returnData.customer?.total_spent)}</span>
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Order Summary */}
-            <div className="p-6 bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl">
-              <h3 className="text-lg font-medium text-[#F2C29A] mb-4">Order Information</h3>
+            <div className="p-6 bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl">
+              <h3 className="text-lg font-medium text-[#FFD700] mb-4">Order Information</h3>
               <div className="space-y-3">
                 <div className="flex justify-between">
-                  <span className="text-[#EAE0D5]/50">Order Number</span>
-                  <Link href={`/admin/orders/${returnData.order_id}`} className="text-[#B76E79] hover:underline">
+                  <span className="text-[#F5F5F5]/50">Order Number</span>
+                  <Link href={`/admin/orders/${returnData.order_id}`} className="text-[#E07B8B] hover:underline">
                     {returnData.order_number}
                   </Link>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-[#EAE0D5]/50">Return Type</span>
-                  <span className="text-[#EAE0D5]">{returnTypeLabel}</span>
+                  <span className="text-[#F5F5F5]/50">Return Type</span>
+                  <span className="text-[#F5F5F5]">{returnTypeLabel}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-[#EAE0D5]/50">Total Amount</span>
-                  <span className="text-[#F2C29A] font-medium">{formatCurrency(returnData.total_amount)}</span>
+                  <span className="text-[#F5F5F5]/50">Total Amount</span>
+                  <span className="text-[#FFD700] font-medium">{formatCurrency(returnData.total_amount)}</span>
                 </div>
               </div>
             </div>
@@ -414,15 +414,15 @@ export default function AdminReturnDetailsPage() {
                 </h3>
                 <div className="space-y-3">
                   <div className="flex justify-between">
-                    <span className="text-[#EAE0D5]/50">Refund Amount</span>
+                    <span className="text-[#F5F5F5]/50">Refund Amount</span>
                     <span className="text-green-400 font-medium">{formatCurrency(returnData.refund.amount)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-[#EAE0D5]/50">Refund Method</span>
-                    <span className="text-[#EAE0D5]">{returnData.refund.method}</span>
+                    <span className="text-[#F5F5F5]/50">Refund Method</span>
+                    <span className="text-[#F5F5F5]">{returnData.refund.method}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-[#EAE0D5]/50">Status</span>
+                    <span className="text-[#F5F5F5]/50">Status</span>
                     <span className="text-green-400">{returnData.refund.status || 'processed'}</span>
                   </div>
                 </div>
@@ -430,8 +430,8 @@ export default function AdminReturnDetailsPage() {
             )}
 
             {/* Actions */}
-            <div className="p-6 bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl">
-              <h3 className="text-lg font-medium text-[#F2C29A] mb-4">Actions</h3>
+            <div className="p-6 bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl">
+              <h3 className="text-lg font-medium text-[#FFD700] mb-4">Actions</h3>
               <div className="space-y-3">
                 {/* Status-based actions */}
                 {/* Status-based actions matching backend flow */}
@@ -480,7 +480,7 @@ export default function AdminReturnDetailsPage() {
 
                 <Link
                   href={`/admin/orders/${returnData.order_id}`}
-                  className="flex items-center justify-center gap-2 w-full px-4 py-2.5 bg-[#7A2F57]/20 text-[#EAE0D5] rounded-xl hover:bg-[#7A2F57]/30 transition-colors"
+                  className="flex items-center justify-center gap-2 w-full px-4 py-2.5 bg-[#9333EA]/20 text-[#F5F5F5] rounded-xl hover:bg-[#9333EA]/30 transition-colors"
                 >
                   <ShoppingBag className="w-4 h-4" />
                   View Original Order
@@ -493,8 +493,8 @@ export default function AdminReturnDetailsPage() {
         {/* Action Modals */}
         {showActionModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-[#1a0a10] border border-[#B76E79]/20 rounded-2xl p-6 max-w-md w-full">
-              <h3 className="text-lg font-medium text-[#F2C29A] mb-4">
+            <div className="bg-[#1a0a10] border border-[#E07B8B]/20 rounded-2xl p-6 max-w-md w-full">
+              <h3 className="text-lg font-medium text-[#FFD700] mb-4">
                 {showActionModal === 'approve' && 'Approve Return Request'}
                 {showActionModal === 'reject' && 'Reject Return Request'}
                 {showActionModal === 'receive' && 'Mark as Received'}
@@ -504,20 +504,20 @@ export default function AdminReturnDetailsPage() {
               {showActionModal === 'refund' && (
                 <div className="space-y-4 mb-4">
                   <div>
-                    <label className="block text-sm text-[#EAE0D5]/50 mb-1">Refund Amount</label>
+                    <label className="block text-sm text-[#F5F5F5]/50 mb-1">Refund Amount</label>
                     <input
                       type="number"
                       value={refundAmount}
                       onChange={(e) => setRefundAmount(e.target.value)}
-                      className="w-full px-4 py-2 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-lg text-[#EAE0D5] focus:outline-none focus:border-[#B76E79]/40"
+                      className="w-full px-4 py-2 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-lg text-[#F5F5F5] focus:outline-none focus:border-[#E07B8B]/40"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm text-[#EAE0D5]/50 mb-1">Refund Method</label>
+                    <label className="block text-sm text-[#F5F5F5]/50 mb-1">Refund Method</label>
                     <select
                       value={refundMethod}
                       onChange={(e) => setRefundMethod(e.target.value)}
-                      className="w-full px-4 py-2 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-lg text-[#EAE0D5] focus:outline-none focus:border-[#B76E79]/40"
+                      className="w-full px-4 py-2 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-lg text-[#F5F5F5] focus:outline-none focus:border-[#E07B8B]/40"
                     >
                       <option value="original">Original Payment Method</option>
                       <option value="bank">Bank Transfer</option>
@@ -528,7 +528,7 @@ export default function AdminReturnDetailsPage() {
               )}
 
               <div className="mb-4">
-                <label className="block text-sm text-[#EAE0D5]/50 mb-1">
+                <label className="block text-sm text-[#F5F5F5]/50 mb-1">
                   {showActionModal === 'reject' ? 'Reason for Rejection *' : 'Note (Optional)'}
                 </label>
                 <textarea
@@ -539,7 +539,7 @@ export default function AdminReturnDetailsPage() {
                       ? 'Please provide a reason for rejecting this return...'
                       : 'Add a note for this action...'
                   }
-                  className="w-full px-4 py-3 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-xl text-[#EAE0D5] placeholder-[#EAE0D5]/30 focus:outline-none focus:border-[#B76E79]/40 resize-none"
+                  className="w-full px-4 py-3 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-xl text-[#F5F5F5] placeholder-[#F5F5F5]/30 focus:outline-none focus:border-[#E07B8B]/40 resize-none"
                   rows={3}
                 />
               </div>
@@ -550,7 +550,7 @@ export default function AdminReturnDetailsPage() {
                     setShowActionModal(null);
                     setActionNote('');
                   }}
-                  className="flex-1 px-4 py-2.5 bg-[#7A2F57]/20 text-[#EAE0D5] rounded-xl hover:bg-[#7A2F57]/30 transition-colors"
+                  className="flex-1 px-4 py-2.5 bg-[#9333EA]/20 text-[#F5F5F5] rounded-xl hover:bg-[#9333EA]/30 transition-colors"
                 >
                   Cancel
                 </button>
@@ -567,7 +567,7 @@ export default function AdminReturnDetailsPage() {
                       ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
                       : showActionModal === 'refund'
                       ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
-                      : 'bg-[#B76E79] text-white hover:bg-[#B76E79]/80'
+                      : 'bg-[#E07B8B] text-white hover:bg-[#E07B8B]/80'
                   }`}
                 >
                   {actionLoading ? 'Processing...' : 'Confirm'}

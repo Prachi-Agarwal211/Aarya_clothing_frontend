@@ -74,11 +74,27 @@ class R2StorageService:
         return f"{folder}/{unique_id}.{ext}"
 
     def _validate_magic_bytes(self, content: bytes, claimed_type: str) -> bool:
-        """Verify file content matches its claimed MIME type via magic bytes."""
+        """Verify file content matches its claimed MIME type via magic bytes.
+
+        Rejects files where the actual content type doesn't match the declared
+        MIME type (e.g. a renamed .jpg uploaded as image/png).
+        """
+        detected_type = None
         for signature, mime_type in IMAGE_SIGNATURES.items():
             if content[:len(signature)] == signature:
-                return True
-        return False
+                detected_type = mime_type
+                break
+
+        if detected_type is None:
+            return False  # Unrecognized file signature
+
+        if detected_type != claimed_type:
+            logger.warning(
+                f"MIME mismatch: declared={claimed_type}, detected={detected_type}"
+            )
+            return False
+
+        return True
 
     def _public_url(self, key: str) -> str:
         """Build the public URL for an uploaded object."""
@@ -121,9 +137,13 @@ class R2StorageService:
                 detail=f"File too large (max {MAX_FILE_SIZE // (1024*1024)}MB)"
             )
 
-        # Validate magic bytes
+        # Validate magic bytes — reject files whose content doesn't match their MIME type
         if not self._validate_magic_bytes(content, file.content_type):
-            logger.warning(f"Magic bytes validation failed for {file.filename}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"File content does not match declared type '{file.content_type}'. "
+                       f"Please upload a valid image file.",
+            )
 
         # Generate unique filename
         key = self._generate_unique_filename(file.filename, folder)

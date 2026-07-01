@@ -7,11 +7,8 @@ import { Home, ShoppingBag, User, Search } from 'lucide-react';
 import { useCart } from '@/lib/cartContext';
 import { useAuth } from '@/lib/authContext';
 import { cn } from '@/lib/utils';
-import { useIntroVideoOverlay } from '@/lib/introVideoOverlayContext';
-
 const BottomNavigation = () => {
     const pathname = usePathname();
-    const { introOverlayActive } = useIntroVideoOverlay();
     const { itemCount, toggleCart } = useCart();
     const { user, isAuthenticated } = useAuth();
 
@@ -56,10 +53,10 @@ const BottomNavigation = () => {
     // Consistent with other mobile sticky bars across the app (ProductDetail, Checkout, Cart).
     if (pathname.startsWith('/admin')) return null;
     if (pathname.startsWith('/checkout')) return null;
-    if (introOverlayActive) return null;
+
 
     return (
-        <div className="lg:hidden fixed bottom-0 left-0 right-0 z-[100] bg-[#0B0608]/95 backdrop-blur-md border-t border-[#B76E79]/20 pb-safe">
+        <div className="lg:hidden fixed bottom-0 left-0 right-0 z-[100] bg-[#0A0A0A]/95 backdrop-blur-md border-t border-[#E07B8B]/20 pb-safe">
             <div className="flex items-center justify-around px-2 min-h-[64px]">
                 {navItems.map((item) => {
                     const Component = item.onClick ? 'button' : Link;
@@ -73,14 +70,14 @@ const BottomNavigation = () => {
                             {...props}
                             className={cn(
                                 "relative flex flex-col items-center justify-center w-full min-h-[44px] py-2 gap-1 transition-colors",
-                                item.isActive ? "text-[#F2C29A]" : "text-[#EAE0D5]/60 hover:text-[#EAE0D5]"
+                                item.isActive ? "text-[#FFD700]" : "text-[#F5F5F5]/60 hover:text-[#F5F5F5]"
                             )}
                             aria-label={item.label}
                         >
                             <div className="relative">
                                 <item.icon className={cn("w-6 h-6", item.isActive && "fill-current opacity-20")} strokeWidth={item.isActive ? 2.5 : 2} />
                                 {item.badge !== null && (
-                                    <span className="absolute -top-2 -right-2 bg-[#7A2F57] text-[#EAE0D5] text-[10px] min-w-[16px] h-4 rounded-full flex items-center justify-center px-1 font-medium">
+                                    <span className="absolute -top-2 -right-2 bg-[#9333EA] text-[#F5F5F5] text-[10px] min-w-[16px] h-4 rounded-full flex items-center justify-center px-1 font-medium">
                                         {item.badge > 9 ? '9+' : item.badge}
                                     </span>
                                 )}
@@ -89,7 +86,7 @@ const BottomNavigation = () => {
                                 {item.label}
                             </span>
                             {item.isActive && (
-                                <span className="absolute -top-[1px] left-1/2 -translate-x-1/2 w-8 h-[2px] bg-gradient-to-r from-[#7A2F57] via-[#F2C29A] to-[#7A2F57] rounded-b-full" />
+                                <span className="absolute -top-[1px] left-1/2 -translate-x-1/2 w-8 h-[2px] bg-gradient-to-r from-[#9333EA] via-[#FFD700] to-[#9333EA] rounded-b-full" />
                             )}
                         </Component>
                     );

@@ -32,7 +32,7 @@ test.describe('Verification Method Selection', () => {
       // SMS button should have active styling
       const smsButton = registrationPage.smsOtpButton;
       const isActive = await smsButton.evaluate(el => 
-        el.classList.contains('border-[#F2C29A]/60') || 
+        el.classList.contains('border-[#FFD700]/60') || 
         el.style.borderColor.includes('F2C29A')
       );
       expect(isActive).toBeTruthy();
@@ -44,7 +44,7 @@ test.describe('Verification Method Selection', () => {
       // Email button should now be active
       const emailButton = registrationPage.emailOtpButton;
       const isActive = await emailButton.evaluate(el => 
-        el.classList.contains('border-[#F2C29A]/60')
+        el.classList.contains('border-[#FFD700]/60')
       );
       expect(isActive).toBeTruthy();
     });
@@ -57,7 +57,7 @@ test.describe('Verification Method Selection', () => {
       // SMS button should be active
       const smsButton = registrationPage.smsOtpButton;
       const isActive = await smsButton.evaluate(el =>
-        el.classList.contains('border-[#F2C29A]/60')
+        el.classList.contains('border-[#FFD700]/60')
       );
       expect(isActive).toBeTruthy();
     });

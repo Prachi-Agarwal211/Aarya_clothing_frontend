@@ -20,7 +20,7 @@ import logger from '@/lib/logger';
  * - WebGL context loss handling
  * - Proper cleanup on unmount
  */
-const STATIC_GRADIENT = 'linear-gradient(135deg, #0B0608 0%, #1A0F14 25%, #473C73 50%, #7A2F57 75%, #8A4B66 100%)';
+const STATIC_GRADIENT = 'linear-gradient(135deg, #0A0A0A 0%, #111114 25%, #6366F1 50%, #9333EA 75%, #A855F7 100%)';
 
 export default function SilkBackground() {
   const canvasRef = useRef(null);
@@ -89,7 +89,7 @@ export default function SilkBackground() {
       
       if (!gl) {
         logger.warn('WebGL not supported, falling back to CSS gradient');
-        canvas.style.background = 'linear-gradient(135deg, #0B0608 0%, #1A0F14 25%, #473C73 50%, #7A2F57 75%, #8A4B66 100%)';
+        canvas.style.background = 'linear-gradient(135deg, #0A0A0A 0%, #111114 25%, #6366F1 50%, #9333EA 75%, #A855F7 100%)';
         return;
       }
       glRef.current = gl;
@@ -164,16 +164,16 @@ export default function SilkBackground() {
           float rnd = fract(sin(dot(uv * 100.0, vec2(12.9898, 78.233))) * 43758.5453);
           float intensity = max(0.0, pattern - rnd / 15.0 * noiseIntensity);
 
-          // Color palette - exact match from original
+          // Color palette — black/grey base with silver and violet accents
           vec3 colors[8];
-          colors[0] = vec3(11.0, 6.0, 8.0) / 255.0;      // #0B0608
-          colors[1] = vec3(26.0, 15.0, 20.0) / 255.0;    // #1A0F14
-          colors[2] = vec3(194.0, 122.0, 78.0) / 255.0;  // #C27A4E
-          colors[3] = vec3(216.0, 154.0, 108.0) / 255.0; // #D89A6C
-          colors[4] = vec3(139.0, 69.0, 19.0) / 255.0;   // #8B4513
-          colors[5] = vec3(122.0, 47.0, 87.0) / 255.0;   // #7A2F57
-          colors[6] = vec3(138.0, 75.0, 102.0) / 255.0;  // #8A4B66
-          colors[7] = vec3(71.0, 60.0, 115.0) / 255.0;   // #473C73
+          colors[0] = vec3(0.0, 0.0, 0.0) / 255.0;        // #000000 pure black
+          colors[1] = vec3(18.0, 18.0, 18.0) / 255.0;      // #121212 dark grey
+          colors[2] = vec3(40.0, 40.0, 40.0) / 255.0;      // #282828 medium grey
+          colors[3] = vec3(60.0, 60.0, 60.0) / 255.0;      // #3C3C3C lighter grey
+          colors[4] = vec3(80.0, 80.0, 80.0) / 255.0;        // #505050 silver grey
+          colors[5] = vec3(147.0, 51.0, 234.0) / 255.0;    // #9333EA electric violet
+          colors[6] = vec3(99.0, 102.0, 241.0) / 255.0;    // #6366F1 indigo
+          colors[7] = vec3(30.0, 30.0, 30.0) / 255.0;      // #1E1E1E charcoal
 
           // --- IMPROVED COLOR INTERPOLATION BLOCK ---
           // Color position calculation - smooth diagonal flow (original style)
@@ -209,10 +209,11 @@ export default function SilkBackground() {
           float gradientY = smoothstep(0.0, 1.0, uv.y);
           float gradientFactor = gradientX * 0.4 + gradientY * 0.6;
 
-          vec3 gradientColor1 = vec3(0.043, 0.024, 0.031);
-          vec3 gradientColor2 = vec3(0.102, 0.059, 0.078);
-          vec3 gradientColor3 = vec3(0.278, 0.235, 0.451);
-          vec3 gradientColor4 = vec3(0.478, 0.184, 0.341);
+          // Cool grey-to-violet gradient overlay
+          vec3 gradientColor1 = vec3(0.0, 0.0, 0.0);         // pure black
+          vec3 gradientColor2 = vec3(0.07, 0.07, 0.07);      // dark grey
+          vec3 gradientColor3 = vec3(0.39, 0.2, 0.92);       // violet
+          vec3 gradientColor4 = vec3(0.58, 0.4, 0.94);       // light violet
 
           vec3 gradientColor = mix(gradientColor1, gradientColor2, smoothstep(0.0, 0.33, gradientFactor));
           gradientColor = mix(gradientColor, gradientColor3, smoothstep(0.33, 0.66, gradientFactor));
@@ -221,11 +222,11 @@ export default function SilkBackground() {
           // Blend pattern with gradient
           color = mix(gradientColor, color, 0.7);
 
-          // Radial overlay (matching original)
+          // Radial overlay — subtle dark vignette
           vec2 center = vec2(0.4, 0.3);
           float dist = length(uv - center);
           float radialFade = smoothstep(0.8, 0.0, dist);
-          color = mix(color, vec3(0.055, 0.035, 0.04), 0.1 * (1.0 - radialFade));
+          color = mix(color, vec3(0.0, 0.0, 0.0), 0.1 * (1.0 - radialFade));
 
           gl_FragColor = vec4(color, 1.0);
         }
@@ -250,7 +251,7 @@ export default function SilkBackground() {
       
       if (!vertexShader || !fragmentShader) {
         logger.error('Failed to create shaders, using CSS fallback');
-        canvas.style.background = 'linear-gradient(135deg, #0B0608 0%, #1A0F14 25%, #473C73 50%, #7A2F57 75%, #8A4B66 100%)';
+        canvas.style.background = 'linear-gradient(135deg, #0A0A0A 0%, #111114 25%, #6366F1 50%, #9333EA 75%, #A855F7 100%)';
         return;
       }
       
@@ -261,7 +262,7 @@ export default function SilkBackground() {
       
       if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
         logger.error('Program link error:', gl.getProgramInfoLog(program));
-        canvas.style.background = 'linear-gradient(135deg, #0B0608 0%, #1A0F14 25%, #473C73 50%, #7A2F57 75%, #8A4B66 100%)';
+        canvas.style.background = 'linear-gradient(135deg, #0A0A0A 0%, #111114 25%, #6366F1 50%, #9333EA 75%, #A855F7 100%)';
         return;
       }
       
@@ -462,7 +463,7 @@ export default function SilkBackground() {
         left: 0,
         width: '100vw',
         height: '100vh',
-        background: '#0B0608',
+        background: '#000000',
         pointerEvents: 'none'
       }}
     />

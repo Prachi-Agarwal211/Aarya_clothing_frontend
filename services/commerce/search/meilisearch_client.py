@@ -311,6 +311,18 @@ def _format_product(p: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def _r2_url(path: str) -> str:
+    """Convert R2 relative path to full R2 CDN URL."""
+    if not path:
+        return ""
+    if path.startswith("http://") or path.startswith("https://"):
+        return path
+    from core.config import get_settings
+    settings = get_settings()
+    r2_base = settings.R2_PUBLIC_URL.rstrip('/')
+    return f"{r2_base}/{path.lstrip('/')}"
+
+
 def get_search_suggestions(query: str, limit: int = 5, db_session=None) -> Dict[str, Any]:
     """
     Get search suggestions including products, categories, and trending searches.
@@ -337,7 +349,7 @@ def get_search_suggestions(query: str, limit: int = 5, db_session=None) -> Dict[
                 "id": hit.get("id"),
                 "name": hit.get("name", ""),
                 "price": hit.get("price", 0),
-                "image": hit.get("image_url", ""),
+                "image": _r2_url(hit.get("image_url", "")),
                 "category": hit.get("category_name", ""),
                 "slug": hit.get("slug", ""),
             }

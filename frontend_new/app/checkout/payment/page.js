@@ -253,7 +253,7 @@ export default function CheckoutPaymentPage() {
       addField('prefill[name]',     customerName);
       addField('prefill[email]',    customerEmail);
       addField('prefill[contact]',  customerPhone);
-      addField('theme[color]',      '#B76E79');
+      addField('theme[color]',      '#E07B8B');
       
       // Callback URLs
       addField('callback_url',      `${origin}/api/v1/payments/razorpay/redirect-callback`);
@@ -507,10 +507,10 @@ export default function CheckoutPaymentPage() {
       {/* Out of Stock Modal */}
       {stockError && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-          <div className="relative bg-[#0B0608] border border-[#B76E79]/30 rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl">
+          <div className="relative bg-[#0A0A0A] border border-[#E07B8B]/30 rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl">
             <button
               onClick={() => setStockError(null)}
-              className="absolute top-4 right-4 text-[#EAE0D5]/50 hover:text-[#EAE0D5] transition-colors"
+              className="absolute top-4 right-4 text-[#F5F5F5]/50 hover:text-[#F5F5F5] transition-colors"
             >
               <X className="w-5 h-5" />
             </button>
@@ -518,15 +518,15 @@ export default function CheckoutPaymentPage() {
               <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-500/10 flex items-center justify-center">
                 <AlertCircle className="w-8 h-8 text-red-400" />
               </div>
-              <h3 className="text-xl font-semibold text-[#F2C29A] mb-2">Items Out of Stock</h3>
-              <p className="text-[#EAE0D5]/70 mb-6">
+              <h3 className="text-xl font-semibold text-[#FFD700] mb-2">Items Out of Stock</h3>
+              <p className="text-[#F5F5F5]/70 mb-6">
                 Sorry, the following items are no longer available:
               </p>
               <div className="space-y-3 mb-6">
                 {stockError.items.map((item, i) => (
                   <div key={i} className="flex items-center gap-3 p-3 bg-red-500/5 border border-red-500/10 rounded-xl">
                     <ShoppingBag className="w-5 h-5 text-red-400 shrink-0" />
-                    <span className="text-[#EAE0D5] text-sm truncate">
+                    <span className="text-[#F5F5F5] text-sm truncate">
                       {item.name || item.product_name || `Product #${item.product_id}`}
                     </span>
                   </div>
@@ -534,7 +534,7 @@ export default function CheckoutPaymentPage() {
               </div>
               <button
                 onClick={() => { setStockError(null); router.push('/cart'); }}
-                className="w-full px-6 py-3 bg-gradient-to-r from-[#7A2F57] to-[#B76E79] text-white font-medium rounded-xl hover:opacity-90 transition-opacity"
+                className="w-full px-6 py-3 bg-gradient-to-r from-[#9333EA] to-[#E07B8B] text-white font-medium rounded-xl hover:opacity-90 transition-opacity"
               >
                 Return to Cart
               </button>
@@ -544,36 +544,36 @@ export default function CheckoutPaymentPage() {
       )}
 
       {/* Order Cost Breakdown — moved to TOP for mobile visibility */}
-      <div className="p-5 bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl">
-        <h3 className="text-sm font-semibold text-[#F2C29A] mb-4 uppercase tracking-wider">Order Summary</h3>
+      <div className="p-5 bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl">
+        <h3 className="text-sm font-semibold text-[#FFD700] mb-4 uppercase tracking-wider">Order Summary</h3>
         <div className="space-y-2 text-sm">
           {cart?.discount > 0 && (
             <div className="flex justify-between">
-              <span className="text-[#EAE0D5]/60">Discount Applied</span>
+              <span className="text-[#F5F5F5]/60">Discount Applied</span>
               <span className="text-green-400">-{formatCurrency(cart.discount)}</span>
             </div>
           )}
-          <div className="flex justify-between pt-3 mt-1 border-t border-[#B76E79]/20 font-semibold text-base">
-            <span className="text-[#F2C29A]">Total Payable</span>
-            <span className="text-[#F2C29A]">{formatCurrency(cart?.total)}</span>
+          <div className="flex justify-between pt-3 mt-1 border-t border-[#E07B8B]/20 font-semibold text-base">
+            <span className="text-[#FFD700]">Total Payable</span>
+            <span className="text-[#FFD700]">{formatCurrency(cart?.total)}</span>
           </div>
-          <p className="text-xs text-[#EAE0D5]/40 pt-1">
+          <p className="text-xs text-[#F5F5F5]/40 pt-1">
             Inclusive of all taxes &amp; free shipping
           </p>
         </div>
       </div>
 
       {/* Payment Gateway Selection */}
-      <div className="p-6 bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl">
-        <h2 className="text-xl font-semibold text-[#F2C29A] mb-4">Pay with</h2>
+      <div className="p-6 bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl">
+        <h2 className="text-xl font-semibold text-[#FFD700] mb-4">Pay with</h2>
         <div className="space-y-3">
           {/* Razorpay Option */}
           <button
             onClick={() => setSelectedGateway('razorpay')}
             className={`w-full p-4 border-2 rounded-xl transition-all text-left ${
               selectedGateway === 'razorpay'
-                ? 'border-[#F2C29A] bg-[#F2C29A]/10'
-                : 'border-[#B76E79]/30 hover:border-[#F2C29A]/40'
+                ? 'border-[#FFD700] bg-[#FFD700]/10'
+                : 'border-[#E07B8B]/30 hover:border-[#FFD700]/40'
             }`}
           >
             <div className="flex items-start gap-3">
@@ -585,11 +585,11 @@ export default function CheckoutPaymentPage() {
                 className="w-4 h-4 mt-1"
               />
               <div className="flex-1">
-                <p className="font-semibold text-[#F2C29A]">Pay Online</p>
-                <p className="text-sm text-[#EAE0D5]/60 mt-1">UPI, Cards, Net Banking, Wallets</p>
+                <p className="font-semibold text-[#FFD700]">Pay Online</p>
+                <p className="text-sm text-[#F5F5F5]/60 mt-1">UPI, Cards, Net Banking, Wallets</p>
               </div>
               {selectedGateway === 'razorpay' && (
-                <Check className="w-5 h-5 text-[#F2C29A]" />
+                <Check className="w-5 h-5 text-[#FFD700]" />
               )}
             </div>
           </button>
@@ -599,8 +599,8 @@ export default function CheckoutPaymentPage() {
             onClick={() => setSelectedGateway('upi_qr')}
             className={`w-full p-4 border-2 rounded-xl transition-all text-left ${
               selectedGateway === 'upi_qr'
-                ? 'border-[#F2C29A] bg-[#F2C29A]/10'
-                : 'border-[#B76E79]/30 hover:border-[#F2C29A]/40'
+                ? 'border-[#FFD700] bg-[#FFD700]/10'
+                : 'border-[#E07B8B]/30 hover:border-[#FFD700]/40'
             }`}
           >
             <div className="flex items-start gap-3">
@@ -613,13 +613,13 @@ export default function CheckoutPaymentPage() {
               />
               <div className="flex-1">
                 <div className="flex items-center gap-2">
-                  <QrCode className="w-5 h-5 text-[#F2C29A]" />
-                  <p className="font-semibold text-[#F2C29A]">UPI QR Code</p>
+                  <QrCode className="w-5 h-5 text-[#FFD700]" />
+                  <p className="font-semibold text-[#FFD700]">UPI QR Code</p>
                 </div>
-                <p className="text-sm text-[#EAE0D5]/60 mt-1">Scan with any UPI app (5 min expiry)</p>
+                <p className="text-sm text-[#F5F5F5]/60 mt-1">Scan with any UPI app (5 min expiry)</p>
               </div>
               {selectedGateway === 'upi_qr' && (
-                <Check className="w-5 h-5 text-[#F2C29A]" />
+                <Check className="w-5 h-5 text-[#FFD700]" />
               )}
             </div>
           </button>
@@ -627,10 +627,10 @@ export default function CheckoutPaymentPage() {
       </div>
 
       {/* Security + Return — compact single-line strip (replaces 3 separate cards) */}
-      <div className="flex items-center justify-center gap-4 text-xs text-[#EAE0D5]/50 py-1">
-        <span className="flex items-center gap-1"><Lock className="w-3 h-3 text-[#B76E79]/60" /> Secure</span>
-        <span className="flex items-center gap-1"><Shield className="w-3 h-3 text-[#B76E79]/60" /> Encrypted</span>
-        <span className="flex items-center gap-1"><RotateCcw className="w-3 h-3 text-[#B76E79]/60" /> <Link href="/returns" className="hover:text-[#F2C29A]">7-day returns</Link></span>
+      <div className="flex items-center justify-center gap-4 text-xs text-[#F5F5F5]/50 py-1">
+        <span className="flex items-center gap-1"><Lock className="w-3 h-3 text-[#E07B8B]/60" /> Secure</span>
+        <span className="flex items-center gap-1"><Shield className="w-3 h-3 text-[#E07B8B]/60" /> Encrypted</span>
+        <span className="flex items-center gap-1"><RotateCcw className="w-3 h-3 text-[#E07B8B]/60" /> <Link href="/returns" className="hover:text-[#FFD700]">7-day returns</Link></span>
       </div>
 
       {/* Error */}
@@ -643,8 +643,8 @@ export default function CheckoutPaymentPage() {
 
       {/* QR Code Payment UI */}
       {selectedGateway === 'upi_qr' && (
-        <div className="p-6 bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl">
-          <h2 className="text-xl font-semibold text-[#F2C29A] mb-4 flex items-center gap-2">
+        <div className="p-6 bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl">
+          <h2 className="text-xl font-semibold text-[#FFD700] mb-4 flex items-center gap-2">
             <QrCode className="w-5 h-5" />
             UPI QR Code Payment
           </h2>
@@ -652,11 +652,11 @@ export default function CheckoutPaymentPage() {
           {/* Generating State */}
           {qrPaymentState === 'generating' && (
             <div className="text-center py-8">
-              <svg className="animate-spin w-12 h-12 mx-auto mb-4 text-[#F2C29A]" viewBox="0 0 24 24" fill="none">
+              <svg className="animate-spin w-12 h-12 mx-auto mb-4 text-[#FFD700]" viewBox="0 0 24 24" fill="none">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8h4z"/>
               </svg>
-              <p className="text-[#EAE0D5]/70">Generating QR code...</p>
+              <p className="text-[#F5F5F5]/70">Generating QR code...</p>
             </div>
           )}
 
@@ -675,19 +675,19 @@ export default function CheckoutPaymentPage() {
                     priority
                   />
                 </div>
-                <p className="text-[#EAE0D5]/70 text-sm text-center">
+                <p className="text-[#F5F5F5]/70 text-sm text-center">
                   Scan with any UPI app (Google Pay, PhonePe, Paytm, etc.)
                 </p>
               </div>
 
               {/* Timer Display */}
               {timeRemaining !== null && timeRemaining > 0 && (
-                <div className="flex items-center justify-center gap-2 p-4 bg-[#7A2F57]/20 border border-[#B76E79]/30 rounded-xl">
-                  <Timer className="w-5 h-5 text-[#F2C29A]" />
-                  <span className="text-[#F2C29A] font-mono text-lg">
+                <div className="flex items-center justify-center gap-2 p-4 bg-[#9333EA]/20 border border-[#E07B8B]/30 rounded-xl">
+                  <Timer className="w-5 h-5 text-[#FFD700]" />
+                  <span className="text-[#FFD700] font-mono text-lg">
                     {formatTimeRemaining(timeRemaining)}
                   </span>
-                  <span className="text-[#EAE0D5]/60 text-sm">remaining</span>
+                  <span className="text-[#F5F5F5]/60 text-sm">remaining</span>
                 </div>
               )}
 
@@ -715,7 +715,7 @@ export default function CheckoutPaymentPage() {
                 <Check className="w-8 h-8 text-green-400" />
               </div>
               <h3 className="text-xl font-semibold text-green-400 mb-2">Payment Successful!</h3>
-              <p className="text-[#EAE0D5]/70">Redirecting to confirmation...</p>
+              <p className="text-[#F5F5F5]/70">Redirecting to confirmation...</p>
             </div>
           )}
 
@@ -726,10 +726,10 @@ export default function CheckoutPaymentPage() {
                 <Clock className="w-8 h-8 text-yellow-400" />
               </div>
               <h3 className="text-xl font-semibold text-yellow-400 mb-2">QR Code Expired</h3>
-              <p className="text-[#EAE0D5]/70 mb-4">The QR code has expired. Please generate a new one.</p>
+              <p className="text-[#F5F5F5]/70 mb-4">The QR code has expired. Please generate a new one.</p>
               <button
                 onClick={handleQrPayment}
-                className="px-6 py-3 bg-gradient-to-r from-[#7A2F57] to-[#B76E79] text-white font-medium rounded-xl hover:opacity-90 transition-opacity"
+                className="px-6 py-3 bg-gradient-to-r from-[#9333EA] to-[#E07B8B] text-white font-medium rounded-xl hover:opacity-90 transition-opacity"
               >
                 Generate New QR Code
               </button>
@@ -743,10 +743,10 @@ export default function CheckoutPaymentPage() {
                 <AlertCircle className="w-8 h-8 text-red-400" />
               </div>
               <h3 className="text-xl font-semibold text-red-400 mb-2">Payment Failed</h3>
-              <p className="text-[#EAE0D5]/70 mb-4">{qrError || 'An error occurred during payment'}</p>
+              <p className="text-[#F5F5F5]/70 mb-4">{qrError || 'An error occurred during payment'}</p>
               <button
                 onClick={cancelQrPayment}
-                className="px-6 py-3 bg-gradient-to-r from-[#7A2F57] to-[#B76E79] text-white font-medium rounded-xl hover:opacity-90 transition-opacity"
+                className="px-6 py-3 bg-gradient-to-r from-[#9333EA] to-[#E07B8B] text-white font-medium rounded-xl hover:opacity-90 transition-opacity"
               >
                 Try Again
               </button>
@@ -758,7 +758,7 @@ export default function CheckoutPaymentPage() {
             <button
               onClick={handleQrPayment}
               disabled={processing}
-              className="w-full flex items-center justify-center gap-2 px-8 py-3.5 bg-gradient-to-r from-[#7A2F57] to-[#B76E79] text-white font-semibold rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50"
+              className="w-full flex items-center justify-center gap-2 px-8 py-3.5 bg-gradient-to-r from-[#9333EA] to-[#E07B8B] text-white font-semibold rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50"
             >
               <QrCode className="w-5 h-5" />
               Generate QR Code - {formatCurrency(cart?.total)}
@@ -774,7 +774,7 @@ export default function CheckoutPaymentPage() {
           <button
             onClick={handleDirectPayment}
             disabled={processing || redirectProcessing}
-            className="w-full flex items-center justify-center gap-2 px-8 py-3.5 bg-gradient-to-r from-[#7A2F57] to-[#B76E79] text-white font-semibold rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50"
+            className="w-full flex items-center justify-center gap-2 px-8 py-3.5 bg-gradient-to-r from-[#9333EA] to-[#E07B8B] text-white font-semibold rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50"
           >
             {redirectProcessing ? (
               <>
@@ -792,7 +792,7 @@ export default function CheckoutPaymentPage() {
               </>
             )}
           </button>
-          <p className="text-center text-xs text-[#EAE0D5]/40">
+          <p className="text-center text-xs text-[#F5F5F5]/40">
             Secure checkout powered by Razorpay • UPI, Cards, Net Banking, Wallets
           </p>
         </div>

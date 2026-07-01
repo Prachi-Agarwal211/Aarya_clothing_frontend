@@ -30,13 +30,7 @@ class PendingOrder(Base):
     subtotal = Column(Numeric(10,2), nullable=False)
     discount_applied = Column(Numeric(10,2), default=0)
     shipping_cost = Column(Numeric(10,2), default=0)
-    gst_amount = Column(Numeric(10,2), default=0)
-    cgst_amount = Column(Numeric(10,2), default=0)
-    sgst_amount = Column(Numeric(10,2), default=0)
-    igst_amount = Column(Numeric(10,2), default=0)
     total_amount = Column(Numeric(10,2), nullable=False)
-    delivery_state = Column(String(50), nullable=True)
-    customer_gstin = Column(String(15), nullable=True)
     
     # Status tracking
     status = Column(String(30), default='pending')

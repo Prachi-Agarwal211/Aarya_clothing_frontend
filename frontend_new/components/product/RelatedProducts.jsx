@@ -50,10 +50,10 @@ export default function RelatedProducts({ productId, collectionId }) {
   if (!loading && products.length === 0) return null;
 
   return (
-    <section className="py-12 border-t border-[#B76E79]/15">
+    <section className="py-12 border-t border-[#E07B8B]/15">
       <div className="container mx-auto px-4 sm:px-6 md:px-8">
         <h2
-          className="text-xl md:text-2xl font-bold text-[#F2C29A] mb-6"
+          className="text-xl md:text-2xl font-bold text-[#FFD700] mb-6"
           style={{ fontFamily: 'Cinzel, serif' }}
         >
           You May Also Like
@@ -63,9 +63,9 @@ export default function RelatedProducts({ productId, collectionId }) {
           {loading
             ? [...Array(4)].map((_, i) => (
                 <div key={i} className="animate-pulse">
-                  <div className="aspect-[3/4] bg-[#B76E79]/10 rounded-2xl mb-3" />
-                  <div className="h-4 bg-[#B76E79]/10 rounded w-3/4 mb-2" />
-                  <div className="h-4 bg-[#B76E79]/10 rounded w-1/2" />
+                  <div className="aspect-[3/4] bg-[#E07B8B]/10 rounded-2xl mb-3" />
+                  <div className="h-4 bg-[#E07B8B]/10 rounded w-3/4 mb-2" />
+                  <div className="h-4 bg-[#E07B8B]/10 rounded w-1/2" />
                 </div>
               ))
             : products.map(product => {
@@ -77,7 +77,7 @@ export default function RelatedProducts({ productId, collectionId }) {
                   href={productHref}
                   className="group"
                 >
-                  <div className="bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl overflow-hidden hover:border-[#B76E79]/30 hover:shadow-[0_0_30px_rgba(183,110,121,0.1)] transition-all duration-300">
+                  <div className="bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl overflow-hidden hover:border-[#E07B8B]/30 hover:shadow-[0_0_30px_rgba(183,110,121,0.1)] transition-all duration-300">
                     <div className="relative aspect-[3/4] overflow-hidden bg-[#1A1A1A]">
                       {(product.primary_image || product.image_url) ? (
                         <Image
@@ -88,16 +88,16 @@ export default function RelatedProducts({ productId, collectionId }) {
                           sizes="(max-width: 640px) 50vw, 25vw"
                         />
                       ) : (
-                        <div className="absolute inset-0 bg-[#1A1114] flex items-center justify-center">
-                          <span className="text-[#B76E79]/30 text-xs">No Image</span>
+                        <div className="absolute inset-0 bg-[#141414] flex items-center justify-center">
+                          <span className="text-[#E07B8B]/30 text-xs">No Image</span>
                         </div>
                       )}
                     </div>
                     <div className="p-3">
-                      <h3 className="font-medium text-[#EAE0D5] group-hover:text-[#F2C29A] transition-colors line-clamp-2 text-sm">
+                      <h3 className="font-medium text-[#F5F5F5] group-hover:text-[#FFD700] transition-colors line-clamp-2 text-sm">
                         {product.name}
                       </h3>
-                      <p className="text-[#F2C29A] font-semibold text-sm mt-1">{formatCurrency(product.price)}</p>
+                      <p className="text-[#FFD700] font-semibold text-sm mt-1">{formatCurrency(product.price)}</p>
                     </div>
                   </div>
                 </Link>

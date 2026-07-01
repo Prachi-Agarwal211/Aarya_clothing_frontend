@@ -35,14 +35,3 @@ async def get_size_guide_categories():
     from shared.size_guide_data import SIZE_CHARTS
     return sorted(set(SIZE_CHARTS.keys()))
 
-
-@router.get("/hsn-codes", response_model=dict)
-async def get_hsn_codes(
-    category: Optional[str] = Query(None, description="Get HSN code for specific category")
-):
-    """Get HSN codes for GST compliance."""
-    from shared.size_guide_data import HSN_CODES, get_hsn_code
-    if category:
-        code = get_hsn_code(category)
-        return {"category": category, "hsn_code": code}
-    return {"hsn_codes": HSN_CODES}

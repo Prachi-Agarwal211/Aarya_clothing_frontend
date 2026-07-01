@@ -57,44 +57,44 @@ function BulkPriceModal({ selectedIds, onClose, onDone }) {
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full sm:max-w-md bg-[#0B0608] border border-[#B76E79]/30 sm:rounded-2xl flex flex-col max-h-[90vh]">
-        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-[#B76E79]/20 flex-shrink-0">
-          <h2 className="text-lg font-bold text-[#F2C29A]">Bulk Price Update</h2>
-          <button onClick={onClose} className="p-2 rounded-lg hover:bg-[#B76E79]/10 text-[#EAE0D5]/60"><X className="w-5 h-5" /></button>
+      <div className="relative w-full sm:max-w-md bg-[#0A0A0A] border border-[#E07B8B]/30 sm:rounded-2xl flex flex-col max-h-[90vh]">
+        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-[#E07B8B]/20 flex-shrink-0">
+          <h2 className="text-lg font-bold text-[#FFD700]">Bulk Price Update</h2>
+          <button onClick={onClose} className="p-2 rounded-lg hover:bg-[#E07B8B]/10 text-[#F5F5F5]/60"><X className="w-5 h-5" /></button>
         </div>
         <div className="overflow-y-auto flex-1 min-h-0">
           <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4">
-            <p className="text-sm text-[#EAE0D5]/60">{selectedIds.length} product(s) selected</p>
+            <p className="text-sm text-[#F5F5F5]/60">{selectedIds.length} product(s) selected</p>
             {error && <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">{error}</div>}
           <div>
-            <label className="block text-sm text-[#EAE0D5]/70 mb-2">Update Mode</label>
+            <label className="block text-sm text-[#F5F5F5]/70 mb-2">Update Mode</label>
             <div className="grid grid-cols-3 gap-2">
               {[['percentage', '% Change'], ['adjustment', '± Amount'], ['set_price', 'Set Price']].map(([m, l]) => (
                 <button key={m} type="button" onClick={() => setMode(m)}
-                  className={`py-2 rounded-lg text-xs border transition-colors ${mode === m ? 'bg-[#7A2F57]/40 border-[#B76E79]/50 text-[#F2C29A]' : 'border-[#B76E79]/20 text-[#EAE0D5]/60 hover:bg-[#B76E79]/10'}`}>
+                  className={`py-2 rounded-lg text-xs border transition-colors ${mode === m ? 'bg-[#9333EA]/40 border-[#E07B8B]/50 text-[#FFD700]' : 'border-[#E07B8B]/20 text-[#F5F5F5]/60 hover:bg-[#E07B8B]/10'}`}>
                   {l}
                 </button>
               ))}
             </div>
           </div>
           <div>
-            <label className="block text-sm text-[#EAE0D5]/70 mb-1">
+            <label className="block text-sm text-[#F5F5F5]/70 mb-1">
               {mode === 'percentage' ? 'Price Percentage (e.g. 10 = +10%, -5 = -5%)' : mode === 'adjustment' ? 'Price Amount (e.g. 100 = +₹100, -50 = -₹50)' : 'New Price (₹)'}
             </label>
             <input type="number" step="0.01" value={value} onChange={e => setValue(e.target.value)}
-              className="w-full px-3 py-2 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-xl text-[#EAE0D5] focus:outline-none focus:border-[#B76E79]/50 text-sm" placeholder="Leave empty to skip" />
+              className="w-full px-3 py-2 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-xl text-[#F5F5F5] focus:outline-none focus:border-[#E07B8B]/50 text-sm" placeholder="Leave empty to skip" />
           </div>
           <div>
-            <label className="block text-sm text-[#EAE0D5]/70 mb-1">
+            <label className="block text-sm text-[#F5F5F5]/70 mb-1">
               {mode === 'percentage' ? 'MRP Percentage (e.g. 10 = +10%)' : mode === 'adjustment' ? 'MRP Amount (e.g. 100 = +₹100)' : 'New MRP (₹)'}
             </label>
             <input type="number" step="0.01" value={mrp} onChange={e => setMrp(e.target.value)}
-              className="w-full px-3 py-2 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-xl text-[#EAE0D5] focus:outline-none focus:border-[#B76E79]/50 text-sm" placeholder="Leave empty to skip" />
+              className="w-full px-3 py-2 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-xl text-[#F5F5F5] focus:outline-none focus:border-[#E07B8B]/50 text-sm" placeholder="Leave empty to skip" />
           </div>
           <div className="flex gap-3">
-            <button type="button" onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-[#B76E79]/30 text-[#EAE0D5]/70 hover:bg-[#B76E79]/10 text-sm">Cancel</button>
+            <button type="button" onClick={onClose} className="flex-1 py-2.5 rounded-xl border border-[#E07B8B]/30 text-[#F5F5F5]/70 hover:bg-[#E07B8B]/10 text-sm">Cancel</button>
             <button type="submit" disabled={saving}
-              className="flex-1 py-2.5 rounded-xl bg-[#7A2F57]/40 border border-[#B76E79]/40 text-[#F2C29A] hover:bg-[#7A2F57]/60 text-sm font-medium disabled:opacity-50 flex items-center justify-center gap-2">
+              className="flex-1 py-2.5 rounded-xl bg-[#9333EA]/40 border border-[#E07B8B]/40 text-[#FFD700] hover:bg-[#9333EA]/60 text-sm font-medium disabled:opacity-50 flex items-center justify-center gap-2">
               {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <IndianRupee className="w-4 h-4" />}
               {saving ? 'Updating...' : 'Update Prices'}
             </button>
@@ -164,16 +164,16 @@ function VariantModal({ product, variant, onClose, onSaved }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 h-full">
-      <div className="absolute inset-0 bg-[#0B0608]/80 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full sm:max-w-md bg-[#0B0608] border border-[#B76E79]/20 sm:rounded-2xl shadow-2xl flex flex-col max-h-[95vh] sm:max-h-[90vh]">
-        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-[#B76E79]/10 flex-shrink-0">
+      <div className="absolute inset-0 bg-[#0A0A0A]/80 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-full sm:max-w-md bg-[#0A0A0A] border border-[#E07B8B]/20 sm:rounded-2xl shadow-2xl flex flex-col max-h-[95vh] sm:max-h-[90vh]">
+        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-[#E07B8B]/10 flex-shrink-0">
           <div>
-            <h2 className="text-xl font-bold text-[#F2C29A]" style={{ fontFamily: 'Cinzel, serif' }}>
+            <h2 className="text-xl font-bold text-[#FFD700]" style={{ fontFamily: 'Cinzel, serif' }}>
               {isEdit ? 'Edit Variant' : 'Add Variant'}
             </h2>
-            <p className="text-sm text-[#EAE0D5]/50 mt-1">For {product?.name}</p>
+            <p className="text-sm text-[#F5F5F5]/50 mt-1">For {product?.name}</p>
           </div>
-          <button onClick={onClose} className="p-2 text-[#EAE0D5]/50 hover:text-[#EAE0D5] hover:bg-[#B76E79]/10 rounded-xl transition-colors">
+          <button onClick={onClose} className="p-2 text-[#F5F5F5]/50 hover:text-[#F5F5F5] hover:bg-[#E07B8B]/10 rounded-xl transition-colors">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -188,55 +188,55 @@ function VariantModal({ product, variant, onClose, onSaved }) {
           <form id="variant-form" onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm text-[#EAE0D5]/70 mb-2">Size</label>
+                <label className="block text-sm text-[#F5F5F5]/70 mb-2">Size</label>
                 <input type="text" name="size" value={form.size} onChange={handleChange} placeholder="e.g. M, L, XL"
-                  className="w-full px-4 py-2.5 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-xl text-[#EAE0D5] placeholder-[#EAE0D5]/40 focus:outline-none focus:border-[#B76E79]/40 transition-colors" />
+                  className="w-full px-4 py-2.5 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-xl text-[#F5F5F5] placeholder-[#F5F5F5]/40 focus:outline-none focus:border-[#E07B8B]/40 transition-colors" />
               </div>
               <div>
-                <label className="block text-sm text-[#EAE0D5]/70 mb-2">Color</label>
+                <label className="block text-sm text-[#F5F5F5]/70 mb-2">Color</label>
                 <input type="text" name="color" value={form.color} onChange={handleChange} placeholder="e.g. Red, Blue"
-                  className="w-full px-4 py-2.5 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-xl text-[#EAE0D5] placeholder-[#EAE0D5]/40 focus:outline-none focus:border-[#B76E79]/40 transition-colors" />
+                  className="w-full px-4 py-2.5 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-xl text-[#F5F5F5] placeholder-[#F5F5F5]/40 focus:outline-none focus:border-[#E07B8B]/40 transition-colors" />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm text-[#EAE0D5]/70 mb-2">Item Code <span className="text-[#EAE0D5]/40">(optional - auto-generated)</span></label>
+              <label className="block text-sm text-[#F5F5F5]/70 mb-2">Item Code <span className="text-[#F5F5F5]/40">(optional - auto-generated)</span></label>
               <input type="text" name="sku" value={form.sku} onChange={handleChange} placeholder="Leave blank to auto-generate"
-                className="w-full px-4 py-2.5 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-xl text-[#EAE0D5] placeholder-[#EAE0D5]/40 focus:outline-none focus:border-[#B76E79]/40 transition-colors" />
+                className="w-full px-4 py-2.5 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-xl text-[#F5F5F5] placeholder-[#F5F5F5]/40 focus:outline-none focus:border-[#E07B8B]/40 transition-colors" />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm text-[#EAE0D5]/70 mb-2">Quantity in Stock</label>
+                <label className="block text-sm text-[#F5F5F5]/70 mb-2">Quantity in Stock</label>
                 <input type="number" name="quantity" value={form.quantity} onChange={handleChange} min="0" required
-                  className="w-full px-4 py-2.5 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-xl text-[#EAE0D5] placeholder-[#EAE0D5]/40 focus:outline-none focus:border-[#B76E79]/40 transition-colors" />
+                  className="w-full px-4 py-2.5 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-xl text-[#F5F5F5] placeholder-[#F5F5F5]/40 focus:outline-none focus:border-[#E07B8B]/40 transition-colors" />
               </div>
               <div>
-                <label className="block text-sm text-[#EAE0D5]/70 mb-2">Alert when stock drops below</label>
+                <label className="block text-sm text-[#F5F5F5]/70 mb-2">Alert when stock drops below</label>
                 <input type="number" name="low_stock_threshold" value={form.low_stock_threshold} onChange={handleChange} min="0" required
-                  className="w-full px-4 py-2.5 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-xl text-[#EAE0D5] placeholder-[#EAE0D5]/40 focus:outline-none focus:border-[#B76E79]/40 transition-colors" />
+                  className="w-full px-4 py-2.5 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-xl text-[#F5F5F5] placeholder-[#F5F5F5]/40 focus:outline-none focus:border-[#E07B8B]/40 transition-colors" />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm text-[#EAE0D5]/70 mb-2">Special Price for this Variant <span className="text-[#EAE0D5]/40">(optional)</span></label>
+              <label className="block text-sm text-[#F5F5F5]/70 mb-2">Special Price for this Variant <span className="text-[#F5F5F5]/40">(optional)</span></label>
               <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#EAE0D5]/50">₹</span>
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[#F5F5F5]/50">₹</span>
                 <input type="number" name="price" value={form.price} onChange={handleChange} placeholder={`Default: ₹${product?.price}`} step="0.01"
-                  className="w-full pl-8 pr-4 py-2.5 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-xl text-[#EAE0D5] placeholder-[#EAE0D5]/40 focus:outline-none focus:border-[#B76E79]/40 transition-colors" />
+                  className="w-full pl-8 pr-4 py-2.5 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-xl text-[#F5F5F5] placeholder-[#F5F5F5]/40 focus:outline-none focus:border-[#E07B8B]/40 transition-colors" />
               </div>
-              <p className="text-xs text-[#EAE0D5]/40 mt-1.5">Leave blank to use the main product price (₹{product?.price})</p>
+              <p className="text-xs text-[#F5F5F5]/40 mt-1.5">Leave blank to use the main product price (₹{product?.price})</p>
             </div>
           </form>
         </div>
 
-        <div className="p-4 sm:p-6 border-t border-[#B76E79]/10 bg-[#0B0608] mt-auto flex gap-3 flex-shrink-0">
+        <div className="p-4 sm:p-6 border-t border-[#E07B8B]/10 bg-[#0A0A0A] mt-auto flex gap-3 flex-shrink-0">
           <button type="button" onClick={onClose}
-            className="flex-1 py-2.5 rounded-xl border border-[#B76E79]/30 text-[#EAE0D5]/70 hover:bg-[#B76E79]/10 transition-colors text-sm">
+            className="flex-1 py-2.5 rounded-xl border border-[#E07B8B]/30 text-[#F5F5F5]/70 hover:bg-[#E07B8B]/10 transition-colors text-sm">
             Cancel
           </button>
           <button type="submit" form="variant-form" disabled={saving}
-            className="flex-1 py-2.5 rounded-xl bg-[#7A2F57]/40 border border-[#B76E79]/40 text-[#F2C29A] hover:bg-[#7A2F57]/60 transition-colors text-sm font-medium disabled:opacity-50 flex items-center justify-center gap-2">
+            className="flex-1 py-2.5 rounded-xl bg-[#9333EA]/40 border border-[#E07B8B]/40 text-[#FFD700] hover:bg-[#9333EA]/60 transition-colors text-sm font-medium disabled:opacity-50 flex items-center justify-center gap-2">
             {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
             {saving ? 'Saving...' : 'Save Variant'}
           </button>
@@ -306,20 +306,20 @@ function EditProductModal({ product, collections, onClose, onSaved }) {
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 h-full">
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full sm:max-w-lg bg-[#0B0608] border border-[#B76E79]/30 sm:rounded-2xl shadow-2xl flex flex-col max-h-[95vh] sm:max-h-[90vh]">
+      <div className="relative w-full sm:max-w-lg bg-[#0A0A0A] border border-[#E07B8B]/30 sm:rounded-2xl shadow-2xl flex flex-col max-h-[95vh] sm:max-h-[90vh]">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 sm:p-5 border-b border-[#B76E79]/15 flex-shrink-0">
+        <div className="flex items-center justify-between p-4 sm:p-5 border-b border-[#E07B8B]/15 flex-shrink-0">
           <div>
-            <h2 className="text-lg font-bold text-[#F2C29A]" style={{ fontFamily: 'Cinzel, serif' }}>Edit Product</h2>
-            <p className="text-xs text-[#EAE0D5]/50 mt-0.5 truncate max-w-[240px]">{product.name}</p>
+            <h2 className="text-lg font-bold text-[#FFD700]" style={{ fontFamily: 'Cinzel, serif' }}>Edit Product</h2>
+            <p className="text-xs text-[#F5F5F5]/50 mt-0.5 truncate max-w-[240px]">{product.name}</p>
           </div>
           <div className="flex items-center gap-2">
             <Link href={`/admin/products/${product.slug}/edit`}
-              className="hidden sm:flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-[#B76E79]/20 text-[#EAE0D5]/50 hover:text-[#EAE0D5] hover:border-[#B76E79]/40 text-xs transition-colors"
+              className="hidden sm:flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-[#E07B8B]/20 text-[#F5F5F5]/50 hover:text-[#F5F5F5] hover:border-[#E07B8B]/40 text-xs transition-colors"
               title="Open full edit page">
               Full Edit <ArrowRight className="w-3 h-3" />
             </Link>
-            <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-[#B76E79]/10 text-[#EAE0D5]/50 hover:text-[#EAE0D5] transition-colors">
+            <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-[#E07B8B]/10 text-[#F5F5F5]/50 hover:text-[#F5F5F5] transition-colors">
               <X className="w-5 h-5" />
             </button>
           </div>
@@ -332,36 +332,36 @@ function EditProductModal({ product, collections, onClose, onSaved }) {
           <form id="edit-product-form" onSubmit={handleSubmit} className="space-y-4">
             {/* Name */}
             <div>
-              <label className="block text-xs text-[#EAE0D5]/60 mb-1.5 uppercase tracking-wider">Product Name *</label>
+              <label className="block text-xs text-[#F5F5F5]/60 mb-1.5 uppercase tracking-wider">Product Name *</label>
               <input name="name" value={form.name} onChange={handleChange} required
-                className="w-full px-4 py-2.5 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-xl text-[#EAE0D5] placeholder-[#EAE0D5]/40 focus:outline-none focus:border-[#B76E79]/40 text-sm" />
+                className="w-full px-4 py-2.5 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-xl text-[#F5F5F5] placeholder-[#F5F5F5]/40 focus:outline-none focus:border-[#E07B8B]/40 text-sm" />
             </div>
 
             {/* Price & MRP */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs text-[#EAE0D5]/60 mb-1.5 uppercase tracking-wider">Price *</label>
+                <label className="block text-xs text-[#F5F5F5]/60 mb-1.5 uppercase tracking-wider">Price *</label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#EAE0D5]/40 text-sm">₹</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#F5F5F5]/40 text-sm">₹</span>
                   <input type="number" name="price" value={form.price} onChange={handleChange} min="0.01" step="0.01" required
-                    className="w-full pl-7 pr-3 py-2.5 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-xl text-[#EAE0D5] focus:outline-none focus:border-[#B76E79]/40 text-sm" />
+                    className="w-full pl-7 pr-3 py-2.5 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-xl text-[#F5F5F5] focus:outline-none focus:border-[#E07B8B]/40 text-sm" />
                 </div>
               </div>
               <div>
-                <label className="block text-xs text-[#EAE0D5]/60 mb-1.5 uppercase tracking-wider">MRP</label>
+                <label className="block text-xs text-[#F5F5F5]/60 mb-1.5 uppercase tracking-wider">MRP</label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#EAE0D5]/40 text-sm">₹</span>
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#F5F5F5]/40 text-sm">₹</span>
                   <input type="number" name="mrp" value={form.mrp} onChange={handleChange} min="0" step="0.01"
-                    className="w-full pl-7 pr-3 py-2.5 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-xl text-[#EAE0D5] focus:outline-none focus:border-[#B76E79]/40 text-sm" />
+                    className="w-full pl-7 pr-3 py-2.5 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-xl text-[#F5F5F5] focus:outline-none focus:border-[#E07B8B]/40 text-sm" />
                 </div>
               </div>
             </div>
 
             {/* Collection */}
             <div>
-              <label className="block text-xs text-[#EAE0D5]/60 mb-1.5 uppercase tracking-wider">Collection</label>
+              <label className="block text-xs text-[#F5F5F5]/60 mb-1.5 uppercase tracking-wider">Collection</label>
               <select name="category_id" value={form.category_id} onChange={handleChange}
-                className="w-full px-4 py-2.5 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-xl text-[#EAE0D5] focus:outline-none focus:border-[#B76E79]/40 text-sm appearance-none">
+                className="w-full px-4 py-2.5 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-xl text-[#F5F5F5] focus:outline-none focus:border-[#E07B8B]/40 text-sm appearance-none">
                 <option value="">— No Collection —</option>
                 {collections.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
@@ -369,23 +369,23 @@ function EditProductModal({ product, collections, onClose, onSaved }) {
 
             {/* Brand */}
             <div>
-              <label className="block text-xs text-[#EAE0D5]/60 mb-1.5 uppercase tracking-wider">Brand</label>
+              <label className="block text-xs text-[#F5F5F5]/60 mb-1.5 uppercase tracking-wider">Brand</label>
               <input name="brand" value={form.brand} onChange={handleChange} placeholder="e.g. Aarya, FabIndia"
-                className="w-full px-4 py-2.5 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-xl text-[#EAE0D5] placeholder-[#EAE0D5]/40 focus:outline-none focus:border-[#B76E79]/40 text-sm" />
+                className="w-full px-4 py-2.5 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-xl text-[#F5F5F5] placeholder-[#F5F5F5]/40 focus:outline-none focus:border-[#E07B8B]/40 text-sm" />
             </div>
 
             {/* Short description */}
             <div>
-              <label className="block text-xs text-[#EAE0D5]/60 mb-1.5 uppercase tracking-wider">Short Description</label>
+              <label className="block text-xs text-[#F5F5F5]/60 mb-1.5 uppercase tracking-wider">Short Description</label>
               <textarea name="short_description" value={form.short_description} onChange={handleChange} rows={2}
-                className="w-full px-4 py-2.5 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-xl text-[#EAE0D5] placeholder-[#EAE0D5]/40 focus:outline-none focus:border-[#B76E79]/40 text-sm resize-none" />
+                className="w-full px-4 py-2.5 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-xl text-[#F5F5F5] placeholder-[#F5F5F5]/40 focus:outline-none focus:border-[#E07B8B]/40 text-sm resize-none" />
             </div>
 
             {/* Full description */}
             <div>
-              <label className="block text-xs text-[#EAE0D5]/60 mb-1.5 uppercase tracking-wider">Full Description</label>
+              <label className="block text-xs text-[#F5F5F5]/60 mb-1.5 uppercase tracking-wider">Full Description</label>
               <textarea name="description" value={form.description} onChange={handleChange} rows={4}
-                className="w-full px-4 py-2.5 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-xl text-[#EAE0D5] placeholder-[#EAE0D5]/40 focus:outline-none focus:border-[#B76E79]/40 text-sm resize-none" />
+                className="w-full px-4 py-2.5 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-xl text-[#F5F5F5] placeholder-[#F5F5F5]/40 focus:outline-none focus:border-[#E07B8B]/40 text-sm resize-none" />
             </div>
 
             {/* Status toggles */}
@@ -393,10 +393,10 @@ function EditProductModal({ product, collections, onClose, onSaved }) {
               {[['is_active', 'Active', Eye], ['is_featured', 'Featured', Star], ['is_new_arrival', 'New Arrival', Sparkles]].map(([key, label, Icon]) => (
                 <label key={key} className="flex items-center gap-2 cursor-pointer">
                   <input type="checkbox" name={key} checked={form[key]} onChange={handleChange} className="sr-only" />
-                  <div className={`w-8 h-4 rounded-full transition-colors relative ${form[key] ? 'bg-[#B76E79]' : 'bg-[#B76E79]/20'}`}>
+                  <div className={`w-8 h-4 rounded-full transition-colors relative ${form[key] ? 'bg-[#E07B8B]' : 'bg-[#E07B8B]/20'}`}>
                     <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${form[key] ? 'left-4' : 'left-0.5'}`} />
                   </div>
-                  <span className="text-sm text-[#EAE0D5]/70">{label}</span>
+                  <span className="text-sm text-[#F5F5F5]/70">{label}</span>
                 </label>
               ))}
             </div>
@@ -404,11 +404,11 @@ function EditProductModal({ product, collections, onClose, onSaved }) {
         </div>
 
         {/* Footer — always visible */}
-        <div className="p-4 sm:p-5 border-t border-[#B76E79]/15 flex gap-3 flex-shrink-0">
+        <div className="p-4 sm:p-5 border-t border-[#E07B8B]/15 flex gap-3 flex-shrink-0">
           <button type="button" onClick={onClose}
-            className="flex-1 py-2.5 rounded-xl border border-[#B76E79]/20 text-[#EAE0D5]/60 hover:bg-[#B76E79]/10 text-sm transition-colors">Cancel</button>
+            className="flex-1 py-2.5 rounded-xl border border-[#E07B8B]/20 text-[#F5F5F5]/60 hover:bg-[#E07B8B]/10 text-sm transition-colors">Cancel</button>
           <button type="submit" form="edit-product-form" disabled={saving}
-            className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-[#7A2F57] to-[#B76E79] text-white font-semibold text-sm disabled:opacity-50 flex items-center justify-center gap-2 hover:opacity-90 transition-opacity">
+            className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-[#9333EA] to-[#E07B8B] text-white font-semibold text-sm disabled:opacity-50 flex items-center justify-center gap-2 hover:opacity-90 transition-opacity">
             {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
             {saving ? 'Saving...' : 'Save Changes'}
           </button>
@@ -485,10 +485,10 @@ function ProductRow({ product, collections, onRefresh, selected, onToggleSelect,
   return (
     <>
       {/* Main Row */}
-      <tr className="border-b border-[#B76E79]/10 hover:bg-[#B76E79]/5 transition-colors">
+      <tr className="border-b border-[#E07B8B]/10 hover:bg-[#E07B8B]/5 transition-colors">
         <td className="p-4">
-          <button onClick={onToggleSelect} className="text-[#EAE0D5]/60 hover:text-[#EAE0D5]">
-            {selected ? <CheckSquare className="w-4 h-4 text-[#B76E79]" /> : <Square className="w-4 h-4" />}
+          <button onClick={onToggleSelect} className="text-[#F5F5F5]/60 hover:text-[#F5F5F5]">
+            {selected ? <CheckSquare className="w-4 h-4 text-[#E07B8B]" /> : <Square className="w-4 h-4" />}
           </button>
         </td>
         <td className="p-4">
@@ -498,34 +498,34 @@ function ProductRow({ product, collections, onRefresh, selected, onToggleSelect,
                 src={product.image_url}
                 alt={product.name}
                 fill
-                className="object-cover rounded-lg border border-[#B76E79]/20"
+                className="object-cover rounded-lg border border-[#E07B8B]/20"
                 sizes="48px"
                 loading="lazy"
                 decoding="async"
               />
             </div>
           ) : (
-            <div className="w-12 h-12 rounded-lg bg-[#7A2F57]/20 flex items-center justify-center">
-              <ImageIcon className="w-5 h-5 text-[#B76E79]/40" />
+            <div className="w-12 h-12 rounded-lg bg-[#9333EA]/20 flex items-center justify-center">
+              <ImageIcon className="w-5 h-5 text-[#E07B8B]/40" />
             </div>
           )}
         </td>
         <td className="p-4">
           <button onClick={onToggleExpand} className="flex items-center gap-2 text-left w-full">
-            {expanded ? <ChevronDown className="w-4 h-4 text-[#B76E79]" /> : <ChevronRight className="w-4 h-4 text-[#EAE0D5]/40" />}
+            {expanded ? <ChevronDown className="w-4 h-4 text-[#E07B8B]" /> : <ChevronRight className="w-4 h-4 text-[#F5F5F5]/40" />}
             <div>
-              <p className="font-medium text-[#EAE0D5] text-sm">{product.name}</p>
-              {product.sku && <p className="text-xs text-[#EAE0D5]/40 mt-0.5">Item Code: {product.sku}</p>}
+              <p className="font-medium text-[#F5F5F5] text-sm">{product.name}</p>
+              {product.sku && <p className="text-xs text-[#F5F5F5]/40 mt-0.5">Item Code: {product.sku}</p>}
             </div>
           </button>
           <div className="flex gap-1 mt-1 ml-6">
-            {product.is_featured && <span className="px-1.5 py-0.5 rounded text-xs bg-[#7A2F57]/30 text-[#F2C29A] border border-[#B76E79]/20">Featured</span>}
+            {product.is_featured && <span className="px-1.5 py-0.5 rounded text-xs bg-[#9333EA]/30 text-[#FFD700] border border-[#E07B8B]/20">Featured</span>}
             {product.is_new_arrival && <span className="px-1.5 py-0.5 rounded text-xs bg-purple-500/20 text-purple-400 border border-purple-500/20">New</span>}
           </div>
           {error && <p className="text-xs text-red-400 mt-1 ml-6">{error}</p>}
         </td>
-        <td className="p-4 text-sm text-[#EAE0D5]/70">{collectionName !== '-' ? collectionName : 'Uncategorized'}</td>
-        <td className="p-4 text-sm font-medium text-[#F2C29A]">{fmt(product.price)}</td>
+        <td className="p-4 text-sm text-[#F5F5F5]/70">{collectionName !== '-' ? collectionName : 'Uncategorized'}</td>
+        <td className="p-4 text-sm font-medium text-[#FFD700]">{fmt(product.price)}</td>
         <td className="p-4">{stockBadge(product.total_stock || 0)}</td>
         <td className="p-4">
           <span className={`px-2 py-0.5 rounded-full text-xs ${product.is_active ? 'bg-green-500/20 text-green-400 border border-green-500/30' : 'bg-gray-500/20 text-gray-400 border border-gray-500/30'}`}>
@@ -537,10 +537,10 @@ function ProductRow({ product, collections, onRefresh, selected, onToggleSelect,
             {/* Edit button — calls parent callback, modal renders OUTSIDE table */}
             <button
               onClick={() => onEdit(product)}
-              className="p-1.5 rounded-lg hover:bg-[#B76E79]/10 text-[#EAE0D5]/60 hover:text-[#F2C29A] transition-colors flex items-center justify-center" title="Edit Product">
+              className="p-1.5 rounded-lg hover:bg-[#E07B8B]/10 text-[#F5F5F5]/60 hover:text-[#FFD700] transition-colors flex items-center justify-center" title="Edit Product">
               <Edit className="w-4 h-4" />
             </button>
-            <button onClick={onToggleExpand} className="p-1.5 rounded-lg hover:bg-[#B76E79]/10 text-[#EAE0D5]/60 hover:text-[#EAE0D5] transition-colors flex items-center justify-center" title="Manage Variants / Stock">
+            <button onClick={onToggleExpand} className="p-1.5 rounded-lg hover:bg-[#E07B8B]/10 text-[#F5F5F5]/60 hover:text-[#F5F5F5] transition-colors flex items-center justify-center" title="Manage Variants / Stock">
               <Warehouse className="w-4 h-4" />
             </button>
           </div>
@@ -549,14 +549,14 @@ function ProductRow({ product, collections, onRefresh, selected, onToggleSelect,
 
       {/* Expanded Variants Row */}
       {expanded && (
-        <tr className="bg-[#0B0608]/60">
+        <tr className="bg-[#0A0A0A]/60">
           <td colSpan={8} className="p-4">
-            <div className="ml-12 border-l-2 border-[#B76E79]/30 pl-4">
+            <div className="ml-12 border-l-2 border-[#E07B8B]/30 pl-4">
               <div className="flex items-center justify-between mb-3">
-                <h4 className="text-sm font-medium text-[#F2C29A]">Inventory Variants</h4>
+                <h4 className="text-sm font-medium text-[#FFD700]">Inventory Variants</h4>
                 <button
                   onClick={() => onAddVariant(product, loadVariants)}
-                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#7A2F57]/20 border border-[#B76E79]/30 text-[#F2C29A] hover:bg-[#7A2F57]/40 text-xs transition-colors"
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#9333EA]/20 border border-[#E07B8B]/30 text-[#FFD700] hover:bg-[#9333EA]/40 text-xs transition-colors"
                 >
                   <Plus className="w-3.5 h-3.5" /> Add Variant
                 </button>
@@ -564,30 +564,30 @@ function ProductRow({ product, collections, onRefresh, selected, onToggleSelect,
 
               {loadingVariants ? (
                 <div className="flex items-center justify-center py-4">
-                  <RefreshCw className="w-5 h-5 text-[#B76E79]/50 animate-spin" />
+                  <RefreshCw className="w-5 h-5 text-[#E07B8B]/50 animate-spin" />
                 </div>
               ) : variants.length === 0 ? (
-                <div className="text-center py-4 text-[#EAE0D5]/40 text-sm">
+                <div className="text-center py-4 text-[#F5F5F5]/40 text-sm">
                   No variants yet. Add size/color combinations.
                 </div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead>
-                      <tr className="border-b border-[#B76E79]/10">
-                        <th className="p-2 text-left text-xs text-[#EAE0D5]/50 font-medium">Size</th>
-                        <th className="p-2 text-left text-xs text-[#EAE0D5]/50 font-medium">Color</th>
-                        <th className="p-2 text-left text-xs text-[#EAE0D5]/50 font-medium">Item Code</th>
-                        <th className="p-2 text-left text-xs text-[#EAE0D5]/50 font-medium">Quantity</th>
-                        <th className="p-2 text-left text-xs text-[#EAE0D5]/50 font-medium">Actions</th>
+                      <tr className="border-b border-[#E07B8B]/10">
+                        <th className="p-2 text-left text-xs text-[#F5F5F5]/50 font-medium">Size</th>
+                        <th className="p-2 text-left text-xs text-[#F5F5F5]/50 font-medium">Color</th>
+                        <th className="p-2 text-left text-xs text-[#F5F5F5]/50 font-medium">Item Code</th>
+                        <th className="p-2 text-left text-xs text-[#F5F5F5]/50 font-medium">Quantity</th>
+                        <th className="p-2 text-left text-xs text-[#F5F5F5]/50 font-medium">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
                       {variants.map((v) => (
-                        <tr key={v.id} className="border-b border-[#B76E79]/5">
-                          <td className="p-2 text-xs text-[#EAE0D5]/70">{v.size || '-'}</td>
-                          <td className="p-2 text-xs text-[#EAE0D5]/70">{v.color || '-'}</td>
-                          <td className="p-2 text-xs font-mono text-[#EAE0D5]/50">{v.sku}</td>
+                        <tr key={v.id} className="border-b border-[#E07B8B]/5">
+                          <td className="p-2 text-xs text-[#F5F5F5]/70">{v.size || '-'}</td>
+                          <td className="p-2 text-xs text-[#F5F5F5]/70">{v.color || '-'}</td>
+                          <td className="p-2 text-xs font-mono text-[#F5F5F5]/50">{v.sku}</td>
                           <td className="p-2">
                             <div className="flex items-center gap-2">
                               {stockBadge(v.quantity, v.low_stock_threshold)}
@@ -613,7 +613,7 @@ function ProductRow({ product, collections, onRefresh, selected, onToggleSelect,
                               </button>
                               <button
                                 onClick={() => onEditVariant(product, v, loadVariants)}
-                                className="p-1 rounded hover:bg-[#B76E79]/10 text-[#EAE0D5]/60 hover:text-[#EAE0D5] flex items-center justify-center"
+                                className="p-1 rounded hover:bg-[#E07B8B]/10 text-[#F5F5F5]/60 hover:text-[#F5F5F5] flex items-center justify-center"
                                 title="Edit Variant"
                               >
                                 <Edit className="w-3.5 h-3.5" />
@@ -673,7 +673,7 @@ export default function ProductsPage() {
   const fetchData = async () => {
     try {
       setLoading(true); setError(null);
-      const PAGE_SIZE = 50;
+      const PAGE_SIZE = 30;
       const skip = (page - 1) * PAGE_SIZE;
       const pd = await productsApi.list({ limit: PAGE_SIZE, skip });
       const productsList = Array.isArray(pd) ? pd : pd?.products || pd?.items || [];
@@ -772,13 +772,13 @@ export default function ProductsPage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-[#F2C29A]" style={{ fontFamily: 'Cinzel, serif' }}>Products & Stocks</h1>
-          <p className="text-[#EAE0D5]/60 mt-1">Manage products and stock levels</p>
+          <h1 className="text-2xl md:text-3xl font-bold text-[#FFD700]" style={{ fontFamily: 'Cinzel, serif' }}>Products & Stocks</h1>
+          <p className="text-[#F5F5F5]/60 mt-1">Manage products and stock levels</p>
         </div>
         <div className="flex gap-2">
           <Link
             href="/admin/products/create"
-            className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-[#7A2F57] to-[#B76E79] rounded-xl text-white hover:opacity-90 transition-opacity text-sm font-semibold shadow-lg shadow-[#B76E79]/20"
+            className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-[#9333EA] to-[#E07B8B] rounded-xl text-white hover:opacity-90 transition-opacity text-sm font-semibold shadow-lg shadow-[#E07B8B]/20"
           >
             <Plus className="w-4 h-4" /> Add Product
           </Link>
@@ -788,14 +788,14 @@ export default function ProductsPage() {
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
-          { label: 'Total Products', value: displayStats.total, color: 'text-[#F2C29A]', border: 'border-[#B76E79]/20', bg: 'bg-[#7A2F57]/10', Icon: Package },
+          { label: 'Total Products', value: displayStats.total, color: 'text-[#FFD700]', border: 'border-[#E07B8B]/20', bg: 'bg-[#9333EA]/10', Icon: Package },
           { label: 'Active', value: displayStats.active, color: 'text-green-400', border: 'border-green-500/20', bg: 'bg-green-500/5', Icon: Eye },
           { label: 'Low Stock', value: displayStats.lowStock, color: 'text-yellow-400', border: 'border-yellow-500/20', bg: 'bg-yellow-500/5', Icon: AlertCircle },
           { label: 'Out of Stock', value: displayStats.outOfStock, color: 'text-red-400', border: 'border-red-500/20', bg: 'bg-red-500/5', Icon: XCircle },
         ].map(({ label, value, color, border, bg, Icon }) => (
           <div key={label} className={`${bg} backdrop-blur-md border ${border} rounded-2xl p-4`}>
             <div className="flex items-center justify-between mb-2">
-              <p className="text-[#EAE0D5]/60 text-sm">{label}</p>
+              <p className="text-[#F5F5F5]/60 text-sm">{label}</p>
               <Icon className={`w-4 h-4 ${color} opacity-70`} />
             </div>
             <p className={`text-3xl font-bold ${color}`}>{value}</p>
@@ -804,37 +804,37 @@ export default function ProductsPage() {
       </div>
 
       {/* Filters */}
-      <div className="bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl p-4 space-y-3">
+      <div className="bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl p-4 space-y-3">
         <div className="flex flex-col md:flex-row gap-3">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#EAE0D5]/40" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#F5F5F5]/40" />
             <input type="text" placeholder="Search products by name or item code…" value={search} onChange={e => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-xl text-[#EAE0D5] placeholder-[#EAE0D5]/40 focus:outline-none focus:border-[#B76E79]/40 text-sm" />
+              className="w-full pl-10 pr-4 py-2.5 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-xl text-[#F5F5F5] placeholder-[#F5F5F5]/40 focus:outline-none focus:border-[#E07B8B]/40 text-sm" />
           </div>
           <select value={filterCollection} onChange={e => setFilterCollection(e.target.value)}
-            className="px-3 py-2.5 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-xl text-[#EAE0D5] focus:outline-none focus:border-[#B76E79]/40 text-sm">
+            className="px-3 py-2.5 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-xl text-[#F5F5F5] focus:outline-none focus:border-[#E07B8B]/40 text-sm">
             <option value="">All Categories</option>
             {collections.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
           <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)}
-            className="px-3 py-2.5 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-xl text-[#EAE0D5] focus:outline-none focus:border-[#B76E79]/40 text-sm">
+            className="px-3 py-2.5 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-xl text-[#F5F5F5] focus:outline-none focus:border-[#E07B8B]/40 text-sm">
             <option value="">All Status</option>
             <option value="active">Active</option>
             <option value="inactive">Inactive</option>
             <option value="low_stock">Low Stock</option>
             <option value="out_of_stock">Out of Stock</option>
           </select>
-          <button onClick={fetchData} className="p-2.5 rounded-xl border border-[#B76E79]/20 text-[#EAE0D5]/70 hover:bg-[#B76E79]/10 transition-colors">
+          <button onClick={fetchData} className="p-2.5 rounded-xl border border-[#E07B8B]/20 text-[#F5F5F5]/70 hover:bg-[#E07B8B]/10 transition-colors">
             <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
           </button>
         </div>
 
         {/* Bulk action bar */}
         {selected.size > 0 && (
-          <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-[#B76E79]/10">
-            <span className="text-sm text-[#EAE0D5]/60">{selected.size} selected</span>
+          <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-[#E07B8B]/10">
+            <span className="text-sm text-[#F5F5F5]/60">{selected.size} selected</span>
             <button onClick={() => setShowBulkPrice(true)} disabled={bulkLoading}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#7A2F57]/20 border border-[#B76E79]/30 text-[#F2C29A] hover:bg-[#7A2F57]/40 text-xs transition-colors disabled:opacity-50">
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#9333EA]/20 border border-[#E07B8B]/30 text-[#FFD700] hover:bg-[#9333EA]/40 text-xs transition-colors disabled:opacity-50">
               <IndianRupee className="w-3.5 h-3.5" /> Bulk Price
             </button>
             <button onClick={() => handleBulkStatus({ is_active: true })} disabled={bulkLoading}
@@ -846,7 +846,7 @@ export default function ProductsPage() {
               <EyeOff className="w-3.5 h-3.5" /> Hide from Store
             </button>
             <button onClick={() => handleBulkStatus({ is_featured: true })} disabled={bulkLoading}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#7A2F57]/20 border border-[#B76E79]/30 text-[#F2C29A] hover:bg-[#7A2F57]/40 text-xs transition-colors disabled:opacity-50">
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#9333EA]/20 border border-[#E07B8B]/30 text-[#FFD700] hover:bg-[#9333EA]/40 text-xs transition-colors disabled:opacity-50">
               <Star className="w-3.5 h-3.5" /> Mark as Featured
             </button>
             <button onClick={() => handleBulkStatus({ is_new_arrival: true })} disabled={bulkLoading}
@@ -857,7 +857,7 @@ export default function ProductsPage() {
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 text-xs transition-colors disabled:opacity-50">
               <Trash2 className="w-3.5 h-3.5" /> Delete
             </button>
-            <button onClick={() => setSelected(new Set())} className="ml-auto text-xs text-[#EAE0D5]/40 hover:text-[#EAE0D5]/70">Clear</button>
+            <button onClick={() => setSelected(new Set())} className="ml-auto text-xs text-[#F5F5F5]/40 hover:text-[#F5F5F5]/70">Clear</button>
           </div>
         )}
       </div>
@@ -869,13 +869,13 @@ export default function ProductsPage() {
       )}
 
       {/* Table */}
-      <div className="bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl overflow-hidden">
+      <div className="bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl overflow-hidden">
         {loading ? (
           <div className="flex items-center justify-center py-20">
-            <RefreshCw className="w-8 h-8 text-[#B76E79]/50 animate-spin" />
+            <RefreshCw className="w-8 h-8 text-[#E07B8B]/50 animate-spin" />
           </div>
         ) : filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 text-[#EAE0D5]/40">
+          <div className="flex flex-col items-center justify-center py-20 text-[#F5F5F5]/40">
             <Package className="w-12 h-12 mb-3" /><p>No products found</p>
           </div>
         ) : (
@@ -883,14 +883,14 @@ export default function ProductsPage() {
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-[#B76E79]/15">
+                <tr className="border-b border-[#E07B8B]/15">
                   <th className="p-4 w-10">
-                    <button onClick={toggleAll} className="text-[#EAE0D5]/60 hover:text-[#EAE0D5]">
-                      {allSelected ? <CheckSquare className="w-4 h-4 text-[#B76E79]" /> : <Square className="w-4 h-4" />}
+                    <button onClick={toggleAll} className="text-[#F5F5F5]/60 hover:text-[#F5F5F5]">
+                      {allSelected ? <CheckSquare className="w-4 h-4 text-[#E07B8B]" /> : <Square className="w-4 h-4" />}
                     </button>
                   </th>
                   {['Image', 'Product Name', 'Collection', 'Price', 'Inventory', 'Status', 'Actions'].map(h => (
-                    <th key={h} className="p-4 text-left text-xs text-[#EAE0D5]/50 font-medium uppercase tracking-wider">{h}</th>
+                    <th key={h} className="p-4 text-left text-xs text-[#F5F5F5]/50 font-medium uppercase tracking-wider">{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -914,29 +914,29 @@ export default function ProductsPage() {
             </table>
           </div>
           {/* Pagination Controls */}
-          {totalProducts > 50 && (
-            <div className="flex items-center justify-between px-4 py-3 border-t border-[#B76E79]/10">
-              <p className="text-xs text-[#EAE0D5]/50">
-                Showing {((page - 1) * 50) + 1}–{Math.min(page * 50, totalProducts)} of {totalProducts}
+          {totalProducts > 30 && (
+            <div className="flex items-center justify-between px-4 py-3 border-t border-[#E07B8B]/10">
+              <p className="text-xs text-[#F5F5F5]/50">
+                Showing {((page - 1) * 30) + 1}–{Math.min(page * 30, totalProducts)} of {totalProducts}
               </p>
               <div className="flex items-center gap-1">
                 <button onClick={() => setPage(1)} disabled={page === 1}
-                  className="p-2 rounded-lg border border-[#B76E79]/15 text-[#EAE0D5]/50 hover:bg-[#B76E79]/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+                  className="p-2 rounded-lg border border-[#E07B8B]/15 text-[#F5F5F5]/50 hover:bg-[#E07B8B]/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
                   <ChevronsLeft className="w-4 h-4" />
                 </button>
                 <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
-                  className="p-2 rounded-lg border border-[#B76E79]/15 text-[#EAE0D5]/50 hover:bg-[#B76E79]/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+                  className="p-2 rounded-lg border border-[#E07B8B]/15 text-[#F5F5F5]/50 hover:bg-[#E07B8B]/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
                   <ChevronLeft className="w-4 h-4" />
                 </button>
-                <span className="px-3 py-1.5 text-sm text-[#F2C29A] font-medium">
-                  {page} / {Math.ceil(totalProducts / 50)}
+                <span className="px-3 py-1.5 text-sm text-[#FFD700] font-medium">
+                  {page} / {Math.ceil(totalProducts / 30)}
                 </span>
-                <button onClick={() => setPage(p => p + 1)} disabled={page * 50 >= totalProducts}
-                  className="p-2 rounded-lg border border-[#B76E79]/15 text-[#EAE0D5]/50 hover:bg-[#B76E79]/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+                <button onClick={() => setPage(p => p + 1)}                  disabled={page * 30 >= totalProducts}
+                  className="p-2 rounded-lg border border-[#E07B8B]/15 text-[#F5F5F5]/50 hover:bg-[#E07B8B]/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
                   <ChevronRight className="w-4 h-4" />
                 </button>
-                <button onClick={() => setPage(Math.ceil(totalProducts / 50))} disabled={page * 50 >= totalProducts}
-                  className="p-2 rounded-lg border border-[#B76E79]/15 text-[#EAE0D5]/50 hover:bg-[#B76E79]/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+                <button onClick={() => setPage(Math.ceil(totalProducts / 30))}                  disabled={page * 30 >= totalProducts}
+                  className="p-2 rounded-lg border border-[#E07B8B]/15 text-[#F5F5F5]/50 hover:bg-[#E07B8B]/10 disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
                   <ChevronsRight className="w-4 h-4" />
                 </button>
               </div>

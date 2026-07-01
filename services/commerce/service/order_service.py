@@ -947,14 +947,8 @@ class OrderService:
 
             subtotal = Decimal(str(pending_order_data.get("subtotal", 0)))
             shipping_cost = Decimal(str(pending_order_data.get("shipping_cost", 0)))
-            gst_amount = Decimal(str(pending_order_data.get("gst_amount", 0)))
-            cgst_amount = Decimal(str(pending_order_data.get("cgst_amount", 0)))
-            sgst_amount = Decimal(str(pending_order_data.get("sgst_amount", 0)))
-            igst_amount = Decimal(str(pending_order_data.get("igst_amount", 0)))
             total_amount = Decimal(str(pending_order_data.get("total_amount", 0)))
             order_notes = pending_order_data.get("order_notes", "")
-            delivery_state = pending_order_data.get("delivery_state", "")
-            customer_gstin = pending_order_data.get("customer_gstin")
 
             # RECOVERY PATH: If cart was already cleared, create a minimal order
             created_minimal = False
@@ -1020,12 +1014,6 @@ class OrderService:
                 invoice_number=invoice_number,
                 subtotal=subtotal,
                 shipping_cost=shipping_cost,
-                gst_amount=gst_amount,
-                cgst_amount=cgst_amount,
-                sgst_amount=sgst_amount,
-                igst_amount=igst_amount,
-                place_of_supply=delivery_state,
-                customer_gstin=customer_gstin,
                 total_amount=total_amount,
                 status=OrderStatus.CONFIRMED,
                 shipping_address=shipping_address,
@@ -1402,7 +1390,7 @@ class OrderService:
                 # Add quantity back to inventory
                 try:
                     self.inventory_service.adjust_stock(
-                        item.sku, item.quantity, f"Order #{order_id} cancelled"
+                        item.sku, item.quantity, f"Order #{order_id} cancelled", movement_type="return"
                     )
                 except Exception as e:
                     failed_restores.append({"sku": item.sku, "error": str(e)})
@@ -1412,10 +1400,53 @@ class OrderService:
         order.cancelled_at = ist_naive()
         order.cancellation_reason = reason or "Cancelled by user"
 
+        # Create tracking entry so cancellation appears in order timeline
+        from models.order_tracking import OrderTracking
+        tracking_entry = OrderTracking(
+            order_id=order_id,
+            status=OrderStatus.CANCELLED,
+            notes=reason or "Cancelled by user",
+        )
+        self.db.add(tracking_entry)
+
         self.db.commit()
         self.db.refresh(order)
+        self.db.refresh(tracking_entry)
+
+        # Publish SSE event so frontend gets real-time cancellation update
+        try:
+            import json as _json
+            now = ist_naive()
+            event_payload = _json.dumps(
+                {
+                    "order_id": order_id,
+                    "tracking_id": tracking_entry.id,
+                    "status": OrderStatus.CANCELLED.value,
+                    "notes": reason or "Cancelled by user",
+                    "timestamp": now.isoformat(),
+                }
+            )
+            redis_client.client.publish(f"order_updates:{order_id}", event_payload)
+            redis_client.set_cache(
+                f"order:event:{order_id}", _json.loads(event_payload), ttl=60
+            )
+        except Exception as pub_err:
+            logger.warning(f"Failed to publish cancellation SSE event: {pub_err}")
+
+        # Send cancellation email via outbox (fire-and-forget)
+        try:
+            user = self.db.query(User).filter(User.id == user_id).first()
+            if user and user.email:
+                self.email_service.enqueue_order_cancelled(
+                    order.id, user_id, order, user, reason
+                )
+        except Exception as e:
+            logger.error(f"Failed to enqueue cancellation email for order {order_id}: {e}")
+            # Non-critical — order is already cancelled
 
         return order
+
+
 
     def get_all_orders(
         self, status: Optional[OrderStatus] = None, skip: int = 0, limit: int = 50

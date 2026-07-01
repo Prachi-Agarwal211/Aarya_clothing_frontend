@@ -8,13 +8,10 @@ import { getCommerceBaseUrl } from '@/lib/baseApi';
 import { useAuth } from '@/lib/authContext';
 import { useAlertToast } from '@/lib/useAlertToast';
 import logger from '@/lib/logger';
-import { useIntroVideoOverlay } from '@/lib/introVideoOverlayContext';
-
 export default function CustomerChatWidget() {
     const { user } = useAuth();
     const { showAlert } = useAlertToast();
     const pathname = usePathname();
-    const { introOverlayActive } = useIntroVideoOverlay();
 
     const [isOpen, setIsOpen] = useState(false);
     const [isMinimized, setIsMinimized] = useState(false);
@@ -76,7 +73,6 @@ export default function CustomerChatWidget() {
     if (pathname?.startsWith('/admin') || pathname?.startsWith('/staff')) {
         return null;
     }
-    if (introOverlayActive) return null;
 
     const connectWebSocket = (rId) => {
         if (wsRef.current?.readyState === WebSocket.OPEN) return;

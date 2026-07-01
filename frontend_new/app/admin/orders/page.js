@@ -211,10 +211,10 @@ function OrdersContent() {
       label: (
         <button
           onClick={toggleAll}
-          className="text-[#EAE0D5]/60 hover:text-[#EAE0D5] flex items-center justify-center"
+          className="text-[#F5F5F5]/60 hover:text-[#F5F5F5] flex items-center justify-center"
         >
           {allSelected ? (
-            <CheckSquare className="w-4 h-4 text-[#B76E79]" />
+            <CheckSquare className="w-4 h-4 text-[#E07B8B]" />
           ) : (
             <Square className="w-4 h-4" />
           )}
@@ -224,10 +224,10 @@ function OrdersContent() {
       render: (_, row) => (
         <button
           onClick={(e) => { e.stopPropagation(); toggleOne(row.id); }}
-          className="text-[#EAE0D5]/60 hover:text-[#EAE0D5] flex items-center justify-center p-1"
+          className="text-[#F5F5F5]/60 hover:text-[#F5F5F5] flex items-center justify-center p-1"
         >
           {selected.has(row.id) ? (
-            <CheckSquare className="w-4 h-4 text-[#B76E79]" />
+            <CheckSquare className="w-4 h-4 text-[#E07B8B]" />
           ) : (
             <Square className="w-4 h-4" />
           )}
@@ -240,8 +240,8 @@ function OrdersContent() {
       sortable: true,
       render: (v, row) => (
         <div className="flex flex-col">
-          <span className="text-[#F2C29A] font-medium">{v || `ORD-${row.id.toString().padStart(6, '0')}`}</span>
-          <span className="text-[10px] text-[#EAE0D5]/40 font-mono uppercase truncate max-w-[80px]" title={row.razorpay_payment_id}>
+          <span className="text-[#FFD700] font-medium">{v || `ORD-${row.id.toString().padStart(6, '0')}`}</span>
+          <span className="text-[10px] text-[#F5F5F5]/40 font-mono uppercase truncate max-w-[80px]" title={row.razorpay_payment_id}>
             {row.razorpay_payment_id || 'ID: ' + row.id}
           </span>
         </div>
@@ -267,28 +267,28 @@ function OrdersContent() {
       sortable: true,
       render: (v, row) => (
         <div className="flex flex-col max-w-[150px]">
-          <span className="text-[#EAE0D5] truncate">{v || 'Guest'}</span>
-          <span className="text-[10px] text-[#EAE0D5]/40 truncate">{row.customer_email}</span>
+          <span className="text-[#F5F5F5] truncate">{v || 'Guest'}</span>
+          <span className="text-[10px] text-[#F5F5F5]/40 truncate">{row.customer_email}</span>
         </div>
       ),
     },
     {
       key: 'customer_phone',
       label: 'Phone',
-      render: (v) => <span className="text-[#EAE0D5]/70 text-xs">{v || '-'}</span>,
+      render: (v) => <span className="text-[#F5F5F5]/70 text-xs">{v || '-'}</span>,
     },
     {
       key: 'item_count',
       label: 'Items',
       sortable: true,
-      render: (v) => <span className="text-[#EAE0D5]/80 font-mono">{v || 0}</span>,
+      render: (v) => <span className="text-[#F5F5F5]/80 font-mono">{v || 0}</span>,
     },
     {
       key: 'total_amount',
       label: 'Total (₹)',
       sortable: true,
       render: (v) => (
-        <span className="font-medium text-[#EAE0D5]">
+        <span className="font-medium text-[#F5F5F5]">
           ₹{Number(v || 0).toLocaleString('en-IN')}
         </span>
       ),
@@ -298,7 +298,7 @@ function OrdersContent() {
       label: 'Date',
       sortable: true,
       render: (v) => (
-        <span className="text-[#EAE0D5]/60 text-xs">{formatDate(v)}</span>
+        <span className="text-[#F5F5F5]/60 text-xs">{formatDate(v)}</span>
       ),
     },
   ];
@@ -445,35 +445,35 @@ function Header({ loading, totalOrders, totalRevenue, onRefresh, onExport, onPod
     <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
       <div className="flex flex-col sm:flex-row sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-[#F2C29A]" style={{ fontFamily: 'Cinzel, serif' }}>
+          <h1 className="text-2xl md:text-3xl font-bold text-[#FFD700]" style={{ fontFamily: 'Cinzel, serif' }}>
             Orders
           </h1>
-          <p className="text-[#EAE0D5]/60 mt-1">Manage and track all customer orders</p>
+          <p className="text-[#F5F5F5]/60 mt-1">Manage and track all customer orders</p>
         </div>
         
         {/* Statistics Pills */}
         <div className="flex gap-2">
-          <div className="px-3 py-1 bg-[#7A2F57]/10 border border-[#B76E79]/20 rounded-full">
-            <p className="text-[10px] text-[#EAE0D5]/40 uppercase tracking-tighter">Total Orders</p>
-            <p className="text-sm font-bold text-[#F2C29A]">{totalOrders}</p>
+          <div className="px-3 py-1 bg-[#9333EA]/10 border border-[#E07B8B]/20 rounded-full">
+            <p className="text-[10px] text-[#F5F5F5]/40 uppercase tracking-tighter">Total Orders</p>
+            <p className="text-sm font-bold text-[#FFD700]">{totalOrders}</p>
           </div>
-          <div className="px-3 py-1 bg-[#7A2F57]/10 border border-[#B76E79]/20 rounded-full">
-            <p className="text-[10px] text-[#EAE0D5]/40 uppercase tracking-tighter">Filtered Revenue</p>
-            <p className="text-sm font-bold text-[#F2C29A]">₹{Number(totalRevenue || 0).toLocaleString('en-IN')}</p>
+          <div className="px-3 py-1 bg-[#9333EA]/10 border border-[#E07B8B]/20 rounded-full">
+            <p className="text-[10px] text-[#F5F5F5]/40 uppercase tracking-tighter">Filtered Revenue</p>
+            <p className="text-sm font-bold text-[#FFD700]">₹{Number(totalRevenue || 0).toLocaleString('en-IN')}</p>
           </div>
         </div>
       </div>
       <div className="flex items-center gap-3">
         <button
           onClick={onRefresh}
-          className="p-2 rounded-xl border border-[#B76E79]/20 text-[#EAE0D5]/70 hover:bg-[#B76E79]/10 transition-colors"
+          className="p-2 rounded-xl border border-[#E07B8B]/20 text-[#F5F5F5]/70 hover:bg-[#E07B8B]/10 transition-colors"
           title="Refresh orders"
         >
           <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
         </button>
         <button
           onClick={onExport}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#7A2F57]/20 border border-[#B76E79]/25 text-[#F2C29A] hover:bg-[#7A2F57]/35 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#9333EA]/20 border border-[#E07B8B]/25 text-[#FFD700] hover:bg-[#9333EA]/35 transition-colors"
           title="Export orders to Excel"
         >
           <FileSpreadsheet className="w-4 h-4" />
@@ -494,27 +494,27 @@ function Header({ loading, totalOrders, totalRevenue, onRefresh, onExport, onPod
 
 function FiltersBar({ search, onSearch, status, onStatusChange }) {
   return (
-    <div className="bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl p-4">
+    <div className="bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl p-4">
       <div className="flex flex-col md:flex-row gap-4">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#EAE0D5]/40" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#F5F5F5]/40" />
           <input
             type="text"
             placeholder="Search by order id or customer..."
             value={search}
             onChange={(e) => onSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-xl text-[#EAE0D5] placeholder-[#EAE0D5]/40 focus:outline-none focus:border-[#B76E79]/40 transition-colors text-sm"
+            className="w-full pl-10 pr-4 py-2.5 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-xl text-[#F5F5F5] placeholder-[#F5F5F5]/40 focus:outline-none focus:border-[#E07B8B]/40 transition-colors text-sm"
           />
         </div>
         <div className="relative">
-          <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#EAE0D5]/40" />
+          <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#F5F5F5]/40" />
           <select
             value={status}
             onChange={(e) => onStatusChange(e.target.value)}
-            className="w-full md:w-auto pl-10 pr-8 py-2.5 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-xl text-[#EAE0D5] focus:outline-none focus:border-[#B76E79]/40 transition-colors text-sm appearance-none cursor-pointer"
+            className="w-full md:w-auto pl-10 pr-8 py-2.5 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-xl text-[#F5F5F5] focus:outline-none focus:border-[#E07B8B]/40 transition-colors text-sm appearance-none cursor-pointer"
           >
             {STATUS_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value} className="bg-[#0B0608]">
+              <option key={opt.value} value={opt.value} className="bg-[#0A0A0A]">
                 {opt.label}
               </option>
             ))}
@@ -523,7 +523,7 @@ function FiltersBar({ search, onSearch, status, onStatusChange }) {
         {(status || search) && (
           <button
             onClick={() => { onSearch(''); onStatusChange(''); }}
-            className="px-4 py-2.5 text-sm text-[#B76E79] hover:text-[#F2C29A] transition-colors"
+            className="px-4 py-2.5 text-sm text-[#E07B8B] hover:text-[#FFD700] transition-colors"
           >
             Clear filters
           </button>
@@ -548,11 +548,11 @@ function StatusSummary({ counts, active, onPick }) {
             className={`p-4 rounded-xl border transition-all text-left ${
               isActive
                 ? `${tone.activeBg} ${tone.activeBorder}`
-                : `bg-[#0B0608]/40 ${tone.border} hover:${tone.activeBg}`
+                : `bg-[#0A0A0A]/40 ${tone.border} hover:${tone.activeBg}`
             }`}
           >
             <p className={`text-2xl font-bold ${tone.color}`}>{count}</p>
-            <p className={`text-xs mt-0.5 font-medium ${isActive ? tone.color : 'text-[#EAE0D5]/60'}`}>
+            <p className={`text-xs mt-0.5 font-medium ${isActive ? tone.color : 'text-[#F5F5F5]/60'}`}>
               {status.label}
             </p>
           </button>
@@ -564,8 +564,8 @@ function StatusSummary({ counts, active, onPick }) {
 
 function BulkActionsBar({ count, busy, onShip, onDeliver, onCancel, onClear }) {
   return (
-    <div className="flex flex-wrap items-center gap-2 p-4 bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl">
-      <span className="text-sm text-[#EAE0D5]/60 mr-2">{count} selected</span>
+    <div className="flex flex-wrap items-center gap-2 p-4 bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl">
+      <span className="text-sm text-[#F5F5F5]/60 mr-2">{count} selected</span>
       <button
         onClick={onShip}
         disabled={busy}
@@ -589,7 +589,7 @@ function BulkActionsBar({ count, busy, onShip, onDeliver, onCancel, onClear }) {
       </button>
       <button
         onClick={onClear}
-        className="ml-auto text-xs text-[#EAE0D5]/40 hover:text-[#EAE0D5]/70"
+        className="ml-auto text-xs text-[#F5F5F5]/40 hover:text-[#F5F5F5]/70"
       >
         Clear
       </button>
@@ -603,28 +603,28 @@ function OrdersSkeleton() {
       {/* Header Skeleton */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div className="space-y-2">
-          <div className="h-8 bg-[#B76E79]/10 rounded-lg w-48" />
-          <div className="h-4 bg-[#B76E79]/10 rounded w-64" />
+          <div className="h-8 bg-[#E07B8B]/10 rounded-lg w-48" />
+          <div className="h-4 bg-[#E07B8B]/10 rounded w-64" />
         </div>
         <div className="flex gap-2">
-          <div className="h-10 w-10 bg-[#B76E79]/10 rounded-xl" />
-          <div className="h-10 w-24 bg-[#B76E79]/10 rounded-xl" />
-          <div className="h-10 w-24 bg-[#B76E79]/10 rounded-xl" />
+          <div className="h-10 w-10 bg-[#E07B8B]/10 rounded-xl" />
+          <div className="h-10 w-24 bg-[#E07B8B]/10 rounded-xl" />
+          <div className="h-10 w-24 bg-[#E07B8B]/10 rounded-xl" />
         </div>
       </div>
 
       {/* Status Summary Skeleton */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[...Array(4)].map((_, i) => (
-          <div key={i} className="h-24 bg-[#0B0608]/40 border border-[#B76E79]/15 rounded-xl" />
+          <div key={i} className="h-24 bg-[#0A0A0A]/40 border border-[#E07B8B]/15 rounded-xl" />
         ))}
       </div>
 
       {/* Filters Skeleton */}
-      <div className="h-16 bg-[#0B0608]/40 border border-[#B76E79]/15 rounded-2xl" />
+      <div className="h-16 bg-[#0A0A0A]/40 border border-[#E07B8B]/15 rounded-2xl" />
 
       {/* Table Skeleton */}
-      <div className="bg-[#0B0608]/40 border border-[#B76E79]/15 rounded-2xl h-[600px]" />
+      <div className="bg-[#0A0A0A]/40 border border-[#E07B8B]/15 rounded-2xl h-[600px]" />
     </div>
   );
 }

@@ -241,13 +241,13 @@ export default function OrdersPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold text-[#F2C29A]">My Orders</h2>
+        <h2 className="text-xl font-semibold text-[#FFD700]">My Orders</h2>
 
         {/* Filter */}
         <select
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
-          className="px-3 py-2 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-lg text-[#EAE0D5] focus:outline-none focus:border-[#B76E79]/40 text-sm"
+          className="px-3 py-2 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-lg text-[#F5F5F5] focus:outline-none focus:border-[#E07B8B]/40 text-sm"
         >
           <option value="all">All Orders</option>
           <option value="active">Active Orders</option>
@@ -261,16 +261,16 @@ export default function OrdersPage() {
       {loading ? (
         <div className="space-y-4">
           {[...Array(3)].map((_, i) => (
-            <div key={i} className="animate-pulse h-32 bg-[#B76E79]/10 rounded-2xl" />
+            <div key={i} className="animate-pulse h-32 bg-[#E07B8B]/10 rounded-2xl" />
           ))}
         </div>
       ) : filteredOrders.length === 0 ? (
-        <div className="p-8 bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl text-center">
-          <Package className="w-16 h-16 text-[#B76E79]/30 mx-auto mb-4" />
-          <p className="text-[#EAE0D5]/50">No orders found</p>
+        <div className="p-8 bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl text-center">
+          <Package className="w-16 h-16 text-[#E07B8B]/30 mx-auto mb-4" />
+          <p className="text-[#F5F5F5]/50">No orders found</p>
           <Link
             href="/products"
-            className="inline-block mt-4 px-6 py-2 bg-gradient-to-r from-[#7A2F57] to-[#B76E79] text-white rounded-xl hover:opacity-90 transition-opacity"
+            className="inline-block mt-4 px-6 py-2 bg-gradient-to-r from-[#9333EA] to-[#E07B8B] text-white rounded-xl hover:opacity-90 transition-opacity"
           >
             Start Shopping
           </Link>
@@ -284,22 +284,22 @@ export default function OrdersPage() {
             return (
               <div
                 key={order.id}
-                className={`p-4 bg-[#0B0608]/40 backdrop-blur-md border rounded-2xl transition-all duration-500 ${updatedOrderId === order.id
-                  ? 'border-[#F2C29A]/60 ring-1 ring-[#F2C29A]/30'
-                  : 'border-[#B76E79]/15 hover:border-[#B76E79]/30'
+                className={`p-4 bg-[#0A0A0A]/40 backdrop-blur-md border rounded-2xl transition-all duration-500 ${updatedOrderId === order.id
+                  ? 'border-[#FFD700]/60 ring-1 ring-[#FFD700]/30'
+                  : 'border-[#E07B8B]/15 hover:border-[#E07B8B]/30'
                   }`}
               >
                 <div className="flex flex-col md:flex-row md:items-center gap-4">
                   {/* Order Info */}
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
-                      <span className="font-mono text-[#F2C29A]">{order.order_number}</span>
+                      <span className="font-mono text-[#FFD700]">{order.order_number}</span>
                       <span className={`px-2 py-0.5 rounded-full text-xs ${statusConfig.bg} ${statusConfig.color} flex items-center gap-1`}>
                         <StatusIcon className="w-3 h-3" />
                         {statusConfig.label}
                       </span>
                     </div>
-                    <p className="text-sm text-[#EAE0D5]/70">
+                    <p className="text-sm text-[#F5F5F5]/70">
                       {order.items_count} item{order.items_count > 1 ? 's' : ''} • {formatDate(order.created_at)}
                     </p>
                   </div>
@@ -309,7 +309,7 @@ export default function OrdersPage() {
                     {order.items?.slice(0, 3).map((item, idx) => (
                       <div
                         key={idx}
-                        className="relative w-12 h-14 bg-[#7A2F57]/10 rounded-lg overflow-hidden flex items-center justify-center flex-shrink-0"
+                        className="relative w-12 h-14 bg-[#9333EA]/10 rounded-lg overflow-hidden flex items-center justify-center flex-shrink-0"
                       >
                         {(item.image_url || item.product_image || item.image) ? (
                           <Image
@@ -321,12 +321,12 @@ export default function OrdersPage() {
                             onError={(e) => { e.currentTarget.style.display = 'none'; }}
                           />
                         ) : (
-                          <Package className="w-5 h-5 text-[#B76E79]/30" />
+                          <Package className="w-5 h-5 text-[#E07B8B]/30" />
                         )}
                       </div>
                     ))}
                     {order.items_count > 3 && (
-                      <div className="w-12 h-14 bg-[#7A2F57]/10 rounded-lg flex items-center justify-center text-xs text-[#EAE0D5]/50">
+                      <div className="w-12 h-14 bg-[#9333EA]/10 rounded-lg flex items-center justify-center text-xs text-[#F5F5F5]/50">
                         +{order.items_count - 3}
                       </div>
                     )}
@@ -334,14 +334,14 @@ export default function OrdersPage() {
 
                   {/* Total */}
                   <div className="text-right">
-                    <p className="text-lg font-semibold text-[#F2C29A]">{formatCurrency(order.total)}</p>
+                    <p className="text-lg font-semibold text-[#FFD700]">{formatCurrency(order.total)}</p>
                   </div>
 
                   {/* Actions */}
                   <div className="flex flex-wrap gap-1.5">
                     <button
                       onClick={() => handleDownloadInvoice(order.id, order.invoice_number)}
-                      className="flex items-center gap-1 px-2.5 sm:px-4 py-2 bg-[#B76E79]/10 text-[#B76E79] hover:bg-[#B76E79]/20 hover:text-[#F2C29A] rounded-xl transition-all"
+                      className="flex items-center gap-1 px-2.5 sm:px-4 py-2 bg-[#E07B8B]/10 text-[#E07B8B] hover:bg-[#E07B8B]/20 hover:text-[#FFD700] rounded-xl transition-all"
                       title="Download Invoice"
                     >
                       <Download className="w-4 h-4" />
@@ -349,7 +349,7 @@ export default function OrdersPage() {
                     </button>
                     <button
                       onClick={() => handlePrintInvoice(order.id)}
-                      className="flex items-center gap-1 px-2.5 sm:px-4 py-2 bg-[#B76E79]/10 text-[#B76E79] hover:bg-[#B76E79]/20 hover:text-[#F2C29A] rounded-xl transition-all"
+                      className="flex items-center gap-1 px-2.5 sm:px-4 py-2 bg-[#E07B8B]/10 text-[#E07B8B] hover:bg-[#E07B8B]/20 hover:text-[#FFD700] rounded-xl transition-all"
                       title="Print Invoice"
                     >
                       <Printer className="w-4 h-4" />
@@ -360,12 +360,12 @@ export default function OrdersPage() {
 
                 {/* Shipped: Show POD/Tracking prominently */}
                 {order.status === 'shipped' && (
-                  <div className="mt-3 pt-3 border-t border-[#B76E79]/10 space-y-1.5">
+                  <div className="mt-3 pt-3 border-t border-[#E07B8B]/10 space-y-1.5">
                     {order.tracking_number && (
                       <div className="flex items-center gap-2 p-2.5 bg-cyan-400/5 border border-cyan-400/20 rounded-xl">
                         <Hash className="w-4 h-4 text-cyan-400 flex-shrink-0" />
                         <div>
-                          <p className="text-xs text-[#EAE0D5]/50 uppercase tracking-widest">POD / Tracking Number</p>
+                          <p className="text-xs text-[#F5F5F5]/50 uppercase tracking-widest">POD / Tracking Number</p>
                           <p className="text-sm font-mono font-semibold text-cyan-300">{order.tracking_number}</p>
                         </div>
                       </div>
@@ -374,13 +374,13 @@ export default function OrdersPage() {
                       <div className="flex items-center gap-2 p-2.5 bg-purple-400/5 border border-purple-400/20 rounded-xl">
                         <Truck className="w-4 h-4 text-purple-400 flex-shrink-0" />
                         <div>
-                          <p className="text-xs text-[#EAE0D5]/50 uppercase tracking-widest">Courier Service</p>
+                          <p className="text-xs text-[#F5F5F5]/50 uppercase tracking-widest">Courier Service</p>
                           <p className="text-sm font-semibold text-purple-300">{order.courier_name}</p>
                         </div>
                       </div>
                     )}
                     {order.estimated_delivery && (
-                      <p className="text-sm text-[#EAE0D5]/60">
+                      <p className="text-sm text-[#F5F5F5]/60">
                         <Truck className="w-4 h-4 inline mr-1 text-cyan-400" />
                         Estimated delivery: {formatDate(order.estimated_delivery)}
                       </p>
@@ -388,8 +388,8 @@ export default function OrdersPage() {
                   </div>
                 )}
                 {order.status === 'delivered' && order.delivered_at && (
-                  <div className="mt-3 pt-3 border-t border-[#B76E79]/10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                    <p className="text-sm text-[#EAE0D5]/70">
+                  <div className="mt-3 pt-3 border-t border-[#E07B8B]/10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <p className="text-sm text-[#F5F5F5]/70">
                       <CheckCircle className="w-4 h-4 inline mr-1 text-green-400" />
                       Delivered on: {formatDate(order.delivered_at)}
                     </p>
@@ -398,10 +398,10 @@ export default function OrdersPage() {
 
                 {/* Expandable Item Details */}
                 {order.items && order.items.length > 0 && (
-                  <div className="mt-3 pt-3 border-t border-[#B76E79]/10">
+                  <div className="mt-3 pt-3 border-t border-[#E07B8B]/10">
                     <button
                       onClick={() => toggleOrderDetails(order.id)}
-                      className="flex items-center gap-2 text-sm text-[#B76E79] hover:text-[#F2C29A] transition-colors w-full"
+                      className="flex items-center gap-2 text-sm text-[#E07B8B] hover:text-[#FFD700] transition-colors w-full"
                     >
                       <ChevronRight className={`w-4 h-4 transition-transform ${expandedOrder === order.id ? 'rotate-90' : ''}`} />
                       {expandedOrder === order.id ? 'Hide' : 'Show'} {order.items.length} item{order.items.length > 1 ? 's' : ''}
@@ -410,9 +410,9 @@ export default function OrdersPage() {
                     {expandedOrder === order.id && (
                       <div className="mt-3 space-y-2">
                         {order.items.map((item, idx) => (
-                          <div key={idx} className="flex items-start gap-3 p-3 bg-[#0B0608]/60 rounded-xl">
+                          <div key={idx} className="flex items-start gap-3 p-3 bg-[#0A0A0A]/60 rounded-xl">
                             {/* Product Image */}
-                            <div className="relative w-16 h-20 bg-[#7A2F57]/10 rounded-lg overflow-hidden flex-shrink-0">
+                            <div className="relative w-16 h-20 bg-[#9333EA]/10 rounded-lg overflow-hidden flex-shrink-0">
                               {item.image_url ? (
                                 <Image
                                   src={item.image_url}
@@ -427,34 +427,34 @@ export default function OrdersPage() {
                                 />
                               ) : null}
                               <div className="absolute inset-0 flex items-center justify-center" style={{ display: 'none' }}>
-                                <Package className="w-6 h-6 text-[#B76E79]/30" />
+                                <Package className="w-6 h-6 text-[#E07B8B]/30" />
                               </div>
                               {!item.image_url && (
                                 <div className="absolute inset-0 flex items-center justify-center">
-                                  <Package className="w-6 h-6 text-[#B76E79]/30" />
+                                  <Package className="w-6 h-6 text-[#E07B8B]/30" />
                                 </div>
                               )}
                             </div>
 
                             {/* Item Details */}
                             <div className="flex-1 min-w-0">
-                              <p className="font-medium text-[#F2C29A] text-sm truncate">{item.product_name || 'Product'}</p>
-                              <div className="mt-1 flex flex-wrap gap-2 text-xs text-[#EAE0D5]/60">
-                                {item.size && <span className="px-1.5 py-0.5 bg-[#7A2F57]/20 rounded">Size: {item.size}</span>}
+                              <p className="font-medium text-[#FFD700] text-sm truncate">{item.product_name || 'Product'}</p>
+                              <div className="mt-1 flex flex-wrap gap-2 text-xs text-[#F5F5F5]/60">
+                                {item.size && <span className="px-1.5 py-0.5 bg-[#9333EA]/20 rounded">Size: {item.size}</span>}
                                 {item.color && (
-                                  <span className="px-1.5 py-0.5 bg-[#7A2F57]/20 rounded inline-flex items-center gap-1">
+                                  <span className="px-1.5 py-0.5 bg-[#9333EA]/20 rounded inline-flex items-center gap-1">
                                     {item.color_hex && (
                                       <span className="w-2.5 h-2.5 rounded-full border border-white/20 shrink-0" style={{ backgroundColor: item.color_hex }} />
                                     )}
                                     {item.color}
                                   </span>
                                 )}
-                                {item.sku && <span className="px-1.5 py-0.5 bg-[#7A2F57]/20 rounded font-mono">SKU: {item.sku}</span>}
+                                {item.sku && <span className="px-1.5 py-0.5 bg-[#9333EA]/20 rounded font-mono">SKU: {item.sku}</span>}
                               </div>
                               <div className="mt-2 flex items-center gap-3 text-sm">
-                                <span className="text-[#EAE0D5]/60">Qty: {item.quantity}</span>
-                                {item.unit_price && <span className="text-[#EAE0D5]/60">@ {formatCurrency(item.unit_price)} each</span>}
-                                <span className="font-semibold text-[#F2C29A]">{formatCurrency(item.price)}</span>
+                                <span className="text-[#F5F5F5]/60">Qty: {item.quantity}</span>
+                                {item.unit_price && <span className="text-[#F5F5F5]/60">@ {formatCurrency(item.unit_price)} each</span>}
+                                <span className="font-semibold text-[#FFD700]">{formatCurrency(item.price)}</span>
                               </div>
                             </div>
                           </div>

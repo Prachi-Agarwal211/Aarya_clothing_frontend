@@ -62,7 +62,7 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-xl font-semibold text-[#F2C29A]">Account Settings</h2>
+      <h2 className="text-xl font-semibold text-[#FFD700]">Account Settings</h2>
 
       {/* Success Message */}
       {saved && (
@@ -79,26 +79,26 @@ export default function SettingsPage() {
       )}
 
       {/* Change Password */}
-      <div className="p-6 bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl">
+      <div className="p-6 bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl">
         <div className="flex items-center gap-3 mb-6">
-          <Lock className="w-5 h-5 text-[#B76E79]" />
-          <h3 className="text-lg font-medium text-[#F2C29A]">Change Password</h3>
+          <Lock className="w-5 h-5 text-[#E07B8B]" />
+          <h3 className="text-lg font-medium text-[#FFD700]">Change Password</h3>
         </div>
 
         <div className="space-y-4 max-w-md">
           <div>
-            <label className="block text-sm text-[#EAE0D5]/70 mb-1">Current Password</label>
+            <label className="block text-sm text-[#F5F5F5]/70 mb-1">Current Password</label>
             <div className="relative">
               <input
                 type={showCurrentPassword ? 'text' : 'password'}
                 value={passwordForm.current_password}
                 onChange={(e) => setPasswordForm(prev => ({ ...prev, current_password: e.target.value }))}
-                className="w-full px-3 py-2.5 pr-10 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-lg text-[#EAE0D5] focus:outline-none focus:border-[#B76E79]/40"
+                className="w-full px-3 py-2.5 pr-10 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-lg text-[#F5F5F5] focus:outline-none focus:border-[#E07B8B]/40"
               />
               <button
                 type="button"
                 onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#EAE0D5]/50 hover:text-[#EAE0D5]"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#F5F5F5]/50 hover:text-[#F5F5F5]"
               >
                 {showCurrentPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
@@ -106,19 +106,19 @@ export default function SettingsPage() {
           </div>
 
           <div>
-            <label className="block text-sm text-[#EAE0D5]/70 mb-1">New Password</label>
+            <label className="block text-sm text-[#F5F5F5]/70 mb-1">New Password</label>
             <div className="relative">
               <input
                 type={showNewPassword ? 'text' : 'password'}
                 value={passwordForm.new_password}
                 onChange={(e) => setPasswordForm(prev => ({ ...prev, new_password: e.target.value }))}
                 inputMode="text"
-                className="w-full px-3 py-2.5 pr-10 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-lg text-[#EAE0D5] focus:outline-none focus:border-[#B76E79]/40"
+                className="w-full px-3 py-2.5 pr-10 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-lg text-[#F5F5F5] focus:outline-none focus:border-[#E07B8B]/40"
               />
               <button
                 type="button"
                 onClick={() => setShowNewPassword(!showNewPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#EAE0D5]/50 hover:text-[#EAE0D5]"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#F5F5F5]/50 hover:text-[#F5F5F5]"
               >
                 {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
@@ -126,20 +126,20 @@ export default function SettingsPage() {
           </div>
 
           <div>
-            <label className="block text-sm text-[#EAE0D5]/70 mb-1">Confirm New Password</label>
+            <label className="block text-sm text-[#F5F5F5]/70 mb-1">Confirm New Password</label>
             <input
               type="password"
               value={passwordForm.confirm_password}
               onChange={(e) => setPasswordForm(prev => ({ ...prev, confirm_password: e.target.value }))}
               inputMode="text"
-              className="w-full px-3 py-2.5 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-lg text-[#EAE0D5] focus:outline-none focus:border-[#B76E79]/40"
+              className="w-full px-3 py-2.5 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-lg text-[#F5F5F5] focus:outline-none focus:border-[#E07B8B]/40"
             />
           </div>
 
           <button
             onClick={handlePasswordChange}
             disabled={saving || !passwordForm.current_password || !passwordForm.new_password}
-            className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-[#7A2F57] to-[#B76E79] text-white rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50"
+            className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-[#9333EA] to-[#E07B8B] text-white rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50"
           >
             <Save className="w-4 h-4" />
             {saving ? 'Updating...' : 'Update Password'}
@@ -148,65 +148,65 @@ export default function SettingsPage() {
       </div>
 
       {/* Notification Preferences */}
-      <div className="p-6 bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl">
+      <div className="p-6 bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl">
         <div className="flex items-center gap-3 mb-6">
-          <Bell className="w-5 h-5 text-[#B76E79]" />
-          <h3 className="text-lg font-medium text-[#F2C29A]">Notification Preferences</h3>
+          <Bell className="w-5 h-5 text-[#E07B8B]" />
+          <h3 className="text-lg font-medium text-[#FFD700]">Notification Preferences</h3>
         </div>
 
         <div className="space-y-4">
-          <label className="flex items-center justify-between p-3 bg-[#0B0608]/40 rounded-lg cursor-pointer hover:bg-[#0B0608]/60 transition-colors">
+          <label className="flex items-center justify-between p-3 bg-[#0A0A0A]/40 rounded-lg cursor-pointer hover:bg-[#0A0A0A]/60 transition-colors">
             <div>
-              <p className="text-[#EAE0D5]">Order Updates</p>
-              <p className="text-sm text-[#EAE0D5]/50">Get notified about your order status</p>
+              <p className="text-[#F5F5F5]">Order Updates</p>
+              <p className="text-sm text-[#F5F5F5]/50">Get notified about your order status</p>
             </div>
             <input
               type="checkbox"
               checked={notifications.order_updates}
               onChange={() => handleNotificationChange('order_updates')}
-              className="w-5 h-5 rounded border-[#B76E79]/30 bg-[#0B0608]/60 text-[#B76E79] focus:ring-[#B76E79]/30"
+              className="w-5 h-5 rounded border-[#E07B8B]/30 bg-[#0A0A0A]/60 text-[#E07B8B] focus:ring-[#E07B8B]/30"
             />
           </label>
 
-          <label className="flex items-center justify-between p-3 bg-[#0B0608]/40 rounded-lg cursor-pointer hover:bg-[#0B0608]/60 transition-colors">
+          <label className="flex items-center justify-between p-3 bg-[#0A0A0A]/40 rounded-lg cursor-pointer hover:bg-[#0A0A0A]/60 transition-colors">
             <div>
-              <p className="text-[#EAE0D5]">Newsletter</p>
-              <p className="text-sm text-[#EAE0D5]/50">Weekly updates about new arrivals</p>
+              <p className="text-[#F5F5F5]">Newsletter</p>
+              <p className="text-sm text-[#F5F5F5]/50">Weekly updates about new arrivals</p>
             </div>
             <input
               type="checkbox"
               checked={notifications.newsletter}
               onChange={() => handleNotificationChange('newsletter')}
-              className="w-5 h-5 rounded border-[#B76E79]/30 bg-[#0B0608]/60 text-[#B76E79] focus:ring-[#B76E79]/30"
+              className="w-5 h-5 rounded border-[#E07B8B]/30 bg-[#0A0A0A]/60 text-[#E07B8B] focus:ring-[#E07B8B]/30"
             />
           </label>
         </div>
       </div>
 
       {/* Security */}
-      <div className="p-6 bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl">
+      <div className="p-6 bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl">
         <div className="flex items-center gap-3 mb-6">
-          <Shield className="w-5 h-5 text-[#B76E79]" />
-          <h3 className="text-lg font-medium text-[#F2C29A]">Security</h3>
+          <Shield className="w-5 h-5 text-[#E07B8B]" />
+          <h3 className="text-lg font-medium text-[#FFD700]">Security</h3>
         </div>
 
         <div className="space-y-4">
-          <div className="flex items-center justify-between p-3 bg-[#0B0608]/40 rounded-lg">
+          <div className="flex items-center justify-between p-3 bg-[#0A0A0A]/40 rounded-lg">
             <div>
-              <p className="text-[#EAE0D5]">Two-Factor Authentication</p>
-              <p className="text-sm text-[#EAE0D5]/50">Add an extra layer of security</p>
+              <p className="text-[#F5F5F5]">Two-Factor Authentication</p>
+              <p className="text-sm text-[#F5F5F5]/50">Add an extra layer of security</p>
             </div>
-            <button className="px-4 py-2 text-sm text-[#B76E79] border border-[#B76E79]/20 rounded-lg hover:border-[#B76E79]/40 hover:text-[#F2C29A] transition-colors">
+            <button className="px-4 py-2 text-sm text-[#E07B8B] border border-[#E07B8B]/20 rounded-lg hover:border-[#E07B8B]/40 hover:text-[#FFD700] transition-colors">
               Enable
             </button>
           </div>
 
-          <div className="flex items-center justify-between p-3 bg-[#0B0608]/40 rounded-lg">
+          <div className="flex items-center justify-between p-3 bg-[#0A0A0A]/40 rounded-lg">
             <div>
-              <p className="text-[#EAE0D5]">Active Sessions</p>
-              <p className="text-sm text-[#EAE0D5]/50">Manage your logged in devices</p>
+              <p className="text-[#F5F5F5]">Active Sessions</p>
+              <p className="text-sm text-[#F5F5F5]/50">Manage your logged in devices</p>
             </div>
-            <button className="px-4 py-2 text-sm text-[#B76E79] border border-[#B76E79]/20 rounded-lg hover:border-[#B76E79]/40 hover:text-[#F2C29A] transition-colors">
+            <button className="px-4 py-2 text-sm text-[#E07B8B] border border-[#E07B8B]/20 rounded-lg hover:border-[#E07B8B]/40 hover:text-[#FFD700] transition-colors">
               View
             </button>
           </div>
@@ -216,7 +216,7 @@ export default function SettingsPage() {
       {/* Danger Zone */}
       <div className="p-6 bg-red-500/5 border border-red-500/20 rounded-2xl">
         <h3 className="text-lg font-medium text-red-400 mb-4">Danger Zone</h3>
-        <p className="text-sm text-[#EAE0D5]/50 mb-4">
+        <p className="text-sm text-[#F5F5F5]/50 mb-4">
           Once you delete your account, there is no going back. Please be certain.
         </p>
         <button className="px-4 py-2 text-sm text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/10 transition-colors">

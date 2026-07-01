@@ -116,24 +116,24 @@ export default function InventoryRow({ item, onUpdated, onError }) {
       ? 'text-red-400'
       : (item.quantity ?? 0) <= (item.low_stock_threshold ?? 5)
         ? 'text-orange-400'
-        : 'text-[#F2C29A]';
+        : 'text-[#FFD700]';
 
   return (
     <tr
-      className={`hover:bg-[#B76E79]/5 transition-colors ${item.is_active === false ? 'opacity-50' : ''}`}
+      className={`hover:bg-[#E07B8B]/5 transition-colors ${item.is_active === false ? 'opacity-50' : ''}`}
     >
       <td className="px-4 py-4">
-        <p className="font-medium text-[#EAE0D5] text-sm">{item.product_name}</p>
-        <p className="text-xs text-[#EAE0D5]/40 font-mono mt-0.5">
+        <p className="font-medium text-[#F5F5F5] text-sm">{item.product_name}</p>
+        <p className="text-xs text-[#F5F5F5]/40 font-mono mt-0.5">
           {item.sku || `INV-${item.id}`}
         </p>
-        <p className="text-xs text-[#EAE0D5]/50 mt-0.5 sm:hidden">
+        <p className="text-xs text-[#F5F5F5]/50 mt-0.5 sm:hidden">
           {[item.size, item.color].filter(Boolean).join(' · ') || 'Standard'}
         </p>
       </td>
 
-      <td className="px-4 py-4 text-sm text-[#EAE0D5]/70 hidden sm:table-cell">
-        {item.size || <span className="text-[#EAE0D5]/30">—</span>}
+      <td className="px-4 py-4 text-sm text-[#F5F5F5]/70 hidden sm:table-cell">
+        {item.size || <span className="text-[#F5F5F5]/30">—</span>}
       </td>
 
       <td className="px-4 py-4 text-sm hidden sm:table-cell">
@@ -144,10 +144,10 @@ export default function InventoryRow({ item, onUpdated, onError }) {
               style={{ backgroundColor: item.color_hex || '#888' }}
               title={item.color}
             />
-            <span className="text-[#EAE0D5]/70">{item.color}</span>
+            <span className="text-[#F5F5F5]/70">{item.color}</span>
           </div>
         ) : (
-          <span className="text-[#EAE0D5]/30">—</span>
+          <span className="text-[#F5F5F5]/30">—</span>
         )}
       </td>
 
@@ -165,7 +165,7 @@ export default function InventoryRow({ item, onUpdated, onError }) {
               if (e.key === 'Escape') setQtyDraft(String(item.quantity ?? 0));
             }}
             disabled={savingField !== null}
-            className={`w-16 px-2 py-1 bg-[#0B0608]/60 border rounded-lg text-sm text-center font-bold focus:outline-none focus:border-[#B76E79]/60 ${qtyDirty ? 'border-[#F2C29A]/40' : 'border-[#B76E79]/15'} ${stockColor}`}
+            className={`w-16 px-2 py-1 bg-[#0A0A0A]/60 border rounded-lg text-sm text-center font-bold focus:outline-none focus:border-[#E07B8B]/60 ${qtyDirty ? 'border-[#FFD700]/40' : 'border-[#E07B8B]/15'} ${stockColor}`}
             aria-label="Stock quantity"
           />
           {qtyDirty && (
@@ -173,7 +173,7 @@ export default function InventoryRow({ item, onUpdated, onError }) {
               type="button"
               onClick={handleSaveQty}
               disabled={savingField !== null}
-              className="p-1.5 rounded-lg bg-[#7A2F57]/40 border border-[#B76E79]/40 text-[#F2C29A] hover:bg-[#7A2F57]/60 transition-colors disabled:opacity-50"
+              className="p-1.5 rounded-lg bg-[#9333EA]/40 border border-[#E07B8B]/40 text-[#FFD700] hover:bg-[#9333EA]/60 transition-colors disabled:opacity-50"
               title="Save quantity"
             >
               {savingField === 'qty' ? (
@@ -186,7 +186,7 @@ export default function InventoryRow({ item, onUpdated, onError }) {
         </div>
       </td>
 
-      <td className="px-4 py-4 text-center text-sm text-[#EAE0D5]/50 hidden md:table-cell">
+      <td className="px-4 py-4 text-center text-sm text-[#F5F5F5]/50 hidden md:table-cell">
         {item.reserved_quantity || 0}
       </td>
 
@@ -205,7 +205,7 @@ export default function InventoryRow({ item, onUpdated, onError }) {
                 setThresholdDraft(String(item.low_stock_threshold ?? 5));
             }}
             disabled={savingField !== null}
-            className={`w-14 px-2 py-1 bg-[#0B0608]/60 border rounded-lg text-sm text-center text-[#EAE0D5]/80 focus:outline-none focus:border-[#B76E79]/60 ${thresholdDirty ? 'border-[#F2C29A]/40' : 'border-[#B76E79]/15'}`}
+            className={`w-14 px-2 py-1 bg-[#0A0A0A]/60 border rounded-lg text-sm text-center text-[#F5F5F5]/80 focus:outline-none focus:border-[#E07B8B]/60 ${thresholdDirty ? 'border-[#FFD700]/40' : 'border-[#E07B8B]/15'}`}
             aria-label="Low stock threshold"
           />
           {thresholdDirty && (
@@ -213,7 +213,7 @@ export default function InventoryRow({ item, onUpdated, onError }) {
               type="button"
               onClick={handleSaveThreshold}
               disabled={savingField !== null}
-              className="p-1.5 rounded-lg bg-[#7A2F57]/40 border border-[#B76E79]/40 text-[#F2C29A] hover:bg-[#7A2F57]/60 transition-colors disabled:opacity-50"
+              className="p-1.5 rounded-lg bg-[#9333EA]/40 border border-[#E07B8B]/40 text-[#FFD700] hover:bg-[#9333EA]/60 transition-colors disabled:opacity-50"
               title="Save threshold"
             >
               {savingField === 'threshold' ? (
@@ -239,7 +239,7 @@ export default function InventoryRow({ item, onUpdated, onError }) {
             type="button"
             onClick={handleToggleActive}
             disabled={savingField !== null}
-            className={`p-1.5 rounded-lg border transition-colors disabled:opacity-50 ${item.is_active === false ? 'bg-[#B76E79]/10 border-[#B76E79]/30 text-[#EAE0D5]/40' : 'bg-green-500/10 border-green-500/25 text-green-400'}`}
+            className={`p-1.5 rounded-lg border transition-colors disabled:opacity-50 ${item.is_active === false ? 'bg-[#E07B8B]/10 border-[#E07B8B]/30 text-[#F5F5F5]/40' : 'bg-green-500/10 border-green-500/25 text-green-400'}`}
             title={item.is_active === false ? 'Inactive — click to activate' : 'Active — click to deactivate'}
           >
             {savingField === 'active' ? (

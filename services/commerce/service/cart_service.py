@@ -92,12 +92,6 @@ class CartService:
                 "subtotal": 0,
                 "discount": 0,
                 "shipping": 0,
-                "gst_amount": 0,
-                "cgst_amount": 0,
-                "sgst_amount": 0,
-                "igst_amount": 0,
-                "delivery_state": None,
-                "customer_gstin": None,
                 "total": 0,
                 "total_amount": 0,  # Alias for total
                 "item_count": 0,
@@ -110,12 +104,6 @@ class CartService:
             "subtotal": 0,
             "discount": 0,
             "shipping": 0,
-            "gst_amount": 0,
-            "cgst_amount": 0,
-            "sgst_amount": 0,
-            "igst_amount": 0,
-            "delivery_state": None,
-            "customer_gstin": None,
             "total": 0,
             "total_amount": 0,  # Alias for total
             "item_count": 0,
@@ -302,10 +290,7 @@ class CartService:
                     else _r2_url(product.primary_image),
                     "size": inventory.size if inventory is not None else None,
                     "color": inventory.color if inventory is not None else None,
-                    "hsn_code": product.hsn_code or None,
-                    "gst_rate": product.gst_rate
-                    if product.gst_rate is not None
-                    else None,
+
                 }
             )
 
@@ -333,13 +318,6 @@ class CartService:
 
         # NO SHIPPING CHARGES - All prices inclusive of shipping
         cart["shipping"] = 0.0
-
-        # NO GST ADDED - GST already included in product price
-        # Keep GST fields for display/accounting purposes but set to 0
-        cart["gst_amount"] = 0.0
-        cart["cgst_amount"] = 0.0
-        cart["sgst_amount"] = 0.0
-        cart["igst_amount"] = 0.0
 
         # Total = subtotal (no additional charges; prices are tax-inclusive)
         cart["total"] = float(subtotal)
@@ -468,15 +446,8 @@ class CartService:
             "items": [],
             "subtotal": 0,
             "discount": 0,
-            "shipping": 0,
-            "gst_amount": 0,
-            "cgst_amount": 0,
-            "sgst_amount": 0,
-            "igst_amount": 0,
-            "delivery_state": None,
-            "customer_gstin": None,
-            "total": 0,
-            "total_amount": 0,
+            "shipping": 0,                "total": 0,
+                "total_amount": 0,
             "item_count": 0,
             "reservation_expires_at": None,
         }

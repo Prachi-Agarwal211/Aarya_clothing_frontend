@@ -167,10 +167,10 @@ export default function AdminLayout({ children }) {
   // Show loading state while checking auth or waiting for auth resolution
   if (loading || !authReady) {
     return (
-      <div className="min-h-screen bg-[#050203] flex items-center justify-center">
+      <div className="min-h-screen bg-[#000000] flex items-center justify-center">
         <div className="text-center">
-          <div className="w-12 h-12 border-2 border-[#B76E79]/30 border-t-[#F2C29A] rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-[#EAE0D5]/70">Loading dashboard...</p>
+          <div className="w-12 h-12 border-2 border-[#E07B8B]/30 border-t-[#FFD700] rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-[#F5F5F5]/70">Loading dashboard...</p>
         </div>
       </div>
     );
@@ -179,24 +179,24 @@ export default function AdminLayout({ children }) {
   const isAuthorized = isAuthenticated && isStaff();
   if ((!isAuthenticated || !isAuthorized) && !isLoggingOut) {
     return (
-      <div className="min-h-screen bg-[#050203] flex items-center justify-center">
+      <div className="min-h-screen bg-[#000000] flex items-center justify-center">
         <div className="text-center">
-          <div className="w-12 h-12 border-2 border-[#B76E79]/30 border-t-[#F2C29A] rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-[#EAE0D5]/70">Redirecting...</p>
+          <div className="w-12 h-12 border-2 border-[#E07B8B]/30 border-t-[#FFD700] rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-[#F5F5F5]/70">Redirecting...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#0B0608] relative">
+    <div className="min-h-screen bg-[#0A0A0A] relative">
       {/* Background Pattern */}
       <div
         className="fixed inset-0 z-0 pointer-events-none"
         style={{
           background: `
-            radial-gradient(ellipse at 20% 20%, rgba(122, 47, 87, 0.15) 0%, transparent 60%),
-            radial-gradient(ellipse at 80% 80%, rgba(183, 110, 121, 0.1) 0%, transparent 60%),
+            radial-gradient(ellipse at 20% 20%, rgba(147, 51, 234, 0.15) 0%, transparent 60%),
+            radial-gradient(ellipse at 80% 80%, rgba(224, 123, 139, 0.1) 0%, transparent 60%),
             radial-gradient(ellipse at 50% 50%, rgba(242, 194, 154, 0.05) 0%, transparent 70%)
           `
         }}

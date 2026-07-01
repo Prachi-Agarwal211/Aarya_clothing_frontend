@@ -3,12 +3,10 @@
 import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import EnhancedHeader from '@/components/landing/EnhancedHeader';
 import HeroSection from '@/components/landing/HeroSection';
-import IntroVideo from '@/components/landing/IntroVideo';
 import NewArrivals from '@/components/landing/NewArrivals';
 import Collections from '@/components/landing/Collections';
 import TrustBadges from '@/components/landing/TrustBadges';
 import Footer from '@/components/landing/Footer';
-import { useViewport } from '@/lib/hooks/useViewport';
 import { gsap } from '@/lib/gsapConfig';
 
 // Lazy load below-the-fold sections for faster initial render / mobile perf
@@ -16,22 +14,7 @@ const WholesaleSection = lazy(() => import('@/components/landing/WholesaleSectio
 const AboutSection = lazy(() => import('@/components/landing/AboutSection'));
 
 export default function LandingClient({ landingData }) {
-  const [showLanding, setShowLanding] = useState(false);
-  const { isMobile } = useViewport();
-
-  const handleVideoEnd = () => {
-    setShowLanding(true);
-    localStorage.setItem('introVideoLastSeen', Date.now().toString());
-  };
-
-  useEffect(() => {
-    const lastSeen = localStorage.getItem('introVideoLastSeen');
-    const isRecentlySeen = lastSeen && (Date.now() - parseInt(lastSeen, 10)) < 24 * 60 * 60 * 1000;
-    
-    if (isMobile || isRecentlySeen || localStorage.getItem('introVideoSeen') === 'true') {
-      setShowLanding(true);
-    }
-  }, [isMobile]);
+  const [showLanding] = useState(true);
 
   useEffect(() => {
     if (!showLanding) return;
@@ -79,24 +62,18 @@ export default function LandingClient({ landingData }) {
 
   return (
     <>
-      {!showLanding && !isMobile && (
-        <div className="fixed inset-0 z-[200]">
-          <IntroVideo onVideoEnd={handleVideoEnd} />
-        </div>
-      )}
-
       {/* Scroll Progress Indicator */}
       <div className="fixed top-0 left-0 w-full h-[2px] z-[200] bg-transparent">
         <div
           id="scroll-progress"
-          className="h-full bg-gradient-to-r from-[#7A2F57] via-[#B76E79] to-[#F2C29A] transition-none"
+          className="h-full bg-gradient-to-r from-white/20 via-white/40 to-white/20 transition-none"
           style={{ width: '0%' }}
         />
       </div>
 
       <main 
         id="main-content"
-        className={`min-h-screen text-[#EAE0D5] overflow-x-hidden selection:bg-[#F2C29A] selection:text-[#050203] transition-opacity duration-700 ${showLanding ? 'opacity-100' : 'opacity-0 md:opacity-100'}`}
+        className="min-h-screen text-[#F5F5F5] overflow-x-hidden selection:bg-[#FFD700] selection:text-[#000000]"
         role="main"
         aria-label="Aarya Clothing Landing Page"
       >

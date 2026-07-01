@@ -163,10 +163,10 @@ const SearchDropdown = ({
           {!isLoading && recentSearches.length > 0 && !query && (
             <div className="search-section">
               <div className="search-section-header">
-                <span className="text-xs font-medium text-[#8B7B8F] uppercase tracking-wider">
+                <span className="text-xs font-medium text-[#737373] uppercase tracking-wider">
                   Recent Searches
                 </span>
-                <button className="text-xs text-[#B76E79] hover:text-[#F3E8EB]">
+                <button className="text-xs text-[#E07B8B] hover:text-[#F3E8EB]">
                   Clear All
                 </button>
               </div>
@@ -180,7 +180,7 @@ const SearchDropdown = ({
                       selectedIndex === index && 'selected'
                     )}
                   >
-                    <svg className="w-4 h-4 text-[#8B7B8F]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg className="w-4 h-4 text-[#737373]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                     <span>{search}</span>
@@ -194,10 +194,10 @@ const SearchDropdown = ({
           {!isLoading && suggestions.length > 0 && (
             <div className="search-section">
               <div className="search-section-header">
-                <span className="text-xs font-medium text-[#8B7B8F] uppercase tracking-wider">
+                <span className="text-xs font-medium text-[#737373] uppercase tracking-wider">
                   Products
                 </span>
-                <span className="text-xs text-[#8B7B8F]">
+                <span className="text-xs text-[#737373]">
                   {suggestions.length} results
                 </span>
               </div>
@@ -220,7 +220,7 @@ const SearchDropdown = ({
                       <div className="text-sm font-medium text-[#F3E8EB]">
                         {product.name}
                       </div>
-                      <div className="text-xs text-[#8B7B8F]">
+                      <div className="text-xs text-[#737373]">
                         {product.category} • ₹{product.price?.toLocaleString()}
                       </div>
                     </div>
@@ -233,13 +233,13 @@ const SearchDropdown = ({
           {/* No Results */}
           {!isLoading && query && suggestions.length === 0 && (
             <div className="search-no-results">
-              <svg className="w-12 h-12 text-[#3D2C35]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="w-12 h-12 text-[#404040]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              <p className="text-[#8B7B8F] text-sm mt-2">
+              <p className="text-[#737373] text-sm mt-2">
                 No results found for &quot;{query}&quot;
               </p>
-              <p className="text-[#5D4E57] text-xs mt-1">
+              <p className="text-[#525252] text-xs mt-1">
                 Try different keywords or check spelling
               </p>
             </div>

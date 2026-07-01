@@ -95,8 +95,11 @@ class InventoryService:
         self.db.refresh(inventory)
         return inventory
 
-    def adjust_stock(self, sku: str, adjustment: int, reason: str = "") -> Inventory:
-        """Adjust inventory stock with pessimistic locking to prevent race conditions."""
+    def adjust_stock(self, sku: str, adjustment: int, reason: str = "", movement_type: str = "manual") -> Inventory:
+        """Adjust inventory stock with pessimistic locking to prevent race conditions.
+
+        Creates an InventoryMovement audit trail entry for every adjustment.
+        """
         try:
             inventory = self.get_inventory_by_sku_for_update(sku)
         except OperationalError:
@@ -117,8 +120,9 @@ class InventoryService:
                 detail=f"Stock cannot go negative. Current: {inventory.quantity}, Adjustment: {adjustment}",
             )
 
+        old_quantity = inventory.quantity
         inventory.quantity = new_quantity
-        
+
         # Sync product.total_stock (denormalized) using delta — efficient O(1)
         try:
             product = self.db.query(Product).filter(Product.id == inventory.product_id).first()
@@ -126,7 +130,21 @@ class InventoryService:
                 product.total_stock = max(0, (product.total_stock or 0) + adjustment)
         except Exception as e:
             logger.warning(f"Failed to sync product.total_stock for product {inventory.product_id}: {e}")
-        
+
+        # Audit trail: record every stock adjustment
+        try:
+            from models.inventory_movement import InventoryMovement
+            movement = InventoryMovement(
+                inventory_id=inventory.id,
+                product_id=inventory.product_id,
+                quantity_change=adjustment,
+                movement_type=movement_type,
+                notes=reason or f"Stock adjusted from {old_quantity} to {new_quantity}",
+            )
+            self.db.add(movement)
+        except Exception as e:
+            logger.warning(f"Failed to create inventory movement audit trail for SKU {sku}: {e}")
+
         self.db.commit()
         self.db.refresh(inventory)
         return inventory

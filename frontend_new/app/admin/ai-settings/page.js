@@ -22,10 +22,10 @@ export default function AdminAiSettingsRedirect() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#050203]">
+      <div className="min-h-screen flex items-center justify-center bg-[#000000]">
         <div className="text-center">
-          <div className="w-12 h-12 border-2 border-[#B76E79]/30 border-t-[#F2C29A] rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-[#EAE0D5]/70">Redirecting...</p>
+          <div className="w-12 h-12 border-2 border-[#E07B8B]/30 border-t-[#FFD700] rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-[#F5F5F5]/70">Redirecting...</p>
         </div>
       </div>
     );

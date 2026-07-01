@@ -4,7 +4,7 @@ import React from 'react';
 
 export default function AuthLayout({ children }) {
   return (
-    <div className="min-h-screen w-full relative text-[#EAE0D5] selection:bg-[#C27A4E] selection:text-white">
+    <div className="min-h-screen w-full relative text-[#F5F5F5] selection:bg-[#F59E0B] selection:text-white">
       {/* Background is now handled by root layout - no duplicate SilkBackground here */}
 
       {/* SCROLLABLE CONTENT LAYER */}

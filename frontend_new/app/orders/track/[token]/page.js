@@ -55,7 +55,7 @@ export default function GuestOrderTrackingPage() {
   const statusCfg = order ? (STATUS_CONFIG[order.status] || STATUS_CONFIG.confirmed) : null;
 
   return (
-    <main className="min-h-screen text-[#EAE0D5] selection:bg-[#F2C29A] selection:text-[#050203]">
+    <main className="min-h-screen text-[#F5F5F5] selection:bg-[#FFD700] selection:text-[#000000]">
       <div className="relative z-10 page-wrapper">
         <EnhancedHeader />
 
@@ -63,14 +63,14 @@ export default function GuestOrderTrackingPage() {
           <div className="container mx-auto px-4 sm:px-6 md:px-8 header-spacing max-w-2xl">
 
             {/* Breadcrumb */}
-            <nav className="flex items-center gap-2 text-sm text-[#EAE0D5]/50 mb-8">
-              <Link href="/" className="hover:text-[#F2C29A] transition-colors">Home</Link>
+            <nav className="flex items-center gap-2 text-sm text-[#F5F5F5]/50 mb-8">
+              <Link href="/" className="hover:text-[#FFD700] transition-colors">Home</Link>
               <ChevronRight className="w-3 h-3" />
-              <span className="text-[#EAE0D5]">Order Tracking</span>
+              <span className="text-[#F5F5F5]">Order Tracking</span>
             </nav>
 
             <h1
-              className="text-3xl md:text-4xl text-[#F2C29A] mb-8"
+              className="text-3xl md:text-4xl text-[#FFD700] mb-8"
               style={{ fontFamily: 'Cinzel, serif' }}
             >
               Track Your Order
@@ -78,7 +78,7 @@ export default function GuestOrderTrackingPage() {
 
             {loading && (
               <div className="flex items-center justify-center py-24">
-                <div className="w-8 h-8 border-2 border-[#B76E79] border-t-transparent rounded-full animate-spin" />
+                <div className="w-8 h-8 border-2 border-[#E07B8B] border-t-transparent rounded-full animate-spin" />
               </div>
             )}
 
@@ -88,7 +88,7 @@ export default function GuestOrderTrackingPage() {
                 <p className="text-red-400 mb-4">{error}</p>
                 <Link
                   href="/"
-                  className="inline-block px-6 py-2.5 bg-gradient-to-r from-[#7A2F57] to-[#B76E79] rounded-xl text-white text-sm hover:opacity-90 transition-opacity"
+                  className="inline-block px-6 py-2.5 bg-gradient-to-r from-[#9333EA] to-[#E07B8B] rounded-xl text-white text-sm hover:opacity-90 transition-opacity"
                 >
                   Go to Homepage
                 </Link>
@@ -101,58 +101,58 @@ export default function GuestOrderTrackingPage() {
                 <div className={`p-6 ${statusCfg.bg} border ${statusCfg.border} rounded-2xl flex items-center gap-4`}>
                   <statusCfg.icon className={`w-10 h-10 ${statusCfg.color} flex-shrink-0`} />
                   <div>
-                    <p className="text-xs text-[#EAE0D5]/50 uppercase tracking-wider mb-1">Order Status</p>
+                    <p className="text-xs text-[#F5F5F5]/50 uppercase tracking-wider mb-1">Order Status</p>
                     <p className={`text-xl font-semibold ${statusCfg.color}`}>{statusCfg.label}</p>
-                    <p className="text-sm text-[#EAE0D5]/50 mt-0.5">Order #{order.order_id}</p>
+                    <p className="text-sm text-[#F5F5F5]/50 mt-0.5">Order #{order.order_id}</p>
                   </div>
                 </div>
 
                 {/* Tracking Number */}
                 {order.tracking_number && (
-                  <div className="p-5 bg-[#0B0608]/40 border border-[#B76E79]/15 rounded-2xl flex items-center gap-3">
-                    <Truck className="w-5 h-5 text-[#B76E79] flex-shrink-0" />
+                  <div className="p-5 bg-[#0A0A0A]/40 border border-[#E07B8B]/15 rounded-2xl flex items-center gap-3">
+                    <Truck className="w-5 h-5 text-[#E07B8B] flex-shrink-0" />
                     <div>
-                      <p className="text-xs text-[#EAE0D5]/50 uppercase tracking-wider">Tracking Number</p>
-                      <p className="text-[#F2C29A] font-mono font-medium">{order.tracking_number}</p>
+                      <p className="text-xs text-[#F5F5F5]/50 uppercase tracking-wider">Tracking Number</p>
+                      <p className="text-[#FFD700] font-mono font-medium">{order.tracking_number}</p>
                     </div>
                   </div>
                 )}
 
                 {/* Order Summary */}
-                <div className="bg-[#0B0608]/40 border border-[#B76E79]/15 rounded-2xl overflow-hidden">
-                  <div className="px-5 py-4 border-b border-[#B76E79]/10">
-                    <h2 className="font-semibold text-[#EAE0D5]">Order Summary</h2>
+                <div className="bg-[#0A0A0A]/40 border border-[#E07B8B]/15 rounded-2xl overflow-hidden">
+                  <div className="px-5 py-4 border-b border-[#E07B8B]/10">
+                    <h2 className="font-semibold text-[#F5F5F5]">Order Summary</h2>
                   </div>
 
-                  <div className="divide-y divide-[#B76E79]/10">
+                  <div className="divide-y divide-[#E07B8B]/10">
                     {order.items?.map((item, i) => (
                       <div key={i} className="px-5 py-4 flex items-center justify-between gap-4">
                         <div className="min-w-0">
-                          <p className="font-medium text-[#EAE0D5] truncate">{item.product_name}</p>
+                          <p className="font-medium text-[#F5F5F5] truncate">{item.product_name}</p>
                           <div className="flex items-center gap-2 mt-0.5">
                             {item.size && (
-                              <span className="text-xs text-[#EAE0D5]/50 bg-[#B76E79]/10 px-2 py-0.5 rounded-full">
+                              <span className="text-xs text-[#F5F5F5]/50 bg-[#E07B8B]/10 px-2 py-0.5 rounded-full">
                                 {item.size}
                               </span>
                             )}
                             {item.color && (
-                              <span className="text-xs text-[#EAE0D5]/50 bg-[#B76E79]/10 px-2 py-0.5 rounded-full">
+                              <span className="text-xs text-[#F5F5F5]/50 bg-[#E07B8B]/10 px-2 py-0.5 rounded-full">
                                 {item.color}
                               </span>
                             )}
-                            <span className="text-xs text-[#EAE0D5]/40">× {item.quantity}</span>
+                            <span className="text-xs text-[#F5F5F5]/40">× {item.quantity}</span>
                           </div>
                         </div>
-                        <span className="text-[#F2C29A] font-semibold flex-shrink-0">
+                        <span className="text-[#FFD700] font-semibold flex-shrink-0">
                           {formatCurrency(item.price)}
                         </span>
                       </div>
                     ))}
                   </div>
 
-                  <div className="px-5 py-4 border-t border-[#B76E79]/15 flex items-center justify-between">
-                    <span className="font-semibold text-[#EAE0D5]">Total</span>
-                    <span className="text-lg font-bold text-[#F2C29A]">
+                  <div className="px-5 py-4 border-t border-[#E07B8B]/15 flex items-center justify-between">
+                    <span className="font-semibold text-[#F5F5F5]">Total</span>
+                    <span className="text-lg font-bold text-[#FFD700]">
                       {formatCurrency(order.total_amount)}
                     </span>
                   </div>
@@ -160,26 +160,26 @@ export default function GuestOrderTrackingPage() {
 
                 {/* Metadata */}
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-[#0B0608]/40 border border-[#B76E79]/15 rounded-2xl p-4">
+                  <div className="bg-[#0A0A0A]/40 border border-[#E07B8B]/15 rounded-2xl p-4">
                     <div className="flex items-center gap-2 mb-1">
-                      <Clock className="w-4 h-4 text-[#B76E79]" />
-                      <p className="text-xs text-[#EAE0D5]/50 uppercase tracking-wider">Order Date</p>
+                      <Clock className="w-4 h-4 text-[#E07B8B]" />
+                      <p className="text-xs text-[#F5F5F5]/50 uppercase tracking-wider">Order Date</p>
                     </div>
-                    <p className="text-[#EAE0D5] font-medium">{formatDate(order.created_at)}</p>
+                    <p className="text-[#F5F5F5] font-medium">{formatDate(order.created_at)}</p>
                   </div>
-                  <div className="bg-[#0B0608]/40 border border-[#B76E79]/15 rounded-2xl p-4">
+                  <div className="bg-[#0A0A0A]/40 border border-[#E07B8B]/15 rounded-2xl p-4">
                     <div className="flex items-center gap-2 mb-1">
-                      <Package className="w-4 h-4 text-[#B76E79]" />
-                      <p className="text-xs text-[#EAE0D5]/50 uppercase tracking-wider">Items</p>
+                      <Package className="w-4 h-4 text-[#E07B8B]" />
+                      <p className="text-xs text-[#F5F5F5]/50 uppercase tracking-wider">Items</p>
                     </div>
-                    <p className="text-[#EAE0D5] font-medium">{order.items?.length ?? 0} item{order.items?.length !== 1 ? 's' : ''}</p>
+                    <p className="text-[#F5F5F5] font-medium">{order.items?.length ?? 0} item{order.items?.length !== 1 ? 's' : ''}</p>
                   </div>
                 </div>
 
                 <div className="text-center pt-4 pb-12">
                   <Link
                     href="/products"
-                    className="inline-block px-6 py-3 bg-gradient-to-r from-[#7A2F57] to-[#B76E79] rounded-xl text-white text-sm font-medium hover:opacity-90 transition-opacity"
+                    className="inline-block px-6 py-3 bg-gradient-to-r from-[#9333EA] to-[#E07B8B] rounded-xl text-white text-sm font-medium hover:opacity-90 transition-opacity"
                   >
                     Continue Shopping
                   </Link>

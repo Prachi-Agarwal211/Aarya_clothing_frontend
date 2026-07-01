@@ -1356,10 +1356,6 @@ class PaymentService:
                         "subtotal": float(transaction.amount),
                         "total_amount": float(transaction.amount),
                         "shipping_cost": 0,
-                        "gst_amount": 0,
-                        "cgst_amount": 0,
-                        "sgst_amount": 0,
-                        "igst_amount": 0,
                     }
                     logger.info(f"WEBHOOK: Recovered address from transaction metadata for user {transaction.user_id}")
 
@@ -1379,10 +1375,6 @@ class PaymentService:
                             "subtotal": float(transaction.amount),
                             "total_amount": float(transaction.amount),
                             "shipping_cost": 0,
-                            "gst_amount": 0,
-                            "cgst_amount": 0,
-                            "sgst_amount": 0,
-                            "igst_amount": 0,
                         }
                 except Exception as e:
                     logger.warning(f"WEBHOOK_CART_FETCH_ERROR: {e}")

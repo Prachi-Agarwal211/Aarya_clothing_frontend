@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useCallback, useState } from 'react';
 import { gsap, ScrollTrigger, prefersReducedMotion } from '@/lib/gsapConfig';
 import { Button } from '../ui/button';
-import Image from 'next/image';
+import OptimizedImage from '../ui/OptimizedImage';
 import { useViewport } from '@/lib/hooks/useViewport';
 import { MagneticButton } from '../ui/MagneticButton';
 
@@ -276,46 +276,29 @@ const HeroSection = ({
             aria-label={`Slide ${index + 1} of ${slides.length}`}
             aria-hidden={index !== currentSlide.current}
           >
-            {/* Image - Full viewport with Next.js Image optimization */}
-            {imgSrc && (
+            {/* Image - Full viewport with OptimizedImage for blur placeholders, error recovery, connection-aware quality */}
+              {imgSrc && (
               <div className="absolute inset-0 aspect-[9/16] md:aspect-[16/9]">
-                <Image
+                <OptimizedImage
                   src={imgSrc}
                   alt={slide.alt || `Hero slide ${index + 1}`}
                   fill
                   priority={index === 0}
-                  fetchPriority={index === 0 ? 'high' : 'auto'}
-                  sizes={isMobile ? '100vw' : '(max-width: 768px) 100vw, 100vw'}
+                  sizes="(max-width: 768px) 100vw, 100vw"
                   className="object-cover object-top"
-                  // OPTIMIZATION: Lower quality for mobile (65) vs desktop (75) for faster loading
-                  quality={isMobile ? 65 : index === 0 ? 85 : 75}
-                  loading={index === 0 ? 'eager' : 'lazy'}
-                  decoding="async"
-                  placeholder="blur"
-                  blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k="
+                  blur={true}
                 />
-                {/* Subtle gradient overlays - reduced intensity for brighter images */}
-                {/* Light header visibility gradient */}
-                <div className="absolute inset-0 bg-gradient-to-b from-[#050203]/40 via-transparent to-transparent" aria-hidden="true" />
-                {/* Light bottom gradient for button area */}
-                <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[#050203]/50" aria-hidden="true" />
-                {/* Subtle side gradients */}
-                <div className="absolute inset-0 bg-gradient-to-r from-[#050203]/20 via-transparent to-[#050203]/20" aria-hidden="true" />
-                {/* Light vignette effect */}
-                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_0%,#050203/30_100%)]" aria-hidden="true" />
+                {/* Layered gradient overlay — top + bottom vignette + radial depth */}
+                <div className="absolute inset-0 pointer-events-none" aria-hidden="true" style={{ background: 'linear-gradient(to bottom, rgba(5,2,3,0.35) 0%, transparent 30%, transparent 70%, rgba(5,2,3,0.45) 100%), radial-gradient(ellipse at center, transparent 50%, rgba(5,2,3,0.25) 100%)' }} />
               </div>
             )}
           </div>
         );
       })}
 
-      {/* Premium Decorative Elements */}
-      <div className="absolute top-1/4 left-8 w-32 h-32 bg-[#B76E79]/10 rounded-full blur-[80px] pointer-events-none z-20" aria-hidden="true" />
-      <div className="absolute bottom-1/4 right-8 w-40 h-40 bg-[#F2C29A]/5 rounded-full blur-[100px] pointer-events-none z-20" aria-hidden="true" />
-
-      {/* Decorative Glow Elements */}
+      {/* Subtle ambient glow — very low opacity for depth without distraction */}
       <div className="absolute inset-0 z-20 pointer-events-none overflow-hidden" aria-hidden="true">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-[#B76E79]/5 rounded-full blur-[120px] opacity-30" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-white/[0.02] rounded-full blur-[100px]" />
       </div>
 
       {/* Slide indicators — dots for carousel */}
@@ -324,19 +307,22 @@ const HeroSection = ({
           {slides.map((_, i) => (
             <div
               key={i}
-              className={`rounded-full transition-all duration-500 ${i === activeSlide ? 'w-6 h-1.5 bg-[#F2C29A]' : 'w-1.5 h-1.5 bg-[#EAE0D5]/30'}`}
+              className={`rounded-full transition-all duration-500 ${i === activeSlide ? 'w-6 h-1.5 bg-[#FFD700]' : 'w-1.5 h-1.5 bg-[#F5F5F5]/30'}`}
             />
           ))}
         </div>
       )}
 
+      {/* Transition gradient — smooth fade from hero into next section */}
+      <div className="absolute bottom-0 left-0 right-0 h-32 sm:h-40 bg-gradient-to-t from-[#000000] via-[#000000]/80 to-transparent z-20 pointer-events-none" aria-hidden="true" />
+
       {/* Scroll-Down Indicator — animated chevron at bottom of hero */}
       <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-1 animate-bounce" aria-hidden="true">
-        <span className="text-[#EAE0D5]/40 text-[10px] tracking-[0.2em] uppercase" style={{ fontFamily: 'Cinzel, serif' }}>Scroll</span>
-        <svg className="w-5 h-5 text-[#F2C29A]/50" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 9l-7 7-7-7" /></svg>
+        <span className="text-white/25 text-[10px] tracking-[0.3em] uppercase" style={{ fontFamily: 'var(--font-inter), system-ui, sans-serif' }}>Scroll</span>
+        <svg className="w-5 h-5 text-[#FFD700]/50" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 9l-7 7-7-7" /></svg>
       </div>
 
-      {/* Tagline and Buttons Container - bottom-24 on mobile clears the 64px bottom nav + safe area */}
+      {/* Tagline and Buttons Container */}
       <div className="absolute bottom-24 sm:bottom-20 left-0 right-0 z-30 w-full px-4">
         {/* Tagline - Just above the buttons */}
         <div
@@ -345,21 +331,21 @@ const HeroSection = ({
         >
           {/* Decorative line above tagline */}
           <div className="flex items-center justify-center gap-4 mb-4" aria-hidden="true">
-            <div className="w-16 h-[1px] bg-gradient-to-r from-transparent to-[#B76E79]/50" />
-            <div className="w-2 h-2 rounded-full bg-[#F2C29A]/30" />
-            <div className="w-16 h-[1px] bg-gradient-to-l from-transparent to-[#B76E79]/50" />
+            <div className="w-16 h-[1px] bg-gradient-to-r from-transparent to-[#E07B8B]/50" />
+            <div className="w-2 h-2 rounded-full bg-[#FFD700]/30" />
+            <div className="w-16 h-[1px] bg-gradient-to-l from-transparent to-[#E07B8B]/50" />
           </div>
           <p
-            className="text-white text-sm sm:text-base md:text-lg tracking-[0.2em] sm:tracking-[0.3em] uppercase font-light drop-shadow-[0_2px_10px_rgba(242,194,154,0.2)] px-2"
+            className="text-white/80 text-xs sm:text-sm md:text-base tracking-[0.25em] sm:tracking-[0.35em] uppercase font-light px-2"
             style={{ fontFamily: 'Cinzel, serif' }}
           >
             {tagline}
           </p>
           {/* Decorative line below tagline */}
           <div className="flex items-center justify-center gap-4 mt-4" aria-hidden="true">
-            <div className="w-16 h-[1px] bg-gradient-to-r from-transparent to-[#B76E79]/50" />
-            <div className="w-2 h-2 rounded-full bg-[#F2C29A]/30" />
-            <div className="w-16 h-[1px] bg-gradient-to-l from-transparent to-[#B76E79]/50" />
+            <div className="w-16 h-[1px] bg-gradient-to-r from-transparent to-[#E07B8B]/50" />
+            <div className="w-2 h-2 rounded-full bg-[#FFD700]/30" />
+            <div className="w-16 h-[1px] bg-gradient-to-l from-transparent to-[#E07B8B]/50" />
           </div>
         </div>
 

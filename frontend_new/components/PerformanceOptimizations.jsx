@@ -19,7 +19,7 @@ export function PerformanceOptimizations() {
     const criticalCSS = `
       /* Critical CSS - Above the fold styles */
       .skeleton {
-        background: linear-gradient(90deg, rgba(183, 110, 121, 0.1) 25%, rgba(183, 110, 121, 0.2) 50%, rgba(183, 110, 121, 0.1) 75%);
+        background: linear-gradient(90deg, rgba(224, 123, 139, 0.1) 25%, rgba(224, 123, 139, 0.2) 50%, rgba(224, 123, 139, 0.1) 75%);
         background-size: 200% 100%;
         animation: skeleton-loading 1.5s infinite;
       }

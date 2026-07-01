@@ -22,25 +22,27 @@ services:
   postgres:
     image: pgvector/pgvector:pg15
     container_name: aarya_postgres
-    # Production-tuned PostgreSQL parameters for 16GB RAM server.
-    # With PgBouncer in transaction mode, max_connections=200 supports high concurrency.
+    # Memory-safe PostgreSQL parameters for a 4GB container.
+    # shared_buffers must be << container memory limit (was 4GB = instant OOM).
+    # Rule: shared_buffers = 25% of available RAM. For 4G container, use 1GB max.
+    # With PgBouncer in transaction mode, max_connections=100 is sufficient.
     command: >
       postgres
-      -c shared_buffers=4GB
-      -c work_mem=128MB
-      -c effective_cache_size=12GB
-      -c max_connections=200
+      -c shared_buffers=1GB
+      -c work_mem=16MB
+      -c effective_cache_size=2GB
+      -c max_connections=100
       -c random_page_cost=1.1
       -c checkpoint_completion_target=0.9
-      -c maintenance_work_mem=1GB
-      -c wal_buffers=64MB
+      -c maintenance_work_mem=256MB
+      -c wal_buffers=32MB
       -c effective_io_concurrency=200
       -c checkpoint_timeout=15min
-      -c max_wal_size=2GB
-      -c min_wal_size=512MB
-      -c max_parallel_workers=4
-      -c max_parallel_workers_per_gather=2
-      -c max_worker_processes=8
+      -c max_wal_size=1GB
+      -c min_wal_size=256MB
+      -c max_parallel_workers=2
+      -c max_parallel_workers_per_gather=1
+      -c max_worker_processes=4
       -c shared_preload_libraries=pg_stat_statements
       -c pg_stat_statements.max=10000
       -c pg_stat_statements.track=all

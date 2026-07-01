@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { cn } from '@/lib/utils';
 
@@ -20,6 +20,31 @@ import { cn } from '@/lib/utils';
  * - Error state with retry option
  * - Loading state announcement
  */
+// ── Global image load throttling ──────────────────────────────────────────
+// Limits concurrent image downloads to prevent browser overload on pages
+// with many images (admin panels, product grids, etc.)
+const MAX_CONCURRENT_LOADS = 4;
+let activeLoads = 0;
+const loadQueue = [];
+
+function enqueueImageLoad(callback) {
+  if (activeLoads < MAX_CONCURRENT_LOADS) {
+    activeLoads++;
+    Promise.resolve().then(callback);
+  } else {
+    loadQueue.push(callback);
+  }
+}
+
+function dequeueImageLoad() {
+  activeLoads = Math.max(0, activeLoads - 1);
+  if (loadQueue.length > 0) {
+    const next = loadQueue.shift();
+    activeLoads++;
+    Promise.resolve().then(next);
+  }
+}
+
 const OptimizedImage = ({
   src,
   alt,
@@ -33,6 +58,7 @@ const OptimizedImage = ({
   quality,
   objectFit = 'cover',
   blur = true,
+  blurDataURL,
   fallbackSrc,
   loading: loadingProp,
   decoding = 'async',
@@ -41,9 +67,18 @@ const OptimizedImage = ({
 }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
+  const [deferred, setDeferred] = useState(!priority);
+  const isLoadingRef = useRef(true);
   // Default to a placeholder if no valid src is provided to prevent Next.js Image crashes
   const [currentSrc, setCurrentSrc] = useState(src && src !== '' ? src : (fallbackSrc || '/placeholder-image.jpg'));
   const [imageQuality, setImageQuality] = useState(quality);
+
+  // Throttle non-priority images through the global queue
+  useEffect(() => {
+    if (priority || !deferred) return;
+    enqueueImageLoad(() => setDeferred(false));
+    return () => { if (isLoadingRef.current) dequeueImageLoad(); };
+  }, []);
 
   // Detect connection speed and adjust quality accordingly
   useEffect(() => {
@@ -66,14 +101,17 @@ const OptimizedImage = ({
 
   // Update currentSrc when src changes
   React.useEffect(() => {
+    isLoadingRef.current = true;
     setCurrentSrc(src && src !== '' ? src : (fallbackSrc || '/placeholder-image.jpg'));
     setHasError(false);
     setIsLoading(true);
   }, [src, fallbackSrc]);
 
   const handleError = () => {
+    isLoadingRef.current = false;
     setHasError(true);
     setIsLoading(false);
+    if (!priority) dequeueImageLoad();
     // Try fallback if available
     if (src && fallbackSrc && currentSrc !== fallbackSrc) {
       setCurrentSrc(fallbackSrc);
@@ -85,12 +123,15 @@ const OptimizedImage = ({
   };
 
   const handleLoad = () => {
+    isLoadingRef.current = false;
     setIsLoading(false);
     setHasError(false);
+    if (!priority) dequeueImageLoad();
     onImageLoad?.();
   };
 
   const handleRetry = () => {
+    isLoadingRef.current = true;
     setCurrentSrc(src || fallbackSrc);
     setHasError(false);
     setIsLoading(true);
@@ -109,7 +150,7 @@ const OptimizedImage = ({
     <div className="absolute inset-0 z-5 flex items-center justify-center bg-[#1a0a10] pointer-events-none" role="status" aria-label="Image unavailable">
       <div className="text-center p-4">
         <svg
-          className="w-12 h-12 mx-auto text-[#B76E79]/30 mb-2"
+          className="w-12 h-12 mx-auto text-[#E07B8B]/30 mb-2"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -122,10 +163,10 @@ const OptimizedImage = ({
             d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
           />
         </svg>
-        <p className="text-xs text-[#B76E79]/50">Image unavailable</p>
+        <p className="text-xs text-[#E07B8B]/50">Image unavailable</p>
         <button
           onClick={handleRetry}
-          className="mt-2 text-xs text-[#F2C29A] hover:text-[#F2C29A]/80 underline"
+          className="mt-2 text-xs text-[#FFD700] hover:text-[#FFD700]/80 underline"
           aria-label="Retry loading image"
         >
           Retry
@@ -163,7 +204,8 @@ const OptimizedImage = ({
           decoding={decoding}
           onError={handleError}
           onLoad={handleLoad}
-          placeholder={blur ? 'blur' : undefined}
+          placeholder={blur && blurDataURL ? 'blur' : undefined}
+          blurDataURL={blur && blurDataURL ? blurDataURL : undefined}
           {...props}
         />
       </>
@@ -192,7 +234,8 @@ const OptimizedImage = ({
         decoding={decoding}
         onError={handleError}
         onLoad={handleLoad}
-        placeholder={blur ? 'blur' : undefined}
+        placeholder={blur && blurDataURL ? 'blur' : undefined}
+        blurDataURL={blur && blurDataURL ? blurDataURL : undefined}
         {...props}
       />
     </div>

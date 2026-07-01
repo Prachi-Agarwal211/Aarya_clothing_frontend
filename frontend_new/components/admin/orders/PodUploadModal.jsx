@@ -50,20 +50,20 @@ export default function PodUploadModal({ open, onClose, onUploaded }) {
         className="absolute inset-0 bg-black/60"
         onClick={uploading ? undefined : handleClose}
       />
-      <div className="relative bg-[#0B0608]/95 backdrop-blur-xl border border-[#B76E79]/20 rounded-2xl p-6 w-full max-w-lg">
+      <div className="relative bg-[#0A0A0A]/95 backdrop-blur-xl border border-[#E07B8B]/20 rounded-2xl p-6 w-full max-w-lg">
         <div className="flex items-start justify-between mb-1">
-          <h3 className="text-xl font-semibold text-[#F2C29A] font-cinzel">
+          <h3 className="text-xl font-semibold text-[#FFD700] font-cinzel">
             POD Excel upload
           </h3>
           <button
             onClick={handleClose}
             disabled={uploading}
-            className="p-1 rounded hover:bg-[#B76E79]/10 text-[#EAE0D5]/60 hover:text-[#EAE0D5] disabled:opacity-50"
+            className="p-1 rounded hover:bg-[#E07B8B]/10 text-[#F5F5F5]/60 hover:text-[#F5F5F5] disabled:opacity-50"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
-        <p className="text-sm text-[#EAE0D5]/50 mb-5">
+        <p className="text-sm text-[#F5F5F5]/50 mb-5">
           Download the template, fill in POD / tracking numbers, then upload to
           bulk-ship confirmed orders.
         </p>
@@ -76,14 +76,14 @@ export default function PodUploadModal({ open, onClose, onUploaded }) {
               onClick={() => {
                 window.location.href = ordersApi.downloadPodTemplate();
               }}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 border border-[#B76E79]/30 rounded-xl text-[#F2C29A] hover:bg-[#B76E79]/10 transition-colors"
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 border border-[#E07B8B]/30 rounded-xl text-[#FFD700] hover:bg-[#E07B8B]/10 transition-colors"
             >
               <FileSpreadsheet className="w-4 h-4" />
               Step 1 — Download confirmed orders template
             </button>
 
             <div
-              className="w-full flex flex-col items-center justify-center gap-2 px-4 py-8 border-2 border-dashed border-[#B76E79]/30 rounded-xl text-[#EAE0D5]/50 hover:border-[#B76E79]/50 transition-colors cursor-pointer"
+              className="w-full flex flex-col items-center justify-center gap-2 px-4 py-8 border-2 border-dashed border-[#E07B8B]/30 rounded-xl text-[#F5F5F5]/50 hover:border-[#E07B8B]/50 transition-colors cursor-pointer"
               onDragOver={(e) => e.preventDefault()}
               onDrop={(e) => {
                 e.preventDefault();
@@ -93,7 +93,7 @@ export default function PodUploadModal({ open, onClose, onUploaded }) {
             >
               {uploading ? (
                 <>
-                  <Loader2 className="w-6 h-6 animate-spin text-[#B76E79]" />
+                  <Loader2 className="w-6 h-6 animate-spin text-[#E07B8B]" />
                   <p className="text-sm">Processing...</p>
                 </>
               ) : (
@@ -122,7 +122,7 @@ export default function PodUploadModal({ open, onClose, onUploaded }) {
             <button
               onClick={handleClose}
               disabled={uploading}
-              className="w-full py-2 border border-[#B76E79]/20 rounded-xl text-[#EAE0D5]/60 hover:text-[#EAE0D5]/80 transition-colors disabled:opacity-40"
+              className="w-full py-2 border border-[#E07B8B]/20 rounded-xl text-[#F5F5F5]/60 hover:text-[#F5F5F5]/80 transition-colors disabled:opacity-40"
             >
               Cancel
             </button>
@@ -138,7 +138,7 @@ function SuccessSummary({ result, onDone }) {
     <div className="space-y-3">
       <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-xl">
         <p className="text-green-400 font-semibold">{result.message || 'Upload complete'}</p>
-        <p className="text-sm text-[#EAE0D5]/60 mt-1">
+        <p className="text-sm text-[#F5F5F5]/60 mt-1">
           {result.updated || 0} shipped · {result.skipped || 0} skipped
         </p>
       </div>
@@ -148,13 +148,13 @@ function SuccessSummary({ result, onDone }) {
             Warnings ({result.errors.length}):
           </p>
           {result.errors.map((e, i) => (
-            <p key={i} className="text-xs text-[#EAE0D5]/50">{e}</p>
+            <p key={i} className="text-xs text-[#F5F5F5]/50">{e}</p>
           ))}
         </div>
       )}
       <button
         onClick={onDone}
-        className="w-full py-2.5 bg-gradient-to-r from-[#7A2F57] to-[#B76E79] rounded-xl text-white font-semibold"
+        className="w-full py-2.5 bg-gradient-to-r from-[#9333EA] to-[#E07B8B] rounded-xl text-white font-semibold"
       >
         Done
       </button>

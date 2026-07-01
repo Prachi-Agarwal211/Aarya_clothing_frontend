@@ -101,8 +101,8 @@ export default function ReturnDetailsPage() {
   if (loading) {
     return (
       <div className="space-y-6">
-        <div className="animate-pulse h-8 w-48 bg-[#B76E79]/10 rounded" />
-        <div className="animate-pulse h-64 bg-[#B76E79]/10 rounded-2xl" />
+        <div className="animate-pulse h-8 w-48 bg-[#E07B8B]/10 rounded" />
+        <div className="animate-pulse h-64 bg-[#E07B8B]/10 rounded-2xl" />
       </div>
     );
   }
@@ -110,11 +110,11 @@ export default function ReturnDetailsPage() {
   if (!returnData) {
     return (
       <div className="text-center py-12">
-        <AlertCircle className="w-16 h-16 text-[#B76E79]/30 mx-auto mb-4" />
-        <p className="text-[#EAE0D5]/50">Return request not found</p>
+        <AlertCircle className="w-16 h-16 text-[#E07B8B]/30 mx-auto mb-4" />
+        <p className="text-[#F5F5F5]/50">Return request not found</p>
         <Link
           href="/profile/returns"
-          className="inline-block mt-4 px-6 py-2 bg-gradient-to-r from-[#7A2F57] to-[#B76E79] text-white rounded-xl"
+          className="inline-block mt-4 px-6 py-2 bg-gradient-to-r from-[#9333EA] to-[#E07B8B] text-white rounded-xl"
         >
           Back to Returns
         </Link>
@@ -136,7 +136,7 @@ export default function ReturnDetailsPage() {
       {/* Back Button */}
       <Link
         href="/profile/returns"
-        className="inline-flex items-center gap-2 text-[#B76E79] hover:text-[#F2C29A] transition-colors"
+        className="inline-flex items-center gap-2 text-[#E07B8B] hover:text-[#FFD700] transition-colors"
       >
         <ChevronLeft className="w-4 h-4" />
         Back to Returns
@@ -145,8 +145,8 @@ export default function ReturnDetailsPage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-semibold text-[#F2C29A]">Return Request #{returnData.return_number || `RET-${String(returnData.id).padStart(6, '0')}`}</h2>
-          <p className="text-sm text-[#EAE0D5]/50 mt-1">
+          <h2 className="text-xl font-semibold text-[#FFD700]">Return Request #{returnData.return_number || `RET-${String(returnData.id).padStart(6, '0')}`}</h2>
+          <p className="text-sm text-[#F5F5F5]/50 mt-1">
             Created on {formatDate(returnData.requested_at || returnData.created_at)}
           </p>
         </div>
@@ -155,7 +155,7 @@ export default function ReturnDetailsPage() {
             <StatusIcon className="w-4 h-4" />
             {statusConfig.label}
           </span>
-          <span className="px-3 py-1.5 rounded-full text-sm bg-[#7A2F57]/20 text-[#EAE0D5]/70">
+          <span className="px-3 py-1.5 rounded-full text-sm bg-[#9333EA]/20 text-[#F5F5F5]/70">
             {TYPE_LABELS[normalizedType] || TYPE_LABELS.return}
           </span>
         </div>
@@ -165,29 +165,29 @@ export default function ReturnDetailsPage() {
         {/* Main Content */}
         <div className="md:col-span-2 space-y-6">
           {/* Status Timeline */}
-          <div className="p-6 bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl">
-            <h3 className="text-lg font-medium text-[#F2C29A] mb-4">Return Status Timeline</h3>
+          <div className="p-6 bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl">
+            <h3 className="text-lg font-medium text-[#FFD700] mb-4">Return Status Timeline</h3>
             <div className="relative">
               {timeline.map((event, index) => (
                 <div key={index} className="flex gap-4 pb-6 last:pb-0">
                   <div className="flex flex-col items-center">
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                      index === timeline.length - 1 ? 'bg-[#B76E79]' : 'bg-[#7A2F57]/30'
+                      index === timeline.length - 1 ? 'bg-[#E07B8B]' : 'bg-[#9333EA]/30'
                     }`}>
                       {index === timeline.length - 1 ? (
                         <StatusIcon className="w-4 h-4 text-white" />
                       ) : (
-                        <CheckCircle className="w-4 h-4 text-[#EAE0D5]/50" />
+                        <CheckCircle className="w-4 h-4 text-[#F5F5F5]/50" />
                       )}
                     </div>
                     {index < timeline.length - 1 && (
-                      <div className="w-0.5 h-full bg-[#B76E79]/20 mt-2" />
+                      <div className="w-0.5 h-full bg-[#E07B8B]/20 mt-2" />
                     )}
                   </div>
                   <div>
-                    <p className="font-medium text-[#EAE0D5] capitalize">{event.status}</p>
-                    <p className="text-sm text-[#EAE0D5]/50">{event.note}</p>
-                    <p className="text-xs text-[#EAE0D5]/30 mt-1">{event.date}</p>
+                    <p className="font-medium text-[#F5F5F5] capitalize">{event.status}</p>
+                    <p className="text-sm text-[#F5F5F5]/50">{event.note}</p>
+                    <p className="text-xs text-[#F5F5F5]/30 mt-1">{event.date}</p>
                   </div>
                 </div>
               ))}
@@ -195,39 +195,39 @@ export default function ReturnDetailsPage() {
           </div>
 
           {/* Items */}
-          <div className="p-6 bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl">
-            <h3 className="text-lg font-medium text-[#F2C29A] mb-4">Items Being Returned</h3>
+          <div className="p-6 bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl">
+            <h3 className="text-lg font-medium text-[#FFD700] mb-4">Items Being Returned</h3>
             <div className="space-y-4">
               {returnData.items?.length > 0 ? returnData.items.map((item, index) => (
-                <div key={index} className="flex gap-4 p-4 bg-[#7A2F57]/10 rounded-xl">
-                  <div className="w-20 h-24 bg-[#7A2F57]/20 rounded-lg flex items-center justify-center">
-                    <Package className="w-8 h-8 text-[#B76E79]/30" />
+                <div key={index} className="flex gap-4 p-4 bg-[#9333EA]/10 rounded-xl">
+                  <div className="w-20 h-24 bg-[#9333EA]/20 rounded-lg flex items-center justify-center">
+                    <Package className="w-8 h-8 text-[#E07B8B]/30" />
                   </div>
                   <div className="flex-1">
-                    <p className="font-medium text-[#EAE0D5]">{item.name}</p>
-                    <p className="text-sm text-[#EAE0D5]/50">
+                    <p className="font-medium text-[#F5F5F5]">{item.name}</p>
+                    <p className="text-sm text-[#F5F5F5]/50">
                       Size: {item.size} • Color: {item.color} • Qty: {item.quantity}
                     </p>
-                    <p className="text-[#F2C29A] mt-1">{formatCurrency(item.price)}</p>
+                    <p className="text-[#FFD700] mt-1">{formatCurrency(item.price)}</p>
                   </div>
                 </div>
               )) : (
-                <p className="text-[#EAE0D5]/50">Item-level return details are not available for this request.</p>
+                <p className="text-[#F5F5F5]/50">Item-level return details are not available for this request.</p>
               )}
             </div>
           </div>
 
           {/* Reason & Description */}
-          <div className="p-6 bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl">
-            <h3 className="text-lg font-medium text-[#F2C29A] mb-4">Return Reason & Evidence</h3>
+          <div className="p-6 bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl">
+            <h3 className="text-lg font-medium text-[#FFD700] mb-4">Return Reason & Evidence</h3>
             <div className="space-y-3">
               <div>
-                <p className="text-sm text-[#EAE0D5]/50">Reason</p>
-                <p className="text-[#EAE0D5]">{REASON_LABELS[returnData.reason] || returnData.reason}</p>
+                <p className="text-sm text-[#F5F5F5]/50">Reason</p>
+                <p className="text-[#F5F5F5]">{REASON_LABELS[returnData.reason] || returnData.reason}</p>
               </div>
               <div>
-                <p className="text-sm text-[#EAE0D5]/50">Description</p>
-                <p className="text-[#EAE0D5]">{returnData.description}</p>
+                <p className="text-sm text-[#F5F5F5]/50">Description</p>
+                <p className="text-[#F5F5F5]">{returnData.description}</p>
               </div>
               
               {/* Video Evidence Status */}
@@ -237,7 +237,7 @@ export default function ReturnDetailsPage() {
                     <Video className="w-5 h-5 text-green-400" />
                     <p className="text-sm font-medium text-green-400">Video Evidence Submitted</p>
                   </div>
-                  <div className="relative rounded-xl overflow-hidden bg-[#0B0608]/80 border border-[#B76E79]/30">
+                  <div className="relative rounded-xl overflow-hidden bg-[#0A0A0A]/80 border border-[#E07B8B]/30">
                     <video
                       src={returnData.video_url}
                       controls
@@ -245,7 +245,7 @@ export default function ReturnDetailsPage() {
                       preload="metadata"
                     />
                   </div>
-                  <p className="text-xs text-[#EAE0D5]/50 mt-2">
+                  <p className="text-xs text-[#F5F5F5]/50 mt-2">
                     Your video has been submitted and is being reviewed by our team.
                   </p>
                 </div>
@@ -260,10 +260,10 @@ export default function ReturnDetailsPage() {
               
               {returnData.images?.length > 0 && (
                 <div>
-                  <p className="text-sm text-[#EAE0D5]/50 mb-2">Attached Images</p>
+                  <p className="text-sm text-[#F5F5F5]/50 mb-2">Attached Images</p>
                   <div className="flex gap-2 flex-wrap">
                     {returnData.images.map((img, idx) => (
-                      <div key={idx} className="relative w-20 h-20 bg-[#7A2F57]/20 rounded-lg overflow-hidden flex-shrink-0">
+                      <div key={idx} className="relative w-20 h-20 bg-[#9333EA]/20 rounded-lg overflow-hidden flex-shrink-0">
                         <Image
                           src={img}
                           alt={`Evidence image ${idx + 1}`}
@@ -286,7 +286,7 @@ export default function ReturnDetailsPage() {
                 <Truck className="w-5 h-5 inline mr-2" />
                 Return Tracking
               </h3>
-              <div className="space-y-3 text-[#EAE0D5]">
+              <div className="space-y-3 text-[#F5F5F5]">
                 <p className="text-sm">
                   <strong>Tracking Number:</strong> {returnData.return_tracking_number}
                 </p>
@@ -298,22 +298,22 @@ export default function ReturnDetailsPage() {
         {/* Sidebar */}
         <div className="space-y-6">
           {/* Order Summary */}
-          <div className="p-6 bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl">
-            <h3 className="text-lg font-medium text-[#F2C29A] mb-4">Order Information</h3>
+          <div className="p-6 bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl">
+            <h3 className="text-lg font-medium text-[#FFD700] mb-4">Order Information</h3>
             <div className="space-y-3">
               <div className="flex justify-between">
-                <span className="text-[#EAE0D5]/50">Order Number</span>
-                <Link href={`/profile/orders/${returnData.order_id}`} className="text-[#B76E79] hover:underline">
+                <span className="text-[#F5F5F5]/50">Order Number</span>
+                <Link href={`/profile/orders/${returnData.order_id}`} className="text-[#E07B8B] hover:underline">
                   {returnData.order_number || `#${returnData.order_id}`}
                 </Link>
               </div>
               <div className="flex justify-between">
-                <span className="text-[#EAE0D5]/50">Return Type</span>
-                <span className="text-[#EAE0D5]">{TYPE_LABELS[normalizedType] || TYPE_LABELS.return}</span>
+                <span className="text-[#F5F5F5]/50">Return Type</span>
+                <span className="text-[#F5F5F5]">{TYPE_LABELS[normalizedType] || TYPE_LABELS.return}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-[#EAE0D5]/50">Total Amount</span>
-                <span className="text-[#F2C29A] font-medium">{formatCurrency(returnData.total_amount || returnData.refund_amount)}</span>
+                <span className="text-[#F5F5F5]/50">Total Amount</span>
+                <span className="text-[#FFD700] font-medium">{formatCurrency(returnData.total_amount || returnData.refund_amount)}</span>
               </div>
             </div>
           </div>
@@ -327,15 +327,15 @@ export default function ReturnDetailsPage() {
               </h3>
               <div className="space-y-3">
                 <div className="flex justify-between">
-                  <span className="text-[#EAE0D5]/50">Refund Amount</span>
+                  <span className="text-[#F5F5F5]/50">Refund Amount</span>
                   <span className="text-green-400 font-medium">{formatCurrency(returnData.refund.amount)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-[#EAE0D5]/50">Refund Method</span>
-                  <span className="text-[#EAE0D5]">{returnData.refund.method}</span>
+                  <span className="text-[#F5F5F5]/50">Refund Method</span>
+                  <span className="text-[#F5F5F5]">{returnData.refund.method}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-[#EAE0D5]/50">Status</span>
+                  <span className="text-[#F5F5F5]/50">Status</span>
                   <span className="text-green-400">{returnData.refund.status}</span>
                 </div>
               </div>
@@ -343,12 +343,12 @@ export default function ReturnDetailsPage() {
           )}
 
           {/* Actions */}
-          <div className="p-6 bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl">
-            <h3 className="text-lg font-medium text-[#F2C29A] mb-4">Actions</h3>
+          <div className="p-6 bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl">
+            <h3 className="text-lg font-medium text-[#FFD700] mb-4">Actions</h3>
             <div className="space-y-3">
               <Link
                 href={`/profile/orders/${returnData.order_id}`}
-                className="flex items-center justify-center gap-2 w-full px-4 py-2.5 bg-[#7A2F57]/20 text-[#EAE0D5] rounded-xl hover:bg-[#7A2F57]/30 transition-colors"
+                className="flex items-center justify-center gap-2 w-full px-4 py-2.5 bg-[#9333EA]/20 text-[#F5F5F5] rounded-xl hover:bg-[#9333EA]/30 transition-colors"
               >
                 <ShoppingBag className="w-4 h-4" />
                 View Original Order
@@ -368,14 +368,14 @@ export default function ReturnDetailsPage() {
           </div>
 
           {/* Help */}
-          <div className="p-6 bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl">
-            <h3 className="text-lg font-medium text-[#F2C29A] mb-4">Need Help?</h3>
-            <p className="text-sm text-[#EAE0D5]/50 mb-4">
+          <div className="p-6 bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl">
+            <h3 className="text-lg font-medium text-[#FFD700] mb-4">Need Help?</h3>
+            <p className="text-sm text-[#F5F5F5]/50 mb-4">
               If you have any questions about your return, please contact our support team.
             </p>
             <Link
               href="/contact"
-              className="flex items-center justify-center gap-2 w-full px-4 py-2.5 bg-gradient-to-r from-[#7A2F57] to-[#B76E79] text-white rounded-xl hover:opacity-90 transition-opacity"
+              className="flex items-center justify-center gap-2 w-full px-4 py-2.5 bg-gradient-to-r from-[#9333EA] to-[#E07B8B] text-white rounded-xl hover:opacity-90 transition-opacity"
             >
               <MessageSquare className="w-4 h-4" />
               Contact Support

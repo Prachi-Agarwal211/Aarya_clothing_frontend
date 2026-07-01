@@ -312,12 +312,12 @@ export default function CheckoutConfirmPage() {
     ];
     return (
       <div className="flex flex-col items-center justify-center py-16 space-y-6">
-        <div className="w-16 h-16 rounded-full bg-[#7A2F57]/30 flex items-center justify-center">
-          <Loader2 className="w-8 h-8 text-[#F2C29A] animate-spin" />
+        <div className="w-16 h-16 rounded-full bg-[#9333EA]/30 flex items-center justify-center">
+          <Loader2 className="w-8 h-8 text-[#FFD700] animate-spin" />
         </div>
         <div className="text-center space-y-2">
-          <h3 className="text-lg font-semibold text-[#F2C29A]">Processing Your Order</h3>
-          <p className="text-[#EAE0D5]/70 max-w-md">
+          <h3 className="text-lg font-semibold text-[#FFD700]">Processing Your Order</h3>
+          <p className="text-[#F5F5F5]/70 max-w-md">
             {paymentRegistered
               ? 'Payment confirmed! Creating your order...'
               : 'Verifying your payment...'}
@@ -328,18 +328,18 @@ export default function CheckoutConfirmPage() {
           {steps.map((step, i) => (
             <div key={i} className="flex items-center gap-3">
               <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 ${
-                step.done ? 'bg-green-500/20' : (i === 1 && paymentRegistered) ? 'bg-[#7A2F57]/30' : 'bg-[#B76E79]/10'
+                step.done ? 'bg-green-500/20' : (i === 1 && paymentRegistered) ? 'bg-[#9333EA]/30' : 'bg-[#E07B8B]/10'
               }`}>
                 {step.done ? (
                   <svg className="w-3 h-3 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
                 ) : (i === 1 && paymentRegistered) ? (
-                  <div className="w-2 h-2 rounded-full bg-[#F2C29A] animate-pulse" />
+                  <div className="w-2 h-2 rounded-full bg-[#FFD700] animate-pulse" />
                 ) : (
-                  <div className="w-2 h-2 rounded-full bg-[#B76E79]/20" />
+                  <div className="w-2 h-2 rounded-full bg-[#E07B8B]/20" />
                 )}
               </div>
               <span className={`text-sm ${
-                step.done ? 'text-green-400' : (i === 1 && paymentRegistered) ? 'text-[#F2C29A]' : 'text-[#EAE0D5]/40'
+                step.done ? 'text-green-400' : (i === 1 && paymentRegistered) ? 'text-[#FFD700]' : 'text-[#F5F5F5]/40'
               }`}>{step.label}</span>
             </div>
           ))}
@@ -353,45 +353,45 @@ export default function CheckoutConfirmPage() {
     const pid = paymentId || sessionStorage.getItem('payment_id') || '';
     return (
       <div className="space-y-6">
-        <div className="p-8 bg-[#0B0608]/40 backdrop-blur-md border border-amber-500/20 rounded-2xl text-center">
+        <div className="p-8 bg-[#0A0A0A]/40 backdrop-blur-md border border-amber-500/20 rounded-2xl text-center">
           <div className="w-20 h-20 mx-auto mb-6 bg-amber-500/10 rounded-full flex items-center justify-center">
             <Clock className="w-10 h-10 text-amber-400 animate-pulse" />
           </div>
           <h2 className="text-xl font-bold text-amber-400 mb-2">Your order is being processed</h2>
-          <p className="text-[#EAE0D5]/80 mb-2">
+          <p className="text-[#F5F5F5]/80 mb-2">
             Your payment was received successfully.
           </p>
-          <p className="text-[#EAE0D5]/60 text-sm mb-6">
+          <p className="text-[#F5F5F5]/60 text-sm mb-6">
             Our system is finalising your order — this usually takes a few seconds.
-            It will appear in <strong className="text-[#F2C29A]">My Orders</strong> shortly.
+            It will appear in <strong className="text-[#FFD700]">My Orders</strong> shortly.
           </p>
           {pid && (
-            <p className="text-xs text-[#EAE0D5]/40 mb-6 font-mono">
+            <p className="text-xs text-[#F5F5F5]/40 mb-6 font-mono">
               Payment ID: {pid}
             </p>
           )}
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Link
               href="/profile/orders"
-              className="flex-1 sm:flex-none px-8 py-3 bg-gradient-to-r from-[#7A2F57] to-[#B76E79] text-white rounded-xl hover:opacity-90 transition-opacity text-center font-medium"
+              className="flex-1 sm:flex-none px-8 py-3 bg-gradient-to-r from-[#9333EA] to-[#E07B8B] text-white rounded-xl hover:opacity-90 transition-opacity text-center font-medium"
             >
               Check My Orders
             </Link>
             <Link
               href="/products"
-              className="flex-1 sm:flex-none px-8 py-3 border border-[#B76E79]/30 text-[#B76E79] rounded-xl hover:border-[#B76E79]/60 hover:text-[#F2C29A] transition-colors text-center"
+              className="flex-1 sm:flex-none px-8 py-3 border border-[#E07B8B]/30 text-[#E07B8B] rounded-xl hover:border-[#E07B8B]/60 hover:text-[#FFD700] transition-colors text-center"
             >
               Continue Shopping
             </Link>
           </div>
         </div>
-        <div className="p-4 bg-[#7A2F57]/10 border border-[#B76E79]/10 rounded-xl text-center">
-          <p className="text-sm text-[#EAE0D5]/70">
+        <div className="p-4 bg-[#9333EA]/10 border border-[#E07B8B]/10 rounded-xl text-center">
+          <p className="text-sm text-[#F5F5F5]/70">
             If your order doesn’t appear in 5 minutes, contact us at{' '}
-            <a href="mailto:support@aaryaclothing.com" className="text-[#B76E79] hover:text-[#F2C29A]">
+            <a href="mailto:support@aaryaclothing.com" className="text-[#E07B8B] hover:text-[#FFD700]">
               support@aaryaclothing.com
             </a>
-            {pid && <> with Payment ID: <strong className="text-[#EAE0D5]/80 font-mono text-xs">{pid}</strong></>}
+            {pid && <> with Payment ID: <strong className="text-[#F5F5F5]/80 font-mono text-xs">{pid}</strong></>}
           </p>
         </div>
       </div>
@@ -402,12 +402,12 @@ export default function CheckoutConfirmPage() {
   if (error && !order) {
     return (
       <div className="space-y-6">
-        <div className="p-8 bg-[#0B0608]/40 backdrop-blur-md border border-red-500/20 rounded-2xl text-center">
+        <div className="p-8 bg-[#0A0A0A]/40 backdrop-blur-md border border-red-500/20 rounded-2xl text-center">
           <div className="w-20 h-20 mx-auto mb-6 bg-red-500/20 rounded-full flex items-center justify-center">
             <AlertCircle className="w-10 h-10 text-red-400" />
           </div>
           <h2 className="text-xl font-bold text-red-400 mb-2">Something went wrong</h2>
-          <p className="text-[#EAE0D5]/70 mb-4">{error}</p>
+          <p className="text-[#F5F5F5]/70 mb-4">{error}</p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <button
               onClick={() => {
@@ -417,22 +417,22 @@ export default function CheckoutConfirmPage() {
                 setLoading(true);
                 registerAndPoll();
               }}
-              className="px-6 py-2 bg-gradient-to-r from-[#7A2F57] to-[#B76E79] text-white rounded-xl hover:opacity-90 transition-opacity"
+              className="px-6 py-2 bg-gradient-to-r from-[#9333EA] to-[#E07B8B] text-white rounded-xl hover:opacity-90 transition-opacity"
             >
               Try Again
             </button>
             <Link
               href="/profile/orders"
-              className="px-6 py-2 border border-[#B76E79]/30 text-[#B76E79] rounded-xl hover:border-[#B76E79]/60 hover:text-[#F2C29A] transition-colors text-center"
+              className="px-6 py-2 border border-[#E07B8B]/30 text-[#E07B8B] rounded-xl hover:border-[#E07B8B]/60 hover:text-[#FFD700] transition-colors text-center"
             >
               Check My Orders
             </Link>
           </div>
         </div>
-        <div className="p-4 bg-[#7A2F57]/10 border border-[#B76E79]/10 rounded-xl text-center">
-          <p className="text-sm text-[#EAE0D5]/70">
+        <div className="p-4 bg-[#9333EA]/10 border border-[#E07B8B]/10 rounded-xl text-center">
+          <p className="text-sm text-[#F5F5F5]/70">
             If the problem persists, contact us at{' '}
-            <a href="mailto:support@aaryaclothing.com" className="text-[#B76E79] hover:text-[#F2C29A]">
+            <a href="mailto:support@aaryaclothing.com" className="text-[#E07B8B] hover:text-[#FFD700]">
               support@aaryaclothing.com
             </a>
           </p>
@@ -445,80 +445,80 @@ export default function CheckoutConfirmPage() {
   return (
     <div className="space-y-6">
       {/* Success Message */}
-      <div className="p-8 bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl text-center">
+      <div className="p-8 bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl text-center">
         <div className="w-20 h-20 mx-auto mb-6 bg-green-500/20 rounded-full flex items-center justify-center">
           <CheckCircle className="w-10 h-10 text-green-400" />
         </div>
 
-        <h2 className="text-2xl font-bold text-[#F2C29A] mb-2">Order Confirmed!</h2>
-        <p className="text-[#EAE0D5]/70 mb-4">
+        <h2 className="text-2xl font-bold text-[#FFD700] mb-2">Order Confirmed!</h2>
+        <p className="text-[#F5F5F5]/70 mb-4">
           Thank you for your order. We&apos;ve received your order and will process it shortly.
         </p>
 
         {order?.order_number && (
-          <div className="inline-block px-4 py-2 bg-[#7A2F57]/20 rounded-lg">
-            <span className="text-sm text-[#EAE0D5]/70">Order Number: </span>
-            <span className="font-mono font-semibold text-[#F2C29A]">{order.order_number}</span>
+          <div className="inline-block px-4 py-2 bg-[#9333EA]/20 rounded-lg">
+            <span className="text-sm text-[#F5F5F5]/70">Order Number: </span>
+            <span className="font-mono font-semibold text-[#FFD700]">{order.order_number}</span>
           </div>
         )}
       </div>
 
       {/* Order Timeline */}
-      <div className="p-6 bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl">
-        <h3 className="text-lg font-semibold text-[#F2C29A] mb-4">What&apos;s Next?</h3>
+      <div className="p-6 bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl">
+        <h3 className="text-lg font-semibold text-[#FFD700] mb-4">What&apos;s Next?</h3>
 
         <div className="space-y-4">
           <div className="flex items-start gap-4">
-            <div className="w-10 h-10 rounded-full bg-[#7A2F57]/30 flex items-center justify-center flex-shrink-0">
+            <div className="w-10 h-10 rounded-full bg-[#9333EA]/30 flex items-center justify-center flex-shrink-0">
               <CheckCircle className="w-5 h-5 text-green-400" />
             </div>
             <div>
-              <p className="font-medium text-[#F2C29A]">Order Confirmed</p>
-              <p className="text-sm text-[#EAE0D5]/70">Your order has been placed successfully</p>
+              <p className="font-medium text-[#FFD700]">Order Confirmed</p>
+              <p className="text-sm text-[#F5F5F5]/70">Your order has been placed successfully</p>
             </div>
           </div>
 
           <div className="flex items-start gap-4">
-            <div className="w-10 h-10 rounded-full bg-[#B76E79]/20 flex items-center justify-center flex-shrink-0">
-              <Package className="w-5 h-5 text-[#B76E79]" />
+            <div className="w-10 h-10 rounded-full bg-[#E07B8B]/20 flex items-center justify-center flex-shrink-0">
+              <Package className="w-5 h-5 text-[#E07B8B]" />
             </div>
             <div>
-              <p className="font-medium text-[#EAE0D5]">Processing</p>
-              <p className="text-sm text-[#EAE0D5]/70">We&apos;re preparing your order for shipment</p>
+              <p className="font-medium text-[#F5F5F5]">Processing</p>
+              <p className="text-sm text-[#F5F5F5]/70">We&apos;re preparing your order for shipment</p>
             </div>
           </div>
 
           <div className="flex items-start gap-4">
-            <div className="w-10 h-10 rounded-full bg-[#B76E79]/10 flex items-center justify-center flex-shrink-0">
-              <Truck className="w-5 h-5 text-[#EAE0D5]/50" />
+            <div className="w-10 h-10 rounded-full bg-[#E07B8B]/10 flex items-center justify-center flex-shrink-0">
+              <Truck className="w-5 h-5 text-[#F5F5F5]/50" />
             </div>
             <div>
-              <p className="font-medium text-[#EAE0D5]/50">Shipped</p>
-              <p className="text-sm text-[#EAE0D5]/50">Your order is on its way</p>
+              <p className="font-medium text-[#F5F5F5]/50">Shipped</p>
+              <p className="text-sm text-[#F5F5F5]/50">Your order is on its way</p>
             </div>
           </div>
         </div>
 
         {order?.estimated_delivery && (
-          <div className="mt-6 p-4 bg-[#7A2F57]/10 rounded-xl">
-            <p className="text-sm text-[#EAE0D5]/70">Estimated Delivery</p>
-            <p className="text-lg font-semibold text-[#F2C29A]">{order.estimated_delivery}</p>
+          <div className="mt-6 p-4 bg-[#9333EA]/10 rounded-xl">
+            <p className="text-sm text-[#F5F5F5]/70">Estimated Delivery</p>
+            <p className="text-lg font-semibold text-[#FFD700]">{order.estimated_delivery}</p>
           </div>
         )}
       </div>
 
       {/* Order Invoice */}
       {order && (
-        <div className="p-6 bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl">
+        <div className="p-6 bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl">
           {/* Invoice Header */}
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-2">
-              <Receipt className="w-5 h-5 text-[#B76E79]" />
-              <h3 className="text-lg font-semibold text-[#F2C29A]">Order Invoice</h3>
+              <Receipt className="w-5 h-5 text-[#E07B8B]" />
+              <h3 className="text-lg font-semibold text-[#FFD700]">Order Invoice</h3>
             </div>
             <button
               onClick={() => window.print()}
-              className="flex items-center gap-1.5 px-3 py-1.5 border border-[#B76E79]/30 text-[#B76E79] text-sm rounded-lg hover:border-[#B76E79] hover:text-[#F2C29A] transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 border border-[#E07B8B]/30 text-[#E07B8B] text-sm rounded-lg hover:border-[#E07B8B] hover:text-[#FFD700] transition-colors"
             >
               <Printer className="w-4 h-4" />
               Print Invoice
@@ -526,35 +526,35 @@ export default function CheckoutConfirmPage() {
           </div>
 
           {/* Invoice Meta */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6 p-4 bg-[#7A2F57]/10 rounded-xl text-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6 p-4 bg-[#9333EA]/10 rounded-xl text-sm">
             <div>
-              <p className="text-[#EAE0D5]/50 text-xs mb-0.5">Invoice Number</p>
-              <p className="text-[#F2C29A] font-mono font-semibold">{order.invoice_number || `INV-${order.id}`}</p>
+              <p className="text-[#F5F5F5]/50 text-xs mb-0.5">Invoice Number</p>
+              <p className="text-[#FFD700] font-mono font-semibold">{order.invoice_number || `INV-${order.id}`}</p>
             </div>
             <div>
-              <p className="text-[#EAE0D5]/50 text-xs mb-0.5">Order Number</p>
-              <p className="text-[#EAE0D5] font-mono">{order.order_number}</p>
+              <p className="text-[#F5F5F5]/50 text-xs mb-0.5">Order Number</p>
+              <p className="text-[#F5F5F5] font-mono">{order.order_number}</p>
             </div>
             <div>
-              <p className="text-[#EAE0D5]/50 text-xs mb-0.5">Date</p>
-              <p className="text-[#EAE0D5]">{new Date(order.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
+              <p className="text-[#F5F5F5]/50 text-xs mb-0.5">Date</p>
+              <p className="text-[#F5F5F5]">{new Date(order.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
             </div>
             <div>
-              <p className="text-[#EAE0D5]/50 text-xs mb-0.5">Payment Method</p>
-              <p className="text-[#EAE0D5] capitalize">{order.payment_method || 'Razorpay'}</p>
+              <p className="text-[#F5F5F5]/50 text-xs mb-0.5">Payment Method</p>
+              <p className="text-[#F5F5F5] capitalize">{order.payment_method || 'Razorpay'}</p>
             </div>
           </div>
 
           {/* Items */}
           <div className="space-y-3 mb-6">
             {(order.items || []).map((item, idx) => (
-              <div key={idx} className="flex items-start gap-3 py-3 border-b border-[#B76E79]/10 last:border-0">
-                <div className="w-10 h-10 bg-[#7A2F57]/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <Package className="w-5 h-5 text-[#B76E79]/40" />
+              <div key={idx} className="flex items-start gap-3 py-3 border-b border-[#E07B8B]/10 last:border-0">
+                <div className="w-10 h-10 bg-[#9333EA]/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <Package className="w-5 h-5 text-[#E07B8B]/40" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-[#EAE0D5] text-sm font-medium truncate">{item.product_name}</p>
-                  <div className="flex items-center gap-3 mt-0.5 text-xs text-[#EAE0D5]/50">
+                  <p className="text-[#F5F5F5] text-sm font-medium truncate">{item.product_name}</p>
+                  <div className="flex items-center gap-3 mt-0.5 text-xs text-[#F5F5F5]/50">
                     {item.size && <span>Size: {item.size}</span>}
                     {item.color && (
                       <span className="inline-flex items-center gap-1">
@@ -565,33 +565,33 @@ export default function CheckoutConfirmPage() {
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-[#EAE0D5]/50 mt-0.5">
+                  <p className="text-xs text-[#F5F5F5]/50 mt-0.5">
                     {formatCurrency(item.unit_price || item.price)} × {item.quantity}
                   </p>
                 </div>
-                <p className="text-[#F2C29A] text-sm font-semibold">{formatCurrency(item.price)}</p>
+                <p className="text-[#FFD700] text-sm font-semibold">{formatCurrency(item.price)}</p>
               </div>
             ))}
           </div>
 
           {/* Cost Breakdown */}
-          <div className="space-y-2 pt-4 border-t border-[#B76E79]/10 text-sm">
-            <div className="flex justify-between pt-3 border-t border-[#B76E79]/10 text-base font-bold">
-              <span className="text-[#F2C29A]">Total Paid</span>
-              <span className="text-[#F2C29A]">{formatCurrency(order.total_amount ?? order.total)}</span>
+          <div className="space-y-2 pt-4 border-t border-[#E07B8B]/10 text-sm">
+            <div className="flex justify-between pt-3 border-t border-[#E07B8B]/10 text-base font-bold">
+              <span className="text-[#FFD700]">Total Paid</span>
+              <span className="text-[#FFD700]">{formatCurrency(order.total_amount ?? order.total)}</span>
             </div>
-            <p className="text-xs text-[#EAE0D5]/40 pt-1">
+            <p className="text-xs text-[#F5F5F5]/40 pt-1">
               Price shown is final - includes all taxes and shipping. No hidden charges.
             </p>
           </div>
 
           {/* Delivery Address */}
           {order.shipping_address && (
-            <div className="pt-4 mt-4 border-t border-[#B76E79]/10">
-              <h4 className="text-xs font-medium text-[#EAE0D5]/50 uppercase tracking-wider mb-2">Delivery Address</h4>
+            <div className="pt-4 mt-4 border-t border-[#E07B8B]/10">
+              <h4 className="text-xs font-medium text-[#F5F5F5]/50 uppercase tracking-wider mb-2">Delivery Address</h4>
               <div className="flex items-start gap-2">
-                <MapPin className="w-4 h-4 text-[#B76E79] flex-shrink-0 mt-0.5" />
-                <p className="text-sm text-[#EAE0D5]/70">{order.shipping_address}</p>
+                <MapPin className="w-4 h-4 text-[#E07B8B] flex-shrink-0 mt-0.5" />
+                <p className="text-sm text-[#F5F5F5]/70">{order.shipping_address}</p>
               </div>
             </div>
           )}
@@ -602,13 +602,13 @@ export default function CheckoutConfirmPage() {
       <div className="flex flex-col sm:flex-row gap-4">
         <Link
           href="/profile/orders"
-          className="flex-1 py-3 text-center border border-[#B76E79]/20 text-[#B76E79] rounded-xl hover:border-[#B76E79]/40 hover:text-[#F2C29A] transition-colors"
+          className="flex-1 py-3 text-center border border-[#E07B8B]/20 text-[#E07B8B] rounded-xl hover:border-[#E07B8B]/40 hover:text-[#FFD700] transition-colors"
         >
           View All Orders
         </Link>
         <Link
           href="/products"
-          className="flex-1 py-3 text-center bg-gradient-to-r from-[#7A2F57] to-[#B76E79] text-white rounded-xl hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
+          className="flex-1 py-3 text-center bg-gradient-to-r from-[#9333EA] to-[#E07B8B] text-white rounded-xl hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
         >
           Continue Shopping
           <ShoppingBag className="w-4 h-4" />
@@ -616,10 +616,10 @@ export default function CheckoutConfirmPage() {
       </div>
 
       {/* Support */}
-      <div className="p-4 bg-[#7A2F57]/10 border border-[#B76E79]/10 rounded-xl text-center">
-        <p className="text-sm text-[#EAE0D5]/70">
+      <div className="p-4 bg-[#9333EA]/10 border border-[#E07B8B]/10 rounded-xl text-center">
+        <p className="text-sm text-[#F5F5F5]/70">
           Need help? Contact us at{' '}
-          <a href="mailto:support@aaryaclothing.com" className="text-[#B76E79] hover:text-[#F2C29A]">
+          <a href="mailto:support@aaryaclothing.com" className="text-[#E07B8B] hover:text-[#FFD700]">
             support@aaryaclothing.com
           </a>
         </p>

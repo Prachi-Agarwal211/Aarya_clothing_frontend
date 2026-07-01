@@ -22,46 +22,46 @@ const buttonVariants = cva(
         link: "text-primary underline-offset-4 hover:underline",
         // Premium Luxury variants with enhanced styling
         luxury: `
-          bg-transparent border border-[#B76E79]/40 
-          hover:border-[#F2C29A]/70 
+          bg-transparent border border-[#E07B8B]/40 
+          hover:border-[#FFD700]/70 
           hover:shadow-[0_0_40px_rgba(183,110,121,0.4),0_0_80px_rgba(242,194,154,0.1)]
-          rounded-2xl text-[#F2C29A] group-hover:text-white
+          rounded-2xl text-[#FFD700] group-hover:text-white
           btn-ripple btn-glow
           transform hover:scale-[1.02] hover:-translate-y-0.5
           active:scale-[0.98]
         `,
         luxurySecondary: `
-          bg-transparent border border-[#F2C29A]/50 
-          hover:border-[#F2C29A]/90 
+          bg-transparent border border-[#FFD700]/50 
+          hover:border-[#FFD700]/90 
           hover:shadow-[0_0_35px_rgba(242,194,154,0.3),0_0_70px_rgba(183,110,121,0.15)]
-          rounded-2xl text-[#F2C29A] group-hover:text-white
+          rounded-2xl text-[#FFD700] group-hover:text-white
           btn-ripple
           transform hover:scale-[1.02] hover:-translate-y-0.5
           active:scale-[0.98]
         `,
         luxuryAccent: `
-          bg-[#7A2F57]/80 border border-[#B76E79]/30 
+          bg-[#9333EA]/80 border border-[#E07B8B]/30 
           hover:bg-[#8D3664] 
           hover:shadow-[0_0_40px_rgba(122,47,87,0.5),0_0_80px_rgba(183,110,121,0.2)]
-          rounded-2xl text-[#EAE0D5] group-hover:text-white
+          rounded-2xl text-[#F5F5F5] group-hover:text-white
           btn-ripple btn-glow
           transform hover:scale-[1.02] hover:-translate-y-0.5
           active:scale-[0.98]
         `,
         luxuryGhost: `
           bg-transparent border border-transparent
-          hover:bg-white/5 hover:border-[#F2C29A]/30
-          rounded-2xl text-[#EAE0D5] group-hover:text-[#F2C29A]
+          hover:bg-white/5 hover:border-[#FFD700]/30
+          rounded-2xl text-[#F5F5F5] group-hover:text-[#FFD700]
           transform hover:scale-[1.01]
           active:scale-[0.99]
         `,
         // New Premium Solid variant
         luxurySolid: `
-          bg-gradient-to-r from-[#7A2F57] via-[#B76E79] to-[#7A2F57]
+          bg-gradient-to-r from-[#9333EA] via-[#E07B8B] to-[#9333EA]
           bg-size-200
           hover:bg-right
-          border border-[#F2C29A]/30
-          rounded-2xl text-[#F2C29A]
+          border border-[#FFD700]/30
+          rounded-2xl text-[#FFD700]
           shadow-[0_4px_20px_rgba(122,47,87,0.4)]
           hover:shadow-[0_8px_40px_rgba(183,110,121,0.5)]
           btn-ripple
@@ -157,27 +157,27 @@ const Button = React.forwardRef(({
     <>
       {/* Gradient Background Layer */}
       {variant === 'luxury' && (
-        <div className="absolute inset-0 bg-gradient-to-r from-[#7A2F57]/80 via-[#B76E79]/70 to-[#2A1208]/80 opacity-90 rounded-2xl transition-opacity duration-500 group-hover:opacity-100" />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#9333EA]/80 via-[#E07B8B]/70 to-[#2A1208]/80 opacity-90 rounded-2xl transition-opacity duration-500 group-hover:opacity-100" />
       )}
       {variant === 'luxurySecondary' && (
-        <div className="absolute inset-0 bg-gradient-to-r from-[#2A1208]/60 via-[#B76E79]/40 to-[#7A2F57]/60 opacity-80 rounded-2xl transition-opacity duration-500 group-hover:opacity-100" />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#2A1208]/60 via-[#E07B8B]/40 to-[#9333EA]/60 opacity-80 rounded-2xl transition-opacity duration-500 group-hover:opacity-100" />
       )}
       {variant === 'luxurySolid' && (
-        <div className="absolute inset-0 bg-gradient-to-r from-[#7A2F57] via-[#B76E79] to-[#7A2F57] bg-[length:200%_100%] animate-gradient rounded-2xl transition-all duration-500" />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#9333EA] via-[#E07B8B] to-[#9333EA] bg-[length:200%_100%] animate-gradient rounded-2xl transition-all duration-500" />
       )}
       
       {/* Premium Sheen Animation */}
       <div className="animate-sheen rounded-2xl" />
       
       {/* Top Highlight Line with Glow */}
-      <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-[#F2C29A]/80 to-transparent rounded-2xl opacity-80 group-hover:opacity-100 transition-opacity" />
+      <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-[#FFD700]/80 to-transparent rounded-2xl opacity-80 group-hover:opacity-100 transition-opacity" />
       
       {/* Bottom Highlight Line */}
-      <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-[#B76E79]/60 to-transparent rounded-2xl opacity-60 group-hover:opacity-100 transition-opacity" />
+      <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-[#E07B8B]/60 to-transparent rounded-2xl opacity-60 group-hover:opacity-100 transition-opacity" />
       
       {/* Side Accent Lines */}
-      <div className="absolute top-2 bottom-2 left-0 w-[1px] bg-gradient-to-b from-transparent via-[#F2C29A]/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-      <div className="absolute top-2 bottom-2 right-0 w-[1px] bg-gradient-to-b from-transparent via-[#F2C29A]/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+      <div className="absolute top-2 bottom-2 left-0 w-[1px] bg-gradient-to-b from-transparent via-[#FFD700]/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+      <div className="absolute top-2 bottom-2 right-0 w-[1px] bg-gradient-to-b from-transparent via-[#FFD700]/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
       
       {/* Button Text with Premium Styling */}
       <span 

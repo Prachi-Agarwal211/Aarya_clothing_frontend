@@ -31,7 +31,7 @@ from database.database import get_db, SessionLocal
 from models.inventory import Inventory
 from models.product import Product
 from rate_limit import check_rate_limit
-from schemas.order import CartItem, CartResponse, SetDeliveryState
+from schemas.order import CartItem, CartResponse
 from core.cart_lock import CartConcurrencyManager
 from service.cart_service import CartService
 from shared.auth_middleware import get_current_user
@@ -132,27 +132,6 @@ async def clear_my_cart(
     user_id = current_user["user_id"]
     cart_data = CartConcurrencyManager.clear_cart_locked(user_id, db)
     return CartResponse(**cart_data)
-
-
-@router.post("/api/v1/cart/delivery-state", response_model=CartResponse)
-async def set_cart_delivery_state(
-    payload: SetDeliveryState,
-    db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user),
-):
-    """
-    Persist the delivery state on the cart so GST is calculated correctly
-    (intra-state CGST+SGST vs inter-state IGST) before checkout.
-    """
-    user_id = current_user["user_id"]
-    cart_service = CartService(db)
-    cart = cart_service.get_cart(user_id)
-    cart["delivery_state"] = payload.delivery_state
-    if payload.customer_gstin:
-        cart["customer_gstin"] = payload.customer_gstin
-    cart_service._recalculate_cart(cart)
-    cart_service.save_cart(user_id, cart)
-    return CartResponse(**cart)
 
 
 @router.post("/api/v1/cart/shipping-address", response_model=CartResponse)

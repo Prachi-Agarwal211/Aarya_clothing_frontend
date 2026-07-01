@@ -267,7 +267,7 @@ export default function EditProductPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-20 text-[#EAE0D5]/60">
+      <div className="flex items-center justify-center py-20 text-[#F5F5F5]/60">
         <RefreshCw className="w-5 h-5 animate-spin mr-2" />
         Loading product…
       </div>

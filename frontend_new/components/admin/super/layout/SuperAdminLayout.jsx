@@ -40,14 +40,14 @@ export default function SuperAdminLayout({ children }) {
   }, [mobileMenuOpen]);
 
   return (
-    <div className="min-h-screen bg-[#050203]">
+    <div className="min-h-screen bg-[#000000]">
       {/* Background Pattern */}
       <div
         className="fixed inset-0 z-0 pointer-events-none"
         style={{
           background: `
-            radial-gradient(ellipse at 20% 20%, rgba(122, 47, 87, 0.1) 0%, transparent 50%),
-            radial-gradient(ellipse at 80% 80%, rgba(183, 110, 121, 0.08) 0%, transparent 50%)
+            radial-gradient(ellipse at 20% 20%, rgba(147, 51, 234, 0.1) 0%, transparent 50%),
+            radial-gradient(ellipse at 80% 80%, rgba(224, 123, 139, 0.08) 0%, transparent 50%)
           `
         }}
       />

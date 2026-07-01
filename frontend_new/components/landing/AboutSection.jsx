@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useRef, useEffect, memo } from 'react';
-import Image from 'next/image';
+import OptimizedImage from '../ui/OptimizedImage';
 import { gsap, ScrollTrigger } from '@/lib/gsapConfig';
 import { Button } from '../ui/button';
 import { useLogo } from '@/lib/siteConfigContext';
@@ -148,12 +148,12 @@ const AboutSection = ({
         ref={decorRef}
         className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] sm:w-[700px] md:w-[800px] h-[600px] sm:h-[700px] md:h-[800px] pointer-events-none opacity-5"
       >
-        <div className="w-full h-full border border-[#F2C29A] rounded-full" />
-        <div className="absolute inset-8 border border-[#B76E79] rounded-full" />
-        <div className="absolute inset-16 border border-[#F2C29A] rounded-full" />
+        <div className="w-full h-full border border-[#FFD700] rounded-full" />
+        <div className="absolute inset-8 border border-[#E07B8B] rounded-full" />
+        <div className="absolute inset-16 border border-[#FFD700] rounded-full" />
       </div>
 
-      <div className="container mx-auto px-4 sm:px-6 md:px-8 relative z-10">
+      <div className="max-w-7xl mx-auto px-5 sm:px-6 lg:px-8 relative z-10">
         {/* Mobile: Text first, then images. Desktop: Side by side */}
         <div className="flex flex-col lg:flex-row items-center gap-10 sm:gap-12 lg:gap-20">
 
@@ -169,21 +169,22 @@ const AboutSection = ({
                 <div
                   className="
                     relative w-full h-full rounded-2xl sm:rounded-3xl overflow-hidden
-                    bg-[#0B0608]/40 backdrop-blur-md
-                    border border-[#B76E79]/15
-                    shadow-[0_8px_32px_rgba(0,0,0,0.3)]
+                    bg-[#0A0A0A]/40 backdrop-blur-md
+                    border border-white/[0.06]
+                    shadow-[0_8px_32px_rgba(0,0,0,0.25)]
                   "
                 >
                   {images[0] ? (
-                    <Image
+                    <OptimizedImage
                       src={images[0]}
                       alt="Craftsmanship"
                       fill
                       className="object-top object-cover grayscale hover:grayscale-0 transition-all duration-700"
+                      blur={true}
                     />
                   ) : (
                     <div className="absolute inset-0 flex items-center justify-center">
-                      <span className="text-[#B76E79]/30 text-xs tracking-widest uppercase">Our Craftsmanship</span>
+                      <span className="text-[#E07B8B]/30 text-xs tracking-widest uppercase">Our Craftsmanship</span>
                     </div>
                   )}
                 </div>
@@ -197,23 +198,24 @@ const AboutSection = ({
                 <div
                   className="
                     relative w-full h-full rounded-2xl sm:rounded-3xl overflow-hidden
-                    bg-[#0B0608]/60 backdrop-blur-md
-                    border border-[#F2C29A]/20
-                    shadow-[0_12px_40px_rgba(0,0,0,0.4)]
+                    bg-[#0A0A0A]/60 backdrop-blur-md
+                    border border-white/[0.06]
+                    shadow-[0_12px_40px_rgba(0,0,0,0.3)]
                     p-2 sm:p-3
                   "
                 >
                   <div className="relative w-full h-full rounded-xl sm:rounded-2xl overflow-hidden">
                     {images[1] ? (
-                      <Image
+                      <OptimizedImage
                         src={images[1]}
                         alt="Detail"
                         fill
                         className="object-top object-cover opacity-80 hover:opacity-100 transition-opacity duration-500"
+                        blur={true}
                       />
                     ) : (
                       <div className="absolute inset-0 flex items-center justify-center">
-                        <span className="text-[#F2C29A]/20 text-xs tracking-widest uppercase">Fine Detail</span>
+                        <span className="text-[#FFD700]/20 text-xs tracking-widest uppercase">Fine Detail</span>
                       </div>
                     )}
                   </div>
@@ -221,13 +223,18 @@ const AboutSection = ({
               </div>
 
               {/* Decorative accent with logo - Hidden on mobile, visible on desktop */}
-              <div className="hidden sm:flex absolute -bottom-4 -right-4 w-24 h-24 sm:w-32 sm:h-32 border-2 border-[#F2C29A]/20 rounded-2xl sm:rounded-3xl z-0 items-center justify-center bg-[#0B0608]/40 backdrop-blur-sm">
-                <img
-                  src={logoUrl}
-                  alt="Aarya Clothing"
-                  className="w-20 h-20 sm:w-24 sm:h-24 object-contain opacity-90 drop-shadow-[0_0_15px_rgba(242,194,154,0.5)]"
-                />
-              </div>
+              {logoUrl && (
+                <div              className="hidden sm:flex absolute -bottom-4 -right-4 w-24 h-24 sm:w-32 sm:h-32 border border-white/[0.08] rounded-2xl sm:rounded-3xl z-0 items-center justify-center bg-[#0A0A0A]/40 backdrop-blur-sm">
+                  <OptimizedImage
+                    src={logoUrl}
+                    alt="Aarya Clothing"
+                    width={96}
+                    height={96}
+                    className="w-20 h-20 sm:w-24 sm:h-24 object-contain opacity-90"
+                    blur={false}
+                  />
+                </div>
+              )}
             </div>
           </div>
 
@@ -235,22 +242,22 @@ const AboutSection = ({
           <div className="w-full lg:w-1/2 relative z-20 order-2">
             <div ref={contentRef} className="space-y-5 sm:space-y-8">
               <span
-                className="text-[#F2C29A] tracking-[0.3em] sm:tracking-[0.4em] text-xs sm:text-sm uppercase font-semibold block"
-                style={{ fontFamily: 'Cinzel, serif' }}
+                className="text-[#FFD700]/70 tracking-[0.3em] sm:tracking-[0.35em] text-[11px] sm:text-xs uppercase block"
+                style={{ fontFamily: 'var(--font-inter), system-ui, sans-serif', fontWeight: 500 }}
               >
                 Our Story
               </span>
 
               <h2
-                className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl text-[#EAE0D5] leading-tight"
-                style={{ fontFamily: 'Cinzel, serif' }}
+                className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl text-[#F5F5F5] leading-tight"
+                style={{ fontFamily: 'Cinzel, serif', fontWeight: 400, textShadow: '0 0 40px rgba(255, 215, 0, 0.06)' }}
               >
                 {title}
               </h2>
 
               <div
-                className="text-white text-sm sm:text-base md:text-lg leading-relaxed space-y-3 sm:space-y-4"
-                style={{ fontFamily: 'Playfair Display, serif' }}
+                className="text-[#B8B8B8] text-sm sm:text-base md:text-lg leading-[1.7] space-y-3 sm:space-y-4"
+                style={{ fontFamily: 'var(--font-inter), system-ui, sans-serif', fontWeight: 300 }}
               >
                 {story?.split(/\\n\\n|\n\n/).map((para, i) => (
                   <p key={i}>{para.replace(/\\n/g, ' ').trim()}</p>
@@ -270,17 +277,19 @@ const AboutSection = ({
             {/* Statistics - Compact on mobile */}
             <div
               ref={statsRef}
-              className="grid grid-cols-3 gap-3 sm:gap-6 md:gap-8 mt-8 sm:mt-12 pt-6 sm:pt-8 border-t border-[#F2C29A]/10"
+              className="grid grid-cols-3 gap-3 sm:gap-6 md:gap-8 mt-8 sm:mt-12 pt-6 sm:pt-8 border-t border-[#FFD700]/10"
             >
               {stats.map((stat, idx) => (
                 <div key={idx} className="text-center sm:text-left">
                   <span
-                    className="block text-xl sm:text-2xl md:text-3xl lg:text-4xl text-[#B76E79] mb-0.5 sm:mb-1 md:mb-2"
+                    className="block text-xl sm:text-2xl md:text-3xl lg:text-4xl text-[#E07B8B] mb-0.5 sm:mb-1 md:mb-2"
                     style={{ fontFamily: 'Cinzel, serif' }}
                   >
                     {stat.value}
-                  </span>
-                  <span className="text-[9px] sm:text-[10px] md:text-xs uppercase tracking-widest text-[#EAE0D5]/50 leading-tight">
+                  </span>                  <span
+                    className="text-[10px] sm:text-[11px] md:text-xs uppercase tracking-[0.15em] text-[#A0A0A0] leading-tight"
+                    style={{ fontFamily: 'var(--font-inter), system-ui, sans-serif', fontWeight: 400 }}
+                  >
                     {stat.label}
                   </span>
                 </div>

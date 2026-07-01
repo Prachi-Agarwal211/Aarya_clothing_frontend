@@ -90,22 +90,22 @@ export default function OrderStatusModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/60" onClick={busy ? undefined : onClose} />
-      <div className="relative bg-[#0B0608]/95 backdrop-blur-xl border border-[#B76E79]/20 rounded-2xl p-6 w-full max-w-md">
-        <h3 className="text-xl font-semibold text-[#F2C29A] mb-4 font-cinzel">
+      <div className="relative bg-[#0A0A0A]/95 backdrop-blur-xl border border-[#E07B8B]/20 rounded-2xl p-6 w-full max-w-md">
+        <h3 className="text-xl font-semibold text-[#FFD700] mb-4 font-cinzel">
           Update order status
         </h3>
 
         <div className="space-y-4">
           <div>
-            <label className="block text-sm text-[#EAE0D5]/70 mb-2">New status</label>
+            <label className="block text-sm text-[#F5F5F5]/70 mb-2">New status</label>
             <select
               value={newStatus}
               onChange={(e) => setNewStatus(e.target.value)}
-              className="w-full px-4 py-2.5 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-xl text-[#EAE0D5] focus:outline-none focus:border-[#B76E79]/40"
+              className="w-full px-4 py-2.5 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-xl text-[#F5F5F5] focus:outline-none focus:border-[#E07B8B]/40"
             >
               <option value="">Select new status...</option>
               {transitions.map((s) => (
-                <option key={s} value={s} className="bg-[#0B0608]">
+                <option key={s} value={s} className="bg-[#0A0A0A]">
                   {STATUS_ADMIN_LABELS[s] || s}
                 </option>
               ))}
@@ -127,13 +127,13 @@ export default function OrderStatusModal({
           )}
 
           <div>
-            <label className="block text-sm text-[#EAE0D5]/70 mb-2">Notes (optional)</label>
+            <label className="block text-sm text-[#F5F5F5]/70 mb-2">Notes (optional)</label>
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Add notes about this status change..."
               rows={3}
-              className="w-full px-4 py-2.5 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-xl text-[#EAE0D5] placeholder-[#EAE0D5]/40 focus:outline-none focus:border-[#B76E79]/40 resize-none"
+              className="w-full px-4 py-2.5 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-xl text-[#F5F5F5] placeholder-[#F5F5F5]/40 focus:outline-none focus:border-[#E07B8B]/40 resize-none"
             />
           </div>
         </div>
@@ -142,14 +142,14 @@ export default function OrderStatusModal({
           <button
             onClick={onClose}
             disabled={busy}
-            className="flex-1 px-4 py-2.5 border border-[#B76E79]/20 rounded-xl text-[#EAE0D5]/70 hover:bg-[#B76E79]/10 transition-colors disabled:opacity-50"
+            className="flex-1 px-4 py-2.5 border border-[#E07B8B]/20 rounded-xl text-[#F5F5F5]/70 hover:bg-[#E07B8B]/10 transition-colors disabled:opacity-50"
           >
             Cancel
           </button>
           <button
             onClick={handleSubmit}
             disabled={submitDisabled}
-            className="flex-1 px-4 py-2.5 bg-[#7A2F57]/30 border border-[#B76E79]/30 rounded-xl text-[#F2C29A] hover:bg-[#7A2F57]/40 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            className="flex-1 px-4 py-2.5 bg-[#9333EA]/30 border border-[#E07B8B]/30 rounded-xl text-[#FFD700] hover:bg-[#9333EA]/40 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {busy && <Loader2 className="w-4 h-4 animate-spin" />}
             {busy ? 'Updating...' : 'Update status'}
@@ -164,23 +164,23 @@ function ShipFields({ pod, setPod, courier, setCourier }) {
   return (
     <div className="space-y-4">
       <div>
-        <label className="block text-sm text-[#EAE0D5]/70 mb-2">
+        <label className="block text-sm text-[#F5F5F5]/70 mb-2">
           Delivery partner <span className="text-red-400">*</span>
         </label>
         <select
           value={courier}
           onChange={(e) => setCourier(e.target.value)}
           autoFocus
-          className="w-full px-4 py-2.5 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-xl text-[#EAE0D5] focus:outline-none focus:border-[#B76E79]/40"
+          className="w-full px-4 py-2.5 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-xl text-[#F5F5F5] focus:outline-none focus:border-[#E07B8B]/40"
         >
           <option value="">Select delivery partner...</option>
           {DELIVERY_PARTNERS.map((dp) => (
-            <option key={dp} value={dp} className="bg-[#0B0608]">{dp}</option>
+            <option key={dp} value={dp} className="bg-[#0A0A0A]">{dp}</option>
           ))}
         </select>
       </div>
       <div>
-        <label className="block text-sm text-[#EAE0D5]/70 mb-2">
+        <label className="block text-sm text-[#F5F5F5]/70 mb-2">
           POD / Tracking number <span className="text-red-400">*</span>
         </label>
         <input
@@ -188,9 +188,9 @@ function ShipFields({ pod, setPod, courier, setCourier }) {
           value={pod}
           onChange={(e) => setPod(e.target.value)}
           placeholder="e.g. DTDC1234567890"
-          className="w-full px-4 py-2.5 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-xl text-[#EAE0D5] placeholder-[#EAE0D5]/40 focus:outline-none focus:border-[#B76E79]/40"
+          className="w-full px-4 py-2.5 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-xl text-[#F5F5F5] placeholder-[#F5F5F5]/40 focus:outline-none focus:border-[#E07B8B]/40"
         />
-        <p className="text-xs text-[#EAE0D5]/40 mt-1">
+        <p className="text-xs text-[#F5F5F5]/40 mt-1">
           Shown to the customer for tracking.
         </p>
       </div>

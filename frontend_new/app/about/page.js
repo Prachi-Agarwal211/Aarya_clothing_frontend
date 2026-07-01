@@ -48,7 +48,7 @@ export default function AboutPage() {
   const { breadcrumbSchema, aboutPageSchema } = generateStructuredData();
 
   return (
-    <main className="min-h-screen text-[#EAE0D5] page-wrapper" role="main" aria-label="About Aarya Clothing">
+    <main className="min-h-screen text-[#F5F5F5] page-wrapper" role="main" aria-label="About Aarya Clothing">
       {/* Structured Data */}
       <script
         type="application/ld+json"
@@ -65,30 +65,30 @@ export default function AboutPage() {
         <EnhancedHeader />
         <div className="pt-32 pb-20 px-4 max-w-5xl mx-auto">
           <div className="text-center mb-16">
-            <h1 className="text-4xl md:text-6xl font-heading text-[#F2C29A] mb-6" style={{ fontFamily: 'Cinzel, serif' }}>
+            <h1 className="text-4xl md:text-6xl font-heading text-[#FFD700] mb-6" style={{ fontFamily: 'Cinzel, serif' }}>
               The Art of Elegance
             </h1>
-            <div className="w-24 h-[1px] bg-gradient-to-r from-transparent via-[#F2C29A] to-transparent mx-auto" aria-hidden="true" />
+            <div className="w-24 h-[1px] bg-gradient-to-r from-transparent via-[#FFD700] to-transparent mx-auto" aria-hidden="true" />
           </div>
 
           <div className="grid md:grid-cols-2 gap-12 items-center mb-20">
             <div className="space-y-6">
-              <p className="text-[#EAE0D5]/80 text-lg leading-relaxed">
+              <p className="text-[#F5F5F5]/80 text-lg leading-relaxed">
                 Aarya Clothing is a Jaipur-based fashion brand founded in 2020, created with a simple vision —
                 to offer stylish, high-quality clothing at reasonable prices, just a click away.
               </p>
-              <p className="text-[#EAE0D5]/80 text-lg leading-relaxed">
+              <p className="text-[#F5F5F5]/80 text-lg leading-relaxed">
                 What began with a few live sessions on Facebook soon grew into a trusted independent brand,
                 powered by customer love and support. Rooted in Jaipur&apos;s rich textile heritage and inspired
                 by modern fashion trends, our collections blend style, comfort, and affordability.
               </p>
-              <p className="text-[#EAE0D5]/80 text-lg leading-relaxed">
+              <p className="text-[#F5F5F5]/80 text-lg leading-relaxed">
                 At Aarya Clothing, we make it easy for every woman to discover fashion she truly loves —
                 updated, accessible, and confidently chosen.
               </p>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <div className="aspect-[3/4] rounded-xl overflow-hidden bg-[#0B0608]/40 border border-[#B76E79]/15 flex items-center justify-center">
+              <div className="aspect-[3/4] rounded-xl overflow-hidden bg-[#0A0A0A]/40 border border-[#E07B8B]/15 flex items-center justify-center">
                 <Image
                   src="/about/kurti1.jpg"
                   alt="Aarya Collection - Traditional Kurti"
@@ -99,7 +99,7 @@ export default function AboutPage() {
                   quality={85}
                 />
               </div>
-              <div className="aspect-[3/4] rounded-xl overflow-hidden bg-[#0B0608]/40 border border-[#B76E79]/15 flex items-center justify-center mt-8">
+              <div className="aspect-[3/4] rounded-xl overflow-hidden bg-[#0A0A0A]/40 border border-[#E07B8B]/15 flex items-center justify-center mt-8">
                 <Image
                   src="/about/kurti2.jpg"
                   alt="Aarya Collection - Designer Kurti"
@@ -112,7 +112,7 @@ export default function AboutPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center border-t border-[#F2C29A]/10 pt-16">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center border-t border-[#FFD700]/10 pt-16">
             {[
               { value: '2020', label: 'Founded' },
               { value: '10K+', label: 'Happy Customers' },
@@ -120,8 +120,8 @@ export default function AboutPage() {
               { value: 'Jaipur', label: 'Based In' },
             ].map((stat) => (
               <div key={stat.label}>
-                <div className="text-3xl md:text-4xl font-heading text-[#F2C29A] mb-2" style={{ fontFamily: 'Cinzel, serif' }}>{stat.value}</div>
-                <div className="text-[#EAE0D5]/60 text-sm uppercase tracking-widest">{stat.label}</div>
+                <div className="text-3xl md:text-4xl font-heading text-[#FFD700] mb-2" style={{ fontFamily: 'Cinzel, serif' }}>{stat.value}</div>
+                <div className="text-[#F5F5F5]/60 text-sm uppercase tracking-widest">{stat.label}</div>
               </div>
             ))}
           </div>

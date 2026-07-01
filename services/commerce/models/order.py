@@ -53,14 +53,6 @@ class Order(Base):
     discount_applied = Column(Numeric(10, 2), default=0)
     shipping_cost = Column(Numeric(10, 2), default=0)
     
-    # GST breakdown
-    gst_amount = Column(Numeric(10, 2), default=0)      # total GST
-    cgst_amount = Column(Numeric(10, 2), default=0)     # Central GST (intra-state)
-    sgst_amount = Column(Numeric(10, 2), default=0)     # State GST (intra-state)
-    igst_amount = Column(Numeric(10, 2), default=0)     # Integrated GST (inter-state)
-    place_of_supply = Column(String(50), nullable=True) # delivery state
-    customer_gstin = Column(String(15), nullable=True)  # B2B GSTIN
-    
     total_amount = Column(Numeric(10, 2), nullable=False)
     payment_method = Column(String(50), default='razorpay')
     
@@ -169,9 +161,6 @@ class OrderItem(Base):
     product = relationship("Product", foreign_keys=[product_id], viewonly=True)
 
     # ---- Back-compat shims for legacy readers ------------------------------
-    # admin_analytics_service.py and a few historical readers still reference
-    # `.price` / `.inventory_id` / `.hsn_code` / `.gst_rate`. Expose the new
-    # columns behind the old names until those callers are migrated.
     @property
     def price(self):
         return self.line_total
@@ -179,12 +168,4 @@ class OrderItem(Base):
     @property
     def inventory_id(self):
         return self.variant_id
-
-    @property
-    def hsn_code(self):
-        return getattr(self.product, "hsn_code", None) if self.product else None
-
-    @property
-    def gst_rate(self):
-        return getattr(self.product, "gst_rate", None) if self.product else None
 

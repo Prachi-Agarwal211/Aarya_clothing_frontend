@@ -529,17 +529,11 @@ class TestOrderService:
                     "name": "Test Product",
                     "price": 99.99,
                     "quantity": 2,
-                    "sku": "TEST-001",
-                    "gst_rate": 18
+                    "sku": "TEST-001"
                 }
             ],
             "shipping": 50,
-            "gst_amount": 36,
-            "cgst_amount": 18,
-            "sgst_amount": 18,
-            "igst_amount": 0,
-            "delivery_state": "Rajasthan",
-            "customer_gstin": None
+            "total_amount": 249.98
         })
         order_service.cart_service.confirm_cart_for_checkout = Mock(return_value=True)
         order_service.cart_service.clear_cart = Mock()

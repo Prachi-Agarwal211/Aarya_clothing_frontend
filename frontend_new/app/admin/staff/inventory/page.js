@@ -128,7 +128,7 @@ export default function StaffInventoryPage() {
                   type="number"
                   value={editValue}
                   onChange={(e) => setEditValue(e.target.value)}
-                  className="w-16 px-2 py-1 bg-[#1a1a1a] border border-[#B76E79]/20 rounded text-center"
+                  className="w-16 px-2 py-1 bg-[#1a1a1a] border border-[#E07B8B]/20 rounded text-center"
                 />
                 <button
                   onClick={() => handleAdjustStock(item.product_id, item.id, 1)}
@@ -169,7 +169,7 @@ export default function StaffInventoryPage() {
               setEditingId(item.id);
               setEditValue(item.quantity.toString());
             }}
-            className="p-1.5 text-[#F2C29A] hover:text-white transition-colors"
+            className="p-1.5 text-[#FFD700] hover:text-white transition-colors"
             title="Adjust Stock"
           >
             <Package className="w-4 h-4" />
@@ -184,10 +184,10 @@ export default function StaffInventoryPage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-[#EAE0D5]" style={{ fontFamily: 'Cinzel, serif' }}>
+          <h1 className="text-2xl font-bold text-[#F5F5F5]" style={{ fontFamily: 'Cinzel, serif' }}>
             Inventory Management
           </h1>
-          <p className="text-[#EAE0D5]/60 mt-1">
+          <p className="text-[#F5F5F5]/60 mt-1">
             View and manage stock levels
           </p>
         </div>
@@ -197,8 +197,8 @@ export default function StaffInventoryPage() {
             onClick={() => setFilter('all')}
             className={`px-4 py-2 rounded-lg transition-colors ${
               filter === 'all' 
-                ? 'bg-[#7A2F57] text-white' 
-                : 'bg-[#0B0608]/60 border border-[#B76E79]/20 text-[#EAE0D5]'
+                ? 'bg-[#9333EA] text-white' 
+                : 'bg-[#0A0A0A]/60 border border-[#E07B8B]/20 text-[#F5F5F5]'
             }`}
           >
             All
@@ -208,7 +208,7 @@ export default function StaffInventoryPage() {
             className={`px-4 py-2 rounded-lg transition-colors ${
               filter === 'low_stock' 
                 ? 'bg-amber-600 text-white' 
-                : 'bg-[#0B0608]/60 border border-[#B76E79]/20 text-[#EAE0D5]'
+                : 'bg-[#0A0A0A]/60 border border-[#E07B8B]/20 text-[#F5F5F5]'
             }`}
           >
             Low Stock
@@ -218,7 +218,7 @@ export default function StaffInventoryPage() {
             className={`px-4 py-2 rounded-lg transition-colors ${
               filter === 'out_of_stock' 
                 ? 'bg-red-600 text-white' 
-                : 'bg-[#0B0608]/60 border border-[#B76E79]/20 text-[#EAE0D5]'
+                : 'bg-[#0A0A0A]/60 border border-[#E07B8B]/20 text-[#F5F5F5]'
             }`}
           >
             Out of Stock
@@ -229,26 +229,26 @@ export default function StaffInventoryPage() {
       {/* Search */}
       <div className="flex gap-4">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8B7D77]" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#737373]" />
           <input
             type="text"
             placeholder="Search products..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-            className="w-full pl-10 pr-4 py-2 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-lg text-[#EAE0D5] placeholder-[#8B7D77] focus:outline-none focus:border-[#F2C29A]"
+            className="w-full pl-10 pr-4 py-2 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-lg text-[#F5F5F5] placeholder-[#737373] focus:outline-none focus:border-[#FFD700]"
           />
         </div>
         <button
           onClick={handleSearch}
-          className="px-4 py-2 bg-[#7A2F57] text-white rounded-lg hover:bg-[#7A2F57]/80"
+          className="px-4 py-2 bg-[#9333EA] text-white rounded-lg hover:bg-[#9333EA]/80"
         >
           Search
         </button>
       </div>
 
       {/* Inventory Table */}
-      <div className="bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl overflow-hidden">
+      <div className="bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl overflow-hidden">
         {loading ? (
           <div className="p-8">
             <div className="animate-pulse space-y-4">
@@ -265,8 +265,8 @@ export default function StaffInventoryPage() {
           <DataTable columns={columns} data={inventory} />
         ) : (
           <div className="p-8 text-center">
-            <Package className="w-12 h-12 text-[#8B7D77] mx-auto mb-3" />
-            <p className="text-[#EAE0D5]/60">No inventory items found</p>
+            <Package className="w-12 h-12 text-[#737373] mx-auto mb-3" />
+            <p className="text-[#F5F5F5]/60">No inventory items found</p>
           </div>
         )}
       </div>

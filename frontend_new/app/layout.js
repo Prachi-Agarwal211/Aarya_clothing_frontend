@@ -1,5 +1,5 @@
 import './globals.css';
-import { Cinzel, Playfair_Display } from 'next/font/google';
+import { Cinzel, Playfair_Display, Inter } from 'next/font/google';
 import { AuthProvider } from '../lib/authContext';
 import { CartProvider } from '../lib/cartContext';
 import { SiteConfigProvider } from '../lib/siteConfigContext';
@@ -9,16 +9,18 @@ import { CartAnimationProvider } from '../components/cart/CartAnimation';
 import ErrorBoundary from '../components/ErrorBoundary';
 import WebVitalsInit from '../components/WebVitalsInit';
 import ServiceWorkerInit from '../components/ServiceWorkerInit';
-import { IntroVideoOverlayProvider } from '../lib/introVideoOverlayContext';
 import ClientShell from '../components/ClientShell';
 
 // Optimize font loading with next/font/google
+// Inter: Clean, modern sans-serif for body text (high readability)
+// Cinzel: Elegant serif for display headings (luxury feel)
+// Playfair: Retained for editorial/accent text only
 const cinzel = Cinzel({
   subsets: ['latin'],
   display: 'swap',
   variable: '--font-cinzel',
   preload: true,
-  weight: ['400', '500', '600'],
+  weight: ['400', '500', '600', '700'],
 });
 
 const playfair = Playfair_Display({
@@ -28,6 +30,14 @@ const playfair = Playfair_Display({
   preload: true,
   weight: ['400', '500', '600'],
   style: ['normal', 'italic'],
+});
+
+const inter = Inter({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-inter',
+  preload: true,
+  weight: ['300', '400', '500', '600'],
 });
 
 export const viewport = {
@@ -54,24 +64,23 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en" className={`${cinzel.variable} ${playfair.variable}`}>
+    <html lang="en" className={`${cinzel.variable} ${playfair.variable} ${inter.variable}`}>
       <head>
         <link rel="preconnect" href="https://pub-7846c786f7154610b57735df47899fa0.r2.dev" />
         <link rel="dns-prefetch" href="https://api.aaryaclothing.com" />
         <link rel="dns-prefetch" href="https://aaryaclothing.in" />
-        {/* Intro video preload: admin URLs (desktop/mobile) are injected from app/(landing)/layout.js */}
       </head>
       <body className="relative font-sans">
         {/* Skip Links for Accessibility */}
         <a
           href="#main-content"
-          className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[1000] focus:px-6 focus:py-3 focus:bg-[#0B0608] focus:text-[#F2C29A] focus:rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F2C29A]/50 transition-all"
+          className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[1000] focus:px-6 focus:py-3 focus:bg-[#0A0A0A] focus:text-[#FFD700] focus:rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FFD700]/50 transition-all"
         >
           Skip to main content
         </a>
         <a
           href="#main-navigation"
-          className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[1000] focus:px-6 focus:py-3 focus:bg-[#0B0608] focus:text-[#F2C29A] focus:rounded-lg focus:outline-none focus:ring-2 focus:ring-[#F2C29A]/50 transition-all"
+          className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[1000] focus:px-6 focus:py-3 focus:bg-[#0A0A0A] focus:text-[#FFD700] focus:rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FFD700]/50 transition-all"
         >
           Skip to navigation
         </a>
@@ -80,7 +89,7 @@ export default function RootLayout({ children }) {
         <SilkBackground />
 
         {/* Gradient Overlay - consistent across all pages */}
-        <div className="fixed inset-0 z-0 bg-gradient-to-b from-[#050203]/40 via-transparent to-[#050203]/90 pointer-events-none" aria-hidden="true" />
+        <div className="fixed inset-0 z-0 bg-gradient-to-b from-[#000000]/40 via-transparent to-[#000000]/90 pointer-events-none" aria-hidden="true" />
 
         <WebVitalsInit />
         <ServiceWorkerInit />
@@ -90,14 +99,12 @@ export default function RootLayout({ children }) {
               <CartAnimationProvider>
                 <SiteConfigProvider>
                   <ToastProvider>
-                    <IntroVideoOverlayProvider>
-                      {/* Main landmark wrapper */}
-                      <div className="relative z-10">
-                        {children}
-                      </div>
-                      {/* ClientShell: lazy-loads CartDrawer, BottomNav, ChatWidget (ssr:false in client boundary) */}
-                      <ClientShell />
-                    </IntroVideoOverlayProvider>
+                    {/* Main landmark wrapper */}
+                    <div className="relative z-10">
+                      {children}
+                    </div>
+                    {/* ClientShell: lazy-loads CartDrawer, BottomNav, ChatWidget (ssr:false in client boundary) */}
+                    <ClientShell />
                   </ToastProvider>
                 </SiteConfigProvider>
               </CartAnimationProvider>

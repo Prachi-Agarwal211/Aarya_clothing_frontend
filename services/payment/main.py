@@ -686,9 +686,14 @@ async def process_payment(
 
 @app.get("/api/v1/payments/{transaction_id}/status",
          tags=["Payments"])
-async def get_payment_status(transaction_id: str, db: Session = Depends(get_db)):
+async def get_payment_status(
+    transaction_id: str,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
     """
     Get the status of a payment transaction.
+    Only accessible by the transaction owner or staff/admin.
     """
     try:
         payment_service = PaymentService(db)
@@ -699,9 +704,21 @@ async def get_payment_status(transaction_id: str, db: Session = Depends(get_db))
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Transaction not found"
             )
+
+        # Ownership check — staff can see any transaction
+        user_role = current_user.get("role", "customer")
+        if user_role not in ("admin", "staff", "super_admin"):
+            owner_id = getattr(payment_status, "user_id", None) or (payment_status.get("user_id") if isinstance(payment_status, dict) else None)
+            if owner_id and owner_id != current_user.get("id"):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Access denied"
+                )
         
         return payment_status
         
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -876,7 +893,12 @@ async def razorpay_webhook(
 # ==================== Fraud Detection ====================
 
 @app.post("/api/v1/payments/verify", tags=["Payments"])
-async def verify_payment_risk(order_id: int, user_id: int, amount: Decimal):
+async def verify_payment_risk(
+    order_id: int,
+    user_id: int,
+    amount: Decimal,
+    _current_user: dict = Depends(require_admin)  # Internal fraud tool — admin only
+):
     """
     Verify payment for potential fraud.
     

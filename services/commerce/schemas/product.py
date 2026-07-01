@@ -92,9 +92,6 @@ class ProductResponse(BaseModel):
     inventory_count: int = 0
     is_on_sale: bool = False
     discount_percentage: int = 0
-    hsn_code: Optional[str] = None
-    gst_rate: Optional[float] = None
-    is_taxable: Optional[bool] = None
     colors: List[ColorInfo] = []
     sizes: List[str] = []
     created_at: datetime

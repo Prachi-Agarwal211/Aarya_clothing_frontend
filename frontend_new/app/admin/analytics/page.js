@@ -13,7 +13,7 @@ import { logError } from '@/lib/errorHandlers';
 const fmt = (n) => new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(n);
 
 // Mini bar chart component for visual representation
-function MiniBarChart({ data, maxValue, color = "#B76E79" }) {
+function MiniBarChart({ data, maxValue, color = "#E07B8B" }) {
   if (!data || data.length === 0) return null;
   const barWidth = 100 / data.length;
   
@@ -38,22 +38,22 @@ function MiniBarChart({ data, maxValue, color = "#B76E79" }) {
 // Stat card with trend indicator
 function StatCard({ title, value, subtitle, icon: Icon, iconBg, trend, trendValue, loading }) {
   return (
-    <div className="bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl p-5 relative overflow-hidden">
+    <div className="bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl p-5 relative overflow-hidden">
       {/* Background decoration */}
-      <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-[#B76E79]/5 to-transparent rounded-bl-full" />
+      <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-[#E07B8B]/5 to-transparent rounded-bl-full" />
       
       <div className="flex items-center justify-between mb-3">
-        <p className="text-[#EAE0D5]/60 text-xs uppercase tracking-wider font-semibold">{title}</p>
+        <p className="text-[#F5F5F5]/60 text-xs uppercase tracking-wider font-semibold">{title}</p>
         <div className={`p-2 rounded-lg ${iconBg}`}>
-          <Icon className="w-4 h-4 text-[#F2C29A]" />
+          <Icon className="w-4 h-4 text-[#FFD700]" />
         </div>
       </div>
       
       {loading ? (
-        <div className="h-8 bg-[#B76E79]/10 rounded-lg animate-pulse" />
+        <div className="h-8 bg-[#E07B8B]/10 rounded-lg animate-pulse" />
       ) : (
         <>
-          <p className="text-2xl font-bold text-[#EAE0D5]">{value}</p>
+          <p className="text-2xl font-bold text-[#F5F5F5]">{value}</p>
           {trend !== undefined && (
             <div className="mt-2 flex items-center gap-1.5">
               {trend === 'up' ? (
@@ -64,7 +64,7 @@ function StatCard({ title, value, subtitle, icon: Icon, iconBg, trend, trendValu
               <span className={`text-xs font-medium ${trend === 'up' ? 'text-green-400' : 'text-red-400'}`}>
                 {trendValue}
               </span>
-              {subtitle && <span className="text-[#EAE0D5]/20 text-xs">{subtitle}</span>}
+              {subtitle && <span className="text-[#F5F5F5]/20 text-xs">{subtitle}</span>}
             </div>
           )}
         </>
@@ -76,7 +76,7 @@ function StatCard({ title, value, subtitle, icon: Icon, iconBg, trend, trendValu
 // Real-time indicator component
 function LiveIndicator({ lastUpdated, isRefreshing }) {
   return (
-    <div className="flex items-center gap-2 text-xs text-[#EAE0D5]/40">
+    <div className="flex items-center gap-2 text-xs text-[#F5F5F5]/40">
       <div className="flex items-center gap-1.5">
         <span className={`w-2 h-2 rounded-full ${isRefreshing ? 'bg-yellow-400 animate-pulse' : 'bg-green-400'}`} />
         <span className="font-medium">{isRefreshing ? 'Updating...' : 'Live'}</span>
@@ -199,8 +199,8 @@ export default function AnalyticsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 className="w-8 h-8 text-[#B76E79] animate-spin" />
-        <span className="ml-3 text-[#EAE0D5]/60 font-cinzel">Generating Reports...</span>
+        <Loader2 className="w-8 h-8 text-[#E07B8B] animate-spin" />
+        <span className="ml-3 text-[#F5F5F5]/60 font-cinzel">Generating Reports...</span>
       </div>
     );
   }
@@ -210,10 +210,10 @@ export default function AnalyticsPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-[#F2C29A]" style={{ fontFamily: 'Cinzel, serif' }}>
+          <h1 className="text-2xl md:text-3xl font-bold text-[#FFD700]" style={{ fontFamily: 'Cinzel, serif' }}>
             Store Analytics
           </h1>
-          <p className="text-[#EAE0D5]/60 mt-1 text-sm">Deep insights into your store's performance</p>
+          <p className="text-[#F5F5F5]/60 mt-1 text-sm">Deep insights into your store's performance</p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
           <LiveIndicator lastUpdated={lastUpdated} isRefreshing={refreshing} />
@@ -223,7 +223,7 @@ export default function AnalyticsPage() {
             className={`p-2 rounded-xl border text-xs transition-colors ${
               autoRefresh 
                 ? 'bg-green-500/10 border-green-500/20 text-green-400' 
-                : 'border-[#B76E79]/20 text-[#EAE0D5]/40'
+                : 'border-[#E07B8B]/20 text-[#F5F5F5]/40'
             }`}
             title={autoRefresh ? 'Auto-refresh ON (30s)' : 'Auto-refresh OFF'}
           >
@@ -233,7 +233,7 @@ export default function AnalyticsPage() {
           <select 
             value={period} 
             onChange={(e) => handlePeriodChange(e.target.value)}
-            className="px-4 py-2 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-xl text-[#EAE0D5] focus:outline-none focus:border-[#B76E79]/50 text-sm"
+            className="px-4 py-2 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-xl text-[#F5F5F5] focus:outline-none focus:border-[#E07B8B]/50 text-sm"
           >
             <option value="7d">Last 7 Days</option>
             <option value="30d">Last 30 Days</option>
@@ -243,7 +243,7 @@ export default function AnalyticsPage() {
           <button 
             onClick={() => fetchData(true)} 
             disabled={refreshing}
-            className="p-2 rounded-xl border border-[#B76E79]/20 text-[#EAE0D5]/70 hover:bg-[#B76E79]/10 transition-colors disabled:opacity-50"
+            className="p-2 rounded-xl border border-[#E07B8B]/20 text-[#F5F5F5]/70 hover:bg-[#E07B8B]/10 transition-colors disabled:opacity-50"
           >
             <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
           </button>
@@ -275,7 +275,7 @@ export default function AnalyticsPage() {
           value={customers?.total_customers || 0}
           subtitle={`${customers?.returning_customers || 0} returning`}
           icon={Users}
-          iconBg="bg-[#7A2F57]/20"
+          iconBg="bg-[#9333EA]/20"
           loading={refreshing}
         />
         <StatCard 
@@ -300,20 +300,20 @@ export default function AnalyticsPage() {
 
       {/* Revenue Chart Section */}
       {revenueChartData.length > 0 && (
-        <div className="bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl p-6">
+        <div className="bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-base font-semibold text-[#F2C29A]" style={{ fontFamily: 'Cinzel, serif' }}>
+            <h2 className="text-base font-semibold text-[#FFD700]" style={{ fontFamily: 'Cinzel, serif' }}>
               Revenue Trend (Last 7 Days)
             </h2>
-            <div className="flex items-center gap-4 text-xs text-[#EAE0D5]/40">
+            <div className="flex items-center gap-4 text-xs text-[#F5F5F5]/40">
               <div className="flex items-center gap-1.5">
-                <span className="w-3 h-3 rounded-sm bg-[#B76E79]" />
+                <span className="w-3 h-3 rounded-sm bg-[#E07B8B]" />
                 Daily Revenue
               </div>
             </div>
           </div>
-          <MiniBarChart data={revenueChartData} maxValue={maxRevenue} color="#B76E79" />
-          <div className="flex justify-between mt-2 text-xs text-[#EAE0D5]/30">
+          <MiniBarChart data={revenueChartData} maxValue={maxRevenue} color="#E07B8B" />
+          <div className="flex justify-between mt-2 text-xs text-[#F5F5F5]/30">
             {revenueChartData.map((d, i) => (
               <span key={i}>{d.label}</span>
             ))}
@@ -324,24 +324,24 @@ export default function AnalyticsPage() {
       {/* Charts / Lists */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Top Selling Products */}
-        <div className="bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl overflow-hidden flex flex-col">
-          <div className="p-6 border-b border-[#B76E79]/10">
-            <h2 className="text-base font-semibold text-[#F2C29A]" style={{ fontFamily: 'Cinzel, serif' }}>Top Selling Products</h2>
+        <div className="bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl overflow-hidden flex flex-col">
+          <div className="p-6 border-b border-[#E07B8B]/10">
+            <h2 className="text-base font-semibold text-[#FFD700]" style={{ fontFamily: 'Cinzel, serif' }}>Top Selling Products</h2>
           </div>
           <div className="flex-1 p-4 space-y-3">
             {topProducts.length === 0 ? (
-              <div className="h-40 flex items-center justify-center text-[#EAE0D5]/30 text-sm italic">No data for this period</div>
+              <div className="h-40 flex items-center justify-center text-[#F5F5F5]/30 text-sm italic">No data for this period</div>
             ) : topProducts.map((p, idx) => (
-              <div key={idx} className="flex items-center gap-4 p-3 bg-[#0B0608]/40 rounded-xl border border-[#B76E79]/5 hover:border-[#B76E79]/20 transition-colors">
-                <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs ${idx === 0 ? 'bg-yellow-500/20 text-yellow-500' : idx === 1 ? 'bg-gray-400/20 text-gray-400' : idx === 2 ? 'bg-amber-600/20 text-amber-600' : 'bg-[#B76E79]/10 text-[#EAE0D5]/40'}`}>
+              <div key={idx} className="flex items-center gap-4 p-3 bg-[#0A0A0A]/40 rounded-xl border border-[#E07B8B]/5 hover:border-[#E07B8B]/20 transition-colors">
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs ${idx === 0 ? 'bg-yellow-500/20 text-yellow-500' : idx === 1 ? 'bg-gray-400/20 text-gray-400' : idx === 2 ? 'bg-amber-600/20 text-amber-600' : 'bg-[#E07B8B]/10 text-[#F5F5F5]/40'}`}>
                   #{idx + 1}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-[#EAE0D5] truncate">{p.product_name}</p>
-                  <p className="text-xs text-[#EAE0D5]/40">{p.total_sold} units sold</p>
+                  <p className="text-sm font-medium text-[#F5F5F5] truncate">{p.product_name}</p>
+                  <p className="text-xs text-[#F5F5F5]/40">{p.total_sold} units sold</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-sm font-semibold text-[#F2C29A]">{fmt(p.total_revenue)}</p>
+                  <p className="text-sm font-semibold text-[#FFD700]">{fmt(p.total_revenue)}</p>
                 </div>
               </div>
             ))}
@@ -349,36 +349,36 @@ export default function AnalyticsPage() {
         </div>
 
         {/* Inventory Performance */}
-        <div className="bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl overflow-hidden flex flex-col">
-          <div className="p-6 border-b border-[#B76E79]/10">
-            <h2 className="text-base font-semibold text-[#F2C29A]" style={{ fontFamily: 'Cinzel, serif' }}>Product Performance</h2>
+        <div className="bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl overflow-hidden flex flex-col">
+          <div className="p-6 border-b border-[#E07B8B]/10">
+            <h2 className="text-base font-semibold text-[#FFD700]" style={{ fontFamily: 'Cinzel, serif' }}>Product Performance</h2>
           </div>
           <div className="flex-1 p-0">
             <div className="overflow-x-auto">
               <table className="w-full text-left">
                 <thead>
-                  <tr className="bg-[#B76E79]/5 text-[#EAE0D5]/40 text-[10px] uppercase tracking-wider font-bold">
+                  <tr className="bg-[#E07B8B]/5 text-[#F5F5F5]/40 text-[10px] uppercase tracking-wider font-bold">
                     <th className="px-6 py-3">Product</th>
                     <th className="px-6 py-3 text-center">Orders</th>
                     <th className="px-6 py-3 text-center">Rating</th>
                     <th className="px-6 py-3 text-right">Revenue</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#B76E79]/5">
+                <tbody className="divide-y divide-[#E07B8B]/5">
                   {performance.slice(0, 6).map((p, idx) => (
-                    <tr key={idx} className="hover:bg-[#B76E79]/5 transition-colors">
+                    <tr key={idx} className="hover:bg-[#E07B8B]/5 transition-colors">
                       <td className="px-6 py-4">
-                        <p className="text-xs font-medium text-[#EAE0D5] truncate max-w-[150px]">{p.name}</p>
-                        <p className="text-[10px] text-[#EAE0D5]/30 font-mono">{p.sku}</p>
+                        <p className="text-xs font-medium text-[#F5F5F5] truncate max-w-[150px]">{p.name}</p>
+                        <p className="text-[10px] text-[#F5F5F5]/30 font-mono">{p.sku}</p>
                       </td>
-                      <td className="px-6 py-4 text-center text-xs text-[#EAE0D5]/70">{p.order_count}</td>
+                      <td className="px-6 py-4 text-center text-xs text-[#F5F5F5]/70">{p.order_count}</td>
                       <td className="px-6 py-4 text-center">
-                        <div className="flex items-center justify-center gap-1 text-[#F2C29A]">
+                        <div className="flex items-center justify-center gap-1 text-[#FFD700]">
                           <span className="text-xs font-bold">{p.avg_rating || '-'}</span>
-                          {p.avg_rating && <span className="text-[10px] text-[#EAE0D5]/20">★</span>}
+                          {p.avg_rating && <span className="text-[10px] text-[#F5F5F5]/20">★</span>}
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-right text-xs font-semibold text-[#F2C29A]">{fmt(p.revenue)}</td>
+                      <td className="px-6 py-4 text-right text-xs font-semibold text-[#FFD700]">{fmt(p.revenue)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -389,23 +389,23 @@ export default function AnalyticsPage() {
       </div>
 
       {/* Customer Insights */}
-      <div className="bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl p-6">
-        <h2 className="text-base font-semibold text-[#F2C29A] mb-4" style={{ fontFamily: 'Cinzel, serif' }}>Customer Insights</h2>
+      <div className="bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl p-6">
+        <h2 className="text-base font-semibold text-[#FFD700] mb-4" style={{ fontFamily: 'Cinzel, serif' }}>Customer Insights</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="p-4 bg-[#0B0608]/40 rounded-xl border border-[#B76E79]/10">
-            <p className="text-xs text-[#EAE0D5]/40 uppercase tracking-wider mb-1">New Today</p>
-            <p className="text-xl font-bold text-[#EAE0D5]">{customers?.new_customers_today || 0}</p>
+          <div className="p-4 bg-[#0A0A0A]/40 rounded-xl border border-[#E07B8B]/10">
+            <p className="text-xs text-[#F5F5F5]/40 uppercase tracking-wider mb-1">New Today</p>
+            <p className="text-xl font-bold text-[#F5F5F5]">{customers?.new_customers_today || 0}</p>
           </div>
-          <div className="p-4 bg-[#0B0608]/40 rounded-xl border border-[#B76E79]/10">
-            <p className="text-xs text-[#EAE0D5]/40 uppercase tracking-wider mb-1">This Week</p>
-            <p className="text-xl font-bold text-[#EAE0D5]">{customers?.new_customers_this_week || 0}</p>
+          <div className="p-4 bg-[#0A0A0A]/40 rounded-xl border border-[#E07B8B]/10">
+            <p className="text-xs text-[#F5F5F5]/40 uppercase tracking-wider mb-1">This Week</p>
+            <p className="text-xl font-bold text-[#F5F5F5]">{customers?.new_customers_this_week || 0}</p>
           </div>
-          <div className="p-4 bg-[#0B0608]/40 rounded-xl border border-[#B76E79]/10">
-            <p className="text-xs text-[#EAE0D5]/40 uppercase tracking-wider mb-1">This Month</p>
-            <p className="text-xl font-bold text-[#EAE0D5]">{customers?.new_customers_this_month || 0}</p>
+          <div className="p-4 bg-[#0A0A0A]/40 rounded-xl border border-[#E07B8B]/10">
+            <p className="text-xs text-[#F5F5F5]/40 uppercase tracking-wider mb-1">This Month</p>
+            <p className="text-xl font-bold text-[#F5F5F5]">{customers?.new_customers_this_month || 0}</p>
           </div>
-          <div className="p-4 bg-[#0B0608]/40 rounded-xl border border-[#B76E79]/10">
-            <p className="text-xs text-[#EAE0D5]/40 uppercase tracking-wider mb-1">Returning</p>
+          <div className="p-4 bg-[#0A0A0A]/40 rounded-xl border border-[#E07B8B]/10">
+            <p className="text-xs text-[#F5F5F5]/40 uppercase tracking-wider mb-1">Returning</p>
             <p className="text-xl font-bold text-green-400">{customers?.returning_customers || 0}</p>
           </div>
         </div>

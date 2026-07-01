@@ -14,13 +14,13 @@
  */
 export default function ErrorPage({ error, reset, title = 'Something went wrong', message = 'An error occurred. Please try again or contact support.' }) {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#050203]">
+    <div className="min-h-screen flex items-center justify-center bg-[#000000]">
       <div className="text-center p-8">
         <h2 className="text-2xl font-bold text-red-400 mb-4">{title}</h2>
-        <p className="text-[#EAE0D5]/60 mb-6">{message}</p>
+        <p className="text-[#F5F5F5]/60 mb-6">{message}</p>
         <button
           onClick={reset}
-          className="px-6 py-3 bg-[#B76E79] text-white rounded-xl hover:bg-[#B76E79]/80 transition-colors"
+          className="px-6 py-3 bg-[#E07B8B] text-white rounded-xl hover:bg-[#E07B8B]/80 transition-colors"
         >
           Try again
         </button>

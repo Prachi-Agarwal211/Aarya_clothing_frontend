@@ -99,10 +99,10 @@ export const ScrollToTop = ({
       className={`
         fixed bottom-8 right-8 z-50
         p-3 rounded-full
-        bg-gradient-to-r from-[#7A2F57] to-[#B76E79]
+        bg-gradient-to-r from-[#9333EA] to-[#E07B8B]
         text-white
-        shadow-lg shadow-[#7A2F57]/30
-        hover:shadow-xl hover:shadow-[#B76E79]/40
+        shadow-lg shadow-[#9333EA]/30
+        hover:shadow-xl hover:shadow-[#E07B8B]/40
         transform hover:scale-110
         transition-all duration-300
         ${className}
@@ -163,13 +163,13 @@ export const ScrollProgress = ({ className = '' }) => {
     <div 
       className={`
         fixed top-0 left-0 right-0 h-1 z-[100]
-        bg-[#050203]/50
+        bg-[#000000]/50
         ${className}
       `}
     >
       <div 
         ref={progressRef}
-        className="h-full bg-gradient-to-r from-[#7A2F57] via-[#B76E79] to-[#F2C29A]"
+        className="h-full bg-gradient-to-r from-[#9333EA] via-[#E07B8B] to-[#FFD700]"
         style={{ width: '0%' }}
       />
     </div>

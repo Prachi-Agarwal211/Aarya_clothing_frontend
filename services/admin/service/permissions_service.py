@@ -311,13 +311,16 @@ def setup_two_factor(db: Session, user_id: int) -> Dict[str, Any]:
         db.delete(existing)
     
     secret = pyotp.random_base32()
-    backup_codes = [secrets.token_urlsafe(8) for _ in range(10)]
+    # Generate plaintext codes to return to user (shown only once)
+    plaintext_codes = [secrets.token_urlsafe(8) for _ in range(10)]
+    # Store only SHA-256 hashes — plaintext never persisted
+    hashed_codes = [hashlib.sha256(code.encode()).hexdigest() for code in plaintext_codes]
     
     two_factor = TwoFactorAuth(
         user_id=user_id,
         secret=secret,
         enabled=False,
-        backup_codes=backup_codes
+        backup_codes=hashed_codes
     )
     
     db.add(two_factor)
@@ -332,7 +335,7 @@ def setup_two_factor(db: Session, user_id: int) -> Dict[str, Any]:
     return {
         "secret": secret,
         "qr_code_url": provisioning_uri,
-        "backup_codes": backup_codes
+        "backup_codes": plaintext_codes  # Show plaintext ONCE — never stored
     }
 
 
@@ -352,13 +355,16 @@ def verify_two_factor(db: Session, user_id: int, code: str) -> bool:
         db.commit()
         return True
     
-    # Check backup codes
-    if two_factor.backup_codes and code in two_factor.backup_codes:
-        two_factor.backup_codes.remove(code)
-        two_factor.enabled = True
-        two_factor.last_used = now_ist()
-        db.commit()
-        return True
+    # Check backup codes — compare hash of input against stored hashes
+    if two_factor.backup_codes:
+        input_hash = hashlib.sha256(code.encode()).hexdigest()
+        if input_hash in two_factor.backup_codes:
+            updated_codes = [h for h in two_factor.backup_codes if h != input_hash]
+            two_factor.backup_codes = updated_codes
+            two_factor.enabled = True
+            two_factor.last_used = now_ist()
+            db.commit()
+            return True
     
     return False
 

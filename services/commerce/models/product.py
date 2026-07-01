@@ -20,8 +20,6 @@ class Product(Base):
     mrp = Column(Numeric(10, 2), nullable=True)
     category_id = Column(Integer, ForeignKey("collections.id", ondelete="RESTRICT"), nullable=False, index=True)
     brand = Column(String(100), nullable=True)
-    hsn_code = Column(String(20), nullable=True)
-    gst_rate = Column(Numeric(5, 2), nullable=True)
     is_taxable = Column(Boolean, default=True)
     average_rating = Column(Numeric(3, 2), default=0)
     review_count = Column(Integer, default=0)

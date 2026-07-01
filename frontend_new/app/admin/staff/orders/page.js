@@ -151,7 +151,7 @@ export default function StaffOrdersPage() {
         <div className="flex gap-2">
           <Link
             href={`/admin/orders/${item.id}`}
-            className="p-1.5 text-[#F2C29A] hover:text-white transition-colors"
+            className="p-1.5 text-[#FFD700] hover:text-white transition-colors"
             title="View Details"
           >
             <Eye className="w-4 h-4" />
@@ -166,10 +166,10 @@ export default function StaffOrdersPage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-[#EAE0D5]" style={{ fontFamily: 'Cinzel, serif' }}>
+          <h1 className="text-2xl font-bold text-[#F5F5F5]" style={{ fontFamily: 'Cinzel, serif' }}>
             Order Management
           </h1>
-          <p className="text-[#EAE0D5]/60 mt-1">
+          <p className="text-[#F5F5F5]/60 mt-1">
             View and manage customer orders
           </p>
         </div>
@@ -179,14 +179,14 @@ export default function StaffOrdersPage() {
       <div className="flex flex-col md:flex-row gap-4">
         {/* Search */}
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8B7D77]" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#737373]" />
           <input
             type="text"
             placeholder="Search orders..."
             value={search}
             onChange={(e) => handleSearchChange(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && fetchOrders()}
-            className="w-full pl-10 pr-4 py-2 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-lg text-[#EAE0D5] placeholder-[#8B7D77] focus:outline-none focus:border-[#F2C29A]"
+            className="w-full pl-10 pr-4 py-2 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-lg text-[#F5F5F5] placeholder-[#737373] focus:outline-none focus:border-[#FFD700]"
           />
         </div>
 
@@ -194,7 +194,7 @@ export default function StaffOrdersPage() {
         <select
           value={status}
           onChange={(e) => handleStatusChange(e.target.value)}
-          className="px-4 py-2 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-lg text-[#EAE0D5] focus:outline-none focus:border-[#F2C29A]"
+          className="px-4 py-2 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-lg text-[#F5F5F5] focus:outline-none focus:border-[#FFD700]"
         >
           {STATUS_OPTIONS.map(opt => (
             <option key={opt.value} value={opt.value}>
@@ -205,7 +205,7 @@ export default function StaffOrdersPage() {
       </div>
 
       {/* Orders Table */}
-      <div className="bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl overflow-hidden">
+      <div className="bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl overflow-hidden">
         {loading ? (
           <div className="p-8">
             <div className="animate-pulse space-y-4">
@@ -222,8 +222,8 @@ export default function StaffOrdersPage() {
           <DataTable columns={columns} data={orders} />
         ) : (
           <div className="p-8 text-center">
-            <Package className="w-12 h-12 text-[#8B7D77] mx-auto mb-3" />
-            <p className="text-[#EAE0D5]/60">No orders found</p>
+            <Package className="w-12 h-12 text-[#737373] mx-auto mb-3" />
+            <p className="text-[#F5F5F5]/60">No orders found</p>
           </div>
         )}
       </div>
@@ -234,17 +234,17 @@ export default function StaffOrdersPage() {
           <button
             onClick={() => setPagination(prev => ({ ...prev, page: prev.page - 1 }))}
             disabled={pagination.page === 1}
-            className="px-4 py-2 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-lg text-[#EAE0D5] disabled:opacity-50"
+            className="px-4 py-2 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-lg text-[#F5F5F5] disabled:opacity-50"
           >
             Previous
           </button>
-          <span className="px-4 py-2 text-[#EAE0D5]/60">
+          <span className="px-4 py-2 text-[#F5F5F5]/60">
             Page {pagination.page} of {Math.ceil(pagination.total / pagination.limit)}
           </span>
           <button
             onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 1 }))}
             disabled={pagination.page >= Math.ceil(pagination.total / pagination.limit)}
-            className="px-4 py-2 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-lg text-[#EAE0D5] disabled:opacity-50"
+            className="px-4 py-2 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-lg text-[#F5F5F5] disabled:opacity-50"
           >
             Next
           </button>

@@ -500,7 +500,6 @@ class EmailService:
         order_items: str,
         subtotal: str,
         shipping: str,
-        gst: str,
         total: str,
         discount_row: str = "",
         shipping_address: str = "",
@@ -527,7 +526,6 @@ class EmailService:
         html_content = html_content.replace("{{order_items}}", order_items)
         html_content = html_content.replace("{{subtotal}}", subtotal)
         html_content = html_content.replace("{{shipping}}", shipping)
-        html_content = html_content.replace("{{gst}}", gst)
         html_content = html_content.replace("{{total}}", total)
         html_content = html_content.replace("{{discount_row}}", discount_row)
         html_content = html_content.replace("{{shipping_address}}", shipping_address)
@@ -548,7 +546,6 @@ class EmailService:
 
         Subtotal: ₹{subtotal}
         Shipping: ₹{shipping}
-        GST: ₹{gst}
         Total: ₹{total}
 
         Shipping Address:

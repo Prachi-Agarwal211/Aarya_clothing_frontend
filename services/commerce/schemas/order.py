@@ -23,8 +23,6 @@ class CartItemResponse(BaseModel):
     image: Optional[str] = None
     size: Optional[str] = None
     color: Optional[str] = None
-    hsn_code: Optional[str] = None
-    gst_rate: Optional[float] = None
 
 
 class CartResponse(BaseModel):
@@ -34,12 +32,6 @@ class CartResponse(BaseModel):
     subtotal: float = 0.0
     discount: float = 0.0
     shipping: float = 0.0
-    gst_amount: float = 0.0
-    cgst_amount: float = 0.0
-    sgst_amount: float = 0.0
-    igst_amount: float = 0.0
-    delivery_state: Optional[str] = None
-    customer_gstin: Optional[str] = None
     total: float = 0.0
     total_amount: Optional[float] = None  # Alias for total (for backward compat)
     item_count: int = 0
@@ -48,12 +40,6 @@ class CartResponse(BaseModel):
 
     class Config:
         from_attributes = True
-
-
-class SetDeliveryState(BaseModel):
-    """Set delivery state for GST calculation."""
-    delivery_state: str
-    customer_gstin: Optional[str] = None
 
 
 class OrderCreate(BaseModel):
@@ -83,8 +69,6 @@ class OrderItemResponse(BaseModel):
     size: Optional[str] = None
     color: Optional[str] = None
     color_hex: Optional[str] = None
-    hsn_code: Optional[str] = None
-    gst_rate: Optional[float] = None
     quantity: int
     unit_price: Optional[float] = None
     price: float
@@ -124,12 +108,6 @@ class OrderResponse(BaseModel):
     invoice_number: Optional[str] = None
     subtotal: Optional[Decimal] = None
     shipping_cost: Optional[Decimal] = None
-    gst_amount: Optional[Decimal] = None
-    cgst_amount: Optional[Decimal] = None
-    sgst_amount: Optional[Decimal] = None
-    igst_amount: Optional[Decimal] = None
-    place_of_supply: Optional[str] = None
-    customer_gstin: Optional[str] = None
     total_amount: Decimal
     payment_method: Optional[str] = None
     transaction_id: Optional[str] = None

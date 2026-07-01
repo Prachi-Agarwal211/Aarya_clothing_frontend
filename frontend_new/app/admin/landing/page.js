@@ -36,7 +36,7 @@ const SECTION_FIELDS = {
   ],
 };
 
-const inputCls = 'w-full px-4 py-2.5 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-xl text-[#EAE0D5] placeholder:text-[#EAE0D5]/30 focus:outline-none focus:border-[#B76E79]/50 transition-colors text-sm';
+const inputCls = 'w-full px-4 py-2.5 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-xl text-[#F5F5F5] placeholder:text-[#F5F5F5]/30 focus:outline-none focus:border-[#E07B8B]/50 transition-colors text-sm';
 
 export default function LandingPageConfig() {
   // State
@@ -84,7 +84,7 @@ export default function LandingPageConfig() {
         landingApi.getConfig(),
         landingApi.getImages(),
         landingApi.getLandingProducts('newArrivals'),
-        productsApi.list({ limit: 100, skip: 0 }),
+        productsApi.list({ limit: 25, skip: 0 }),
         siteConfigApi.getConfig(),
       ]);
 
@@ -388,18 +388,18 @@ export default function LandingPageConfig() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-[#F2C29A]" style={{ fontFamily: 'Cinzel, serif' }}>
+          <h1 className="text-2xl md:text-3xl font-bold text-[#FFD700]" style={{ fontFamily: 'Cinzel, serif' }}>
             Landing Page
           </h1>
-          <p className="text-[#EAE0D5]/60 mt-1 text-sm">Configure homepage sections and manage images</p>
+          <p className="text-[#F5F5F5]/60 mt-1 text-sm">Configure homepage sections and manage images</p>
         </div>
         <div className="flex items-center gap-2">
           <a href="/" target="_blank" rel="noopener noreferrer"
-            className="flex items-center gap-2 px-3 py-2 text-sm border border-[#B76E79]/20 rounded-xl text-[#EAE0D5]/70 hover:bg-[#B76E79]/10 transition-colors">
+            className="flex items-center gap-2 px-3 py-2 text-sm border border-[#E07B8B]/20 rounded-xl text-[#F5F5F5]/70 hover:bg-[#E07B8B]/10 transition-colors">
             <ExternalLink className="w-4 h-4" /> Preview
           </a>
           <button onClick={fetchData} disabled={loading}
-            className="p-2 rounded-xl border border-[#B76E79]/20 text-[#EAE0D5]/70 hover:bg-[#B76E79]/10 transition-colors disabled:opacity-50">
+            className="p-2 rounded-xl border border-[#E07B8B]/20 text-[#F5F5F5]/70 hover:bg-[#E07B8B]/10 transition-colors disabled:opacity-50">
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
         </div>
@@ -407,8 +407,8 @@ export default function LandingPageConfig() {
 
       {loading && (
         <div className="flex items-center justify-center py-16">
-          <Loader2 className="w-8 h-8 text-[#B76E79] animate-spin" />
-          <span className="ml-3 text-[#EAE0D5]/60">Loading configuration…</span>
+          <Loader2 className="w-8 h-8 text-[#E07B8B] animate-spin" />
+          <span className="ml-3 text-[#F5F5F5]/60">Loading configuration…</span>
         </div>
       )}
 
@@ -424,7 +424,7 @@ export default function LandingPageConfig() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Section List */}
           <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-widest text-[#EAE0D5]/40 px-1 mb-3">Sections</p>
+            <p className="text-xs font-semibold uppercase tracking-widest text-[#F5F5F5]/40 px-1 mb-3">Sections</p>
             {SECTIONS.map(s => {
               let isActive = true;
               if (s.id === 'video') isActive = siteConfig.intro_video_enabled !== 'false';
@@ -436,22 +436,22 @@ export default function LandingPageConfig() {
               return (
                 <button key={s.id} onClick={() => setActiveSection(s.id)}
                   className={`w-full text-left p-4 rounded-xl border transition-all ${activeSection === s.id
-                    ? 'bg-[#7A2F57]/20 border-[#B76E79]/40'
-                    : 'bg-[#0B0608]/40 border-[#B76E79]/10 hover:border-[#B76E79]/30'}`}>
+                    ? 'bg-[#9333EA]/20 border-[#E07B8B]/40'
+                    : 'bg-[#0A0A0A]/40 border-[#E07B8B]/10 hover:border-[#E07B8B]/30'}`}>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2.5">
                       <span className="text-base">{s.icon}</span>
                       <div>
-                        <p className="font-medium text-[#EAE0D5] text-sm">{s.name}</p>
-                        <p className="text-xs text-[#EAE0D5]/40">{s.description}</p>
+                        <p className="font-medium text-[#F5F5F5] text-sm">{s.name}</p>
+                        <p className="text-xs text-[#F5F5F5]/40">{s.description}</p>
                       </div>
                     </div>
                   </div>
                   <div className="mt-2.5 flex items-center gap-2">
                     <span className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-green-400' : 'bg-red-400'}`} />
-                    <span className="text-xs text-[#EAE0D5]/40">{isActive ? 'Active' : 'Inactive'}</span>
+                    <span className="text-xs text-[#F5F5F5]/40">{isActive ? 'Active' : 'Inactive'}</span>
                     {hasImages && (
-                      <span className="text-xs text-[#EAE0D5]/25 ml-auto">{imgCount} image{imgCount !== 1 ? 's' : ''}</span>
+                      <span className="text-xs text-[#F5F5F5]/25 ml-auto">{imgCount} image{imgCount !== 1 ? 's' : ''}</span>
                     )}
                   </div>
                 </button>
@@ -462,33 +462,33 @@ export default function LandingPageConfig() {
           {/* Right Panel */}
           <div className="lg:col-span-2 space-y-5">
             {/* Config Card */}
-            <div className="bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl p-6">
+            <div className="bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl p-6">
               <div className="flex items-center justify-between mb-5">
                 <div className="flex items-center gap-2">
                   <span className="text-xl">{activeSectionData?.icon}</span>
-                  <h2 className="text-base font-semibold text-[#F2C29A]" style={{ fontFamily: 'Cinzel, serif' }}>
+                  <h2 className="text-base font-semibold text-[#FFD700]" style={{ fontFamily: 'Cinzel, serif' }}>
                     {activeSectionData?.name} Configuration
                   </h2>
                 </div>
                 {activeSection !== 'collections' && (
                   <button onClick={() => handleEditSection(activeSection)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-[#B76E79]/20 rounded-lg text-[#EAE0D5]/70 hover:bg-[#B76E79]/10 transition-colors">
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-[#E07B8B]/20 rounded-lg text-[#F5F5F5]/70 hover:bg-[#E07B8B]/10 transition-colors">
                     <Edit className="w-3.5 h-3.5" /> Edit
                   </button>
                 )}
               </div>
 
               {activeSection === 'collections' ? (
-                <div className="p-4 bg-[#B76E79]/5 border border-[#B76E79]/10 rounded-xl">
-                  <p className="text-sm text-[#EAE0D5]">Collections are automatically pulled from the database.</p>
-                  <p className="text-xs text-[#EAE0D5]/60 mt-1">To manage featured collections, use the Collections page.</p>
+                <div className="p-4 bg-[#E07B8B]/5 border border-[#E07B8B]/10 rounded-xl">
+                  <p className="text-sm text-[#F5F5F5]">Collections are automatically pulled from the database.</p>
+                  <p className="text-xs text-[#F5F5F5]/60 mt-1">To manage featured collections, use the Collections page.</p>
                 </div>
               ) : activeSection === 'video' ? (
                 <div className="space-y-4">
                   {/* Desktop Video */}
-                  <div className="bg-[#0B0608]/60 border border-[#B76E79]/10 rounded-xl p-4">
+                  <div className="bg-[#0A0A0A]/60 border border-[#E07B8B]/10 rounded-xl p-4">
                     <div className="flex items-center justify-between mb-3">
-                      <h3 className="text-sm font-medium text-[#F2C29A] flex items-center gap-2">
+                      <h3 className="text-sm font-medium text-[#FFD700] flex items-center gap-2">
                         <span className="w-2 h-2 rounded-full bg-blue-400" />
                         Desktop Video (16:9)
                       </h3>
@@ -513,10 +513,10 @@ export default function LandingPageConfig() {
                         />
                       </div>
                     ) : (
-                      <label className={`flex flex-col items-center justify-center p-8 border-2 border-dashed border-[#B76E79]/30 rounded-lg cursor-pointer hover:border-[#B76E79]/50 transition-colors ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
-                        <Upload className="w-8 h-8 text-[#B76E79]/40 mb-3" />
-                        <p className="text-sm text-[#EAE0D5]/60 text-center mb-1">Click to upload desktop video</p>
-                        <p className="text-xs text-[#EAE0D5]/40">MP4, WebM, or MOV (max 50MB, 16:9 ratio)</p>
+                      <label className={`flex flex-col items-center justify-center p-8 border-2 border-dashed border-[#E07B8B]/30 rounded-lg cursor-pointer hover:border-[#E07B8B]/50 transition-colors ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
+                        <Upload className="w-8 h-8 text-[#E07B8B]/40 mb-3" />
+                        <p className="text-sm text-[#F5F5F5]/60 text-center mb-1">Click to upload desktop video</p>
+                        <p className="text-xs text-[#F5F5F5]/40">MP4, WebM, or MOV (max 50MB, 16:9 ratio)</p>
                         <input
                           type="file"
                           accept="video/mp4,video/webm,video/quicktime"
@@ -529,9 +529,9 @@ export default function LandingPageConfig() {
                   </div>
 
                   {/* Mobile Video */}
-                  <div className="bg-[#0B0608]/60 border border-[#B76E79]/10 rounded-xl p-4">
+                  <div className="bg-[#0A0A0A]/60 border border-[#E07B8B]/10 rounded-xl p-4">
                     <div className="flex items-center justify-between mb-3">
-                      <h3 className="text-sm font-medium text-[#F2C29A] flex items-center gap-2">
+                      <h3 className="text-sm font-medium text-[#FFD700] flex items-center gap-2">
                         <span className="w-2 h-2 rounded-full bg-pink-400" />
                         Mobile Video (9:16)
                       </h3>
@@ -556,10 +556,10 @@ export default function LandingPageConfig() {
                         />
                       </div>
                     ) : (
-                      <label className={`flex flex-col items-center justify-center p-8 border-2 border-dashed border-[#B76E79]/30 rounded-lg cursor-pointer hover:border-[#B76E79]/50 transition-colors ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
-                        <Upload className="w-8 h-8 text-[#B76E79]/40 mb-3" />
-                        <p className="text-sm text-[#EAE0D5]/60 text-center mb-1">Click to upload mobile video</p>
-                        <p className="text-xs text-[#EAE0D5]/40">MP4, WebM, or MOV (max 50MB, 9:16 ratio)</p>
+                      <label className={`flex flex-col items-center justify-center p-8 border-2 border-dashed border-[#E07B8B]/30 rounded-lg cursor-pointer hover:border-[#E07B8B]/50 transition-colors ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
+                        <Upload className="w-8 h-8 text-[#E07B8B]/40 mb-3" />
+                        <p className="text-sm text-[#F5F5F5]/60 text-center mb-1">Click to upload mobile video</p>
+                        <p className="text-xs text-[#F5F5F5]/40">MP4, WebM, or MOV (max 50MB, 9:16 ratio)</p>
                         <input
                           type="file"
                           accept="video/mp4,video/webm,video/quicktime"
@@ -572,13 +572,13 @@ export default function LandingPageConfig() {
                   </div>
 
                   {/* Enable/Disable Toggle */}
-                  <div className="flex items-center justify-between p-3 bg-[#0B0608]/60 border border-[#B76E79]/10 rounded-xl">
+                  <div className="flex items-center justify-between p-3 bg-[#0A0A0A]/60 border border-[#E07B8B]/10 rounded-xl">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm text-[#EAE0D5]">Show intro video</span>
+                      <span className="text-sm text-[#F5F5F5]">Show intro video</span>
                     </div>
                     <button
                       onClick={() => setEditForm(prev => ({ ...prev, intro_video_enabled: !prev.intro_video_enabled }))}
-                      className={`relative w-12 h-6 rounded-full transition-colors ${editForm.intro_video_enabled ? 'bg-green-500/80' : 'bg-[#EAE0D5]/20'}`}
+                      className={`relative w-12 h-6 rounded-full transition-colors ${editForm.intro_video_enabled ? 'bg-green-500/80' : 'bg-[#F5F5F5]/20'}`}
                     >
                       <span className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${editForm.intro_video_enabled ? 'left-7' : 'left-1'}`} />
                     </button>
@@ -587,9 +587,9 @@ export default function LandingPageConfig() {
               ) : Object.keys(activeSectionConfig).filter(k => k !== 'is_active').length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {Object.entries(activeSectionConfig).filter(([k]) => k !== 'is_active').map(([key, value]) => (
-                    <div key={key} className={`bg-[#0B0608]/60 rounded-xl p-3 border border-[#B76E79]/10 ${key === 'story' ? 'sm:col-span-2' : ''}`}>
-                      <p className="text-xs text-[#EAE0D5]/40 capitalize mb-1">{key.replace(/_/g, ' ')}</p>
-                      <p className={`text-sm text-[#EAE0D5] ${key === 'story' ? '' : 'truncate'}`}>
+                    <div key={key} className={`bg-[#0A0A0A]/60 rounded-xl p-3 border border-[#E07B8B]/10 ${key === 'story' ? 'sm:col-span-2' : ''}`}>
+                      <p className="text-xs text-[#F5F5F5]/40 capitalize mb-1">{key.replace(/_/g, ' ')}</p>
+                      <p className={`text-sm text-[#F5F5F5] ${key === 'story' ? '' : 'truncate'}`}>
                         {typeof value === 'boolean' ? (value ? 'Yes' : 'No') : (String(value) || '—')}
                       </p>
                     </div>
@@ -597,10 +597,10 @@ export default function LandingPageConfig() {
                 </div>
               ) : (
                 <div className="text-center py-6">
-                  <Info className="w-8 h-8 text-[#B76E79]/30 mx-auto mb-2" />
-                  <p className="text-sm text-[#EAE0D5]/40">No configuration set yet.</p>
+                  <Info className="w-8 h-8 text-[#E07B8B]/30 mx-auto mb-2" />
+                  <p className="text-sm text-[#F5F5F5]/40">No configuration set yet.</p>
                   <button onClick={() => handleEditSection(activeSection)}
-                    className="mt-2 text-sm text-[#B76E79] hover:text-[#F2C29A] underline transition-colors">
+                    className="mt-2 text-sm text-[#E07B8B] hover:text-[#FFD700] underline transition-colors">
                     Click to configure
                   </button>
                 </div>
@@ -609,31 +609,31 @@ export default function LandingPageConfig() {
 
             {/* Products Card — only for newArrivals */}
             {activeSection === 'newArrivals' && (
-              <div className="bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl p-6">
+              <div className="bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl p-6">
                 <div className="flex items-center justify-between mb-5">
-                  <h2 className="text-base font-semibold text-[#F2C29A]" style={{ fontFamily: 'Cinzel, serif' }}>
+                  <h2 className="text-base font-semibold text-[#FFD700]" style={{ fontFamily: 'Cinzel, serif' }}>
                     Selected Products
                   </h2>
                   <button
                     onClick={() => { setShowProductPicker(true); setPickerSelected([]); setPickerSearch(''); }}
-                    className="flex items-center gap-2 px-3 py-1.5 text-sm bg-[#7A2F57]/30 border border-[#B76E79]/30 rounded-xl text-[#F2C29A] hover:bg-[#7A2F57]/50 transition-colors font-medium">
+                    className="flex items-center gap-2 px-3 py-1.5 text-sm bg-[#9333EA]/30 border border-[#E07B8B]/30 rounded-xl text-[#FFD700] hover:bg-[#9333EA]/50 transition-colors font-medium">
                     <Plus className="w-4 h-4" /> Add Products
                   </button>
                 </div>
 
                 {activeSectionProducts.length === 0 ? (
                   <div className="py-10 text-center">
-                    <Package className="w-10 h-10 text-[#B76E79]/20 mx-auto mb-3" />
-                    <p className="text-[#EAE0D5]/40 text-sm">No products selected yet.</p>
-                    <p className="text-[#EAE0D5]/25 text-xs mt-1">Click &quot;Add Products&quot; to select products for this section.</p>
+                    <Package className="w-10 h-10 text-[#E07B8B]/20 mx-auto mb-3" />
+                    <p className="text-[#F5F5F5]/40 text-sm">No products selected yet.</p>
+                    <p className="text-[#F5F5F5]/25 text-xs mt-1">Click &quot;Add Products&quot; to select products for this section.</p>
                   </div>
                 ) : (
                   <div className="space-y-2">
                     {activeSectionProducts.map((lp, idx) => (
                       <div key={lp.id} className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${
-                        lp.is_active ? 'bg-[#0B0608]/60 border-[#B76E79]/10' : 'bg-[#0B0608]/30 border-[#B76E79]/5 opacity-50'
+                        lp.is_active ? 'bg-[#0A0A0A]/60 border-[#E07B8B]/10' : 'bg-[#0A0A0A]/30 border-[#E07B8B]/5 opacity-50'
                       }`}>
-                        <span className="text-xs text-[#EAE0D5]/30 w-5 text-center">{idx + 1}</span>
+                        <span className="text-xs text-[#F5F5F5]/30 w-5 text-center">{idx + 1}</span>
                         {lp.primary_image ? (
                           <div className="relative w-12 h-12 flex-shrink-0">
                             <Image
@@ -648,18 +648,18 @@ export default function LandingPageConfig() {
                           </div>
                         ) : (
                           <div className="w-12 h-12 rounded-lg bg-[#1a0f0a] flex items-center justify-center flex-shrink-0">
-                            <Package className="w-5 h-5 text-[#B76E79]/30" />
+                            <Package className="w-5 h-5 text-[#E07B8B]/30" />
                           </div>
                         )}
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm text-[#EAE0D5] truncate font-medium">{lp.name}</p>
-                          <p className="text-xs text-[#EAE0D5]/50">₹{lp.price}</p>
+                          <p className="text-sm text-[#F5F5F5] truncate font-medium">{lp.name}</p>
+                          <p className="text-xs text-[#F5F5F5]/50">₹{lp.price}</p>
                         </div>
                         <div className="flex items-center gap-1.5">
                           <button onClick={() => handleToggleLandingProduct(lp)}
                             title={lp.is_active ? 'Hide from landing' : 'Show on landing'}
-                            className="p-1.5 rounded-lg hover:bg-[#B76E79]/10 transition-colors flex items-center justify-center">
-                            {lp.is_active ? <Eye className="w-4 h-4 text-green-400" /> : <EyeOff className="w-4 h-4 text-[#EAE0D5]/30" />}
+                            className="p-1.5 rounded-lg hover:bg-[#E07B8B]/10 transition-colors flex items-center justify-center">
+                            {lp.is_active ? <Eye className="w-4 h-4 text-green-400" /> : <EyeOff className="w-4 h-4 text-[#F5F5F5]/30" />}
                           </button>
                           <button onClick={() => handleRemoveLandingProduct(lp.id)}
                             className="p-1.5 rounded-lg hover:bg-red-500/10 transition-colors flex items-center justify-center">
@@ -675,21 +675,21 @@ export default function LandingPageConfig() {
 
             {/* Images Card — hero and about only */}
             {['hero', 'about'].includes(activeSection) && (
-              <div className="bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl p-6">
+              <div className="bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl p-6">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
-                  <h2 className="text-base font-semibold text-[#F2C29A]" style={{ fontFamily: 'Cinzel, serif' }}>
+                  <h2 className="text-base font-semibold text-[#FFD700]" style={{ fontFamily: 'Cinzel, serif' }}>
                     Images
                   </h2>
                   <div className="flex items-center gap-3">
                     {/* Device Variant Selector for Hero Section */}
                     {activeSection === 'hero' && (
-                      <div className="flex items-center gap-1 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-lg p-1">
+                      <div className="flex items-center gap-1 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-lg p-1">
                         <button
                           onClick={() => setSelectedDeviceVariant('laptop')}
                           className={`px-3 py-1.5 text-xs rounded-md transition-colors ${
                             selectedDeviceVariant === 'laptop'
-                              ? 'bg-[#B76E79] text-white'
-                              : 'text-[#EAE0D5]/60 hover:text-[#EAE0D5]'
+                              ? 'bg-[#E07B8B] text-white'
+                              : 'text-[#F5F5F5]/60 hover:text-[#F5F5F5]'
                           }`}
                         >
                           Laptop
@@ -698,15 +698,15 @@ export default function LandingPageConfig() {
                           onClick={() => setSelectedDeviceVariant('phone')}
                           className={`px-3 py-1.5 text-xs rounded-md transition-colors ${
                             selectedDeviceVariant === 'phone'
-                              ? 'bg-[#B76E79] text-white'
-                              : 'text-[#EAE0D5]/60 hover:text-[#EAE0D5]'
+                              ? 'bg-[#E07B8B] text-white'
+                              : 'text-[#F5F5F5]/60 hover:text-[#F5F5F5]'
                           }`}
                         >
                           Phone (9:16)
                         </button>
                       </div>
                     )}
-                    <label className={`flex items-center gap-2 px-3 py-1.5 text-sm bg-[#7A2F57]/30 border border-[#B76E79]/30 rounded-xl text-[#F2C29A] hover:bg-[#7A2F57]/50 transition-colors cursor-pointer font-medium ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
+                    <label className={`flex items-center gap-2 px-3 py-1.5 text-sm bg-[#9333EA]/30 border border-[#E07B8B]/30 rounded-xl text-[#FFD700] hover:bg-[#9333EA]/50 transition-colors cursor-pointer font-medium ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
                       {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
                       {uploading ? 'Uploading…' : 'Upload Image'}
                       <input type="file" accept="image/jpeg,image/png,image/webp,image/gif"
@@ -720,16 +720,16 @@ export default function LandingPageConfig() {
                   <div className="space-y-6">
                     {/* Laptop Images */}
                     <div>
-                      <h3 className="text-sm font-medium text-[#F2C29A] mb-3 flex items-center gap-2">
+                      <h3 className="text-sm font-medium text-[#FFD700] mb-3 flex items-center gap-2">
                         <span className="w-2 h-2 rounded-full bg-blue-400" />
                         Laptop Images
-                        <span className="text-xs text-[#EAE0D5]/40 ml-2">({heroLaptopImages.length})</span>
+                        <span className="text-xs text-[#F5F5F5]/40 ml-2">({heroLaptopImages.length})</span>
                       </h3>
                       {heroLaptopImages.length > 0 ? (
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                           {heroLaptopImages.map(image => (
                             <div key={image.id}
-                              className="relative aspect-video rounded-xl overflow-hidden bg-[#7A2F57]/10 group border border-[#B76E79]/10">
+                              className="relative aspect-video rounded-xl overflow-hidden bg-[#9333EA]/10 group border border-[#E07B8B]/10">
                               {image.image_url ? (
                                 <Image
                                   src={image.image_url}
@@ -742,7 +742,7 @@ export default function LandingPageConfig() {
                                 />
                               ) : (
                                 <div className="absolute inset-0 flex items-center justify-center">
-                                  {image.isUploading ? <Loader2 className="w-8 h-8 text-[#B76E79] animate-spin" /> : <ImageIcon className="w-8 h-8 text-[#B76E79]/30" />}
+                                  {image.isUploading ? <Loader2 className="w-8 h-8 text-[#E07B8B] animate-spin" /> : <ImageIcon className="w-8 h-8 text-[#E07B8B]/30" />}
                                 </div>
                               )}
                               {image.is_active === false && (
@@ -763,7 +763,7 @@ export default function LandingPageConfig() {
                                         });
                                       }}
                                       disabled={image.isUploading}
-                                      className="p-1.5 bg-[#B76E79]/80 rounded-lg text-white hover:bg-[#B76E79] transition-colors disabled:opacity-50">
+                                      className="p-1.5 bg-[#E07B8B]/80 rounded-lg text-white hover:bg-[#E07B8B] transition-colors disabled:opacity-50">
                                       <Edit className="w-3.5 h-3.5" />
                                     </button>
                                     <button onClick={() => handleDeleteImage(image.id)} disabled={image.isUploading}
@@ -777,25 +777,25 @@ export default function LandingPageConfig() {
                           ))}
                         </div>
                       ) : (
-                        <div className="py-8 text-center border border-dashed border-[#B76E79]/20 rounded-xl">
-                          <ImageIcon className="w-8 h-8 text-[#B76E79]/20 mx-auto mb-2" />
-                          <p className="text-[#EAE0D5]/40 text-sm">No laptop images. Select &quot;Laptop&quot; and upload.</p>
+                        <div className="py-8 text-center border border-dashed border-[#E07B8B]/20 rounded-xl">
+                          <ImageIcon className="w-8 h-8 text-[#E07B8B]/20 mx-auto mb-2" />
+                          <p className="text-[#F5F5F5]/40 text-sm">No laptop images. Select &quot;Laptop&quot; and upload.</p>
                         </div>
                       )}
                     </div>
 
                     {/* Phone Images */}
                     <div>
-                      <h3 className="text-sm font-medium text-[#F2C29A] mb-3 flex items-center gap-2">
+                      <h3 className="text-sm font-medium text-[#FFD700] mb-3 flex items-center gap-2">
                         <span className="w-2 h-2 rounded-full bg-green-400" />
                         Phone Images (9:16)
-                        <span className="text-xs text-[#EAE0D5]/40 ml-2">({heroPhoneImages.length})</span>
+                        <span className="text-xs text-[#F5F5F5]/40 ml-2">({heroPhoneImages.length})</span>
                       </h3>
                       {heroPhoneImages.length > 0 ? (
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                           {heroPhoneImages.map(image => (
                             <div key={image.id}
-                              className="relative aspect-[9/16] rounded-xl overflow-hidden bg-[#7A2F57]/10 group border border-[#B76E79]/10">
+                              className="relative aspect-[9/16] rounded-xl overflow-hidden bg-[#9333EA]/10 group border border-[#E07B8B]/10">
                               {image.image_url ? (
                                 <Image
                                   src={image.image_url}
@@ -808,7 +808,7 @@ export default function LandingPageConfig() {
                                 />
                               ) : (
                                 <div className="absolute inset-0 flex items-center justify-center">
-                                  {image.isUploading ? <Loader2 className="w-8 h-8 text-[#B76E79] animate-spin" /> : <ImageIcon className="w-8 h-8 text-[#B76E79]/30" />}
+                                  {image.isUploading ? <Loader2 className="w-8 h-8 text-[#E07B8B] animate-spin" /> : <ImageIcon className="w-8 h-8 text-[#E07B8B]/30" />}
                                 </div>
                               )}
                               {image.is_active === false && (
@@ -829,7 +829,7 @@ export default function LandingPageConfig() {
                                         });
                                       }}
                                       disabled={image.isUploading}
-                                      className="p-1.5 bg-[#B76E79]/80 rounded-lg text-white hover:bg-[#B76E79] transition-colors disabled:opacity-50">
+                                      className="p-1.5 bg-[#E07B8B]/80 rounded-lg text-white hover:bg-[#E07B8B] transition-colors disabled:opacity-50">
                                       <Edit className="w-3.5 h-3.5" />
                                     </button>
                                     <button onClick={() => handleDeleteImage(image.id)} disabled={image.isUploading}
@@ -843,9 +843,9 @@ export default function LandingPageConfig() {
                           ))}
                         </div>
                       ) : (
-                        <div className="py-8 text-center border border-dashed border-[#B76E79]/20 rounded-xl">
-                          <ImageIcon className="w-8 h-8 text-[#B76E79]/20 mx-auto mb-2" />
-                          <p className="text-[#EAE0D5]/40 text-sm">No phone images. Select &quot;Phone (9:16)&quot; and upload.</p>
+                        <div className="py-8 text-center border border-dashed border-[#E07B8B]/20 rounded-xl">
+                          <ImageIcon className="w-8 h-8 text-[#E07B8B]/20 mx-auto mb-2" />
+                          <p className="text-[#F5F5F5]/40 text-sm">No phone images. Select &quot;Phone (9:16)&quot; and upload.</p>
                         </div>
                       )}
                     </div>
@@ -854,7 +854,7 @@ export default function LandingPageConfig() {
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                     {activeSectionImages.map(image => (
                       <div key={image.id}
-                        className="relative aspect-video rounded-xl overflow-hidden bg-[#7A2F57]/10 group border border-[#B76E79]/10">
+                        className="relative aspect-video rounded-xl overflow-hidden bg-[#9333EA]/10 group border border-[#E07B8B]/10">
                         {image.image_url ? (
                           <Image
                             src={image.image_url}
@@ -867,7 +867,7 @@ export default function LandingPageConfig() {
                           />
                         ) : (
                           <div className="absolute inset-0 flex items-center justify-center">
-                            {image.isUploading ? <Loader2 className="w-8 h-8 text-[#B76E79] animate-spin" /> : <ImageIcon className="w-8 h-8 text-[#B76E79]/30" />}
+                            {image.isUploading ? <Loader2 className="w-8 h-8 text-[#E07B8B] animate-spin" /> : <ImageIcon className="w-8 h-8 text-[#E07B8B]/30" />}
                           </div>
                         )}
                         {image.is_active === false && (
@@ -888,7 +888,7 @@ export default function LandingPageConfig() {
                                   });
                                 }}
                                 disabled={image.isUploading}
-                                className="p-1.5 bg-[#B76E79]/80 rounded-lg text-white hover:bg-[#B76E79] transition-colors disabled:opacity-50">
+                                className="p-1.5 bg-[#E07B8B]/80 rounded-lg text-white hover:bg-[#E07B8B] transition-colors disabled:opacity-50">
                                 <Edit className="w-3.5 h-3.5" />
                               </button>
                               <button onClick={() => handleDeleteImage(image.id)} disabled={image.isUploading}
@@ -905,7 +905,7 @@ export default function LandingPageConfig() {
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                     {activeSectionImages.map(image => (
                       <div key={image.id}
-                        className="relative aspect-video rounded-xl overflow-hidden bg-[#7A2F57]/10 group border border-[#B76E79]/10">
+                        className="relative aspect-video rounded-xl overflow-hidden bg-[#9333EA]/10 group border border-[#E07B8B]/10">
                         {image.image_url ? (
                           <Image
                             src={image.image_url}
@@ -918,7 +918,7 @@ export default function LandingPageConfig() {
                           />
                         ) : (
                           <div className="absolute inset-0 flex items-center justify-center">
-                            {image.isUploading ? <Loader2 className="w-8 h-8 text-[#B76E79] animate-spin" /> : <ImageIcon className="w-8 h-8 text-[#B76E79]/30" />}
+                            {image.isUploading ? <Loader2 className="w-8 h-8 text-[#E07B8B] animate-spin" /> : <ImageIcon className="w-8 h-8 text-[#E07B8B]/30" />}
                           </div>
                         )}
                         {image.is_active === false && (
@@ -939,7 +939,7 @@ export default function LandingPageConfig() {
                                   });
                                 }}
                                 disabled={image.isUploading}
-                                className="p-1.5 bg-[#B76E79]/80 rounded-lg text-white hover:bg-[#B76E79] transition-colors disabled:opacity-50">
+                                className="p-1.5 bg-[#E07B8B]/80 rounded-lg text-white hover:bg-[#E07B8B] transition-colors disabled:opacity-50">
                                 <Edit className="w-3.5 h-3.5" />
                               </button>
                               <button onClick={() => handleDeleteImage(image.id)} disabled={image.isUploading}
@@ -954,8 +954,8 @@ export default function LandingPageConfig() {
                   </div>
                 ) : (
                   <div className="py-12 text-center">
-                    <ImageIcon className="w-12 h-12 text-[#B76E79]/20 mx-auto mb-3" />
-                    <p className="text-[#EAE0D5]/40 text-sm">No images for this section yet.</p>
+                    <ImageIcon className="w-12 h-12 text-[#E07B8B]/20 mx-auto mb-3" />
+                    <p className="text-[#F5F5F5]/40 text-sm">No images for this section yet.</p>
                   </div>
                 )}
               </div>
@@ -968,17 +968,17 @@ export default function LandingPageConfig() {
       {editingSection && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setEditingSection(null)} />
-          <div className="relative bg-[#0B0608]/95 backdrop-blur-xl border border-[#B76E79]/20 rounded-2xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl">
+          <div className="relative bg-[#0A0A0A]/95 backdrop-blur-xl border border-[#E07B8B]/20 rounded-2xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl">
             <div className="flex items-center justify-between mb-5">
               <div className="flex items-center gap-2">
                 <span className="text-xl">{SECTIONS.find(s => s.id === editingSection)?.icon}</span>
-                <h3 className="text-lg font-semibold text-[#F2C29A]" style={{ fontFamily: 'Cinzel, serif' }}>
+                <h3 className="text-lg font-semibold text-[#FFD700]" style={{ fontFamily: 'Cinzel, serif' }}>
                   Edit {SECTIONS.find(s => s.id === editingSection)?.name}
                 </h3>
               </div>
               <button onClick={() => setEditingSection(null)}
-                className="p-1.5 rounded-lg hover:bg-[#B76E79]/10 transition-colors flex items-center justify-center">
-                <X className="w-5 h-5 text-[#EAE0D5]/60" />
+                className="p-1.5 rounded-lg hover:bg-[#E07B8B]/10 transition-colors flex items-center justify-center">
+                <X className="w-5 h-5 text-[#F5F5F5]/60" />
               </button>
             </div>
 
@@ -986,13 +986,13 @@ export default function LandingPageConfig() {
               {editingSection === 'video' ? (
                 <>
                   <div>
-                    <label className="block text-xs font-medium text-[#EAE0D5]/60 mb-1.5 uppercase tracking-wide">Video URL</label>
+                    <label className="block text-xs font-medium text-[#F5F5F5]/60 mb-1.5 uppercase tracking-wide">Video URL</label>
                     <input type="text" value={editForm.intro_video_url || ''}
                       onChange={(e) => setEditForm(prev => ({ ...prev, intro_video_url: e.target.value }))}
                       className={inputCls} placeholder="https://..." />
                     {editForm.intro_video_url && (
-                      <div className="mt-3 p-3 bg-[#0B0608]/60 border border-[#B76E79]/15 rounded-xl">
-                        <p className="text-xs text-[#EAE0D5]/40 mb-2">Video Preview:</p>
+                      <div className="mt-3 p-3 bg-[#0A0A0A]/60 border border-[#E07B8B]/15 rounded-xl">
+                        <p className="text-xs text-[#F5F5F5]/40 mb-2">Video Preview:</p>
                         <div className="relative aspect-video bg-black/40 rounded-lg overflow-hidden">
                           <video 
                             src={editForm.intro_video_url} 
@@ -1001,19 +1001,19 @@ export default function LandingPageConfig() {
                             playsInline
                           />
                         </div>
-                        <p className="text-xs text-[#EAE0D5]/40 mt-2 truncate">
+                        <p className="text-xs text-[#F5F5F5]/40 mt-2 truncate">
                           URL: {editForm.intro_video_url}
                         </p>
                       </div>
                     )}
                   </div>
-                  <div className="flex items-center justify-between p-3 bg-[#0B0608]/60 border border-[#B76E79]/15 rounded-xl">
+                  <div className="flex items-center justify-between p-3 bg-[#0A0A0A]/60 border border-[#E07B8B]/15 rounded-xl">
                     <div>
-                      <p className="text-sm text-[#EAE0D5]">Show Intro Video</p>
-                      <p className="text-xs text-[#EAE0D5]/40">Play video on first visit</p>
+                      <p className="text-sm text-[#F5F5F5]">Show Intro Video</p>
+                      <p className="text-xs text-[#F5F5F5]/40">Play video on first visit</p>
                     </div>
                     <button onClick={() => setEditForm(prev => ({ ...prev, intro_video_enabled: !prev.intro_video_enabled }))}
-                      className={`relative w-11 h-6 rounded-full transition-colors ${editForm.intro_video_enabled ? 'bg-[#B76E79]' : 'bg-[#EAE0D5]/20'}`}>
+                      className={`relative w-11 h-6 rounded-full transition-colors ${editForm.intro_video_enabled ? 'bg-[#E07B8B]' : 'bg-[#F5F5F5]/20'}`}>
                       <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${editForm.intro_video_enabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
                     </button>
                   </div>
@@ -1022,7 +1022,7 @@ export default function LandingPageConfig() {
                 <>
                   {(SECTION_FIELDS[editingSection] || []).map(field => (
                     <div key={field.key}>
-                      <label className="block text-xs font-medium text-[#EAE0D5]/60 mb-1.5 uppercase tracking-wide">
+                      <label className="block text-xs font-medium text-[#F5F5F5]/60 mb-1.5 uppercase tracking-wide">
                         {field.label}
                       </label>
                       {field.type === 'textarea' ? (
@@ -1036,13 +1036,13 @@ export default function LandingPageConfig() {
                       )}
                     </div>
                   ))}
-                  <div className="flex items-center justify-between p-3 bg-[#0B0608]/60 border border-[#B76E79]/15 rounded-xl">
+                  <div className="flex items-center justify-between p-3 bg-[#0A0A0A]/60 border border-[#E07B8B]/15 rounded-xl">
                     <div>
-                      <p className="text-sm text-[#EAE0D5]">Section Active</p>
-                      <p className="text-xs text-[#EAE0D5]/40">Show this section on the landing page</p>
+                      <p className="text-sm text-[#F5F5F5]">Section Active</p>
+                      <p className="text-xs text-[#F5F5F5]/40">Show this section on the landing page</p>
                     </div>
                     <button onClick={() => setEditForm(prev => ({ ...prev, is_active: prev.is_active === false ? true : false }))}
-                      className={`relative w-11 h-6 rounded-full transition-colors ${editForm.is_active !== false ? 'bg-[#B76E79]' : 'bg-[#EAE0D5]/20'}`}>
+                      className={`relative w-11 h-6 rounded-full transition-colors ${editForm.is_active !== false ? 'bg-[#E07B8B]' : 'bg-[#F5F5F5]/20'}`}>
                       <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${editForm.is_active !== false ? 'translate-x-5' : 'translate-x-0.5'}`} />
                     </button>
                   </div>
@@ -1052,11 +1052,11 @@ export default function LandingPageConfig() {
 
             <div className="flex gap-3 mt-6">
               <button onClick={() => setEditingSection(null)}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 border border-[#B76E79]/20 rounded-xl text-[#EAE0D5]/70 hover:bg-[#B76E79]/10 transition-colors text-sm">
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 border border-[#E07B8B]/20 rounded-xl text-[#F5F5F5]/70 hover:bg-[#E07B8B]/10 transition-colors text-sm">
                 Cancel
               </button>
               <button onClick={handleSaveSection} disabled={saving}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-[#7A2F57]/30 border border-[#B76E79]/30 rounded-xl text-[#F2C29A] hover:bg-[#7A2F57]/50 transition-colors text-sm font-medium disabled:opacity-50">
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-[#9333EA]/30 border border-[#E07B8B]/30 rounded-xl text-[#FFD700] hover:bg-[#9333EA]/50 transition-colors text-sm font-medium disabled:opacity-50">
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                 {saving ? 'Saving…' : 'Save Changes'}
               </button>
@@ -1069,14 +1069,14 @@ export default function LandingPageConfig() {
       {showProductPicker && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setShowProductPicker(false)} />
-          <div className="relative bg-[#0B0608]/95 backdrop-blur-xl border border-[#B76E79]/20 rounded-2xl p-6 w-full max-w-2xl max-h-[85vh] flex flex-col shadow-2xl">
+          <div className="relative bg-[#0A0A0A]/95 backdrop-blur-xl border border-[#E07B8B]/20 rounded-2xl p-6 w-full max-w-2xl max-h-[85vh] flex flex-col shadow-2xl">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-[#F2C29A]" style={{ fontFamily: 'Cinzel, serif' }}>
+              <h3 className="text-lg font-semibold text-[#FFD700]" style={{ fontFamily: 'Cinzel, serif' }}>
                 Add Products to New Arrivals
               </h3>
               <button onClick={() => setShowProductPicker(false)}
-                className="p-1.5 rounded-lg hover:bg-[#B76E79]/10 transition-colors flex items-center justify-center">
-                <X className="w-5 h-5 text-[#EAE0D5]/60" />
+                className="p-1.5 rounded-lg hover:bg-[#E07B8B]/10 transition-colors flex items-center justify-center">
+                <X className="w-5 h-5 text-[#F5F5F5]/60" />
               </button>
             </div>
 
@@ -1085,12 +1085,12 @@ export default function LandingPageConfig() {
               placeholder="Search products…"
               value={pickerSearch}
               onChange={e => setPickerSearch(e.target.value)}
-              className="w-full px-4 py-2.5 mb-4 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-xl text-[#EAE0D5] placeholder:text-[#EAE0D5]/30 focus:outline-none focus:border-[#B76E79]/50 text-sm"
+              className="w-full px-4 py-2.5 mb-4 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-xl text-[#F5F5F5] placeholder:text-[#F5F5F5]/30 focus:outline-none focus:border-[#E07B8B]/50 text-sm"
             />
 
             <div className="flex-1 overflow-y-auto space-y-2 pr-1">
               {filteredAllProducts.length === 0 ? (
-                <p className="text-center text-[#EAE0D5]/40 py-8 text-sm">No products found</p>
+                <p className="text-center text-[#F5F5F5]/40 py-8 text-sm">No products found</p>
               ) : filteredAllProducts.map(p => {
                 const isSelected = pickerSelected.includes(p.id);
                 const img = p.primary_image || p.image_url || '';
@@ -1100,11 +1100,11 @@ export default function LandingPageConfig() {
                   )}
                     className={`w-full flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${
                       isSelected
-                        ? 'bg-[#7A2F57]/20 border-[#B76E79]/40'
-                        : 'bg-[#0B0608]/40 border-[#B76E79]/10 hover:border-[#B76E79]/30'
+                        ? 'bg-[#9333EA]/20 border-[#E07B8B]/40'
+                        : 'bg-[#0A0A0A]/40 border-[#E07B8B]/10 hover:border-[#E07B8B]/30'
                     }`}>
                     <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 ${
-                      isSelected ? 'bg-[#B76E79] border-[#B76E79]' : 'border-[#B76E79]/30'
+                      isSelected ? 'bg-[#E07B8B] border-[#E07B8B]' : 'border-[#E07B8B]/30'
                     }`}>
                       {isSelected && <CheckCircle className="w-3 h-3 text-white" />}
                     </div>
@@ -1120,25 +1120,25 @@ export default function LandingPageConfig() {
                       </div>
                     ) : (
                       <div className="w-10 h-10 rounded-lg bg-[#1a0f0a] flex items-center justify-center flex-shrink-0">
-                        <Package className="w-4 h-4 text-[#B76E79]/30" />
+                        <Package className="w-4 h-4 text-[#E07B8B]/30" />
                       </div>
                     )}
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm text-[#EAE0D5] truncate font-medium">{p.name}</p>
-                      <p className="text-xs text-[#EAE0D5]/50">₹{p.price}</p>
+                      <p className="text-sm text-[#F5F5F5] truncate font-medium">{p.name}</p>
+                      <p className="text-xs text-[#F5F5F5]/50">₹{p.price}</p>
                     </div>
                   </button>
                 );
               })}
             </div>
 
-            <div className="flex gap-3 mt-4 pt-4 border-t border-[#B76E79]/10">
+            <div className="flex gap-3 mt-4 pt-4 border-t border-[#E07B8B]/10">
               <button onClick={() => setShowProductPicker(false)}
-                className="flex-1 px-4 py-2.5 border border-[#B76E79]/20 rounded-xl text-[#EAE0D5]/70 hover:bg-[#B76E79]/10 transition-colors text-sm">
+                className="flex-1 px-4 py-2.5 border border-[#E07B8B]/20 rounded-xl text-[#F5F5F5]/70 hover:bg-[#E07B8B]/10 transition-colors text-sm">
                 Cancel
               </button>
               <button onClick={handleAddLandingProducts} disabled={!pickerSelected.length || saving}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-[#7A2F57]/30 border border-[#B76E79]/30 rounded-xl text-[#F2C29A] hover:bg-[#7A2F57]/50 transition-colors text-sm font-medium disabled:opacity-50">
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-[#9333EA]/30 border border-[#E07B8B]/30 rounded-xl text-[#FFD700] hover:bg-[#9333EA]/50 transition-colors text-sm font-medium disabled:opacity-50">
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
                 Add {pickerSelected.length > 0 ? `${pickerSelected.length} ` : ''}Product{pickerSelected.length !== 1 ? 's' : ''}
               </button>
@@ -1151,44 +1151,44 @@ export default function LandingPageConfig() {
       {editingImage && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setEditingImage(null)} />
-          <div className="relative bg-[#0B0608]/95 backdrop-blur-xl border border-[#B76E79]/20 rounded-2xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl">
+          <div className="relative bg-[#0A0A0A]/95 backdrop-blur-xl border border-[#E07B8B]/20 rounded-2xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-2xl">
             <div className="flex items-center justify-between mb-5">
-              <h3 className="text-lg font-semibold text-[#F2C29A]" style={{ fontFamily: 'Cinzel, serif' }}>
+              <h3 className="text-lg font-semibold text-[#FFD700]" style={{ fontFamily: 'Cinzel, serif' }}>
                 Edit Image
               </h3>
               <button onClick={() => setEditingImage(null)}
-                className="p-1.5 rounded-lg hover:bg-[#B76E79]/10 transition-colors flex items-center justify-center">
-                <X className="w-5 h-5 text-[#EAE0D5]/60" />
+                className="p-1.5 rounded-lg hover:bg-[#E07B8B]/10 transition-colors flex items-center justify-center">
+                <X className="w-5 h-5 text-[#F5F5F5]/60" />
               </button>
             </div>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-[#EAE0D5]/60 mb-1.5 uppercase tracking-wide">Title</label>
+                <label className="block text-xs font-medium text-[#F5F5F5]/60 mb-1.5 uppercase tracking-wide">Title</label>
                 <input type="text" value={imageEditForm.title || ''}
                   onChange={(e) => setImageEditForm(prev => ({ ...prev, title: e.target.value }))}
                   className={inputCls} placeholder="Image title" />
               </div>
               <div>
-                <label className="block text-xs font-medium text-[#EAE0D5]/60 mb-1.5 uppercase tracking-wide">Subtitle</label>
+                <label className="block text-xs font-medium text-[#F5F5F5]/60 mb-1.5 uppercase tracking-wide">Subtitle</label>
                 <textarea value={imageEditForm.subtitle || ''} rows={2}
                   onChange={(e) => setImageEditForm(prev => ({ ...prev, subtitle: e.target.value }))}
                   className={`${inputCls} resize-none`} placeholder="Optional subtitle" />
               </div>
               <div>
-                <label className="block text-xs font-medium text-[#EAE0D5]/60 mb-1.5 uppercase tracking-wide">Link URL</label>
+                <label className="block text-xs font-medium text-[#F5F5F5]/60 mb-1.5 uppercase tracking-wide">Link URL</label>
                 <input type="text" value={imageEditForm.link_url || ''}
                   onChange={(e) => setImageEditForm(prev => ({ ...prev, link_url: e.target.value }))}
                   className={inputCls} placeholder="/products or https://..." />
               </div>
 
-              <div className="flex items-center justify-between p-3 bg-[#0B0608]/60 border border-[#B76E79]/15 rounded-xl">
+              <div className="flex items-center justify-between p-3 bg-[#0A0A0A]/60 border border-[#E07B8B]/15 rounded-xl">
                 <div>
-                  <p className="text-sm text-[#EAE0D5]">Image Active</p>
-                  <p className="text-xs text-[#EAE0D5]/40">Show this image on the landing page</p>
+                  <p className="text-sm text-[#F5F5F5]">Image Active</p>
+                  <p className="text-xs text-[#F5F5F5]/40">Show this image on the landing page</p>
                 </div>
                 <button onClick={() => setImageEditForm(prev => ({ ...prev, is_active: !prev.is_active }))}
-                  className={`relative w-11 h-6 rounded-full transition-colors ${imageEditForm.is_active !== false ? 'bg-[#B76E79]' : 'bg-[#EAE0D5]/20'}`}>
+                  className={`relative w-11 h-6 rounded-full transition-colors ${imageEditForm.is_active !== false ? 'bg-[#E07B8B]' : 'bg-[#F5F5F5]/20'}`}>
                   <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${imageEditForm.is_active !== false ? 'translate-x-5' : 'translate-x-0.5'}`} />
                 </button>
               </div>
@@ -1196,11 +1196,11 @@ export default function LandingPageConfig() {
 
             <div className="flex gap-3 mt-6">
               <button onClick={() => setEditingImage(null)}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 border border-[#B76E79]/20 rounded-xl text-[#EAE0D5]/70 hover:bg-[#B76E79]/10 transition-colors text-sm">
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 border border-[#E07B8B]/20 rounded-xl text-[#F5F5F5]/70 hover:bg-[#E07B8B]/10 transition-colors text-sm">
                 Cancel
               </button>
               <button onClick={handleSaveImageEdit} disabled={saving}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-[#7A2F57]/30 border border-[#B76E79]/30 rounded-xl text-[#F2C29A] hover:bg-[#7A2F57]/50 transition-colors text-sm font-medium disabled:opacity-50">
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-[#9333EA]/30 border border-[#E07B8B]/30 rounded-xl text-[#FFD700] hover:bg-[#9333EA]/50 transition-colors text-sm font-medium disabled:opacity-50">
                 {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                 {saving ? 'Saving…' : 'Save Changes'}
               </button>

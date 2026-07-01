@@ -244,12 +244,12 @@ export default function ProductForm({
   };
 
   const inputCls = (field) =>
-    `w-full px-4 py-2.5 bg-[#0B0608]/60 border rounded-xl text-[#EAE0D5] placeholder-[#EAE0D5]/40 focus:outline-none transition-colors ${
-      errors[field] ? 'border-red-500/50' : 'border-[#B76E79]/20 focus:border-[#B76E79]/40'
+    `w-full px-4 py-2.5 bg-[#0A0A0A]/60 border rounded-xl text-[#F5F5F5] placeholder-[#F5F5F5]/40 focus:outline-none transition-colors ${
+      errors[field] ? 'border-red-500/50' : 'border-[#E07B8B]/20 focus:border-[#E07B8B]/40'
     }`;
 
-  const cardCls = 'bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl p-6';
-  const heading = 'text-lg font-semibold text-[#F2C29A]';
+  const cardCls = 'bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl p-6';
+  const heading = 'text-lg font-semibold text-[#FFD700]';
 
   const totalStock = useMemo(
     () => variants.reduce((sum, v) => sum + (parseInt(v.quantity, 10) || 0), 0),
@@ -261,7 +261,7 @@ export default function ProductForm({
       <div className="flex flex-wrap items-center gap-4">
         <Link
           href="/admin/products"
-          className="p-2 rounded-xl border border-[#B76E79]/20 text-[#EAE0D5]/70 hover:bg-[#B76E79]/10 transition-colors"
+          className="p-2 rounded-xl border border-[#E07B8B]/20 text-[#F5F5F5]/70 hover:bg-[#E07B8B]/10 transition-colors"
         >
           <ArrowLeft className="w-5 h-5" />
         </Link>
@@ -269,7 +269,7 @@ export default function ProductForm({
           <h1 className={`${heading} text-2xl md:text-3xl`} style={{ fontFamily: 'Cinzel, serif' }}>
             {isEdit ? 'Edit Product' : 'Add New Product'}
           </h1>
-          <p className="text-[#EAE0D5]/60 mt-1 text-sm">
+          <p className="text-[#F5F5F5]/60 mt-1 text-sm">
             {isEdit
               ? 'Update product details, images, and variants in place.'
               : 'Create a new product in your catalog.'}
@@ -301,7 +301,7 @@ export default function ProductForm({
               </h2>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm text-[#EAE0D5]/70 mb-2">
+                  <label className="block text-sm text-[#F5F5F5]/70 mb-2">
                     Product Name <span className="text-red-400">*</span>
                   </label>
                   <input
@@ -316,9 +316,9 @@ export default function ProductForm({
                 </div>
 
                 <div>
-                  <label className="block text-sm text-[#EAE0D5]/70 mb-1">
+                  <label className="block text-sm text-[#F5F5F5]/70 mb-1">
                     URL Slug
-                    <span className="text-[#EAE0D5]/40 text-xs ml-2">
+                    <span className="text-[#F5F5F5]/40 text-xs ml-2">
                       Auto-filled from name; appears in /products/{form.slug || 'slug'}
                     </span>
                   </label>
@@ -333,14 +333,14 @@ export default function ProductForm({
                 </div>
 
                 <div>
-                  <label className="block text-sm text-[#EAE0D5]/70 mb-2">Description</label>
+                  <label className="block text-sm text-[#F5F5F5]/70 mb-2">Description</label>
                   <textarea
                     name="description"
                     value={form.description}
                     onChange={handleField}
                     placeholder="Single description shown on the product page (materials, fit, care)…"
                     rows={6}
-                    className="w-full px-4 py-2.5 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-xl text-[#EAE0D5] placeholder-[#EAE0D5]/40 focus:outline-none focus:border-[#B76E79]/40 transition-colors resize-y"
+                    className="w-full px-4 py-2.5 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-xl text-[#F5F5F5] placeholder-[#F5F5F5]/40 focus:outline-none focus:border-[#E07B8B]/40 transition-colors resize-y"
                   />
                 </div>
               </div>
@@ -353,11 +353,11 @@ export default function ProductForm({
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-sm text-[#EAE0D5]/70 mb-2">
+                  <label className="block text-sm text-[#F5F5F5]/70 mb-2">
                     Selling Price <span className="text-red-400">*</span>
                   </label>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#EAE0D5]/50">₹</span>
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#F5F5F5]/50">₹</span>
                     <input
                       type="number"
                       name="price"
@@ -372,12 +372,12 @@ export default function ProductForm({
                   {errors.price && <p className="text-red-400 text-xs mt-1">{errors.price}</p>}
                 </div>
                 <div>
-                  <label className="block text-sm text-[#EAE0D5]/70 mb-1">
+                  <label className="block text-sm text-[#F5F5F5]/70 mb-1">
                     MRP
-                    <span className="text-[#EAE0D5]/40 text-xs ml-2">≥ selling price</span>
+                    <span className="text-[#F5F5F5]/40 text-xs ml-2">≥ selling price</span>
                   </label>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#EAE0D5]/50">₹</span>
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#F5F5F5]/50">₹</span>
                     <input
                       type="number"
                       name="mrp"
@@ -391,9 +391,9 @@ export default function ProductForm({
                   </div>
                   {errors.mrp && <p className="text-red-400 text-xs mt-1">{errors.mrp}</p>}
                 </div>
-                <div className="p-3 bg-[#7A2F57]/10 border border-[#B76E79]/20 rounded-xl text-xs text-[#EAE0D5]/70">
+                <div className="p-3 bg-[#9333EA]/10 border border-[#E07B8B]/20 rounded-xl text-xs text-[#F5F5F5]/70">
                   Total stock across variants:{' '}
-                  <span className="text-[#F2C29A] font-semibold">{totalStock}</span>
+                  <span className="text-[#FFD700] font-semibold">{totalStock}</span>
                 </div>
               </div>
             </div>
@@ -405,7 +405,7 @@ export default function ProductForm({
                   Product Images
                 </h2>
                 {images.length > 0 && (
-                  <span className="text-xs text-[#EAE0D5]/50">
+                  <span className="text-xs text-[#F5F5F5]/50">
                     Click the star to choose the primary image
                   </span>
                 )}
@@ -416,7 +416,7 @@ export default function ProductForm({
                   {images.map((img, idx) => (
                     <div
                       key={img.id || `new-${idx}`}
-                      className="relative aspect-square rounded-xl overflow-hidden bg-[#7A2F57]/10 border border-[#B76E79]/30 group"
+                      className="relative aspect-square rounded-xl overflow-hidden bg-[#9333EA]/10 border border-[#E07B8B]/30 group"
                     >
                       <Image
                         src={img.preview}
@@ -427,7 +427,7 @@ export default function ProductForm({
                         unoptimized={img.preview?.startsWith('blob:')}
                       />
                       {idx === primaryIndex && (
-                        <span className="absolute top-2 left-2 bg-[#7A2F57] text-[#F2C29A] text-[10px] px-2 py-0.5 rounded shadow font-semibold">
+                        <span className="absolute top-2 left-2 bg-[#9333EA] text-[#FFD700] text-[10px] px-2 py-0.5 rounded shadow font-semibold">
                           Primary
                         </span>
                       )}
@@ -437,8 +437,8 @@ export default function ProductForm({
                         title="Set as primary image"
                         className={`absolute bottom-2 left-2 p-1 rounded-lg transition-all ${
                           idx === primaryIndex
-                            ? 'text-[#F2C29A] opacity-100'
-                            : 'text-white/60 opacity-0 group-hover:opacity-100 hover:text-[#F2C29A]'
+                            ? 'text-[#FFD700] opacity-100'
+                            : 'text-white/60 opacity-0 group-hover:opacity-100 hover:text-[#FFD700]'
                         }`}
                       >
                         <Star className="w-4 h-4" fill={idx === primaryIndex ? 'currentColor' : 'none'} />
@@ -469,7 +469,7 @@ export default function ProductForm({
                   <h2 className={heading} style={{ fontFamily: 'Cinzel, serif' }}>
                     Variants <span className="text-red-400">*</span>
                   </h2>
-                  <p className="text-xs text-[#EAE0D5]/50 mt-0.5">
+                  <p className="text-xs text-[#F5F5F5]/50 mt-0.5">
                     Each row is one size+color combination with its own image and stock.
                   </p>
                   {errors.variants && (
@@ -479,7 +479,7 @@ export default function ProductForm({
                 <button
                   type="button"
                   onClick={addVariant}
-                  className="flex items-center gap-1 text-sm bg-[#B76E79]/20 px-3 py-1.5 rounded-lg text-[#F2C29A] hover:bg-[#B76E79]/40 transition-colors"
+                  className="flex items-center gap-1 text-sm bg-[#E07B8B]/20 px-3 py-1.5 rounded-lg text-[#FFD700] hover:bg-[#E07B8B]/40 transition-colors"
                 >
                   <Plus className="w-4 h-4" />
                   Add Variant
@@ -500,9 +500,9 @@ export default function ProductForm({
                   ))}
                 </div>
               ) : (
-                <div className="p-8 border border-dashed border-[#B76E79]/20 rounded-xl text-center">
-                  <p className="text-sm text-[#EAE0D5]/50">
-                    No variants yet. Click <span className="text-[#F2C29A]">Add Variant</span> to
+                <div className="p-8 border border-dashed border-[#E07B8B]/20 rounded-xl text-center">
+                  <p className="text-sm text-[#F5F5F5]/50">
+                    No variants yet. Click <span className="text-[#FFD700]">Add Variant</span> to
                     create the first size/color combination.
                   </p>
                 </div>
@@ -526,11 +526,11 @@ export default function ProductForm({
                 disabled={collectionsLoading}
                 className={`${inputCls('collection_id')} appearance-none cursor-pointer`}
               >
-                <option value="" className="bg-[#0B0608]">
+                <option value="" className="bg-[#0A0A0A]">
                   {collectionsLoading ? 'Loading…' : 'Select collection'}
                 </option>
                 {collections.map((c) => (
-                  <option key={c.id} value={c.id} className="bg-[#0B0608]">
+                  <option key={c.id} value={c.id} className="bg-[#0A0A0A]">
                     {c.name}
                   </option>
                 ))}
@@ -556,11 +556,11 @@ export default function ProductForm({
                       name={name}
                       checked={!!form[name]}
                       onChange={handleField}
-                      className="w-5 h-5 mt-0.5 rounded border-[#B76E79]/30 bg-[#0B0608]/60 text-[#B76E79] focus:ring-[#B76E79]/30"
+                      className="w-5 h-5 mt-0.5 rounded border-[#E07B8B]/30 bg-[#0A0A0A]/60 text-[#E07B8B] focus:ring-[#E07B8B]/30"
                     />
                     <div>
-                      <span className="text-[#EAE0D5] text-sm">{label}</span>
-                      <p className="text-[#EAE0D5]/40 text-xs">{hint}</p>
+                      <span className="text-[#F5F5F5] text-sm">{label}</span>
+                      <p className="text-[#F5F5F5]/40 text-xs">{hint}</p>
                     </div>
                   </label>
                 ))}
@@ -577,7 +577,7 @@ export default function ProductForm({
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-[#7A2F57]/50 border border-[#B76E79]/50 rounded-xl text-[#F2C29A] hover:bg-[#7A2F57]/70 transition-all disabled:opacity-50"
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-[#9333EA]/50 border border-[#E07B8B]/50 rounded-xl text-[#FFD700] hover:bg-[#9333EA]/70 transition-all disabled:opacity-50"
               >
                 {submitting ? <RefreshCw className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
                 <span className="font-semibold">
@@ -586,7 +586,7 @@ export default function ProductForm({
               </button>
               <Link
                 href="/admin/products"
-                className="w-full px-4 py-2.5 border border-[#B76E79]/20 rounded-xl text-[#EAE0D5]/70 hover:bg-[#B76E79]/10 transition-colors text-center"
+                className="w-full px-4 py-2.5 border border-[#E07B8B]/20 rounded-xl text-[#F5F5F5]/70 hover:bg-[#E07B8B]/10 transition-colors text-center"
               >
                 Cancel
               </Link>

@@ -49,11 +49,11 @@ export default function RecoverOrderPage() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      <div className="p-6 bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl">
-        <h2 className="text-2xl font-bold text-[#F2C29A] mb-4">Recover Your Order</h2>
+      <div className="p-6 bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl">
+        <h2 className="text-2xl font-bold text-[#FFD700] mb-4">Recover Your Order</h2>
         
-        <div className="mb-6 p-4 bg-[#7A2F57]/10 border border-[#B76E79]/10 rounded-xl">
-          <p className="text-sm text-[#EAE0D5]/70">
+        <div className="mb-6 p-4 bg-[#9333EA]/10 border border-[#E07B8B]/10 rounded-xl">
+          <p className="text-sm text-[#F5F5F5]/70">
             Use this page if you completed payment but didn&apos;t receive an order confirmation.
             This can happen due to network issues or service interruptions.
           </p>
@@ -90,7 +90,7 @@ export default function RecoverOrderPage() {
 
         <form onSubmit={handleRecover} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-[#EAE0D5]/70 mb-2">
+            <label className="block text-sm font-medium text-[#F5F5F5]/70 mb-2">
               Payment ID (pay_xxx)
             </label>
             <input
@@ -98,16 +98,16 @@ export default function RecoverOrderPage() {
               value={paymentId}
               onChange={(e) => setPaymentId(e.target.value)}
               placeholder="pay_xxxxxxxxxxxxx"
-              className="w-full px-4 py-3 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-xl text-[#EAE0D5] placeholder-[#EAE0D5]/30 focus:outline-none focus:border-[#B76E79]/40"
+              className="w-full px-4 py-3 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-xl text-[#F5F5F5] placeholder-[#F5F5F5]/30 focus:outline-none focus:border-[#E07B8B]/40"
               required
             />
-            <p className="mt-1 text-xs text-[#EAE0D5]/50">
+            <p className="mt-1 text-xs text-[#F5F5F5]/50">
               You can find this in your Razorpay payment confirmation email or SMS
             </p>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-[#EAE0D5]/70 mb-2">
+            <label className="block text-sm font-medium text-[#F5F5F5]/70 mb-2">
               Razorpay Order ID (order_xxx)
             </label>
             <input
@@ -115,7 +115,7 @@ export default function RecoverOrderPage() {
               value={razorpayOrderId}
               onChange={(e) => setRazorpayOrderId(e.target.value)}
               placeholder="order_xxxxxxxxxxxxx"
-              className="w-full px-4 py-3 bg-[#0B0608]/60 border border-[#B76E79]/20 rounded-xl text-[#EAE0D5] placeholder-[#EAE0D5]/30 focus:outline-none focus:border-[#B76E79]/40"
+              className="w-full px-4 py-3 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-xl text-[#F5F5F5] placeholder-[#F5F5F5]/30 focus:outline-none focus:border-[#E07B8B]/40"
               required
             />
           </div>
@@ -123,7 +123,7 @@ export default function RecoverOrderPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 bg-gradient-to-r from-[#7A2F57] to-[#B76E79] text-white rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            className="w-full py-3 bg-gradient-to-r from-[#9333EA] to-[#E07B8B] text-white rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             {loading ? (
               <>
@@ -139,12 +139,12 @@ export default function RecoverOrderPage() {
           </button>
         </form>
 
-        <div className="mt-6 pt-6 border-t border-[#B76E79]/10">
-          <p className="text-sm text-[#EAE0D5]/70 text-center">
+        <div className="mt-6 pt-6 border-t border-[#E07B8B]/10">
+          <p className="text-sm text-[#F5F5F5]/70 text-center">
             Need help? Contact us at{' '}
             <a 
               href="mailto:support@aaryaclothing.com" 
-              className="text-[#B76E79] hover:text-[#F2C29A]"
+              className="text-[#E07B8B] hover:text-[#FFD700]"
             >
               support@aaryaclothing.com
             </a>

@@ -173,7 +173,7 @@ const Modal = ({
         ref={modalRef}
         tabIndex={-1}
         className={cn(
-          'relative w-full bg-[#0B0608] border border-[#B76E79]/30 rounded-2xl shadow-2xl',
+          'relative w-full bg-[#0A0A0A] border border-[#E07B8B]/30 rounded-2xl shadow-2xl',
           'flex flex-col max-h-[90vh]',
           'transition-all duration-200',
           isClosing ? 'scale-95 opacity-0' : 'scale-100 opacity-100',
@@ -184,11 +184,11 @@ const Modal = ({
       >
         {/* Header */}
         {(title || showCloseButton) && (
-          <div className="flex items-center justify-between p-4 sm:p-6 border-b border-[#B76E79]/20 flex-shrink-0">
+          <div className="flex items-center justify-between p-4 sm:p-6 border-b border-[#E07B8B]/20 flex-shrink-0">
             {title && (
               <h2
                 id="modal-title"
-                className="text-lg font-bold text-[#F2C29A]"
+                className="text-lg font-bold text-[#FFD700]"
                 style={{ fontFamily: 'Cinzel, serif' }}
               >
                 {title}
@@ -205,8 +205,8 @@ const Modal = ({
                 data-close-button
                 aria-label="Close modal"
                 className={cn(
-                  'p-2 rounded-xl hover:bg-[#B76E79]/10 transition-colors',
-                  'text-[#EAE0D5]/60 hover:text-[#EAE0D5]',
+                  'p-2 rounded-xl hover:bg-[#E07B8B]/10 transition-colors',
+                  'text-[#F5F5F5]/60 hover:text-[#F5F5F5]',
                   'min-w-[44px] min-h-[44px] touch-target'
                 )}
               >
@@ -223,13 +223,13 @@ const Modal = ({
 
         {/* Footer for destructive actions */}
         {isDestructive && onConfirm && (
-          <div className="p-4 sm:p-6 border-t border-[#B76E79]/20 flex gap-3 flex-shrink-0 bg-[#0B0608]">
+          <div className="p-4 sm:p-6 border-t border-[#E07B8B]/20 flex gap-3 flex-shrink-0 bg-[#0A0A0A]">
             <button
               type="button"
               onClick={handleClose}
               className={cn(
-                'flex-1 py-2.5 rounded-xl border border-[#B76E79]/30',
-                'text-[#EAE0D5]/70 hover:bg-[#B76E79]/10 transition-colors text-sm',
+                'flex-1 py-2.5 rounded-xl border border-[#E07B8B]/30',
+                'text-[#F5F5F5]/70 hover:bg-[#E07B8B]/10 transition-colors text-sm',
                 'min-h-[44px] touch-target'
               )}
             >

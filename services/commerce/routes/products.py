@@ -276,9 +276,7 @@ def _enrich_product(product, db: Session = None, user_role: str = None) -> dict:
         "rating": float(product.average_rating) if product.average_rating else 0,
         "review_count": product.review_count or 0,
         "reviews_count": product.review_count or 0,
-        "hsn_code": product.hsn_code,
-        "gst_rate": float(product.gst_rate) if product.gst_rate else None,
-        "is_taxable": product.is_taxable,
+        "is_taxable": getattr(product, 'is_taxable', False),
         "meta_title": product.meta_title,
         "meta_description": product.meta_description,
         "created_at": product.created_at,
@@ -334,13 +332,19 @@ async def list_products(
             )
             if results.get("hits") is not None and not results.get("error"):
                 hits = results.get("hits", [])
-                if not (current_user and is_staff(user_role)):
-                    hits = [
-                        {**h, "total_stock": None, "stock_quantity": None}
-                        for h in hits
-                    ]
+                # Resolve R2 image URLs and hide stock from non-staff users
+                enriched_hits = []
+                for h in hits:
+                    enriched = {**h}
+                    if enriched.get("image_url"):
+                        enriched["image_url"] = _r2_url(enriched["image_url"])
+                        enriched["primary_image"] = enriched["image_url"]
+                    if not (current_user and is_staff(user_role)):
+                        enriched["total_stock"] = None
+                        enriched["stock_quantity"] = None
+                    enriched_hits.append(enriched)
                 return {
-                    "items": hits,
+                    "items": enriched_hits,
                     "total": results.get("total", 0),
                     "skip": (page - 1) * limit,
                     "limit": limit,
@@ -478,13 +482,20 @@ async def search_products(
         limit=limit,
     )
     if result.get("hits") or not result.get("error"):
-        # Apply role-based filtering to Meilisearch results
+        # Apply role-based filtering and R2 URL resolution to Meilisearch results
         hits = result.get("hits", [])
-        if hits and not (current_user and is_staff(user_role)):
-            result["hits"] = [
-                {**h, "total_stock": None, "stock_quantity": None}
-                for h in hits
-            ]
+        enriched_hits = []
+        for h in hits:
+            enriched = {**h}
+            # Resolve R2 image URLs — Meilisearch stores raw paths like "products/123.jpg"
+            if enriched.get("image_url"):
+                enriched["image_url"] = _r2_url(enriched["image_url"])
+                enriched["primary_image"] = enriched["image_url"]
+            if not (current_user and is_staff(user_role)):
+                enriched["total_stock"] = None
+                enriched["stock_quantity"] = None
+            enriched_hits.append(enriched)
+        result["hits"] = enriched_hits
         return result
 
     product_service = ProductService(db)
@@ -582,6 +593,7 @@ async def browse_products(
     size: Optional[str] = None,
     color: Optional[str] = None,
     in_stock_only: bool = True,
+    search: Optional[str] = None,
     page: Optional[int] = Query(None, ge=1),
     skip: Optional[int] = Query(None, ge=0),
     limit: int = Query(24, ge=1, le=100),
@@ -590,6 +602,10 @@ async def browse_products(
 ):
     """
     Browse products with advanced filtering, sorting, and pagination.
+
+    When a ``search`` query is provided the endpoint uses Meilisearch for
+    typo-tolerant full-text search (same engine as the dedicated /search
+    endpoint) before falling back to an ILIKE database query.
 
     Backward-compatible pagination:
     - New clients can send page+limit
@@ -616,8 +632,58 @@ async def browse_products(
     if not effective_sort_by:
         effective_sort_by = "newest"
 
+    # Search via Meilisearch when a query is provided — same engine as
+    # the dedicated /search endpoint.  Falls back to DB ILIKE on failure.
+    search_term = search.strip() if search else None
+    if search_term:
+        try:
+            meili_result = meili_search_products(
+                query=search_term,
+                category_id=category_id,
+                min_price=min_price,
+                max_price=max_price,
+                sort_by=effective_sort_by,
+                offset=effective_skip,
+                limit=limit,
+            )
+
+            hits = meili_result.get("hits", []) if not meili_result.get("error") else []
+            if hits:
+                enriched_hits = []
+                for h in hits:
+                    enriched = {**h}
+                    if enriched.get("image_url"):
+                        enriched["image_url"] = _r2_url(enriched["image_url"])
+                        enriched["primary_image"] = enriched["image_url"]
+                    if not is_staff(user_role):
+                        enriched["total_stock"] = None
+                        enriched["stock_quantity"] = None
+                    enriched_hits.append(enriched)
+
+                return {
+                    "items": enriched_hits,
+                    "products": enriched_hits,
+                    "total": meili_result.get("total", 0),
+                    "page": effective_page,
+                    "skip": effective_skip,
+                    "total_pages": (meili_result.get("total", 0) + limit - 1) // limit,
+                    "sort_by": effective_sort_by,
+                    "filters": {
+                        "category_id": category_id,
+                        "min_price": min_price,
+                        "max_price": max_price,
+                        "in_stock_only": in_stock_only,
+                        "search": search,
+                    },
+                }
+            # Empty Meilisearch results → fall through to DB ILIKE fallback
+            logger.info(f"Meilisearch returned 0 hits for browse '{search_term}', using DB fallback")
+        except Exception as e:
+            logger.warning(f"Meilisearch browse search failed, falling back to DB: {e}")
+
     # Build cache key — role removed for public catalog to 2x cache efficiency
     # Inventory visibility is handled in _enrich_product, not the DB query
+    # Search queries are NEVER cached — results are dynamic and user-specific
     cache_params = f"cid={category_id}:slug={category_slug}:min={min_price}:max={max_price}:size={size}:color={color}:sort={effective_sort_by}:stock={in_stock_only}:skip={effective_skip}:limit={limit}"
     cache_key_hash = hashlib.md5(cache_params.encode()).hexdigest()[:12]
     cache_key = f"products:browse:{cache_key_hash}"
@@ -669,6 +735,14 @@ async def browse_products(
             ).scalar_subquery()
             query = query.filter(Product.id.in_(in_stock_subq))
 
+        # DB fallback search filter (when Meilisearch is unavailable)
+        if search and search.strip():
+            query = query.filter(
+                Product.name.ilike(f"%{search}%") |
+                Product.description.ilike(f"%{search}%") |
+                Product.short_description.ilike(f"%{search}%")
+            )
+
         # Sorting
         if effective_sort_by == "price_low":
             query = query.order_by(Product.base_price.asc())
@@ -709,7 +783,8 @@ async def browse_products(
 
     # Use L1+L2 cache for customer/public requests only.
     # Admin inventory data differs, so we must NOT share cached data between roles.
-    if not is_staff(user_role):
+    # Search queries NEVER use cache — results are user-specific and dynamic.
+    if not search_term and not is_staff(user_role):
         try:
             cached_result = await asyncio.to_thread(
                 cache.get_or_set_sync, cache_key, _fetch_browse, ttl=120

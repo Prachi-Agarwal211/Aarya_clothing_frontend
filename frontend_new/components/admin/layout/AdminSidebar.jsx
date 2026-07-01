@@ -124,7 +124,7 @@ export default function AdminSidebar({ collapsed, onToggle, isMobile = false, on
           ? 'h-full w-full'
           : 'fixed top-0 left-0 z-40 h-screen',
         'transition-all duration-300 ease-in-out',
-        'bg-[#0B0608]/60 backdrop-blur-xl border-r border-[#B76E79]/20',
+        'bg-[#0A0A0A]/60 backdrop-blur-xl border-r border-[#E07B8B]/20',
         'flex flex-col shadow-[4px_0_24px_rgba(0,0,0,0.4)]',
         !isMobile && (collapsed ? 'w-20' : 'w-64')
       )}
@@ -132,7 +132,7 @@ export default function AdminSidebar({ collapsed, onToggle, isMobile = false, on
       aria-label="Admin navigation"
     >
       {/* Logo Section */}
-      <div className="h-16 flex items-center justify-between px-4 border-b border-[#B76E79]/15">
+      <div className="h-16 flex items-center justify-between px-4 border-b border-[#E07B8B]/15">
         {!collapsed && (
           <Link
             href="/admin"
@@ -140,12 +140,12 @@ export default function AdminSidebar({ collapsed, onToggle, isMobile = false, on
             aria-label="Go to admin dashboard"
           >
             <span
-              className="text-xl font-bold text-[#F2C29A]"
+              className="text-xl font-bold text-[#FFD700]"
               style={{ fontFamily: 'Cinzel, serif' }}
             >
               Aarya
             </span>
-            <span className="text-sm text-[#EAE0D5]/60">Admin</span>
+            <span className="text-sm text-[#F5F5F5]/60">Admin</span>
           </Link>
         )}
 
@@ -153,22 +153,22 @@ export default function AdminSidebar({ collapsed, onToggle, isMobile = false, on
         {isMobile ? (
           <button
             onClick={onClose}
-            className="p-2 rounded-lg hover:bg-[#B76E79]/10 transition-colors min-w-[44px] min-h-[44px] touch-target"
+            className="p-2 rounded-lg hover:bg-[#E07B8B]/10 transition-colors min-w-[44px] min-h-[44px] touch-target"
             aria-label="Close navigation menu"
           >
-            <X className="w-5 h-5 text-[#EAE0D5]/70" />
+            <X className="w-5 h-5 text-[#F5F5F5]/70" />
           </button>
         ) : (
           <button
             onClick={handleToggle}
-            className="p-2 rounded-lg hover:bg-[#B76E79]/10 transition-colors min-w-[44px] min-h-[44px] touch-target"
+            className="p-2 rounded-lg hover:bg-[#E07B8B]/10 transition-colors min-w-[44px] min-h-[44px] touch-target"
             aria-label={collapsed ? 'Expand navigation menu' : 'Collapse navigation menu'}
             aria-expanded={!collapsed}
           >
             {collapsed ? (
-              <ChevronRight className="w-5 h-5 text-[#EAE0D5]/70" />
+              <ChevronRight className="w-5 h-5 text-[#F5F5F5]/70" />
             ) : (
-              <ChevronLeft className="w-5 h-5 text-[#EAE0D5]/70" />
+              <ChevronLeft className="w-5 h-5 text-[#F5F5F5]/70" />
             )}
           </button>
         )}
@@ -193,20 +193,20 @@ export default function AdminSidebar({ collapsed, onToggle, isMobile = false, on
                     'transition-all duration-200',
                     'min-h-[44px] touch-target',
                     active
-                      ? 'bg-[#7A2F57]/30 text-[#F2C29A] border border-[#B76E79]/30'
+                      ? 'bg-[#9333EA]/30 text-[#FFD700] border border-[#E07B8B]/30'
                       : isHighlight
-                        ? 'bg-gradient-to-r from-[#7A2F57]/20 to-[#B76E79]/15 border border-[#B76E79]/25 text-[#F2C29A] hover:from-[#7A2F57]/30 hover:to-[#B76E79]/25'
-                        : 'text-[#EAE0D5]/70 hover:bg-[#B76E79]/10 hover:text-[#EAE0D5]'
+                        ? 'bg-gradient-to-r from-[#9333EA]/20 to-[#E07B8B]/15 border border-[#E07B8B]/25 text-[#FFD700] hover:from-[#9333EA]/30 hover:to-[#E07B8B]/25'
+                        : 'text-[#F5F5F5]/70 hover:bg-[#E07B8B]/10 hover:text-[#F5F5F5]'
                   )}
                   title={collapsed && !isMobile ? item.name : undefined}
                   aria-current={active ? 'page' : undefined}
                 >
-                  <Icon className={cn('w-5 h-5 flex-shrink-0', active || isHighlight ? 'text-[#F2C29A]' : '')} />
+                  <Icon className={cn('w-5 h-5 flex-shrink-0', active || isHighlight ? 'text-[#FFD700]' : '')} />
                   {!collapsed && (
                     <>
                       <span className="font-medium text-sm truncate">{item.name}</span>
                       {isHighlight && (
-                        <span className="ml-auto text-xs bg-[#B76E79]/30 text-[#F2C29A] px-1.5 py-0.5 rounded-full flex-shrink-0">
+                        <span className="ml-auto text-xs bg-[#E07B8B]/30 text-[#FFD700] px-1.5 py-0.5 rounded-full flex-shrink-0">
                           AI
                         </span>
                       )}
@@ -220,7 +220,7 @@ export default function AdminSidebar({ collapsed, onToggle, isMobile = false, on
       </nav>
 
       {/* Bottom Section */}
-      <div className="border-t border-[#B76E79]/15 p-4">
+      <div className="border-t border-[#E07B8B]/15 p-4">
         {/* Logout */}
         <button
           onClick={() => {
@@ -232,7 +232,7 @@ export default function AdminSidebar({ collapsed, onToggle, isMobile = false, on
           disabled={isLoggingOut}
           className={cn(
             'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl',
-            'text-[#EAE0D5]/70 hover:bg-red-500/10 hover:text-red-400',
+            'text-[#F5F5F5]/70 hover:bg-red-500/10 hover:text-red-400',
             'transition-all duration-200',
             'min-h-[44px] touch-target',
             isLoggingOut ? 'opacity-50 cursor-not-allowed' : ''

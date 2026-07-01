@@ -17,7 +17,7 @@ on:
           - production
 
 env:
-  NODE_VERSION: '18'
+  NODE_VERSION: '22'  # LTS — Node 18 reached EOL April 2025
   PLAYWRIGHT_BROWSERS_PATH: /opt/hostedtoolcache/browsers
 
 jobs:
@@ -54,11 +54,17 @@ jobs:
           npx playwright install --with-deps
           npx playwright install-deps
       
+      - name: 🐳 Start backend services
+        run: |
+          cp .env.example .env
+          docker compose up -d postgres redis meilisearch
+          # Wait for postgres to be healthy before running tests
+          docker compose run --rm postgres pg_isready -U postgres -d aarya_clothing || sleep 10
+      
       - name: 🏗️ Build application
         working-directory: ./frontend_new
         run: |
           npm run build
-        continue-on-error: true
       
       - name: 🌱 Seed test data
         working-directory: ./frontend_new

@@ -101,7 +101,6 @@ def notify_order_confirmation_email(order: "Order", user) -> bool:
         "order_items": items_html,
         "subtotal": f"{float(order.subtotal):.2f}",
         "shipping": f"{float(order.shipping_cost):.2f}",
-        "gst": f"{float(order.gst_amount):.2f}",
         "total": f"{float(order.total_amount):.2f}",
         "shipping_address": order.shipping_address or "",
         "payment_method": order.payment_method.upper() if order.payment_method else "ONLINE",

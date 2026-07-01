@@ -30,7 +30,7 @@ export default function CheckoutLayout({ children }) {
   };
 
   return (
-    <main className="min-h-screen text-[#EAE0D5] selection:bg-[#F2C29A] selection:text-[#050203]">
+    <main className="min-h-screen text-[#F5F5F5] selection:bg-[#FFD700] selection:text-[#000000]">
       {/* Background is now handled by root layout */}
 
       <div className="relative z-10 page-wrapper">
@@ -41,7 +41,7 @@ export default function CheckoutLayout({ children }) {
             {/* Page Header */}
             <div className="mb-12">
               <h1
-                className="text-3xl md:text-4xl font-bold text-[#F2C29A] text-center mb-10"
+                className="text-3xl md:text-4xl font-bold text-[#FFD700] text-center mb-10"
                 style={{ fontFamily: 'Cinzel, serif' }}
               >
                 Checkout
@@ -49,9 +49,9 @@ export default function CheckoutLayout({ children }) {
 
               {/* Progress Stepper */}
               <div className="max-w-2xl mx-auto relative px-4">
-                <div className="absolute top-1/2 left-0 w-full h-0.5 bg-[#B76E79]/20 -translate-y-1/2" />
+                <div className="absolute top-1/2 left-0 w-full h-0.5 bg-[#E07B8B]/20 -translate-y-1/2" />
                 <div
-                  className="absolute top-1/2 left-0 h-0.5 bg-gradient-to-r from-[#7A2F57] to-[#B76E79] -translate-y-1/2 transition-all duration-700 ease-in-out"
+                  className="absolute top-1/2 left-0 h-0.5 bg-gradient-to-r from-[#9333EA] to-[#E07B8B] -translate-y-1/2 transition-all duration-700 ease-in-out"
                   style={{
                     width: pathname.includes('payment') ? '66.6%' :
                       pathname.includes('confirm') ? '100%' : '33.3%'
@@ -72,15 +72,15 @@ export default function CheckoutLayout({ children }) {
                       <div key={step.id} className="flex flex-col items-center gap-3">
                         <div className={cn(
                           "w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all duration-500 z-10",
-                          isCompleted ? "bg-[#B76E79] border-[#B76E79] text-white" :
-                            isActive ? "bg-[#050203] border-[#F2C29A] text-[#F2C29A] ring-4 ring-[#F2C29A]/10" :
-                              "bg-[#050203] border-[#B76E79]/30 text-[#EAE0D5]/30 shadow-inner"
+                          isCompleted ? "bg-[#E07B8B] border-[#E07B8B] text-white" :
+                            isActive ? "bg-[#000000] border-[#FFD700] text-[#FFD700] ring-4 ring-[#FFD700]/10" :
+                              "bg-[#000000] border-[#E07B8B]/30 text-[#F5F5F5]/30 shadow-inner"
                         )}>
                           {isCompleted ? <Check className="w-5 h-5" /> : <span>{idx + 1}</span>}
                         </div>
                         <span className={cn(
                           "transition-colors duration-300 text-[11px] sm:text-xs text-center leading-tight",
-                          isActive || isCompleted ? "text-[#F2C29A]" : "text-[#EAE0D5]/30"
+                          isActive || isCompleted ? "text-[#FFD700]" : "text-[#F5F5F5]/30"
                         )}>
                           {step.name}
                         </span>
@@ -99,14 +99,14 @@ export default function CheckoutLayout({ children }) {
 
               {/* Order Summary Sidebar */}
               <div className="lg:col-span-1 order-2">
-                <div className="sticky top-28 p-4 sm:p-6 bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl space-y-4">
-                  <h2 className="text-lg font-semibold text-[#F2C29A]">Order Summary</h2>
+                <div className="sticky top-28 p-4 sm:p-6 bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl space-y-4">
+                  <h2 className="text-lg font-semibold text-[#FFD700]">Order Summary</h2>
 
                   {/* Items Preview */}
                   <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
                     {cart?.items?.map((item) => (
                       <div key={item.id || `${item.product_id}_${item.variant_id}`} className="flex gap-4 group">
-                        <div className="relative w-16 h-20 bg-[#1A1A1A] rounded-xl flex-shrink-0 overflow-hidden border border-[#B76E79]/10">
+                        <div className="relative w-16 h-20 bg-[#1A1A1A] rounded-xl flex-shrink-0 overflow-hidden border border-[#E07B8B]/10">
                           {item.image ? (
                             <Image
                               src={item.image}
@@ -116,49 +116,49 @@ export default function CheckoutLayout({ children }) {
                               sizes="64px"
                             />
                           ) : (
-                            <div className="w-full h-full flex items-center justify-center text-[10px] text-[#B76E79]/30">No Image</div>
+                            <div className="w-full h-full flex items-center justify-center text-[10px] text-[#E07B8B]/30">No Image</div>
                           )}
-                          <span className="absolute -top-1 -right-1 bg-[#F2C29A] text-[#050203] text-[10px] w-5 h-5 rounded-full flex items-center justify-center font-bold">
+                          <span className="absolute -top-1 -right-1 bg-[#FFD700] text-[#000000] text-[10px] w-5 h-5 rounded-full flex items-center justify-center font-bold">
                             {item.quantity}
                           </span>
                         </div>
                         <div className="flex-1 min-w-0 py-1">
-                          <p className="text-sm font-medium text-[#EAE0D5] line-clamp-2 leading-snug group-hover:text-[#F2C29A] transition-colors">
+                          <p className="text-sm font-medium text-[#F5F5F5] line-clamp-2 leading-snug group-hover:text-[#FFD700] transition-colors">
                             {item.name || item.product_name}
                           </p>
-                          <p className="text-[11px] text-[#B76E79] mt-1 space-x-2">
+                          <p className="text-[11px] text-[#E07B8B] mt-1 space-x-2">
                             {item.size && <span>Size: {item.size}</span>}
                             {item.color && <span>• Color: {item.color}</span>}
                           </p>
                         </div>
                         <div className="text-right py-1">
-                          <span className="text-sm font-semibold text-[#F2C29A]">{formatCurrency(item.price * item.quantity)}</span>
+                          <span className="text-sm font-semibold text-[#FFD700]">{formatCurrency(item.price * item.quantity)}</span>
                         </div>
                       </div>
                     ))}
                   </div>
 
                   {/* Totals */}
-                  <div className="space-y-2.5 pt-6 border-t border-[#B76E79]/20">
+                  <div className="space-y-2.5 pt-6 border-t border-[#E07B8B]/20">
                     {cart?.discount > 0 && (
                       <div className="flex justify-between text-sm">
-                        <span className="text-[#EAE0D5]/60 italic">Discount</span>
+                        <span className="text-[#F5F5F5]/60 italic">Discount</span>
                         <span className="text-green-400">-{formatCurrency(cart.discount)}</span>
                       </div>
                     )}
-                    <div className="flex justify-between pt-4 border-t border-[#B76E79]/20">
-                      <span className="text-[#F2C29A] font-cinzel text-lg tracking-wider">Total</span>
-                      <span className="text-[#F2C29A] font-bold text-2xl drop-shadow-[0_0_10px_rgba(242,194,154,0.3)]">
+                    <div className="flex justify-between pt-4 border-t border-[#E07B8B]/20">
+                      <span className="text-[#FFD700] font-cinzel text-lg tracking-wider">Total</span>
+                      <span className="text-[#FFD700] font-bold text-2xl drop-shadow-[0_0_10px_rgba(242,194,154,0.3)]">
                         {formatCurrency(cart?.total)}
                       </span>
                     </div>
-                    <p className="text-xs text-[#EAE0D5]/40 text-center">
+                    <p className="text-xs text-[#F5F5F5]/40 text-center">
                       Includes all taxes & free shipping
                     </p>
                   </div>
 
                   {/* Trust Badge for Secure Checkout */}
-                  <div className="pt-4 flex items-center justify-center gap-2 text-[10px] text-[#B76E79]/40 uppercase tracking-widest">
+                  <div className="pt-4 flex items-center justify-center gap-2 text-[10px] text-[#E07B8B]/40 uppercase tracking-widest">
                     <Check className="w-3 h-3" />
                     <span>Secure SSL Encrypted Checkout</span>
                   </div>

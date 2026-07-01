@@ -188,7 +188,7 @@ export default function SearchAutocomplete({
         <div className={`relative w-full ${className}`} ref={dropdownRef}>
             {/* Search Input */}
             <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#8B7D77]" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#737373]" />
                 <input
                     ref={inputRef}
                     type="text"
@@ -201,24 +201,24 @@ export default function SearchAutocomplete({
                     onKeyDown={handleKeyDown}
                     onFocus={() => query.length >= 2 && setIsOpen(true)}
                     placeholder={placeholder}
-                    className="w-full pl-10 pr-10 py-2.5 bg-[#1A1114] border border-[#3D322C] rounded-lg text-[#EAE0D5] placeholder-[#8B7D77] focus:outline-none focus:ring-2 focus:ring-[#B76E79]/30 focus:border-[#B76E79] transition-all text-sm"
+                    className="w-full pl-10 pr-10 py-2.5 bg-[#141414] border border-[#2A2A2A] rounded-lg text-[#F5F5F5] placeholder-[#737373] focus:outline-none focus:ring-2 focus:ring-[#E07B8B]/30 focus:border-[#E07B8B] transition-all text-sm"
                 />
                 {query && (
                     <button
                         onClick={handleClearSearch}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-[#3D322C] rounded-full transition-colors"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-[#2A2A2A] rounded-full transition-colors"
                     >
-                        <X className="w-4 h-4 text-[#8B7D77]" />
+                        <X className="w-4 h-4 text-[#737373]" />
                     </button>
                 )}
             </div>
 
             {/* Suggestions Dropdown */}
             {isOpen && (
-                <div className="absolute top-full left-0 right-0 mt-2 bg-[#0B0608] rounded-xl shadow-2xl border border-[#3D322C]/50 overflow-hidden z-50 max-h-[70vh] overflow-y-auto">
+                <div className="absolute top-full left-0 right-0 mt-2 bg-[#0A0A0A] rounded-xl shadow-2xl border border-[#2A2A2A]/50 overflow-hidden z-50 max-h-[70vh] overflow-y-auto">
                     {/* Loading State */}
                     {isLoading && (
-                        <div className="p-4 text-center text-[#8B7D77] text-sm">
+                        <div className="p-4 text-center text-[#737373] text-sm">
                             <div className="animate-pulse">Searching...</div>
                         </div>
                     )}
@@ -226,7 +226,7 @@ export default function SearchAutocomplete({
                     {/* No Results */}
                     {!isLoading && query.length >= 2 && suggestions &&
                      !suggestions.products?.length && !suggestions.categories?.length && (
-                        <div className="p-4 text-center text-[#8B7D77] text-sm">
+                        <div className="p-4 text-center text-[#737373] text-sm">
                             No suggestions found for &quot;{query}&quot;
                         </div>
                     )}
@@ -235,14 +235,14 @@ export default function SearchAutocomplete({
                     {!isLoading && query.length < 2 && (
                         <>
                             {recentSearches.length > 0 && (
-                                <div className="border-b border-[#3D322C]/50">
-                                    <div className="flex items-center justify-between px-4 py-2 bg-[#1A1114]">
-                                        <span className="text-xs font-semibold text-[#B76E79] uppercase tracking-wider">
+                                <div className="border-b border-[#2A2A2A]/50">
+                                    <div className="flex items-center justify-between px-4 py-2 bg-[#141414]">
+                                        <span className="text-xs font-semibold text-[#E07B8B] uppercase tracking-wider">
                                             Recent Searches
                                         </span>
                                         <button
                                             onClick={clearRecentSearches}
-                                            className="text-xs text-[#8B7D77] hover:text-[#F2C29A]"
+                                            className="text-xs text-[#737373] hover:text-[#FFD700]"
                                         >
                                             Clear all
                                         </button>
@@ -254,9 +254,9 @@ export default function SearchAutocomplete({
                                                 setQuery(search);
                                                 setSelectedIndex(-1);
                                             }}
-                                            className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-[#2A1F1A] text-left text-sm text-[#EAE0D5]/80"
+                                            className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-[#1A1A1A] text-left text-sm text-[#F5F5F5]/80"
                                         >
-                                            <Search className="w-4 h-4 text-[#8B7D77] flex-shrink-0" />
+                                            <Search className="w-4 h-4 text-[#737373] flex-shrink-0" />
                                             <span className="truncate">{search}</span>
                                         </button>
                                     ))}
@@ -265,9 +265,9 @@ export default function SearchAutocomplete({
 
                             {suggestions?.trending?.length > 0 && (
                                 <div>
-                                    <div className="flex items-center gap-2 px-4 py-2 bg-[#1A1114] border-t border-[#3D322C]/50">
-                                        <TrendingUp className="w-4 h-4 text-[#B76E79]" />
-                                        <span className="text-xs font-semibold text-[#B76E79] uppercase tracking-wider">
+                                    <div className="flex items-center gap-2 px-4 py-2 bg-[#141414] border-t border-[#2A2A2A]/50">
+                                        <TrendingUp className="w-4 h-4 text-[#E07B8B]" />
+                                        <span className="text-xs font-semibold text-[#E07B8B] uppercase tracking-wider">
                                             Trending Searches
                                         </span>
                                     </div>
@@ -275,9 +275,9 @@ export default function SearchAutocomplete({
                                         <button
                                             key={idx}
                                             onClick={() => handleSelectSuggestion({ type: 'search', query: item })}
-                                            className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-[#2A1F1A] text-left text-sm text-[#EAE0D5]/80"
+                                            className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-[#1A1A1A] text-left text-sm text-[#F5F5F5]/80"
                                         >
-                                            <TrendingUp className="w-4 h-4 text-[#8B7D77] flex-shrink-0" />
+                                            <TrendingUp className="w-4 h-4 text-[#737373] flex-shrink-0" />
                                             <span className="truncate">{item}</span>
                                         </button>
                                     ))}
@@ -288,10 +288,10 @@ export default function SearchAutocomplete({
 
                     {/* Product Suggestions */}
                     {!isLoading && suggestions?.products?.length > 0 && (
-                        <div className="border-b border-[#3D322C]/50">
-                            <div className="flex items-center gap-2 px-4 py-2 bg-[#1A1114]">
-                                <Package className="w-4 h-4 text-[#B76E79]" />
-                                <span className="text-xs font-semibold text-[#B76E79] uppercase tracking-wider">
+                        <div className="border-b border-[#2A2A2A]/50">
+                            <div className="flex items-center gap-2 px-4 py-2 bg-[#141414]">
+                                <Package className="w-4 h-4 text-[#E07B8B]" />
+                                <span className="text-xs font-semibold text-[#E07B8B] uppercase tracking-wider">
                                     Products
                                 </span>
                             </div>
@@ -299,34 +299,34 @@ export default function SearchAutocomplete({
                                 <button
                                     key={product.id}
                                     onClick={() => handleSelectSuggestion({ type: 'product', ...product })}
-                                    className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-[#2A1F1A] text-left ${
-                                        selectedIndex === idx ? 'bg-[#1A1114]' : ''
+                                    className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-[#1A1A1A] text-left ${
+                                        selectedIndex === idx ? 'bg-[#141414]' : ''
                                     }`}
                                 >
                                     {product.image ? (
                                         <img
                                             src={product.image}
                                             alt={product.name}
-                                            className="w-12 h-12 object-contain p-0.5 rounded-md flex-shrink-0 bg-[#1A1114]"
+                                            className="w-12 h-12 object-contain p-0.5 rounded-md flex-shrink-0 bg-[#141414]"
                                             loading="lazy"
                                         />
                                     ) : (
-                                        <div className="w-12 h-12 bg-[#1A1114] rounded-md flex items-center justify-center flex-shrink-0">
-                                            <Package className="w-5 h-5 text-[#8B7D77]" />
+                                        <div className="w-12 h-12 bg-[#141414] rounded-md flex items-center justify-center flex-shrink-0">
+                                            <Package className="w-5 h-5 text-[#737373]" />
                                         </div>
                                     )}
                                     <div className="flex-1 min-w-0">
-                                        <div className="text-sm font-medium text-[#EAE0D5] truncate">
+                                        <div className="text-sm font-medium text-[#F5F5F5] truncate">
                                             {product.name}
                                         </div>
-                                        <div className="text-xs text-[#8B7D77] truncate">
+                                        <div className="text-xs text-[#737373] truncate">
                                             {product.category}
                                         </div>
                                     </div>
-                                    <div className="text-sm font-semibold text-[#F2C29A] flex-shrink-0">
+                                    <div className="text-sm font-semibold text-[#FFD700] flex-shrink-0">
                                         ₹{Number(product.price).toLocaleString('en-IN')}
                                     </div>
-                                    <ChevronRight className="w-4 h-4 text-[#8B7D77] flex-shrink-0" />
+                                    <ChevronRight className="w-4 h-4 text-[#737373] flex-shrink-0" />
                                 </button>
                             ))}
                         </div>
@@ -335,9 +335,9 @@ export default function SearchAutocomplete({
                     {/* Category Suggestions */}
                     {!isLoading && suggestions?.categories?.length > 0 && (
                         <div>
-                            <div className="flex items-center gap-2 px-4 py-2 bg-[#1A1114] border-t border-[#3D322C]/50">
-                                <Search className="w-4 h-4 text-[#B76E79]" />
-                                <span className="text-xs font-semibold text-[#B76E79] uppercase tracking-wider">
+                            <div className="flex items-center gap-2 px-4 py-2 bg-[#141414] border-t border-[#2A2A2A]/50">
+                                <Search className="w-4 h-4 text-[#E07B8B]" />
+                                <span className="text-xs font-semibold text-[#E07B8B] uppercase tracking-wider">
                                     Categories
                                 </span>
                             </div>
@@ -345,16 +345,16 @@ export default function SearchAutocomplete({
                                 <button
                                     key={category.id}
                                     onClick={() => handleSelectSuggestion({ type: 'category', ...category })}
-                                    className={`w-full flex items-center gap-3 px-4 py-2.5 hover:bg-[#2A1F1A] text-left ${
-                                        selectedIndex === (suggestions.products?.length || 0) + idx ? 'bg-[#1A1114]' : ''
+                                    className={`w-full flex items-center gap-3 px-4 py-2.5 hover:bg-[#1A1A1A] text-left ${
+                                        selectedIndex === (suggestions.products?.length || 0) + idx ? 'bg-[#141414]' : ''
                                     }`}
                                 >
-                                    <div className="w-8 h-8 bg-[#7A2F57]/10 rounded-full flex items-center justify-center flex-shrink-0">
-                                        <ChevronRight className="w-4 h-4 text-[#B76E79]" />
+                                    <div className="w-8 h-8 bg-[#9333EA]/10 rounded-full flex items-center justify-center flex-shrink-0">
+                                        <ChevronRight className="w-4 h-4 text-[#E07B8B]" />
                                     </div>
-                                    <span className="text-sm text-[#EAE0D5]/80">{category.name}</span>
+                                    <span className="text-sm text-[#F5F5F5]/80">{category.name}</span>
                                     {category.count && (
-                                        <span className="text-xs text-[#8B7D77] ml-auto">
+                                        <span className="text-xs text-[#737373] ml-auto">
                                             {category.count} items
                                         </span>
                                     )}
@@ -367,7 +367,7 @@ export default function SearchAutocomplete({
                     {query.length >= 2 && (
                         <button
                             onClick={() => handleSelectSuggestion({ type: 'search', query })}
-                            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-[#7A2F57] to-[#B76E79] text-[#EAE0D5] hover:opacity-90 font-medium text-sm"
+                            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-[#9333EA] to-[#E07B8B] text-[#F5F5F5] hover:opacity-90 font-medium text-sm"
                         >
                             <Search className="w-4 h-4" />
                             Search for &quot;{query}&quot;

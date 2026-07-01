@@ -75,7 +75,7 @@ export default function AdminHeader({ onMenuClick, user, mobileMenuOpen = false 
 
   return (
     <header
-      className="h-16 bg-[#0B0608]/80 backdrop-blur-xl border-b border-[#B76E79]/15 sticky top-0 z-30"
+      className="h-16 bg-[#0A0A0A]/80 backdrop-blur-xl border-b border-[#E07B8B]/15 sticky top-0 z-30"
       role="banner"
     >
       <div className="h-full px-2 sm:px-4 flex items-center justify-between gap-2 sm:gap-4">
@@ -85,18 +85,18 @@ export default function AdminHeader({ onMenuClick, user, mobileMenuOpen = false 
           <button
             onClick={onMenuClick}
             data-mobile-menu-button
-            className="lg:hidden p-2 rounded-lg hover:bg-[#B76E79]/10 transition-colors min-w-[44px] min-h-[44px] touch-target"
+            className="lg:hidden p-2 rounded-lg hover:bg-[#E07B8B]/10 transition-colors min-w-[44px] min-h-[44px] touch-target"
             aria-label="Open navigation menu"
             aria-expanded={mobileMenuOpen}
             aria-controls="mobile-sidebar"
           >
-            <Menu className="w-5 h-5 text-[#EAE0D5]/70" />
+            <Menu className="w-5 h-5 text-[#F5F5F5]/70" />
           </button>
 
           {/* Search Bar */}
           <div className="relative w-full max-w-[200px] sm:max-w-xs md:max-w-sm lg:max-w-md xl:max-w-lg">
             <Search
-              className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#EAE0D5]/40"
+              className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#F5F5F5]/40"
               aria-hidden="true"
             />
             <input
@@ -106,9 +106,9 @@ export default function AdminHeader({ onMenuClick, user, mobileMenuOpen = false 
               onChange={(e) => setSearchQuery(e.target.value)}
               className={cn(
                 'w-full pl-10 pr-4 py-2',
-                'bg-[#0B0608]/60 border border-[#B76E79]/20',
-                'rounded-xl text-[#EAE0D5] placeholder-[#EAE0D5]/40',
-                'focus:outline-none focus:border-[#B76E79]/40 focus:ring-2 focus:ring-[#B76E79]/20',
+                'bg-[#0A0A0A]/60 border border-[#E07B8B]/20',
+                'rounded-xl text-[#F5F5F5] placeholder-[#F5F5F5]/40',
+                'focus:outline-none focus:border-[#E07B8B]/40 focus:ring-2 focus:ring-[#E07B8B]/20',
                 'transition-colors text-sm',
                 'min-h-[44px] touch-target'
               )}
@@ -121,14 +121,14 @@ export default function AdminHeader({ onMenuClick, user, mobileMenuOpen = false 
         <div className="flex items-center gap-3">
           {/* Notifications */}
           <button
-            className="relative p-2 rounded-xl hover:bg-[#B76E79]/10 transition-colors min-w-[44px] min-h-[44px] touch-target"
+            className="relative p-2 rounded-xl hover:bg-[#E07B8B]/10 transition-colors min-w-[44px] min-h-[44px] touch-target"
             aria-label="Notifications"
             aria-describedby="notification-count"
           >
-            <Bell className="w-5 h-5 text-[#EAE0D5]/70" />
+            <Bell className="w-5 h-5 text-[#F5F5F5]/70" />
             <span
               id="notification-count"
-              className="absolute top-1 right-1 w-2 h-2 bg-[#B76E79] rounded-full"
+              className="absolute top-1 right-1 w-2 h-2 bg-[#E07B8B] rounded-full"
               aria-label="You have unread notifications"
             />
           </button>
@@ -140,7 +140,7 @@ export default function AdminHeader({ onMenuClick, user, mobileMenuOpen = false 
               onClick={() => setShowUserMenu(!showUserMenu)}
               onKeyDown={handleUserMenuKeyDown}
               className={cn(
-                'flex items-center gap-2 p-2 rounded-xl hover:bg-[#B76E79]/10 transition-colors',
+                'flex items-center gap-2 p-2 rounded-xl hover:bg-[#E07B8B]/10 transition-colors',
                 'min-h-[44px] touch-target'
               )}
               aria-label={`User menu for ${user?.full_name || user?.username || 'Admin'}`}
@@ -148,22 +148,22 @@ export default function AdminHeader({ onMenuClick, user, mobileMenuOpen = false 
               aria-haspopup="menu"
             >
               <div
-                className="w-8 h-8 rounded-full bg-[#7A2F57]/30 border border-[#B76E79]/30 flex items-center justify-center"
+                className="w-8 h-8 rounded-full bg-[#9333EA]/30 border border-[#E07B8B]/30 flex items-center justify-center"
                 aria-hidden="true"
               >
-                <User className="w-4 h-4 text-[#F2C29A]" />
+                <User className="w-4 h-4 text-[#FFD700]" />
               </div>
               <div className="hidden md:block text-left">
-                <p className="text-sm font-medium text-[#EAE0D5]">
+                <p className="text-sm font-medium text-[#F5F5F5]">
                   {user?.full_name || user?.username || 'Admin'}
                 </p>
-                <p className="text-xs text-[#EAE0D5]/50 capitalize">
+                <p className="text-xs text-[#F5F5F5]/50 capitalize">
                   {user?.role || 'admin'}
                 </p>
               </div>
               <ChevronDown
                 className={cn(
-                  'w-4 h-4 text-[#EAE0D5]/50 hidden md:block transition-transform',
+                  'w-4 h-4 text-[#F5F5F5]/50 hidden md:block transition-transform',
                   showUserMenu ? 'rotate-180' : ''
                 )}
                 aria-hidden="true"
@@ -175,7 +175,7 @@ export default function AdminHeader({ onMenuClick, user, mobileMenuOpen = false 
               <div
                 className={cn(
                   'absolute right-0 mt-2 w-48 py-2',
-                  'bg-[#0B0608]/95 backdrop-blur-xl border border-[#B76E79]/20',
+                  'bg-[#0A0A0A]/95 backdrop-blur-xl border border-[#E07B8B]/20',
                   'rounded-xl shadow-xl z-50',
                   'animate-in fade-in zoom-in-95 duration-200'
                 )}
@@ -187,8 +187,8 @@ export default function AdminHeader({ onMenuClick, user, mobileMenuOpen = false 
                   href="/admin/settings"
                   onClick={() => setShowUserMenu(false)}
                   className={cn(
-                    'flex items-center gap-2 px-4 py-2 text-sm text-[#EAE0D5]/70',
-                    'hover:bg-[#B76E79]/10 hover:text-[#EAE0D5]',
+                    'flex items-center gap-2 px-4 py-2 text-sm text-[#F5F5F5]/70',
+                    'hover:bg-[#E07B8B]/10 hover:text-[#F5F5F5]',
                     'transition-colors',
                     'min-h-[44px] touch-target'
                   )}
@@ -197,7 +197,7 @@ export default function AdminHeader({ onMenuClick, user, mobileMenuOpen = false 
                   <Settings className="w-4 h-4" aria-hidden="true" />
                   Settings
                 </Link>
-                <hr className="my-2 border-[#B76E79]/15" role="separator" />
+                <hr className="my-2 border-[#E07B8B]/15" role="separator" />
                 <button
                   onClick={handleLogout}
                   disabled={isLoggingOut}

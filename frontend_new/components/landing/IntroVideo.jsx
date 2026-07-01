@@ -168,7 +168,7 @@ export default function IntroVideo({ onVideoEnd }) {
     <div
       ref={containerRef}
       className={`fixed inset-0 z-[200] transition-opacity duration-600 ${isFadingOut ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
-      style={{ background: '#050203' }}
+      style={{ background: '#000000' }}
       role="dialog"
       aria-label="Intro video. Press Escape to skip."
     >
@@ -195,9 +195,9 @@ export default function IntroVideo({ onVideoEnd }) {
         ) : (
           <div
             className="absolute inset-0 flex flex-col items-center justify-center"
-            style={{ background: '#050203' }}
+            style={{ background: '#000000' }}
           >
-            <p className="text-[#EAE0D5]/40 text-xs tracking-[0.2em] uppercase">Intro unavailable</p>
+            <p className="text-[#F5F5F5]/40 text-xs tracking-[0.2em] uppercase">Intro unavailable</p>
           </div>
         )}
 
@@ -214,7 +214,7 @@ export default function IntroVideo({ onVideoEnd }) {
         <button
           type="button"
           onClick={handleSkip}
-          className="pointer-events-auto absolute bottom-8 left-8 sm:bottom-10 sm:left-10 px-5 py-2.5 bg-white/10 backdrop-blur-md border border-white/20 text-white text-xs sm:text-sm font-medium rounded-full hover:bg-white/20 transition-all duration-300 active:scale-95 hover:border-[#F2C29A]/50"
+          className="pointer-events-auto absolute bottom-8 left-8 sm:bottom-10 sm:left-10 px-5 py-2.5 bg-white/10 backdrop-blur-md border border-white/20 text-white text-xs sm:text-sm font-medium rounded-full hover:bg-white/20 transition-all duration-300 active:scale-95 hover:border-[#FFD700]/50"
           style={{ fontFamily: 'var(--font-cinzel), serif' }}
         >
           Skip intro
@@ -234,7 +234,7 @@ export default function IntroVideo({ onVideoEnd }) {
               <path d="M8 5v14l11-7z" />
             </svg>
           </button>
-          <p className="pointer-events-none text-center text-sm text-[#EAE0D5]/70">Play intro with audio</p>
+          <p className="pointer-events-none text-center text-sm text-[#F5F5F5]/70">Play intro with audio</p>
           {playbackFailed && (
             <p className="pointer-events-none text-center text-xs text-red-300/90">
               Playback failed. Please tap again or use Skip intro.

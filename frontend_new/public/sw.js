@@ -137,8 +137,8 @@ async function networkOnlyHtml(request) {
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Aarya Clothing — Offline</title>
 <style>body{font-family:sans-serif;display:flex;align-items:center;justify-content:center;
-min-height:100vh;margin:0;background:#0B0608;color:#EAE0D5;text-align:center}
-h1{color:#F2C29A}a{color:#B76E79}</style></head>
+min-height:100vh;margin:0;background:#0A0A0A;color:#F5F5F5;text-align:center}
+h1{color:#FFD700}a{color:#E07B8B}</style></head>
 <body><div><h1>You're offline</h1>
 <p>Please check your connection and <a href="/">try again</a>.</p></div></body></html>`,
       { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8' } }

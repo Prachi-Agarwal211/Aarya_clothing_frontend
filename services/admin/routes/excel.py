@@ -299,7 +299,7 @@ async def excel_orders_export(
             "       u.email AS customer_email, u.phone AS customer_phone, "
             "       o.shipping_address, o.courier_name, o.tracking_number, "
             "       o.total_amount, o.subtotal, "
-            "       o.gst_amount AS tax_amount, o.shipping_cost AS shipping_amount, o.created_at, "
+            "       o.shipping_cost AS shipping_amount, o.created_at, "
             "       oi.product_name, oi.sku, oi.size, oi.color, oi.quantity, "
             "       oi.unit_price, oi.line_total "
             "FROM orders o LEFT JOIN users u ON u.id = o.user_id "
@@ -327,7 +327,7 @@ async def excel_orders_export(
             "tracking_number": m["tracking_number"] or "",
             "total_amount": float(m["total_amount"] or 0),
             "subtotal": float(m["subtotal"] or 0),
-            "tax_amount": float(m["tax_amount"] or 0),
+            "tax_amount": 0,
             "shipping_amount": float(m["shipping_amount"] or 0),
             "created_at": str(m["created_at"]),
             "product_name": m["product_name"],

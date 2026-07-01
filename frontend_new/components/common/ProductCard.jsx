@@ -1,38 +1,19 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import Image from 'next/image';
+import OptimizedImage from '../ui/OptimizedImage';
 import { ShoppingBag } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useCart } from '@/lib/cartContext';
-import { useAuth } from '@/lib/authContext';
-import { useToast } from '@/components/ui/Toast';
 import { AddToCartButton } from '@/components/cart/CartAnimation';
-import { getCoreBaseUrl } from '@/lib/baseApi';
 
 /**
  * Image URL helper. cloudflareLoader handles the R2 prefixing.
  */
-const ensureFullUrl = (url) => {
-  if (!url) return '/placeholder-image.jpg';
-  return url;
-};
+const ensureFullUrl = (url) => url || '';
 
 const ProductCard = ({ product, className, priority = false }) => {
-  const [imageError, setImageError] = useState(false);
-  // Connection-aware image quality — computed once on mount
-  const imageQuality = useMemo(() => {
-    if (typeof window === 'undefined') return 75;
-    const base = window.innerWidth < 768 ? 65 : 75;
-    if ('connection' in navigator) {
-      const conn = navigator.connection;
-      if (conn.saveData || conn.effectiveType === '2g' || conn.effectiveType === 'slow-2g') return 50;
-      if (conn.effectiveType === '3g') return 60;
-    }
-    return base;
-  }, []);
   // Support both old shape {id,name,price,image,category,isNew,originalPrice}
   // and new DB-driven shape {id,name,price,mrp,image_url,collection_name,is_new_arrival,discount_percentage}
   const id = product.id;
@@ -43,9 +24,7 @@ const ProductCard = ({ product, className, priority = false }) => {
   const isNew = product.is_new_arrival ?? product.isNew ?? false;
   const originalPrice = product.mrp || product.originalPrice;
 
-  const { addItem, openCart } = useCart();
-  const { isAuthenticated } = useAuth();
-  const toast = useToast();
+
   const router = useRouter();
 
   // Build product URL from slug first (preferred), then id
@@ -69,7 +48,7 @@ const ProductCard = ({ product, className, priority = false }) => {
           {/* Sale Badge — top-right so it doesn't overlap NEW */}
           {originalPrice && originalPrice > price && (
             <div className="absolute top-4 right-4 z-20">
-              <span className="px-3 py-1 text-xs tracking-wider text-white bg-[#7A2F57] font-medium rounded-full">
+              <span className="px-3 py-1 text-xs tracking-wider text-white bg-[#9333EA] font-medium rounded-full">
                 {Math.round((1 - price / originalPrice) * 100)}% OFF
               </span>
             </div>
@@ -78,7 +57,7 @@ const ProductCard = ({ product, className, priority = false }) => {
           {/* Premium New Badge with Animation — top-left */}
           {isNew && (
             <div className="absolute top-4 left-4 z-20">
-              <span className="relative px-4 py-1.5 text-xs tracking-[0.2em] text-[#050203] bg-gradient-to-r from-[#F2C29A] via-[#EAE0D5] to-[#F2C29A] font-cinzel font-semibold rounded-full overflow-hidden">
+              <span className="relative px-4 py-1.5 text-xs tracking-[0.2em] text-[#000000] bg-gradient-to-r from-[#FFD700] via-[#F5F5F5] to-[#FFD700] font-cinzel font-semibold rounded-full overflow-hidden">
                 <span className="relative z-10">NEW</span>
                 <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent animate-shimmer" />
               </span>
@@ -86,36 +65,27 @@ const ProductCard = ({ product, className, priority = false }) => {
           )}
 
           {/* Product Image - Optimized with proper loading strategy */}
-          {imageError ? (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#1A1A1A] text-[#B76E79]/30 gap-2">
-              <ShoppingBag className="w-10 h-10 opacity-30" />
-              <span className="text-[10px] text-[#EAE0D5]/20">Unavailable</span>
-            </div>
-          ) : (
-            <Image
-              src={ensureFullUrl(image)}
-              alt={name}
-              fill
-              sizes="(max-width: 640px) 280px, (max-width: 1024px) 320px, 360px"
-              className="object-cover transition-all duration-700 group-hover:scale-110 group-hover:brightness-110"
-              priority={priority}
-              quality={imageQuality}
-              placeholder="blur"
-              blurDataURL="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjUwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCBmaWxsPSIjMUYxQTFBIiB3aWR0aD0iNDAwIiBoZWlnaHQ9IjUwMCIvPjwvc3ZnPg=="
-              onError={() => setImageError(true)}
-            />
-          )}
+          <OptimizedImage
+            src={ensureFullUrl(image)}
+            alt={name}
+            fill
+            sizes="(max-width: 640px) 280px, (max-width: 1024px) 320px, 360px"
+            className="object-cover transition-all duration-700 group-hover:scale-110 group-hover:brightness-110"
+            priority={priority}
+            blur={true}
+            fallbackSrc="/placeholder-image.jpg"
+          />
 
           {/* Mobile: subtle gradient at bottom for add-to-cart (NO blur, NO full overlay) */}
           <div className="absolute bottom-0 left-0 right-0 z-20 flex items-end p-3 lg:hidden">
-            <div className="absolute inset-0 bg-gradient-to-t from-[#050203]/90 via-[#050203]/40 to-transparent rounded-b-2xl" />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#000000]/90 via-[#000000]/40 to-transparent rounded-b-2xl" />
             <AddToCartButton
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
                 handleAddToCart(product);
               }}
-              className="relative w-full min-h-[44px] bg-gradient-to-r from-[#EAE0D5] to-[#F2C29A] text-[#050203] rounded-full active:scale-95 flex items-center justify-center gap-2 font-medium transition-transform"
+              className="relative w-full min-h-[44px] bg-gradient-to-r from-[#F5F5F5] to-[#FFD700] text-[#000000] rounded-full active:scale-95 flex items-center justify-center gap-2 font-medium transition-transform"
             >
               <ShoppingBag className="w-5 h-5" />
               <span>{addToCartButtonText}</span>
@@ -123,22 +93,22 @@ const ProductCard = ({ product, className, priority = false }) => {
           </div>
 
           {/* Desktop: hover overlay with richer micro-interactions */}
-          <div className="absolute inset-0 bg-[#050203]/60 hidden lg:flex opacity-0 group-hover:opacity-100 transition-all duration-500 flex-col items-center justify-center gap-4 backdrop-blur-[6px] rounded-2xl">
+          <div className="absolute inset-0 bg-[#000000]/60 hidden lg:flex opacity-0 group-hover:opacity-100 transition-all duration-500 flex-col items-center justify-center gap-4 backdrop-blur-[6px] rounded-2xl">
             <AddToCartButton
               onClick={(e) => {
                 e.preventDefault();
                 handleAddToCart(product);
               }}
-              className="p-4 bg-gradient-to-r from-[#EAE0D5] to-[#F2C29A] text-[#050203] rounded-full transform translate-y-6 scale-90 opacity-0 group-hover:translate-y-0 group-hover:scale-100 group-hover:opacity-100 transition-all duration-500 delay-100 hover:shadow-[0_0_40px_rgba(242,194,154,0.5)] active:scale-95 flex items-center justify-center"
+              className="p-4 bg-gradient-to-r from-[#F5F5F5] to-[#FFD700] text-[#000000] rounded-full transform translate-y-6 scale-90 opacity-0 group-hover:translate-y-0 group-hover:scale-100 group-hover:opacity-100 transition-all duration-500 delay-100 hover:shadow-[0_0_40px_rgba(242,194,154,0.5)] active:scale-95 flex items-center justify-center"
               title="View product details and select size"
             >
               <ShoppingBag className="w-5 h-5" />
             </AddToCartButton>
             {/* Quick-view price on hover */}
-            <span className="text-[#F2C29A] text-sm font-medium opacity-0 group-hover:opacity-100 transition-all duration-500 delay-200 translate-y-4 group-hover:translate-y-0" style={{ fontFamily: 'Playfair Display, serif' }}>
+            <span className="text-[#FFD700] text-sm font-medium opacity-0 group-hover:opacity-100 transition-all duration-500 delay-200 translate-y-4 group-hover:translate-y-0" style={{ fontFamily: 'Playfair Display, serif' }}>
               {originalPrice && originalPrice > price ? (
                 <>
-                  <span className="line-through text-[#EAE0D5]/40 mr-2">₹{originalPrice?.toLocaleString()}</span>
+                  <span className="line-through text-[#F5F5F5]/40 mr-2">₹{originalPrice?.toLocaleString()}</span>
                   ₹{price?.toLocaleString()}
                 </>
               ) : (
@@ -148,14 +118,14 @@ const ProductCard = ({ product, className, priority = false }) => {
           </div>
 
           {/* Bottom Gradient Line Animation */}
-          <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-[#7A2F57] via-[#B76E79] to-[#F2C29A] transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 origin-left z-30" />
+          <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-[#9333EA] via-[#E07B8B] to-[#FFD700] transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 origin-left z-30" />
         </div>
 
         {/* Premium Product Info */}
         <div className="mt-4 text-center">
-          <p className="text-xs text-[#B76E79] uppercase tracking-[0.2em] mb-2 font-medium">{category}</p>
+          <p className="text-xs text-[#E07B8B] uppercase tracking-[0.2em] mb-2 font-medium">{category}</p>
           <Link href={productHref}>
-            <h3 className="text-lg font-cinzel text-[#EAE0D5] group-hover:text-[#F2C29A] transition-colors duration-300 truncate px-2 hover:drop-shadow-[0_0_10px_rgba(242,194,154,0.3)]">
+            <h3 className="text-lg font-cinzel text-[#F5F5F5] group-hover:text-[#FFD700] transition-colors duration-300 truncate px-2 hover:drop-shadow-[0_0_10px_rgba(242,194,154,0.3)]">
               {name}
             </h3>
           </Link>
@@ -171,16 +141,16 @@ const ProductCard = ({ product, className, priority = false }) => {
                 />
               ))}
               {product.colors.length > 4 && (
-                <span className="text-xs text-[#EAE0D5]/40">+{product.colors.length - 4}</span>
+                <span className="text-xs text-[#F5F5F5]/40">+{product.colors.length - 4}</span>
               )}
             </div>
           )}
           <div className="mt-2 flex items-center justify-center gap-2">
-            <p className="font-playfair text-[#F2C29A] text-lg font-medium tracking-wide">
+            <p className="font-playfair text-[#FFD700] text-lg font-medium tracking-wide">
               ₹{price?.toLocaleString()}
             </p>
             {originalPrice && originalPrice > price && (
-              <p className="text-sm text-[#8B7B8F] line-through">
+              <p className="text-sm text-[#737373] line-through">
                 ₹{originalPrice?.toLocaleString()}
               </p>
             )}

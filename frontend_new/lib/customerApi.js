@@ -86,13 +86,6 @@ export const cartApi = {
   clear: () =>
     commerceClient.delete('/api/v1/cart'),
 
-  // Set delivery state for GST calculation (CGST+SGST vs IGST)
-  setDeliveryState: (deliveryState, customerGstin = null) =>
-    commerceClient.post('/api/v1/cart/delivery-state', {
-      delivery_state: deliveryState,
-      customer_gstin: customerGstin,
-    }),
-
   // Update shipping address in cart - needed for order creation fallback
   updateShippingAddress: (shippingAddress) =>
     commerceClient.post('/api/v1/cart/shipping-address', {

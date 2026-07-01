@@ -324,8 +324,8 @@ export default function ForgotPasswordPage() {
               <div
                 className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 ${
                   stepNum <= step
-                    ? 'bg-[#F2C29A] text-[#2A1208]'
-                    : 'bg-[#B76E79]/30 text-[#EAE0D5]/40'
+                    ? 'bg-[#FFD700] text-[#2A1208]'
+                    : 'bg-[#E07B8B]/30 text-[#F5F5F5]/40'
                 }`}
               >
                 {stepNum < step ? <CheckCircle className="w-4 h-4" /> : stepNum}
@@ -333,14 +333,14 @@ export default function ForgotPasswordPage() {
               {stepNum < TOTAL_STEPS && (
                 <div
                   className={`w-10 sm:w-16 h-0.5 mx-1.5 sm:mx-2 rounded transition-all duration-300 ${
-                    stepNum < step ? 'bg-[#F2C29A]' : 'bg-[#B76E79]/30'
+                    stepNum < step ? 'bg-[#FFD700]' : 'bg-[#E07B8B]/30'
                   }`}
                 />
               )}
             </div>
           ))}
         </div>
-        <div className="flex justify-between mt-1.5 text-[11px] text-[#EAE0D5]/50 uppercase tracking-wider">
+        <div className="flex justify-between mt-1.5 text-[11px] text-[#F5F5F5]/50 uppercase tracking-wider">
           <span>Request</span>
           <span>Verify</span>
           <span>Reset</span>
@@ -361,19 +361,19 @@ export default function ForgotPasswordPage() {
 
           <form className="w-full space-y-3 sm:space-y-3.5 animate-fade-in-up-delay" onSubmit={handleRequestOtp} noValidate>
             <div className="space-y-2">
-              <p className="text-[#EAE0D5]/60 text-[10px] uppercase tracking-widest">Verification</p>
+              <p className="text-[#F5F5F5]/60 text-[10px] uppercase tracking-widest">Verification</p>
               <div className="grid grid-cols-3 gap-2">
                 <button
                   type="button"
                   onClick={() => setVerificationMethod('otp_email')}
                   className={`flex flex-col items-center gap-1 p-2.5 rounded-xl border-2 transition-all duration-300 ${
                     verificationMethod === 'otp_email'
-                      ? 'bg-[#7A2F57]/20 border-[#F2C29A]/60 shadow-[0_0_20px_rgba(242,194,154,0.15)]'
-                      : 'bg-[#7A2F57]/10 border-[#B76E79]/30 hover:border-[#F2C29A]/40'
+                      ? 'bg-[#9333EA]/20 border-[#FFD700]/60 shadow-[0_0_20px_rgba(242,194,154,0.15)]'
+                      : 'bg-[#9333EA]/10 border-[#E07B8B]/30 hover:border-[#FFD700]/40'
                   }`}
                 >
-                  <Mail className={`w-5 h-5 transition-colors ${verificationMethod === 'otp_email' ? 'text-[#F2C29A]' : 'text-[#B76E79]'}`} />
-                  <p className="text-[10px] sm:text-[11px] text-[#EAE0D5]/90 font-bold tracking-widest">EMAIL</p>
+                  <Mail className={`w-5 h-5 transition-colors ${verificationMethod === 'otp_email' ? 'text-[#FFD700]' : 'text-[#E07B8B]'}`} />
+                  <p className="text-[10px] sm:text-[11px] text-[#F5F5F5]/90 font-bold tracking-widest">EMAIL</p>
                 </button>
 
                 <button
@@ -383,14 +383,14 @@ export default function ForgotPasswordPage() {
                   onClick={() => whatsappEnabled && setVerificationMethod('otp_whatsapp')}
                   className={`flex flex-col items-center gap-1 p-2.5 rounded-xl border-2 transition-all duration-300 ${
                     !whatsappEnabled
-                      ? 'opacity-50 cursor-not-allowed bg-[#7A2F57]/5 border-[#B76E79]/20'
+                      ? 'opacity-50 cursor-not-allowed bg-[#9333EA]/5 border-[#E07B8B]/20'
                       : verificationMethod === 'otp_whatsapp'
-                        ? 'bg-[#7A2F57]/20 border-[#F2C29A]/60 shadow-[0_0_20px_rgba(242,194,154,0.15)]'
-                        : 'bg-[#7A2F57]/10 border-[#B76E79]/30 hover:border-[#F2C29A]/40'
+                        ? 'bg-[#9333EA]/20 border-[#FFD700]/60 shadow-[0_0_20px_rgba(242,194,154,0.15)]'
+                        : 'bg-[#9333EA]/10 border-[#E07B8B]/30 hover:border-[#FFD700]/40'
                   }`}
                 >
-                  <MessageCircle className={`w-5 h-5 transition-colors ${verificationMethod === 'otp_whatsapp' ? 'text-[#F2C29A]' : 'text-[#B76E79]'}`} />
-                  <p className="text-[10px] sm:text-[11px] text-[#EAE0D5]/90 font-bold tracking-widest">WA</p>
+                  <MessageCircle className={`w-5 h-5 transition-colors ${verificationMethod === 'otp_whatsapp' ? 'text-[#FFD700]' : 'text-[#E07B8B]'}`} />
+                  <p className="text-[10px] sm:text-[11px] text-[#F5F5F5]/90 font-bold tracking-widest">WA</p>
                 </button>
 
                 <button
@@ -400,23 +400,23 @@ export default function ForgotPasswordPage() {
                   onClick={() => smsOtpEnabled && setVerificationMethod('otp_sms')}
                   className={`flex flex-col items-center gap-1 p-2.5 rounded-xl border-2 transition-all duration-300 ${
                     !smsOtpEnabled
-                      ? 'opacity-50 cursor-not-allowed bg-[#7A2F57]/5 border-[#B76E79]/20'
+                      ? 'opacity-50 cursor-not-allowed bg-[#9333EA]/5 border-[#E07B8B]/20'
                       : verificationMethod === 'otp_sms'
-                        ? 'bg-[#7A2F57]/20 border-[#F2C29A]/60 shadow-[0_0_20px_rgba(242,194,154,0.15)]'
-                        : 'bg-[#7A2F57]/10 border-[#B76E79]/30 hover:border-[#F2C29A]/40'
+                        ? 'bg-[#9333EA]/20 border-[#FFD700]/60 shadow-[0_0_20px_rgba(242,194,154,0.15)]'
+                        : 'bg-[#9333EA]/10 border-[#E07B8B]/30 hover:border-[#FFD700]/40'
                   }`}
                 >
-                  <Smartphone className={`w-5 h-5 transition-colors ${verificationMethod === 'otp_sms' ? 'text-[#F2C29A]' : 'text-[#B76E79]'}`} />
-                  <p className="text-[10px] sm:text-[11px] text-[#EAE0D5]/90 font-bold tracking-widest">SMS</p>
+                  <Smartphone className={`w-5 h-5 transition-colors ${verificationMethod === 'otp_sms' ? 'text-[#FFD700]' : 'text-[#E07B8B]'}`} />
+                  <p className="text-[10px] sm:text-[11px] text-[#F5F5F5]/90 font-bold tracking-widest">SMS</p>
                 </button>
               </div>
             </div>
 
             <div className="luxury-input-wrapper h-11 sm:h-12 rounded-xl relative group flex items-center px-4">
               {verificationMethod === 'otp_email' ? (
-                <Mail className="w-4 h-4 sm:w-5 sm:h-5 text-[#B76E79] group-focus-within:text-[#F2C29A] transition-colors duration-300 shrink-0" aria-hidden="true" />
+                <Mail className="w-4 h-4 sm:w-5 sm:h-5 text-[#E07B8B] group-focus-within:text-[#FFD700] transition-colors duration-300 shrink-0" aria-hidden="true" />
               ) : (
-                <Phone className="w-4 h-4 sm:w-5 sm:h-5 text-[#B76E79] group-focus-within:text-[#F2C29A] transition-colors duration-300 shrink-0" aria-hidden="true" />
+                <Phone className="w-4 h-4 sm:w-5 sm:h-5 text-[#E07B8B] group-focus-within:text-[#FFD700] transition-colors duration-300 shrink-0" aria-hidden="true" />
               )}
               <Input
                 type={verificationMethod === 'otp_email' ? 'email' : 'tel'}
@@ -424,19 +424,19 @@ export default function ForgotPasswordPage() {
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
                 variant="minimal"
-                className="h-full pl-3 sm:pl-4 text-[#EAE0D5] placeholder:text-[#8A6A5C] text-sm sm:text-base"
+                className="h-full pl-3 sm:pl-4 text-[#F5F5F5] placeholder:text-[#8A6A5C] text-sm sm:text-base"
                 autoComplete={verificationMethod === 'otp_email' ? 'email' : 'tel'}
                 aria-label={verificationMethod === 'otp_email' ? 'Email address' : 'Phone number'}
                 required
               />
             </div>
 
-            <p className="text-center text-[11px] text-[#EAE0D5]/60">
+            <p className="text-center text-[11px] text-[#F5F5F5]/60">
               We&apos;ll send a 6-digit code to your {verificationMethod === 'otp_email' ? 'email' : 'phone'}.
             </p>
 
             {verificationMethod !== 'otp_email' && (
-              <p className="text-[#EAE0D5]/30 text-[10px] uppercase tracking-wider text-center">
+              <p className="text-[#F5F5F5]/30 text-[10px] uppercase tracking-wider text-center">
                 {AUTH_COPY.phoneFormatHint}
               </p>
             )}
@@ -444,15 +444,15 @@ export default function ForgotPasswordPage() {
             <Button
               type="submit"
               disabled={isSubmitting}
-              className="w-full h-11 sm:h-12 mt-1 relative overflow-hidden rounded-xl bg-transparent border border-[#B76E79]/40 group transition-all duration-500 hover:border-[#F2C29A]/60 hover:shadow-[0_0_30px_rgba(183,110,121,0.3)]"
+              className="w-full h-11 sm:h-12 mt-1 relative overflow-hidden rounded-xl bg-transparent border border-[#E07B8B]/40 group transition-all duration-500 hover:border-[#FFD700]/60 hover:shadow-[0_0_30px_rgba(183,110,121,0.3)]"
               aria-busy={isSubmitting}
             >
-              <div className="absolute inset-0 bg-gradient-to-r from-[#7A2F57]/80 via-[#B76E79]/70 to-[#2A1208]/80 opacity-90"></div>
+              <div className="absolute inset-0 bg-gradient-to-r from-[#9333EA]/80 via-[#E07B8B]/70 to-[#2A1208]/80 opacity-90"></div>
               <div className="animate-sheen"></div>
-              <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-[#F2C29A]/70 to-transparent"></div>
-              <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-[#B76E79]/50 to-transparent"></div>
+              <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-[#FFD700]/70 to-transparent"></div>
+              <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-[#E07B8B]/50 to-transparent"></div>
 
-              <span className="relative z-10 text-[#F2C29A] font-serif tracking-[0.12em] text-base sm:text-lg group-hover:text-white transition-colors font-heading">
+              <span className="relative z-10 text-[#FFD700] font-serif tracking-[0.12em] text-base sm:text-lg group-hover:text-white transition-colors font-heading">
                 {isSubmitting ? 'SENDING...' : 'SEND CODE'}
               </span>
             </Button>
@@ -460,7 +460,7 @@ export default function ForgotPasswordPage() {
             {/* Error/Status Messages */}
             {(error || status) && (
               <div
-                className={`text-center text-sm sm:text-base ${error ? 'text-red-300' : 'text-[#C27A4E]'}`}
+                className={`text-center text-sm sm:text-base ${error ? 'text-red-300' : 'text-[#F59E0B]'}`}
                 role={error ? "alert" : "status"}
                 aria-live="polite"
               >
@@ -473,7 +473,7 @@ export default function ForgotPasswordPage() {
           <div className="w-full mt-6 sm:mt-8">
             <p className="text-center text-[#8A6A5C] text-xs sm:text-sm tracking-wide">
               Remember your password?{" "}
-              <Link href="/auth/login" className="text-[#C27A4E] hover:text-[#F2C29A] transition-colors ml-1 uppercase text-sm font-bold tracking-widest">
+              <Link href="/auth/login" className="text-[#F59E0B] hover:text-[#FFD700] transition-colors ml-1 uppercase text-sm font-bold tracking-widest">
                 Sign In
               </Link>
             </p>
@@ -485,23 +485,23 @@ export default function ForgotPasswordPage() {
       {step === 2 && (
         <div className="w-full max-w-md mx-auto animate-fade-in-up-delay">
           <div className="text-center mb-4 space-y-1">
-            <div className="w-12 h-12 rounded-full bg-[#7A2F57]/30 border border-[#B76E79]/30 flex items-center justify-center mx-auto mb-2">
+            <div className="w-12 h-12 rounded-full bg-[#9333EA]/30 border border-[#E07B8B]/30 flex items-center justify-center mx-auto mb-2">
               {verificationMethod === 'otp_email' ? (
-                <Mail className="w-6 h-6 text-[#F2C29A]" />
+                <Mail className="w-6 h-6 text-[#FFD700]" />
               ) : (
-                <Smartphone className="w-6 h-6 text-[#F2C29A]" />
+                <Smartphone className="w-6 h-6 text-[#FFD700]" />
               )}
             </div>
             <h2 className="text-lg sm:text-xl text-white/90 font-body">
               Verify {verificationMethod === 'otp_email' ? 'email' : 'phone'}
             </h2>
             <p className="text-white/70 text-xs sm:text-sm break-all px-1">
-              To: <strong className="text-[#F2C29A]">{identifier}</strong>
+              To: <strong className="text-[#FFD700]">{identifier}</strong>
             </p>
             <p className="text-white/45 text-[10px]">6-digit code</p>
           </div>
 
-          <div className={`flex items-center justify-center gap-2 mb-4 text-sm ${otpExpired ? 'text-red-400' : otpTimeLeft <= 30 ? 'text-amber-400' : 'text-[#F2C29A]'}`}>
+          <div className={`flex items-center justify-center gap-2 mb-4 text-sm ${otpExpired ? 'text-red-400' : otpTimeLeft <= 30 ? 'text-amber-400' : 'text-[#FFD700]'}`}>
             <span className="text-lg font-mono font-semibold tabular-nums">{formatTime(otpTimeLeft)}</span>
             <span className="text-xs">{otpExpired ? '— expired' : 'left'}</span>
           </div>
@@ -523,9 +523,9 @@ export default function ForgotPasswordPage() {
                   aria-label={`Digit ${i + 1} of 6`}
                   className={[
                     'w-8 sm:w-10 h-11 sm:h-12 text-center text-lg sm:text-xl font-bold font-mono rounded-lg border-2 transition-all duration-200 outline-none',
-                    'bg-[#0B0608]/60 text-[#F2C29A] caret-[#F2C29A]',
-                    digit ? 'border-[#F2C29A]/60 bg-[#7A2F57]/20' : 'border-[#B76E79]/30',
-                    otpExpired ? 'opacity-50 cursor-not-allowed' : 'focus:border-[#F2C29A] focus:bg-[#7A2F57]/15 focus:shadow-[0_0_0_3px_rgba(242,194,154,0.1)]',
+                    'bg-[#0A0A0A]/60 text-[#FFD700] caret-[#FFD700]',
+                    digit ? 'border-[#FFD700]/60 bg-[#9333EA]/20' : 'border-[#E07B8B]/30',
+                    otpExpired ? 'opacity-50 cursor-not-allowed' : 'focus:border-[#FFD700] focus:bg-[#9333EA]/15 focus:shadow-[0_0_0_3px_rgba(242,194,154,0.1)]',
                   ].join(' ')}
                 />
               ))}
@@ -546,10 +546,10 @@ export default function ForgotPasswordPage() {
             <Button
               type="submit"
               disabled={isVerifying || otpValue.length !== 6 || otpExpired}
-              className="w-full h-11 sm:h-12 relative overflow-hidden rounded-xl bg-transparent border border-[#B76E79]/40 transition-all duration-500 hover:border-[#F2C29A]/60 hover:shadow-[0_0_30px_rgba(183,110,121,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full h-11 sm:h-12 relative overflow-hidden rounded-xl bg-transparent border border-[#E07B8B]/40 transition-all duration-500 hover:border-[#FFD700]/60 hover:shadow-[0_0_30px_rgba(183,110,121,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
               aria-busy={isVerifying}
             >
-              <div className="absolute inset-0 bg-gradient-to-r from-[#7A2F57]/80 via-[#B76E79]/70 to-[#2A1208]/80 opacity-90" />
+              <div className="absolute inset-0 bg-gradient-to-r from-[#9333EA]/80 via-[#E07B8B]/70 to-[#2A1208]/80 opacity-90" />
               <span className="relative z-10 text-white font-serif tracking-[0.12em] text-base">
                 {isVerifying ? 'VERIFYING...' : 'VERIFY & RESET'}
               </span>
@@ -557,17 +557,17 @@ export default function ForgotPasswordPage() {
           </form>
 
           <div className="text-center mt-4 space-y-1">
-            <p className="text-[#EAE0D5]/50 text-xs">Didn&apos;t receive the code?</p>
+            <p className="text-[#F5F5F5]/50 text-xs">Didn&apos;t receive the code?</p>
             {resendCooldown > 0 ? (
-              <p className="text-[#EAE0D5]/40 text-sm">
-                Resend available in <span className="text-[#F2C29A] font-mono tabular-nums">{resendCooldown}s</span>
+              <p className="text-[#F5F5F5]/40 text-sm">
+                Resend available in <span className="text-[#FFD700] font-mono tabular-nums">{resendCooldown}s</span>
               </p>
             ) : (
               <button
                 type="button"
                 onClick={handleResendOtp}
                 disabled={isResending}
-                className="flex items-center gap-2 mx-auto text-[#C27A4E] hover:text-[#F2C29A] transition-colors text-sm font-bold tracking-widest uppercase disabled:opacity-50"
+                className="flex items-center gap-2 mx-auto text-[#F59E0B] hover:text-[#FFD700] transition-colors text-sm font-bold tracking-widest uppercase disabled:opacity-50"
               >
                 {isResending ? <RefreshCw className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
                 Resend via {verificationMethod === 'otp_email' ? 'Email' : 'SMS'}
@@ -578,7 +578,7 @@ export default function ForgotPasswordPage() {
           <button
             type="button"
             onClick={handleBackToForm}
-            className="w-full mt-3 py-2 text-center text-[#EAE0D5]/40 hover:text-[#EAE0D5]/70 transition-colors text-xs uppercase tracking-widest"
+            className="w-full mt-3 py-2 text-center text-[#F5F5F5]/40 hover:text-[#F5F5F5]/70 transition-colors text-xs uppercase tracking-widest"
           >
             ← Back
           </button>

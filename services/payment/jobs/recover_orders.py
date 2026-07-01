@@ -112,10 +112,6 @@ def _get_commerce_payload(transaction: PaymentTransaction) -> Optional[Dict[str,
             "total_amount": float(transaction.amount),
             "subtotal": float(transaction.amount),
             "shipping_cost": 0,
-            "gst_amount": 0,
-            "cgst_amount": 0,
-            "sgst_amount": 0,
-            "igst_amount": 0,
             "payment_method": transaction.payment_method or "razorpay",
         }
 

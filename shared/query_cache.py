@@ -461,8 +461,6 @@ def product_to_dict(product, include_details: bool = False) -> Dict:
         "short_description": product.short_description,
         "base_price": float(product.base_price) if product.base_price else 0,
         "mrp": float(product.mrp) if product.mrp else None,
-        "hsn_code": product.hsn_code,
-        "gst_rate": float(product.gst_rate) if product.gst_rate else None,
         "is_taxable": product.is_taxable,
         "category_id": product.category_id,
         "brand": product.brand,

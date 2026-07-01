@@ -33,7 +33,7 @@ export function Skeleton({
         <div
           key={i}
           className={cn(
-            'animate-pulse bg-[#B76E79]/10',
+            'animate-pulse bg-[#E07B8B]/10',
             variants[variant],
             width,
             height,
@@ -53,25 +53,25 @@ export function Skeleton({
 export function TableSkeleton({ rows = 5, columns = 4 }) {
   return (
     <div
-      className="bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl overflow-hidden"
+      className="bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl overflow-hidden"
       role="status"
       aria-label="Loading data"
     >
       <div className="animate-pulse">
         {/* Table header */}
-        <div className="h-12 bg-[#B76E79]/10 border-b border-[#B76E79]/15" />
+        <div className="h-12 bg-[#E07B8B]/10 border-b border-[#E07B8B]/15" />
 
         {/* Table rows */}
         {[...Array(rows)].map((_, i) => (
           <div
             key={i}
-            className="h-14 border-b border-[#B76E79]/10 flex items-center px-4 gap-4"
+            className="h-14 border-b border-[#E07B8B]/10 flex items-center px-4 gap-4"
           >
             {[...Array(columns)].map((_, j) => (
               <div
                 key={j}
                 className={cn(
-                  'h-4 bg-[#B76E79]/10 rounded',
+                  'h-4 bg-[#E07B8B]/10 rounded',
                   j === 0 ? 'w-1/4' : j === 1 ? 'w-1/3' : 'w-1/5'
                 )}
               />
@@ -92,7 +92,7 @@ export function CardSkeleton({ count = 4 }) {
       {[...Array(count)].map((_, i) => (
         <div
           key={i}
-          className="bg-[#0B0608]/40 backdrop-blur-md border border-[#B76E79]/15 rounded-2xl p-4 animate-pulse"
+          className="bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl p-4 animate-pulse"
         >
           <div className="flex items-center gap-3 mb-3">
             <Skeleton variant="circular" width="w-10" height="w-10" />

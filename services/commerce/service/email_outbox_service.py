@@ -196,7 +196,7 @@ class EmailOutboxService:
             </tr>
             """
         
-        # Calculate totals nicely (no GST breakdown if 0)
+        # Calculate totals nicely
         subtotal_display = f"₹{float(order.subtotal):.0f}"
         shipping_display = "FREE" if float(order.shipping_cost) == 0 else f"₹{float(order.shipping_cost):.0f}"
         total_display = f"₹{float(order.total_amount):.0f}"
@@ -227,8 +227,8 @@ class EmailOutboxService:
                 if city_line:
                     addr_lines.append(", ".join(city_line))
                 shipping_display_html = "<br>".join(addr_lines)
-        except:
-            pass
+        except (AttributeError, KeyError, TypeError, json.JSONDecodeError):
+            pass  # Failed to parse shipping address — use fallback
         
         estimated_delivery = (order.created_at + timedelta(days=7)).strftime(
             "%B %d, %Y"
@@ -302,7 +302,6 @@ Thank you, {user.username or "Customer"}!
 {items_text}
 Subtotal: ₹{float(order.subtotal):.2f}
 Shipping: ₹{float(order.shipping_cost):.2f}
-GST: ₹{float(order.gst_amount):.2f}
 Total: ₹{float(order.total_amount):.2f}
 
 Shipping Address:

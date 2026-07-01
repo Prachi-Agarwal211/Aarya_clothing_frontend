@@ -45,7 +45,7 @@ export default function ContactPage() {
   const { breadcrumbSchema, contactPageSchema } = generateStructuredData();
 
   return (
-    <main className="min-h-screen text-[#EAE0D5] page-wrapper" role="main" aria-label="Contact Us">
+    <main className="min-h-screen text-[#F5F5F5] page-wrapper" role="main" aria-label="Contact Us">
       {/* Structured Data */}
       <script
         type="application/ld+json"

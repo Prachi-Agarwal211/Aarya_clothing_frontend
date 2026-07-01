@@ -109,29 +109,29 @@ export default function TrustBadges() {
     <section ref={sectionRef} className="py-20 sm:py-24 relative z-10 overflow-hidden">
       {/* Background glow */}
       <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
-        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[300px] bg-[#B76E79]/4 rounded-full blur-[120px]" />
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[300px] bg-[#E07B8B]/4 rounded-full blur-[120px]" />
       </div>
 
-      <div className="container mx-auto px-4 sm:px-6 relative z-10">
+      <div className="max-w-7xl mx-auto px-5 sm:px-6 lg:px-8 relative z-10">
         <div className="max-w-4xl mx-auto">
 
           {/* Heading */}
           <div ref={headingRef} className="text-center mb-16">
             <div className="flex items-center justify-center gap-4 mb-4">
-              <div className="h-[1px] w-12 sm:w-20 bg-gradient-to-r from-transparent to-[#F2C29A]/80" />
-              <div className="w-1.5 h-1.5 rounded-full bg-[#F2C29A] transform rotate-45" />
+              <div className="h-[1px] w-12 sm:w-20 bg-gradient-to-r from-transparent to-[#FFD700]/80" />
+              <div className="w-1.5 h-1.5 rounded-full bg-[#FFD700] transform rotate-45" />
               <span
-                className="text-[#F2C29A] text-xs sm:text-sm tracking-[0.35em] uppercase px-2"
+                className="text-[#FFD700] text-xs sm:text-sm tracking-[0.35em] uppercase px-2"
                 style={{ fontFamily: 'Cinzel, serif' }}
               >
                 Our Promise to You
               </span>
-              <div className="w-1.5 h-1.5 rounded-full bg-[#F2C29A] transform rotate-45" />
-              <div className="h-[1px] w-12 sm:w-20 bg-gradient-to-l from-transparent to-[#F2C29A]/80" />
+              <div className="w-1.5 h-1.5 rounded-full bg-[#FFD700] transform rotate-45" />
+              <div className="h-[1px] w-12 sm:w-20 bg-gradient-to-l from-transparent to-[#FFD700]/80" />
             </div>
             
             <h2
-              className="text-2xl sm:text-4xl text-[#EAE0D5] font-light leading-tight"
+              className="text-2xl sm:text-4xl text-[#F5F5F5] font-light leading-tight"
               style={{ fontFamily: 'var(--font-geist-sans), sans-serif' }}
             >
               Shopping should be simple, honest, and stress-free.
@@ -146,29 +146,29 @@ export default function TrustBadges() {
                 ref={el => badgeRefs.current[i] = el}
                 className="
                   group relative p-8 sm:p-10 rounded-2xl
-                  bg-[#0B0608]/50 backdrop-blur-md
-                  border-x border-[#B76E79]/10
+                  bg-[#0A0A0A]/50 backdrop-blur-md
+                  border-x border-[#E07B8B]/10
                   text-center transition-all duration-500
                   hover:-translate-y-2
                   overflow-hidden
                 "
               >
                 {/* Top/Bottom Glowing Borders */}
-                <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#F2C29A]/60 to-transparent opacity-80" />
-                <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#F2C29A]/60 to-transparent opacity-80" />
+                <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#FFD700]/60 to-transparent opacity-80" />
+                <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#FFD700]/60 to-transparent opacity-80" />
                 
                 {/* Top glowing orb effect (optional but nice) */}
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-1 bg-[#F2C29A] blur-[8px] opacity-60" />
-                <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-32 h-1 bg-[#F2C29A] blur-[8px] opacity-60" />
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-1 bg-[#FFD700] blur-[8px] opacity-60" />
+                <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-32 h-1 bg-[#FFD700] blur-[8px] opacity-60" />
 
                 {/* Icon */}
-                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full border border-[#F2C29A]/30 mb-6 group-hover:bg-[#F2C29A]/10 transition-colors duration-300">
-                  <Icon className="w-8 h-8 text-[#F2C29A]" strokeWidth={1.5} aria-hidden="true" />
+                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full border border-[#FFD700]/30 mb-6 group-hover:bg-[#FFD700]/10 transition-colors duration-300">
+                  <Icon className="w-8 h-8 text-[#FFD700]" strokeWidth={1.5} aria-hidden="true" />
                 </div>
                 
                 {/* Title */}
                 <h3 
-                  className="text-[#EAE0D5] font-semibold mb-3 text-sm sm:text-base uppercase tracking-widest"
+                  className="text-[#F5F5F5] font-semibold mb-3 text-sm sm:text-base uppercase tracking-widest"
                   style={{ fontFamily: 'Cinzel, serif' }}
                 >
                   {title}
@@ -176,11 +176,11 @@ export default function TrustBadges() {
 
                 {/* Inner separator */}
                 <div className="flex items-center justify-center gap-2 mb-4" aria-hidden="true">
-                  <div className="w-1 h-1 rounded-full bg-[#F2C29A] transform rotate-45 opacity-60" />
+                  <div className="w-1 h-1 rounded-full bg-[#FFD700] transform rotate-45 opacity-60" />
                 </div>
                 
                 {/* Description */}
-                <p className="text-[#EAE0D5]/70 text-sm leading-relaxed max-w-[260px] mx-auto">
+                <p className="text-[#F5F5F5]/70 text-sm leading-relaxed max-w-[260px] mx-auto">
                   {desc}
                 </p>
               </div>

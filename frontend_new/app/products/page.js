@@ -70,10 +70,10 @@ export default async function ProductsPage({ searchParams }) {
 
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-[#050203]">
+      <div className="min-h-screen flex items-center justify-center bg-[#000000]">
         <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 border-2 border-[#B76E79]/20 border-t-[#F2C29A] rounded-full animate-spin" />
-          <p className="text-[#F2C29A]/60 text-sm uppercase tracking-[0.3em]" style={{ fontFamily: 'Cinzel, serif' }}>Aarya Clothing</p>
+          <div className="w-12 h-12 border-2 border-[#E07B8B]/20 border-t-[#FFD700] rounded-full animate-spin" />
+          <p className="text-[#FFD700]/60 text-sm uppercase tracking-[0.3em]" style={{ fontFamily: 'Cinzel, serif' }}>Aarya Clothing</p>
         </div>
       </div>
     }>

@@ -91,34 +91,34 @@ export default function PaymentRecoveryPage() {
       {/* Confirm Dialog */}
       {confirmFor && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-[#1a0d12] border border-[#B76E79]/30 rounded-2xl p-6 max-w-sm w-full mx-4 shadow-2xl">
+          <div className="bg-[#141414] border border-[#E07B8B]/30 rounded-2xl p-6 max-w-sm w-full mx-4 shadow-2xl">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center">
                 <Zap className="w-5 h-5 text-amber-400" />
               </div>
               <div>
-                <h3 className="text-[#F2C29A] font-semibold">Force Create Order</h3>
-                <p className="text-xs text-[#EAE0D5]/50">This will create a DB order immediately</p>
+                <h3 className="text-[#FFD700] font-semibold">Force Create Order</h3>
+                <p className="text-xs text-[#F5F5F5]/50">This will create a DB order immediately</p>
               </div>
             </div>
-            <div className="p-3 bg-[#0B0608]/60 rounded-xl mb-4 space-y-1">
-              <p className="text-xs text-[#EAE0D5]/50">Payment ID</p>
-              <p className="font-mono text-sm text-[#F2C29A] break-all">{confirmFor.payment_id}</p>
-              <p className="text-xs text-[#EAE0D5]/50 mt-2">Amount</p>
+            <div className="p-3 bg-[#0A0A0A]/60 rounded-xl mb-4 space-y-1">
+              <p className="text-xs text-[#F5F5F5]/50">Payment ID</p>
+              <p className="font-mono text-sm text-[#FFD700] break-all">{confirmFor.payment_id}</p>
+              <p className="text-xs text-[#F5F5F5]/50 mt-2">Amount</p>
               <p className="text-green-400 font-semibold">{formatCurrency(confirmFor.amount)}</p>
               {confirmFor.email && <>
-                <p className="text-xs text-[#EAE0D5]/50 mt-2">Customer</p>
-                <p className="text-sm text-[#EAE0D5]/80">{confirmFor.email}</p>
+                <p className="text-xs text-[#F5F5F5]/50 mt-2">Customer</p>
+                <p className="text-sm text-[#F5F5F5]/80">{confirmFor.email}</p>
               </>}
             </div>
-            <p className="text-xs text-[#EAE0D5]/50 mb-4">
+            <p className="text-xs text-[#F5F5F5]/50 mb-4">
               The system will look up this payment in Razorpay, find the customer by email,
               pull their default address, and create a confirmed order. You can edit it afterward.
             </p>
             <div className="flex gap-3">
               <button
                 onClick={() => setConfirmFor(null)}
-                className="flex-1 py-2 border border-[#B76E79]/20 text-[#EAE0D5]/60 rounded-xl hover:bg-[#B76E79]/10 transition-colors text-sm"
+                className="flex-1 py-2 border border-[#E07B8B]/20 text-[#F5F5F5]/60 rounded-xl hover:bg-[#E07B8B]/10 transition-colors text-sm"
               >
                 Cancel
               </button>
@@ -136,17 +136,17 @@ export default function PaymentRecoveryPage() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold text-[#F2C29A]" style={{ fontFamily: 'Cinzel, serif' }}>
+          <h1 className="text-2xl font-bold text-[#FFD700]" style={{ fontFamily: 'Cinzel, serif' }}>
             Payment Recovery
           </h1>
-          <p className="text-sm text-[#EAE0D5]/60 mt-1">
+          <p className="text-sm text-[#F5F5F5]/60 mt-1">
             Cross-references Razorpay captured payments with DB orders. Use &quot;Force Create&quot; to recover missing orders.
           </p>
         </div>
         {data && (
           <button
             onClick={downloadCsv}
-            className="flex items-center gap-2 px-4 py-2 bg-[#7A2F57]/30 border border-[#B76E79]/30 text-[#F2C29A] rounded-xl hover:bg-[#7A2F57]/50 transition-colors text-sm"
+            className="flex items-center gap-2 px-4 py-2 bg-[#9333EA]/30 border border-[#E07B8B]/30 text-[#FFD700] rounded-xl hover:bg-[#9333EA]/50 transition-colors text-sm"
           >
             <Download className="w-4 h-4" />
             Export CSV
@@ -155,18 +155,18 @@ export default function PaymentRecoveryPage() {
       </div>
 
       {/* Controls */}
-      <div className="p-5 bg-[#0B0608]/60 border border-[#B76E79]/15 rounded-2xl flex flex-wrap items-center gap-4">
+      <div className="p-5 bg-[#0A0A0A]/60 border border-[#E07B8B]/15 rounded-2xl flex flex-wrap items-center gap-4">
         <div className="flex items-center gap-2">
-          <Clock className="w-4 h-4 text-[#B76E79]" />
-          <span className="text-sm text-[#EAE0D5]/70">Look back:</span>
+          <Clock className="w-4 h-4 text-[#E07B8B]" />
+          <span className="text-sm text-[#F5F5F5]/70">Look back:</span>
           {[12, 24, 48, 72, 168].map(h => (
             <button
               key={h}
               onClick={() => setHours(h)}
               className={`px-3 py-1 rounded-lg text-sm transition-colors ${
                 hours === h
-                  ? 'bg-[#B76E79] text-white'
-                  : 'bg-[#7A2F57]/20 text-[#EAE0D5]/60 hover:bg-[#7A2F57]/40'
+                  ? 'bg-[#E07B8B] text-white'
+                  : 'bg-[#9333EA]/20 text-[#F5F5F5]/60 hover:bg-[#9333EA]/40'
               }`}
             >
               {h === 168 ? '7d' : `${h}h`}
@@ -176,7 +176,7 @@ export default function PaymentRecoveryPage() {
         <button
           onClick={fetchReport}
           disabled={loading}
-          className="flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-[#7A2F57] to-[#B76E79] text-white font-medium rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50 text-sm ml-auto"
+          className="flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-[#9333EA] to-[#E07B8B] text-white font-medium rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50 text-sm ml-auto"
         >
           <Search className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           {loading ? 'Fetching...' : 'Run Recovery Check'}
@@ -196,20 +196,20 @@ export default function PaymentRecoveryPage() {
         <>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             {[
-              { label: 'Payments Fetched', value: data.total_payments_fetched, color: 'text-[#EAE0D5]' },
+              { label: 'Payments Fetched', value: data.total_payments_fetched, color: 'text-[#F5F5F5]' },
               { label: 'Matched Orders', value: data.matched_count, color: 'text-green-400' },
               { label: 'Missing Orders', value: data.missing_order_count, color: 'text-red-400' },
               { label: 'Unrecovered Amount', value: formatCurrency(data.total_missing_amount_inr), color: 'text-yellow-400' },
             ].map(({ label, value, color }) => (
-              <div key={label} className="p-4 bg-[#0B0608]/60 border border-[#B76E79]/15 rounded-xl">
-                <p className="text-xs text-[#EAE0D5]/50 mb-1">{label}</p>
+              <div key={label} className="p-4 bg-[#0A0A0A]/60 border border-[#E07B8B]/15 rounded-xl">
+                <p className="text-xs text-[#F5F5F5]/50 mb-1">{label}</p>
                 <p className={`text-xl font-bold ${color}`}>{value}</p>
               </div>
             ))}
           </div>
 
           {/* Tabs */}
-          <div className="flex gap-2 border-b border-[#B76E79]/15">
+          <div className="flex gap-2 border-b border-[#E07B8B]/15">
             {[
               { key: 'missing', label: `Missing Orders (${data.missing_order_count})` },
               { key: 'matched', label: `Matched (${data.matched_count})` },
@@ -219,8 +219,8 @@ export default function PaymentRecoveryPage() {
                 onClick={() => setTab(key)}
                 className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
                   tab === key
-                    ? 'border-[#B76E79] text-[#F2C29A]'
-                    : 'border-transparent text-[#EAE0D5]/50 hover:text-[#EAE0D5]'
+                    ? 'border-[#E07B8B] text-[#FFD700]'
+                    : 'border-transparent text-[#F5F5F5]/50 hover:text-[#F5F5F5]'
                 }`}
               >
                 {label}
@@ -230,51 +230,51 @@ export default function PaymentRecoveryPage() {
 
           {/* Missing Orders Table */}
           {tab === 'missing' && (
-            <div className="bg-[#0B0608]/60 border border-[#B76E79]/15 rounded-2xl overflow-hidden">
+            <div className="bg-[#0A0A0A]/60 border border-[#E07B8B]/15 rounded-2xl overflow-hidden">
               {data.missing_orders.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-16">
                   <CheckCircle className="w-12 h-12 text-green-400 mb-3" />
-                  <p className="text-[#F2C29A] font-semibold">All payments have orders — no recovery needed!</p>
+                  <p className="text-[#FFD700] font-semibold">All payments have orders — no recovery needed!</p>
                 </div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="border-b border-[#B76E79]/15">
+                      <tr className="border-b border-[#E07B8B]/15">
                         {['Payment ID', 'Rzp Order ID', 'Amount', 'Customer', 'Method', 'Date', 'Action'].map(h => (
-                          <th key={h} className="px-4 py-3 text-left text-xs text-[#EAE0D5]/50 uppercase tracking-wider font-medium whitespace-nowrap">{h}</th>
+                          <th key={h} className="px-4 py-3 text-left text-xs text-[#F5F5F5]/50 uppercase tracking-wider font-medium whitespace-nowrap">{h}</th>
                         ))}
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[#B76E79]/10">
+                    <tbody className="divide-y divide-[#E07B8B]/10">
                       {data.missing_orders.map(p => {
                         const result = createResults[p.payment_id];
                         const isCreating = creatingFor === p.payment_id;
                         return (
                           <React.Fragment key={p.payment_id}>
-                            <tr className={`hover:bg-[#B76E79]/5 transition-colors ${result?.success ? 'opacity-50' : ''}`}>
-                              <td className="px-4 py-3 font-mono text-xs text-[#F2C29A] whitespace-nowrap">{p.payment_id}</td>
-                              <td className="px-4 py-3 font-mono text-xs text-[#EAE0D5]/50 whitespace-nowrap">{p.razorpay_order_id || '—'}</td>
+                            <tr className={`hover:bg-[#E07B8B]/5 transition-colors ${result?.success ? 'opacity-50' : ''}`}>
+                              <td className="px-4 py-3 font-mono text-xs text-[#FFD700] whitespace-nowrap">{p.payment_id}</td>
+                              <td className="px-4 py-3 font-mono text-xs text-[#F5F5F5]/50 whitespace-nowrap">{p.razorpay_order_id || '—'}</td>
                               <td className="px-4 py-3 text-green-400 font-semibold whitespace-nowrap">{formatCurrency(p.amount)}</td>
                               <td className="px-4 py-3">
                                 <div className="space-y-0.5">
                                   {p.email && (
-                                    <div className="flex items-center gap-1 text-[#EAE0D5]/70">
+                                    <div className="flex items-center gap-1 text-[#F5F5F5]/70">
                                       <Mail className="w-3 h-3 shrink-0" />
                                       <span className="text-xs truncate max-w-[150px]">{p.email}</span>
                                     </div>
                                   )}
                                   {p.contact && (
-                                    <div className="flex items-center gap-1 text-[#EAE0D5]/50">
+                                    <div className="flex items-center gap-1 text-[#F5F5F5]/50">
                                       <Phone className="w-3 h-3 shrink-0" />
                                       <span className="text-xs">{p.contact}</span>
                                     </div>
                                   )}
-                                  {!p.email && !p.contact && <span className="text-xs text-[#EAE0D5]/30">No contact info</span>}
+                                  {!p.email && !p.contact && <span className="text-xs text-[#F5F5F5]/30">No contact info</span>}
                                 </div>
                               </td>
-                              <td className="px-4 py-3 text-xs text-[#EAE0D5]/60 capitalize whitespace-nowrap">{p.method || '—'}</td>
-                              <td className="px-4 py-3 text-xs text-[#EAE0D5]/50 whitespace-nowrap">{formatTimestamp(p.created_at)}</td>
+                              <td className="px-4 py-3 text-xs text-[#F5F5F5]/60 capitalize whitespace-nowrap">{p.method || '—'}</td>
+                              <td className="px-4 py-3 text-xs text-[#F5F5F5]/50 whitespace-nowrap">{formatTimestamp(p.created_at)}</td>
                               <td className="px-4 py-3 whitespace-nowrap">
                                 {result?.success ? (
                                   <span className="flex items-center gap-1 px-2 py-1 bg-green-500/15 text-green-400 text-xs rounded-lg w-fit">
@@ -313,7 +313,7 @@ export default function PaymentRecoveryPage() {
                                   <div className="flex items-center gap-2 text-xs text-green-400">
                                     <CheckCircle className="w-3 h-3 shrink-0" />
                                     <span>{result.invoice} — Ship to: {result.address}</span>
-                                    <a href={`/admin/orders`} className="ml-auto flex items-center gap-1 text-[#B76E79] hover:text-[#F2C29A]">
+                                    <a href={`/admin/orders`} className="ml-auto flex items-center gap-1 text-[#E07B8B] hover:text-[#FFD700]">
                                       <ExternalLink className="w-3 h-3" /> View Orders
                                     </a>
                                   </div>
@@ -332,28 +332,28 @@ export default function PaymentRecoveryPage() {
 
           {/* Matched Orders Table */}
           {tab === 'matched' && (
-            <div className="bg-[#0B0608]/60 border border-[#B76E79]/15 rounded-2xl overflow-hidden">
+            <div className="bg-[#0A0A0A]/60 border border-[#E07B8B]/15 rounded-2xl overflow-hidden">
               {data.matched.length === 0 ? (
-                <div className="py-12 text-center text-[#EAE0D5]/50">No matched payments in this period.</div>
+                <div className="py-12 text-center text-[#F5F5F5]/50">No matched payments in this period.</div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="border-b border-[#B76E79]/15">
+                      <tr className="border-b border-[#E07B8B]/15">
                         {['Payment ID', 'Order ID', 'Amount', 'Customer Email', 'Phone', 'Date', 'Status'].map(h => (
-                          <th key={h} className="px-4 py-3 text-left text-xs text-[#EAE0D5]/50 uppercase tracking-wider font-medium">{h}</th>
+                          <th key={h} className="px-4 py-3 text-left text-xs text-[#F5F5F5]/50 uppercase tracking-wider font-medium">{h}</th>
                         ))}
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[#B76E79]/10">
+                    <tbody className="divide-y divide-[#E07B8B]/10">
                       {data.matched.map(p => (
-                        <tr key={p.payment_id} className="hover:bg-[#B76E79]/5 transition-colors">
-                          <td className="px-4 py-3 font-mono text-xs text-[#F2C29A]">{p.payment_id}</td>
-                          <td className="px-4 py-3 font-mono text-xs text-[#EAE0D5]/70">{p.order_id || '—'}</td>
+                        <tr key={p.payment_id} className="hover:bg-[#E07B8B]/5 transition-colors">
+                          <td className="px-4 py-3 font-mono text-xs text-[#FFD700]">{p.payment_id}</td>
+                          <td className="px-4 py-3 font-mono text-xs text-[#F5F5F5]/70">{p.order_id || '—'}</td>
                           <td className="px-4 py-3 text-green-400 font-semibold">{formatCurrency(p.amount)}</td>
-                          <td className="px-4 py-3 text-xs text-[#EAE0D5]/70 truncate max-w-[160px]">{p.email || '—'}</td>
-                          <td className="px-4 py-3 text-xs text-[#EAE0D5]/60">{p.contact || '—'}</td>
-                          <td className="px-4 py-3 text-xs text-[#EAE0D5]/50">{formatTimestamp(p.created_at)}</td>
+                          <td className="px-4 py-3 text-xs text-[#F5F5F5]/70 truncate max-w-[160px]">{p.email || '—'}</td>
+                          <td className="px-4 py-3 text-xs text-[#F5F5F5]/60">{p.contact || '—'}</td>
+                          <td className="px-4 py-3 text-xs text-[#F5F5F5]/50">{formatTimestamp(p.created_at)}</td>
                           <td className="px-4 py-3">
                             <span className="px-2 py-1 bg-green-500/15 text-green-400 text-xs rounded-lg flex items-center gap-1 w-fit">
                               <CheckCircle className="w-3 h-3" />
@@ -373,9 +373,9 @@ export default function PaymentRecoveryPage() {
 
       {!data && !loading && !error && (
         <div className="flex flex-col items-center justify-center py-24 text-center">
-          <IndianRupee className="w-14 h-14 text-[#B76E79]/30 mb-4" />
-          <p className="text-[#EAE0D5]/50 mb-2">Click &quot;Run Recovery Check&quot; to fetch Razorpay payments</p>
-          <p className="text-xs text-[#EAE0D5]/30">Compares captured payments against orders in the database</p>
+          <IndianRupee className="w-14 h-14 text-[#E07B8B]/30 mb-4" />
+          <p className="text-[#F5F5F5]/50 mb-2">Click &quot;Run Recovery Check&quot; to fetch Razorpay payments</p>
+          <p className="text-xs text-[#F5F5F5]/30">Compares captured payments against orders in the database</p>
         </div>
       )}
     </div>

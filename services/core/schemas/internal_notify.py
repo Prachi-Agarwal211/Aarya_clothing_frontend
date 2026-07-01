@@ -11,7 +11,6 @@ class OrderConfirmationNotify(BaseModel):
     order_items: str = ""
     subtotal: str = "0"
     shipping: str = "0"
-    gst: str = "0"
     total: str = "0"
     discount_row: str = ""
     shipping_address: str = ""

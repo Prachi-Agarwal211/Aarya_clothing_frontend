@@ -357,7 +357,7 @@ class R2StorageService:
         Returns:
             The public URL of the uploaded file
         """
-        if not self._client_initialized:
+        if self._client is None:
             await self._ensure_client()
             
         try:

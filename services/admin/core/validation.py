@@ -27,18 +27,18 @@ class InventoryAdjustmentType(str, Enum):
     ADJUST = "adjust"
 
 
-def validate_order_status(status: Optional[str]) -> Optional[str]:
+def validate_order_status(order_status: Optional[str]) -> Optional[str]:
     """Validate order status parameter."""
-    if status is None:
+    if order_status is None:
         return None
     
     valid_statuses = [s.value for s in OrderStatus]
-    if status not in valid_statuses:
+    if order_status not in valid_statuses:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid status '{status}'. Valid statuses: {', '.join(valid_statuses)}"
+            detail=f"Invalid status '{order_status}'. Valid statuses: {', '.join(valid_statuses)}"
         )
-    return status
+    return order_status
 
 
 def validate_user_role(role: Optional[str]) -> Optional[str]:

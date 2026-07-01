@@ -281,13 +281,14 @@ class EventBus:
     async def _broadcast_event(self, event: Event) -> None:
         """Broadcast event to other services via Redis."""
         try:
+            import json
             channel = f"events:{event.event_type}"
             message = {
                 "event": event.to_dict(),
                 "source": self.service_name,
                 "timestamp": now_ist().isoformat()
             }
-            self.redis.publish(channel, message)
+            self.redis.publish(channel, json.dumps(message))
         except Exception as e:
             logger.error(f"Failed to broadcast event: {e}")
     

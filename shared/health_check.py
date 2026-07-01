@@ -202,9 +202,10 @@ def check_database_health(db_session_factory) -> callable:
     """
     def check():
         try:
+            from sqlalchemy import text
             # Try to get a session and execute a simple query
             session = db_session_factory()
-            session.execute("SELECT 1")
+            session.execute(text("SELECT 1"))
             session.close()
             return {"status": "healthy"}
         except Exception as e:

@@ -5,6 +5,7 @@ This module extends the shared BaseSettings with Core service-specific settings
 for authentication, OTP, email, and SMS integration.
 """
 
+import logging
 from typing import Optional
 
 # Import from shared package (PYTHONPATH=/app in Docker, or parent dir in local dev)

@@ -14,7 +14,7 @@ export const COLOR_MAP = {
   'Cream': '#FFFDD0',
   'Peach': '#FFDAB9',
   'Coral': '#FF7F50',
-  'Gold': '#FFD700',
+  'Gold': '#D4AF37',
   'Silver': '#C0C0C0',
   'Olive': '#808000',
   'Teal': '#14B8A6',
@@ -71,7 +71,7 @@ export const COLOR_MAP = {
   'Old Lace': '#FDF5E6',
   'Papaya Whip': '#FFEFD5',
   'Sea Shell': '#FFF5EE',
-  'White Smoke': '#F5F5F5',
+  'White Smoke': '#F5F0E8',
 };
 
 /**

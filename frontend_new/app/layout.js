@@ -74,22 +74,25 @@ export default function RootLayout({ children }) {
         {/* Skip Links for Accessibility */}
         <a
           href="#main-content"
-          className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[1000] focus:px-6 focus:py-3 focus:bg-[#0A0A0A] focus:text-[#FFD700] focus:rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FFD700]/50 transition-all"
+          className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[1000] focus:px-6 focus:py-3 focus:bg-[#111111] focus:text-[#D4AF37] focus:rounded-lg focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50 transition-all"
         >
           Skip to main content
         </a>
         <a
           href="#main-navigation"
-          className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[1000] focus:px-6 focus:py-3 focus:bg-[#0A0A0A] focus:text-[#FFD700] focus:rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FFD700]/50 transition-all"
+          className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[1000] focus:px-6 focus:py-3 focus:bg-[#111111] focus:text-[#D4AF37] focus:rounded-lg focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50 transition-all"
         >
           Skip to navigation
         </a>
 
-        {/* Single centralized SilkBackground - GPU accelerated WebGL */}
+        {/* SilkBackground — animated royal-matte WebGL on laptop/desktop; rich CSS on mobile */}
         <SilkBackground />
 
-        {/* Gradient Overlay - consistent across all pages */}
-        <div className="fixed inset-0 z-0 bg-gradient-to-b from-[#000000]/40 via-transparent to-[#000000]/90 pointer-events-none" aria-hidden="true" />
+        {/* Light vignette only — was nearly opaque black and hid the silk completely */}
+        <div
+          className="fixed inset-0 z-0 pointer-events-none bg-gradient-to-b from-black/25 via-transparent to-black/50"
+          aria-hidden="true"
+        />
 
         <WebVitalsInit />
         <ServiceWorkerInit />

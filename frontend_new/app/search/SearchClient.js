@@ -148,7 +148,7 @@ export default function SearchClient({ initialQuery, initialData, initialFilters
   const hasFilters = collectionId || minPrice || maxPrice;
 
   return (
-    <main className="min-h-screen text-[#F5F5F5] selection:bg-[#FFD700] selection:text-[#000000]">
+    <main className="min-h-screen text-[#F5F0E8] selection:bg-[#D4AF37] selection:text-[#000000]">
       <div className="relative z-10 page-wrapper">
         <EnhancedHeader />
 
@@ -156,14 +156,14 @@ export default function SearchClient({ initialQuery, initialData, initialFilters
           <div className="container mx-auto px-4 sm:px-6 md:px-8 header-spacing pb-bottom-nav">
 
             {/* Breadcrumb */}
-            <nav className="flex items-center gap-2 text-sm text-[#F5F5F5]/50 mb-6">
-              <Link href="/" className="hover:text-[#FFD700] transition-colors">Home</Link>
+            <nav className="flex items-center gap-2 text-sm text-[#F5F0E8]/50 mb-6">
+              <Link href="/" className="hover:text-[#D4AF37] transition-colors">Home</Link>
               <ChevronRight className="w-3 h-3" />
-              <span className="text-[#F5F5F5]">Search</span>
+              <span className="text-[#F5F0E8]">Search</span>
               {query && (
                 <>
                   <ChevronRight className="w-3 h-3" />
-                  <span className="text-[#F5F5F5]/70 truncate max-w-[200px]">&ldquo;{query}&rdquo;</span>
+                  <span className="text-[#F5F0E8]/70 truncate max-w-[200px]">&ldquo;{query}&rdquo;</span>
                 </>
               )}
             </nav>
@@ -171,19 +171,19 @@ export default function SearchClient({ initialQuery, initialData, initialFilters
             {/* Search Bar */}
             <form onSubmit={handleSubmit} className="mb-8">
               <div className="relative max-w-2xl">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#F5F5F5]/40" />
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[#F5F0E8]/40" />
                 <input
                   type="text"
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
                   placeholder="Search sarees, kurtis, lehengas…"
-                  className="w-full pl-12 pr-14 py-4 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-2xl text-[#F5F5F5] placeholder-[#F5F5F5]/30 focus:outline-none focus:border-[#E07B8B]/50 text-lg transition-colors"
+                  className="w-full pl-12 pr-14 py-4 bg-[#111111]/60 border border-[#A8B4C8]/20 rounded-2xl text-[#F5F0E8] placeholder-[#F5F0E8]/30 focus:outline-none focus:border-[#A8B4C8]/50 text-lg transition-colors"
                 />
                 {inputValue && (
                   <button
                     type="button"
                     onClick={() => { setInputValue(''); setQuery(''); setPage(1); router.replace('/search', { scroll: false }); }}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-[#F5F5F5]/40 hover:text-[#F5F5F5]"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-[#F5F0E8]/40 hover:text-[#F5F0E8]"
                   >
                     <X className="w-5 h-5" />
                   </button>
@@ -194,31 +194,31 @@ export default function SearchClient({ initialQuery, initialData, initialFilters
             {/* Results header */}
             {query && (
               <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
-                <p className="text-[#F5F5F5]/70">
+                <p className="text-[#F5F0E8]/70">
                   {loading ? 'Searching…' : (
                     total > 0
-                      ? <>{total} result{total !== 1 ? 's' : ''} for <span className="text-[#FFD700] font-medium">&ldquo;{query}&rdquo;</span></>
-                      : <>No results for <span className="text-[#FFD700] font-medium">&ldquo;{query}&rdquo;</span></>
+                      ? <>{total} result{total !== 1 ? 's' : ''} for <span className="text-[#D4AF37] font-medium">&ldquo;{query}&rdquo;</span></>
+                      : <>No results for <span className="text-[#D4AF37] font-medium">&ldquo;{query}&rdquo;</span></>
                   )}
                 </p>
 
                 <div className="flex items-center gap-3">
                   <button
                     onClick={() => setShowFilters(!showFilters)}
-                    className="flex items-center gap-2 px-3 py-2 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-xl text-sm text-[#F5F5F5]/70 hover:border-[#E07B8B]/40 transition-colors"
+                    className="flex items-center gap-2 px-3 py-2 bg-[#111111]/60 border border-[#A8B4C8]/20 rounded-xl text-sm text-[#F5F0E8]/70 hover:border-[#A8B4C8]/40 transition-colors"
                   >
                     <SlidersHorizontal className="w-4 h-4" />
                     Filters
-                    {hasFilters && <span className="w-2 h-2 rounded-full bg-[#E07B8B]" />}
+                    {hasFilters && <span className="w-2 h-2 rounded-full bg-[#A8B4C8]" />}
                   </button>
 
                   <select
                     value={sort}
                     onChange={(e) => { setSort(e.target.value); setPage(1); }}
-                    className="px-3 py-2 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-xl text-sm text-[#F5F5F5] focus:outline-none focus:border-[#E07B8B]/40 transition-colors appearance-none cursor-pointer"
+                    className="px-3 py-2 bg-[#111111]/60 border border-[#A8B4C8]/20 rounded-xl text-sm text-[#F5F0E8] focus:outline-none focus:border-[#A8B4C8]/40 transition-colors appearance-none cursor-pointer"
                   >
                     {SORT_OPTIONS.map(opt => (
-                      <option key={opt.value} value={opt.value} className="bg-[#0A0A0A]">{opt.label}</option>
+                      <option key={opt.value} value={opt.value} className="bg-[#111111]">{opt.label}</option>
                     ))}
                   </select>
                 </div>
@@ -227,50 +227,50 @@ export default function SearchClient({ initialQuery, initialData, initialFilters
 
             {/* Filter panel */}
             {showFilters && (
-              <div className="bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl p-5 mb-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="bg-[#111111]/40 backdrop-blur-md border border-[#A8B4C8]/15 rounded-2xl p-5 mb-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {/* Collection */}
                 {collections.length > 0 && (
                   <div>
-                    <label className="block text-xs text-[#F5F5F5]/60 mb-2 uppercase tracking-wider">Collection</label>
+                    <label className="block text-xs text-[#F5F0E8]/60 mb-2 uppercase tracking-wider">Collection</label>
                     <select
                       value={collectionId}
                       onChange={(e) => { setCollectionId(e.target.value); setPage(1); }}
-                      className="w-full px-3 py-2 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-xl text-sm text-[#F5F5F5] focus:outline-none focus:border-[#E07B8B]/40 appearance-none"
+                      className="w-full px-3 py-2 bg-[#111111]/60 border border-[#A8B4C8]/20 rounded-xl text-sm text-[#F5F0E8] focus:outline-none focus:border-[#A8B4C8]/40 appearance-none"
                     >
                       <option value="">All Collections</option>
                       {collections.map(c => (
-                        <option key={c.id} value={c.id} className="bg-[#0A0A0A]">{c.name}</option>
+                        <option key={c.id} value={c.id} className="bg-[#111111]">{c.name}</option>
                       ))}
                     </select>
                   </div>
                 )}
                 {/* Min Price */}
                 <div>
-                  <label className="block text-xs text-[#F5F5F5]/60 mb-2 uppercase tracking-wider">Min Price (₹)</label>
+                  <label className="block text-xs text-[#F5F0E8]/60 mb-2 uppercase tracking-wider">Min Price (₹)</label>
                   <input
                     type="number"
                     min="0"
                     value={minPrice}
                     onChange={(e) => { setMinPrice(e.target.value); setPage(1); }}
                     placeholder="0"
-                    className="w-full px-3 py-2 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-xl text-sm text-[#F5F5F5] focus:outline-none focus:border-[#E07B8B]/40 placeholder-[#F5F5F5]/30"
+                    className="w-full px-3 py-2 bg-[#111111]/60 border border-[#A8B4C8]/20 rounded-xl text-sm text-[#F5F0E8] focus:outline-none focus:border-[#A8B4C8]/40 placeholder-[#F5F0E8]/30"
                   />
                 </div>
                 {/* Max Price */}
                 <div>
-                  <label className="block text-xs text-[#F5F5F5]/60 mb-2 uppercase tracking-wider">Max Price (₹)</label>
+                  <label className="block text-xs text-[#F5F0E8]/60 mb-2 uppercase tracking-wider">Max Price (₹)</label>
                   <input
                     type="number"
                     min="0"
                     value={maxPrice}
                     onChange={(e) => { setMaxPrice(e.target.value); setPage(1); }}
                     placeholder="Any"
-                    className="w-full px-3 py-2 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-xl text-sm text-[#F5F5F5] focus:outline-none focus:border-[#E07B8B]/40 placeholder-[#F5F5F5]/30"
+                    className="w-full px-3 py-2 bg-[#111111]/60 border border-[#A8B4C8]/20 rounded-xl text-sm text-[#F5F0E8] focus:outline-none focus:border-[#A8B4C8]/40 placeholder-[#F5F0E8]/30"
                   />
                 </div>
                 {hasFilters && (
                   <div className="sm:col-span-3 flex justify-end">
-                    <button onClick={clearAll} className="text-xs text-[#E07B8B] hover:text-[#FFD700] transition-colors">
+                    <button onClick={clearAll} className="text-xs text-[#A8B4C8] hover:text-[#D4AF37] transition-colors">
                       Clear all filters
                     </button>
                   </div>
@@ -281,9 +281,9 @@ export default function SearchClient({ initialQuery, initialData, initialFilters
             {/* No query state */}
             {!query && (
               <div className="text-center py-24">
-                <Search className="w-16 h-16 text-[#E07B8B]/20 mx-auto mb-4" />
-                <p className="text-[#F5F5F5]/50 text-lg">Start typing to search products</p>
-                <p className="text-[#F5F5F5]/30 text-sm mt-2">Try &ldquo;kurti&rdquo;, &ldquo;saree&rdquo;, or &ldquo;lehenga&rdquo;</p>
+                <Search className="w-16 h-16 text-[#A8B4C8]/20 mx-auto mb-4" />
+                <p className="text-[#F5F0E8]/50 text-lg">Start typing to search products</p>
+                <p className="text-[#F5F0E8]/30 text-sm mt-2">Try &ldquo;kurti&rdquo;, &ldquo;saree&rdquo;, or &ldquo;lehenga&rdquo;</p>
               </div>
             )}
 
@@ -291,7 +291,7 @@ export default function SearchClient({ initialQuery, initialData, initialFilters
             {loading && query && (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
                 {Array.from({ length: 8 }).map((_, i) => (
-                  <div key={i} className="aspect-[3/4] bg-[#E07B8B]/10 rounded-2xl animate-pulse" />
+                  <div key={i} className="aspect-[3/4] bg-[#A8B4C8]/10 rounded-2xl animate-pulse" />
                 ))}
               </div>
             )}
@@ -299,21 +299,21 @@ export default function SearchClient({ initialQuery, initialData, initialFilters
             {/* No results */}
             {!loading && query && products.length === 0 && (
               <div className="text-center py-24">
-                <Package className="w-16 h-16 text-[#E07B8B]/20 mx-auto mb-4" />
-                <h2 className="text-xl text-[#F5F5F5]/70 mb-2">No results found</h2>
-                <p className="text-[#F5F5F5]/40 text-sm mb-6">
+                <Package className="w-16 h-16 text-[#A8B4C8]/20 mx-auto mb-4" />
+                <h2 className="text-xl text-[#F5F0E8]/70 mb-2">No results found</h2>
+                <p className="text-[#F5F0E8]/40 text-sm mb-6">
                   Try different keywords or browse our collections
                 </p>
                 <div className="flex items-center justify-center gap-3 flex-wrap">
                   <button
                     onClick={clearAll}
-                    className="px-4 py-2 bg-[#9333EA]/20 border border-[#E07B8B]/30 rounded-xl text-[#FFD700] text-sm hover:bg-[#9333EA]/40 transition-colors"
+                    className="px-4 py-2 bg-[#1E3A5F]/20 border border-[#A8B4C8]/30 rounded-xl text-[#D4AF37] text-sm hover:bg-[#1E3A5F]/40 transition-colors"
                   >
                     Clear search
                   </button>
                   <Link
                     href="/collections"
-                    className="px-4 py-2 bg-gradient-to-r from-[#9333EA] to-[#E07B8B] rounded-xl text-white text-sm hover:opacity-90 transition-opacity"
+                    className="px-4 py-2 bg-gradient-to-r from-[#1E3A5F] to-[#A8B4C8] rounded-xl text-white text-sm hover:opacity-90 transition-opacity"
                   >
                     Browse Collections
                   </Link>
@@ -329,9 +329,9 @@ export default function SearchClient({ initialQuery, initialData, initialFilters
                     <Link
                       key={product.id}
                       href={`/products/${product.slug || product.id}`}
-                      className="group bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl overflow-hidden hover:border-[#E07B8B]/30 hover:shadow-[0_0_30px_rgba(183,110,121,0.08)] transition-all duration-300"
+                      className="group bg-[#111111]/40 backdrop-blur-md border border-[#A8B4C8]/15 rounded-2xl overflow-hidden hover:border-[#A8B4C8]/30 hover:shadow-[0_0_30px_rgba(183,110,121,0.08)] transition-all duration-300"
                     >
-                      <div className="relative aspect-[3/4] overflow-hidden bg-[#1A1A1A]">
+                      <div className="relative aspect-[3/4] overflow-hidden bg-[#1C1C1C]">
                         {(product.primary_image || product.image_url) ? (
                           <Image
                             src={product.primary_image || product.image_url}
@@ -341,34 +341,34 @@ export default function SearchClient({ initialQuery, initialData, initialFilters
                             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
                           />
                         ) : (
-                          <div className="absolute inset-0 bg-[#141414] flex items-center justify-center">
-                            <span className="text-[#E07B8B]/30 text-xs">No Image</span>
+                          <div className="absolute inset-0 bg-[#161616] flex items-center justify-center">
+                            <span className="text-[#A8B4C8]/30 text-xs">No Image</span>
                           </div>
                         )}
                         {(product.is_new || product.is_new_arrival) && (
-                          <span className="absolute top-2 left-2 px-2 py-0.5 bg-[#9333EA]/80 text-[#FFD700] text-xs rounded-lg">New</span>
+                          <span className="absolute top-2 left-2 px-2 py-0.5 bg-[#1E3A5F]/80 text-[#D4AF37] text-xs rounded-lg">New</span>
                         )}
                         {product.discount_percentage > 0 && (
-                          <span className="absolute top-2 right-2 px-2 py-0.5 bg-[#E07B8B]/80 text-white text-xs rounded-lg">
+                          <span className="absolute top-2 right-2 px-2 py-0.5 bg-[#A8B4C8]/80 text-white text-xs rounded-lg">
                             {product.discount_percentage}% OFF
                           </span>
                         )}
                       </div>
                       <div className="p-3">
-                        <p className="text-xs text-[#E07B8B] mb-1 truncate">{product.collection_name || product.category}</p>
-                        <h3 className="text-sm font-medium text-[#F5F5F5] group-hover:text-[#FFD700] transition-colors line-clamp-2 leading-tight">
+                        <p className="text-xs text-[#A8B4C8] mb-1 truncate">{product.collection_name || product.category}</p>
+                        <h3 className="text-sm font-medium text-[#F5F0E8] group-hover:text-[#D4AF37] transition-colors line-clamp-2 leading-tight">
                           {product.name}
                         </h3>
                         <div className="flex items-center gap-2 mt-2">
-                          <span className="font-semibold text-[#FFD700] text-sm">{formatCurrency(product.price)}</span>
+                          <span className="font-semibold text-[#D4AF37] text-sm">{formatCurrency(product.price)}</span>
                           {product.mrp > product.price && (
-                            <span className="text-xs text-[#F5F5F5]/40 line-through">{formatCurrency(product.mrp)}</span>
+                            <span className="text-xs text-[#F5F0E8]/40 line-through">{formatCurrency(product.mrp)}</span>
                           )}
                         </div>
                         {product.average_rating > 0 && (
                           <div className="flex items-center gap-1 mt-1">
                             <span className="text-yellow-400 text-xs">★</span>
-                            <span className="text-xs text-[#F5F5F5]/60">{product.average_rating}</span>
+                            <span className="text-xs text-[#F5F0E8]/60">{product.average_rating}</span>
                           </div>
                         )}
                       </div>
@@ -382,17 +382,17 @@ export default function SearchClient({ initialQuery, initialData, initialFilters
                     <button
                       onClick={() => setPage(p => Math.max(1, p - 1))}
                       disabled={page === 1}
-                      className="px-4 py-2 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-xl text-sm text-[#F5F5F5]/70 hover:border-[#E07B8B]/40 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                      className="px-4 py-2 bg-[#111111]/60 border border-[#A8B4C8]/20 rounded-xl text-sm text-[#F5F0E8]/70 hover:border-[#A8B4C8]/40 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                     >
                       Previous
                     </button>
-                    <span className="text-sm text-[#F5F5F5]/50">
+                    <span className="text-sm text-[#F5F0E8]/50">
                       Page {page} of {totalPages}
                     </span>
                     <button
                       onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                       disabled={page === totalPages}
-                      className="px-4 py-2 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-xl text-sm text-[#F5F5F5]/70 hover:border-[#E07B8B]/40 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                      className="px-4 py-2 bg-[#111111]/60 border border-[#A8B4C8]/20 rounded-xl text-sm text-[#F5F0E8]/70 hover:border-[#A8B4C8]/40 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                     >
                       Next
                     </button>

@@ -167,13 +167,13 @@ function CheckoutAddressPage() {
 
   return (
     <div className="space-y-6">
-      <div className="p-6 bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl">
-        <h2 className="text-xl font-semibold text-[#FFD700] mb-6">Delivery Address</h2>
+      <div className="p-6 bg-[#111111]/40 backdrop-blur-md border border-[#A8B4C8]/15 rounded-2xl">
+        <h2 className="text-xl font-semibold text-[#D4AF37] mb-6">Delivery Address</h2>
 
         {loading ? (
           <div className="space-y-4">
             {[...Array(2)].map((_, i) => (
-              <div key={i} className="animate-pulse h-32 bg-[#E07B8B]/10 rounded-xl" />
+              <div key={i} className="animate-pulse h-32 bg-[#A8B4C8]/10 rounded-xl" />
             ))}
           </div>
         ) : (
@@ -184,36 +184,36 @@ function CheckoutAddressPage() {
                 key={address.id}
                 onClick={() => setSelectedAddress(address.id)}
                 className={`relative p-4 border rounded-xl cursor-pointer transition-all ${selectedAddress === address.id
-                  ? 'bg-[#9333EA]/20 border-[#E07B8B]'
-                  : 'bg-[#0A0A0A]/40 border-[#E07B8B]/15 hover:border-[#E07B8B]/30'
+                  ? 'bg-[#1E3A5F]/20 border-[#A8B4C8]'
+                  : 'bg-[#111111]/40 border-[#A8B4C8]/15 hover:border-[#A8B4C8]/30'
                   }`}
               >
                 {selectedAddress === address.id && (
                   <div className="absolute top-3 right-3">
-                    <Check className="w-5 h-5 text-[#E07B8B]" />
+                    <Check className="w-5 h-5 text-[#A8B4C8]" />
                   </div>
                 )}
 
                 <div className="flex items-start gap-3">
-                  <MapPin className="w-5 h-5 text-[#E07B8B] flex-shrink-0 mt-0.5" />
+                  <MapPin className="w-5 h-5 text-[#A8B4C8] flex-shrink-0 mt-0.5" />
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="font-medium text-[#FFD700]">{address.name}</span>
+                      <span className="font-medium text-[#D4AF37]">{address.name}</span>
                       {address.is_default && (
-                        <span className="px-2 py-0.5 bg-[#9333EA]/30 text-[#FFD700] text-xs rounded-full">
+                        <span className="px-2 py-0.5 bg-[#1E3A5F]/30 text-[#D4AF37] text-xs rounded-full">
                           Default
                         </span>
                       )}
                     </div>
-                    <p className="text-[#F5F5F5]">{address.full_name}</p>
-                    <p className="text-sm text-[#F5F5F5]/70">
+                    <p className="text-[#F5F0E8]">{address.full_name}</p>
+                    <p className="text-sm text-[#F5F0E8]/70">
                       {address.address_line1}
                       {address.address_line2 && `, ${address.address_line2}`}
                     </p>
-                    <p className="text-sm text-[#F5F5F5]/70">
+                    <p className="text-sm text-[#F5F0E8]/70">
                       {address.city}, {address.state} - {address.postal_code}
                     </p>
-                    <p className="text-sm text-[#F5F5F5]/70 mt-1">
+                    <p className="text-sm text-[#F5F0E8]/70 mt-1">
                       <Phone className="w-3 h-3 inline mr-1" />
                       {address.phone}
                     </p>
@@ -226,83 +226,83 @@ function CheckoutAddressPage() {
             {!showAddForm ? (
               <button
                 onClick={() => setShowAddForm(true)}
-                className="w-full p-4 border border-dashed border-[#E07B8B]/30 rounded-xl text-[#E07B8B] hover:border-[#E07B8B] hover:text-[#FFD700] transition-colors flex items-center justify-center gap-2"
+                className="w-full p-4 border border-dashed border-[#A8B4C8]/30 rounded-xl text-[#A8B4C8] hover:border-[#A8B4C8] hover:text-[#D4AF37] transition-colors flex items-center justify-center gap-2"
               >
                 <Plus className="w-5 h-5" />
                 Add New Address
               </button>
             ) : (
-              <div className="p-4 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-xl space-y-4">
-                <h3 className="text-[#FFD700] font-medium">Add New Address</h3>
+              <div className="p-4 bg-[#111111]/60 border border-[#A8B4C8]/20 rounded-xl space-y-4">
+                <h3 className="text-[#D4AF37] font-medium">Add New Address</h3>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm text-[#F5F5F5]/70 mb-1">Address Name</label>
+                    <label className="block text-sm text-[#F5F0E8]/70 mb-1">Address Name</label>
                     <input
                       type="text"
                       placeholder="Home, Office, etc."
                       value={newAddress.name}
                       onChange={(e) => setNewAddress(prev => ({ ...prev, name: e.target.value }))}
-                      className="w-full px-3 py-2.5 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-lg text-[#F5F5F5] placeholder-[#F5F5F5]/40 focus:outline-none focus:border-[#E07B8B]/40 text-base"
+                      className="w-full px-3 py-2.5 bg-[#111111]/60 border border-[#A8B4C8]/20 rounded-lg text-[#F5F0E8] placeholder-[#F5F0E8]/40 focus:outline-none focus:border-[#A8B4C8]/40 text-base"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm text-[#F5F5F5]/70 mb-1">Full Name</label>
+                    <label className="block text-sm text-[#F5F0E8]/70 mb-1">Full Name</label>
                     <input
                       type="text"
                       value={newAddress.full_name}
                       onChange={(e) => setNewAddress(prev => ({ ...prev, full_name: e.target.value }))}
-                      className="w-full px-3 py-2.5 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-lg text-[#F5F5F5] placeholder-[#F5F5F5]/40 focus:outline-none focus:border-[#E07B8B]/40 text-base"
+                      className="w-full px-3 py-2.5 bg-[#111111]/60 border border-[#A8B4C8]/20 rounded-lg text-[#F5F0E8] placeholder-[#F5F0E8]/40 focus:outline-none focus:border-[#A8B4C8]/40 text-base"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm text-[#F5F5F5]/70 mb-1">Phone</label>
+                  <label className="block text-sm text-[#F5F0E8]/70 mb-1">Phone</label>
                   <input
                     type="tel"
                     value={newAddress.phone}
                     onChange={(e) => setNewAddress(prev => ({ ...prev, phone: e.target.value }))}
-                    className="w-full px-3 py-2.5 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-lg text-[#F5F5F5] placeholder-[#F5F5F5]/40 focus:outline-none focus:border-[#E07B8B]/40 text-base"
+                    className="w-full px-3 py-2.5 bg-[#111111]/60 border border-[#A8B4C8]/20 rounded-lg text-[#F5F0E8] placeholder-[#F5F0E8]/40 focus:outline-none focus:border-[#A8B4C8]/40 text-base"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm text-[#F5F5F5]/70 mb-1">Address Line 1</label>
+                  <label className="block text-sm text-[#F5F0E8]/70 mb-1">Address Line 1</label>
                   <input
                     type="text"
                     value={newAddress.address_line1}
                     onChange={(e) => setNewAddress(prev => ({ ...prev, address_line1: e.target.value }))}
-                    className="w-full px-3 py-2.5 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-lg text-[#F5F5F5] placeholder-[#F5F5F5]/40 focus:outline-none focus:border-[#E07B8B]/40 text-base"
+                    className="w-full px-3 py-2.5 bg-[#111111]/60 border border-[#A8B4C8]/20 rounded-lg text-[#F5F0E8] placeholder-[#F5F0E8]/40 focus:outline-none focus:border-[#A8B4C8]/40 text-base"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm text-[#F5F5F5]/70 mb-1">Address Line 2 (Optional)</label>
+                  <label className="block text-sm text-[#F5F0E8]/70 mb-1">Address Line 2 (Optional)</label>
                   <input
                     type="text"
                     value={newAddress.address_line2}
                     onChange={(e) => setNewAddress(prev => ({ ...prev, address_line2: e.target.value }))}
-                    className="w-full px-3 py-2.5 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-lg text-[#F5F5F5] placeholder-[#F5F5F5]/40 focus:outline-none focus:border-[#E07B8B]/40 text-base"
+                    className="w-full px-3 py-2.5 bg-[#111111]/60 border border-[#A8B4C8]/20 rounded-lg text-[#F5F0E8] placeholder-[#F5F0E8]/40 focus:outline-none focus:border-[#A8B4C8]/40 text-base"
                   />
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-sm text-[#F5F5F5]/70 mb-1">City</label>
+                    <label className="block text-sm text-[#F5F0E8]/70 mb-1">City</label>
                     <input
                       type="text"
                       value={newAddress.city}
                       onChange={(e) => setNewAddress(prev => ({ ...prev, city: e.target.value }))}
-                      className="w-full px-3 py-2.5 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-lg text-[#F5F5F5] placeholder-[#F5F5F5]/40 focus:outline-none focus:border-[#E07B8B]/40 text-base"
+                      className="w-full px-3 py-2.5 bg-[#111111]/60 border border-[#A8B4C8]/20 rounded-lg text-[#F5F0E8] placeholder-[#F5F0E8]/40 focus:outline-none focus:border-[#A8B4C8]/40 text-base"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm text-[#F5F5F5]/70 mb-1">State</label>
+                    <label className="block text-sm text-[#F5F0E8]/70 mb-1">State</label>
                     <select
                       value={newAddress.state}
                       onChange={(e) => setNewAddress(prev => ({ ...prev, state: e.target.value }))}
-                      className="w-full px-3 py-2.5 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-lg text-[#F5F5F5] focus:outline-none focus:border-[#E07B8B]/40 text-base"
+                      className="w-full px-3 py-2.5 bg-[#111111]/60 border border-[#A8B4C8]/20 rounded-lg text-[#F5F0E8] focus:outline-none focus:border-[#A8B4C8]/40 text-base"
                     >
                       <option value="">Select State</option>
                       {INDIAN_STATES.map(s => (
@@ -311,12 +311,12 @@ function CheckoutAddressPage() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm text-[#F5F5F5]/70 mb-1">Pincode</label>
+                    <label className="block text-sm text-[#F5F0E8]/70 mb-1">Pincode</label>
                     <input
                       type="text"
                       value={newAddress.postal_code}
                       onChange={(e) => setNewAddress(prev => ({ ...prev, postal_code: e.target.value }))}
-                      className="w-full px-3 py-2.5 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-lg text-[#F5F5F5] placeholder-[#F5F5F5]/40 focus:outline-none focus:border-[#E07B8B]/40 text-base"
+                      className="w-full px-3 py-2.5 bg-[#111111]/60 border border-[#A8B4C8]/20 rounded-lg text-[#F5F0E8] placeholder-[#F5F0E8]/40 focus:outline-none focus:border-[#A8B4C8]/40 text-base"
                     />
                   </div>
                 </div>
@@ -327,9 +327,9 @@ function CheckoutAddressPage() {
                     id="is_default"
                     checked={newAddress.is_default}
                     onChange={(e) => setNewAddress(prev => ({ ...prev, is_default: e.target.checked }))}
-                    className="w-4 h-4 rounded border-[#E07B8B]/30 bg-[#0A0A0A]/60 text-[#E07B8B] focus:ring-[#E07B8B]/30"
+                    className="w-4 h-4 rounded border-[#A8B4C8]/30 bg-[#111111]/60 text-[#A8B4C8] focus:ring-[#A8B4C8]/30"
                   />
-                  <label htmlFor="is_default" className="text-sm text-[#F5F5F5]/70">
+                  <label htmlFor="is_default" className="text-sm text-[#F5F0E8]/70">
                     Set as default address
                   </label>
                 </div>
@@ -338,13 +338,13 @@ function CheckoutAddressPage() {
                   <button
                     onClick={handleAddAddress}
                     disabled={saving}
-                    className="flex-1 py-2.5 bg-gradient-to-r from-[#9333EA] to-[#E07B8B] text-white rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50"
+                    className="flex-1 py-2.5 bg-gradient-to-r from-[#1E3A5F] to-[#A8B4C8] text-white rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50"
                   >
                     {saving ? 'Saving...' : 'Save Address'}
                   </button>
                   <button
                     onClick={() => setShowAddForm(false)}
-                    className="px-6 py-2.5 border border-[#E07B8B]/20 text-[#F5F5F5]/70 rounded-xl hover:border-[#E07B8B]/40 hover:text-[#F5F5F5] transition-colors"
+                    className="px-6 py-2.5 border border-[#A8B4C8]/20 text-[#F5F0E8]/70 rounded-xl hover:border-[#A8B4C8]/40 hover:text-[#F5F0E8] transition-colors"
                   >
                     Cancel
                   </button>
@@ -367,7 +367,7 @@ function CheckoutAddressPage() {
         <button
           onClick={handleContinue}
           disabled={!selectedAddress || continuing}
-          className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-[#9333EA] to-[#E07B8B] text-white font-semibold rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex items-center gap-2 px-8 py-3 bg-gradient-to-r from-[#1E3A5F] to-[#A8B4C8] text-white font-semibold rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {continuing ? 'Processing...' : 'Continue to Payment'}
           <ChevronRight className="w-4 h-4" />
@@ -375,15 +375,15 @@ function CheckoutAddressPage() {
       </div>
 
       {/* Return Policy Info */}
-      <div className="p-4 bg-[#FFD700]/5 border border-[#FFD700]/10 rounded-xl">
+      <div className="p-4 bg-[#D4AF37]/5 border border-[#D4AF37]/10 rounded-xl">
         <div className="flex items-center gap-3">
-          <RotateCcw className="w-5 h-5 text-[#FFD700]" />
+          <RotateCcw className="w-5 h-5 text-[#D4AF37]" />
           <div className="flex-1">
             <div className="flex items-center gap-2">
               <RefreshCw className="w-5 h-5 text-green-400" />
               <div>
-                <p className="text-sm text-[#FFD700]">Return Protection</p>
-                <p className="text-xs text-[#F5F5F5]/50">Defective items? Submit return with video proof within 7 days. <Link href="/returns" className="underline hover:text-[#FFD700]">Learn more</Link></p>
+                <p className="text-sm text-[#D4AF37]">Return Protection</p>
+                <p className="text-xs text-[#F5F0E8]/50">Defective items? Submit return with video proof within 7 days. <Link href="/returns" className="underline hover:text-[#D4AF37]">Learn more</Link></p>
               </div>
             </div>
           </div>
@@ -391,11 +391,11 @@ function CheckoutAddressPage() {
       </div>
 
       {/* Mobile Sticky CTA — always visible at bottom on small screens */}
-      <div className="fixed inset-x-0 bottom-0 lg:hidden bg-[#0A0A0A]/95 backdrop-blur-md border-t border-[#E07B8B]/15 p-4 z-[99]" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom, 0px))' }}>
+      <div className="fixed inset-x-0 bottom-0 lg:hidden bg-[#111111]/95 backdrop-blur-md border-t border-[#A8B4C8]/15 p-4 z-[99]" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom, 0px))' }}>
         <button
           onClick={handleContinue}
           disabled={!selectedAddress || continuing}
-          className="w-full flex items-center justify-center gap-2 px-8 py-3.5 bg-gradient-to-r from-[#9333EA] to-[#E07B8B] text-white font-semibold rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full flex items-center justify-center gap-2 px-8 py-3.5 bg-gradient-to-r from-[#1E3A5F] to-[#A8B4C8] text-white font-semibold rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {continuing ? 'Processing...' : 'Continue to Payment'}
           <ChevronRight className="w-4 h-4" />

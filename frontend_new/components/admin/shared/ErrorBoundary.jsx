@@ -61,7 +61,7 @@ export function ErrorDisplay({ error, onRetry, title, message, icon }) {
     <div
       className={cn(
         'min-h-[400px] flex items-center justify-center p-8',
-        'bg-[#0A0A0A]/40 backdrop-blur-md border border-red-500/20 rounded-2xl'
+        'bg-[#111111]/40 backdrop-blur-md border border-red-500/20 rounded-2xl'
       )}
       role="alert"
       aria-live="assertive"
@@ -77,12 +77,12 @@ export function ErrorDisplay({ error, onRetry, title, message, icon }) {
         </div>
 
         {/* Error Title */}
-        <h2 className="text-xl font-bold text-[#FFD700] mb-2" style={{ fontFamily: 'Cinzel, serif' }}>
+        <h2 className="text-xl font-bold text-[#D4AF37] mb-2" style={{ fontFamily: 'Cinzel, serif' }}>
           {title || 'Something went wrong'}
         </h2>
 
         {/* Error Message */}
-        <p className="text-[#F5F5F5]/60 mb-6">
+        <p className="text-[#F5F0E8]/60 mb-6">
           {message || 'We encountered an unexpected error. Please try again.'}
         </p>
 
@@ -93,8 +93,8 @@ export function ErrorDisplay({ error, onRetry, title, message, icon }) {
               onClick={onRetry}
               className={cn(
                 'flex items-center justify-center gap-2 px-6 py-2.5',
-                'bg-[#9333EA]/40 border border-[#E07B8B]/40',
-                'text-[#FFD700] rounded-xl hover:bg-[#9333EA]/60',
+                'bg-[#1E3A5F]/40 border border-[#A8B4C8]/40',
+                'text-[#D4AF37] rounded-xl hover:bg-[#1E3A5F]/60',
                 'transition-colors font-medium',
                 'min-h-[44px] touch-target'
               )}
@@ -108,8 +108,8 @@ export function ErrorDisplay({ error, onRetry, title, message, icon }) {
             href="/admin"
             className={cn(
               'flex items-center justify-center gap-2 px-6 py-2.5',
-              'bg-[#0A0A0A]/60 border border-[#E07B8B]/30',
-              'text-[#F5F5F5]/70 rounded-xl hover:bg-[#E07B8B]/10',
+              'bg-[#111111]/60 border border-[#A8B4C8]/30',
+              'text-[#F5F0E8]/70 rounded-xl hover:bg-[#A8B4C8]/10',
               'transition-colors font-medium',
               'min-h-[44px] touch-target'
             )}
@@ -122,10 +122,10 @@ export function ErrorDisplay({ error, onRetry, title, message, icon }) {
         {/* Technical Details (Development Only) */}
         {isDevelopment && error && (
           <details className="mt-6 text-left">
-            <summary className="text-xs text-[#F5F5F5]/40 cursor-pointer hover:text-[#F5F5F5]/60">
+            <summary className="text-xs text-[#F5F0E8]/40 cursor-pointer hover:text-[#F5F0E8]/60">
               Technical Details
             </summary>
-            <div className="mt-3 p-4 bg-[#0A0A0A]/80 border border-[#E07B8B]/20 rounded-xl overflow-x-auto">
+            <div className="mt-3 p-4 bg-[#111111]/80 border border-[#A8B4C8]/20 rounded-xl overflow-x-auto">
               <pre className="text-xs text-red-400 whitespace-pre-wrap">
                 {error.toString()}
                 {error.stack && `\n\n${error.stack}`}

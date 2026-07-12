@@ -211,11 +211,9 @@ class CartConcurrencyManager:
                     # Add new item
                     user_cart["items"].append(guest_item)
             
-            # Recalculate total
-            user_cart["total"] = sum(
-                item["price"] * item["quantity"] for item in user_cart["items"]
-            )
-            
+            # Recalculate totals using cart_service's own method
+            cart_service._recalculate_cart(user_cart)
+
             # Save merged cart
             cart_service.save_cart(user_id, user_cart)
             

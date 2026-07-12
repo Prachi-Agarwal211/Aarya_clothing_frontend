@@ -68,15 +68,15 @@ export default function DropZone({
       onDrop={handleDrop}
       className={`w-full flex flex-col items-center justify-center ${sizing} rounded-xl border-2 border-dashed transition-colors cursor-pointer ${
         isDragging
-          ? 'border-[#FFD700] bg-[#E07B8B]/20'
-          : 'border-[#E07B8B]/30 hover:border-[#E07B8B]/60 hover:bg-[#E07B8B]/5'
+          ? 'border-[#D4AF37] bg-[#A8B4C8]/20'
+          : 'border-[#A8B4C8]/30 hover:border-[#A8B4C8]/60 hover:bg-[#A8B4C8]/5'
       }`}
     >
-      <Upload className={`${iconSize} ${isDragging ? 'text-[#FFD700]' : 'text-[#E07B8B]/60'}`} />
-      <span className={`${compact ? 'text-xs' : 'text-sm'} text-[#F5F5F5] font-medium ${compact ? '' : 'mb-1'}`}>
+      <Upload className={`${iconSize} ${isDragging ? 'text-[#D4AF37]' : 'text-[#A8B4C8]/60'}`} />
+      <span className={`${compact ? 'text-xs' : 'text-sm'} text-[#F5F0E8] font-medium ${compact ? '' : 'mb-1'}`}>
         {label}
       </span>
-      {!compact && <span className="text-xs text-[#F5F5F5]/50">{sublabel}</span>}
+      {!compact && <span className="text-xs text-[#F5F0E8]/50">{sublabel}</span>}
       <input
         id={inputId}
         type="file"

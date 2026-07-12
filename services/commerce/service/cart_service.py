@@ -45,40 +45,9 @@ class CartService:
         self.db = db
         self.inventory_service = InventoryService(db) if db is not None else None
 
-    def _acquire_cart_lock(self, user_id: int, timeout: float = 2.0) -> Optional[str]:
-        """Acquire distributed lock for cart mutations using Redis SETNX."""
-        lock_key = f"{self.LOCK_KEY_PREFIX}{user_id}"
-        lock_token = str(uuid.uuid4())
-        deadline = time.monotonic() + timeout
-        rc = redis_client.client if hasattr(redis_client, "client") else None
-        if rc is None:
-            return lock_token  # No Redis — skip locking (degraded mode)
-        while time.monotonic() < deadline:
-            acquired = rc.set(lock_key, lock_token, nx=True, ex=self.LOCK_TTL)
-            if acquired:
-                return lock_token
-            time.sleep(0.05)  # 50ms retry
-        return None  # Lock not acquired within timeout
-
-    def _release_cart_lock(self, user_id: int, lock_token: Optional[str]):
-        """Release cart lock atomically via Lua script — prevents TOCTOU race."""
-        if not lock_token:
-            return
-        lock_key = f"{self.LOCK_KEY_PREFIX}{user_id}"
-        rc = redis_client.client if hasattr(redis_client, "client") else None
-        if rc is None:
-            return
-        script = """
-        if redis.call('GET', KEYS[1]) == ARGV[1] then
-            return redis.call('DEL', KEYS[1])
-        else
-            return 0
-        end
-        """
-        try:
-            rc.eval(script, 1, lock_key, lock_token)
-        except Exception as e:
-            logger.warning(f"Cart lock release failed: {e}")
+    # Locking is handled by CartLock/CartConcurrencyManager.
+    # Local lock methods removed — all cart mutations go through
+    # the concurrency manager which holds the distributed lock.
 
     def get_cart(self, user_id: int) -> Dict:
         """Get user's cart with reservation expiry info."""
@@ -437,17 +406,18 @@ class CartService:
         return self._clear_cart_unlocked(user_id)
 
     def _clear_cart_unlocked(self, user_id: int) -> Dict:
-        # Delete cart
         cart_key = f"{self.CART_KEY_PREFIX}{user_id}"
         redis_client.delete_cache(cart_key)
+        logger.info(f"CART_CLEARED: user_id={user_id}")
 
         return {
             "user_id": user_id,
             "items": [],
             "subtotal": 0,
             "discount": 0,
-            "shipping": 0,                "total": 0,
-                "total_amount": 0,
+            "shipping": 0,
+            "total": 0,
+            "total_amount": 0,
             "item_count": 0,
             "reservation_expires_at": None,
         }
@@ -517,8 +487,13 @@ class CartService:
 
     def confirm_cart_for_checkout(self, user_id: int) -> bool:
         """
-        Validate cart stock availability at checkout.
-        SIMPLE: No reservations - just check availability.
+        Validate cart stock availability + prices at checkout.
+
+        Uses SELECT FOR UPDATE to prevent TOCTOU races on stock.
+        Revalidates item prices against current DB values to prevent
+        price manipulation (admin changed price while item was in cart).
+        ALSO reserves stock so the race window between validation and
+        payment is eliminated.
         """
         cart = self.get_cart(user_id)
 
@@ -530,25 +505,78 @@ class CartService:
         if not self.db:
             return True
 
-        # Validate stock availability (checks both quantity)
+        import uuid as _uuid
+        from models.stock_reservation import StockReservation, ReservationStatus
+
+        inv_service = InventoryService(self.db)
+        reservation_ids = []
+
         for item in cart["items"]:
             if not item.get("sku"):
                 continue
+            # WAIT for row lock instead of skipping — serializes concurrent
+            # checkouts and prevents the misleading 404 "not found" error
+            # when two users race for the same SKU.
             inventory = (
-                self.db.query(Inventory).filter(Inventory.sku == item["sku"]).first()
+                self.db.query(Inventory)
+                .filter(Inventory.sku == item["sku"])
+                .with_for_update(skip_locked=False)
+                .first()
             )
             if not inventory:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"'{item.get('name', item['sku'])}' is no longer available. Please update your cart.",
                 )
-            # Safely check inventory quantity
-            if inventory is not None:
-                avail = getattr(inventory, "available_quantity", 0)
-                if avail is not None and avail < item["quantity"]:
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail=f"'{item.get('name', item['sku'])}' has only {avail} items available. Please update your cart.",
-                    )
+            avail = getattr(inventory, "available_quantity", 0)
+            if avail is not None and avail < item["quantity"]:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"'{item.get('name', item['sku'])}' has only {avail} items available. Please update your cart.",
+                )
+
+            # Revalidate price against current effective price
+            current_price = None
+            if inventory.effective_price is not None:
+                try:
+                    current_price = float(inventory.effective_price)
+                except (TypeError, ValueError):
+                    pass
+            if current_price is None or current_price <= 0:
+                product = (
+                    self.db.query(Product)
+                    .filter(Product.id == inventory.product_id)
+                    .first()
+                )
+                if product:
+                    current_price = float(product.base_price)
+            cart_price = item.get("price", 0)
+            if current_price and abs(float(cart_price) - current_price) > 0.01:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"'{item.get('name', item['sku'])}' price has changed from ₹{cart_price:.0f} to ₹{current_price:.0f}. Please refresh your cart.",
+                )
+
+            # Reserve stock now — prevents overselling during the gap
+            # between checkout validation and payment initiation.
+            reservation_id = f"res_{_uuid.uuid4().hex[:16]}"
+            inv_service.reserve_stock(
+                sku=item["sku"],
+                quantity=item["quantity"],
+                user_id=user_id,
+                reservation_id=reservation_id,
+                ttl_minutes=30,
+            )
+            reservation_ids.append({
+                "sku": item["sku"],
+                "quantity": item["quantity"],
+                "reservation_id": reservation_id,
+            })
+
+        # Store reservation IDs on the cart so internal_prepare_pending_order
+        # can skip its own reservation and reuse these.
+        cart["reservation_ids"] = reservation_ids
+        redis_client.set_cache(f"cart:{user_id}", cart)
+        self.db.commit()
 
         return True

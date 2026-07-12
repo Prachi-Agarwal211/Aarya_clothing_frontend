@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import EnhancedHeader from '@/components/landing/EnhancedHeader';
 import HeroSection from '@/components/landing/HeroSection';
+import LenisSmoothScroll from '@/components/landing/LenisSmoothScroll';
 import NewArrivals from '@/components/landing/NewArrivals';
 import Collections from '@/components/landing/Collections';
 import TrustBadges from '@/components/landing/TrustBadges';
@@ -61,7 +62,7 @@ export default function LandingClient({ landingData }) {
   }, [showLanding]);
 
   return (
-    <>
+    <LenisSmoothScroll>
       {/* Scroll Progress Indicator */}
       <div className="fixed top-0 left-0 w-full h-[2px] z-[200] bg-transparent">
         <div
@@ -73,7 +74,7 @@ export default function LandingClient({ landingData }) {
 
       <main 
         id="main-content"
-        className="min-h-screen text-[#F5F5F5] overflow-x-hidden selection:bg-[#FFD700] selection:text-[#000000]"
+        className="min-h-screen bg-transparent text-[#F5F0E8] overflow-x-hidden selection:bg-[#D4AF37]/30 selection:text-[#F0D78C]"
         role="main"
         aria-label="Aarya Clothing Landing Page"
       >
@@ -128,6 +129,6 @@ export default function LandingClient({ landingData }) {
           <Footer id="footer" />
         </div>
       </main>
-    </>
+    </LenisSmoothScroll>
   );
 }

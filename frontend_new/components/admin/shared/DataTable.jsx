@@ -137,17 +137,17 @@ export default function DataTable({
   if (loading) {
     return (
       <div
-        className="bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl overflow-hidden"
+        className="bg-[#111111]/40 backdrop-blur-md border border-[#A8B4C8]/15 rounded-2xl overflow-hidden"
         role="status"
         aria-label="Loading data"
       >
         <div className="animate-pulse">
-          <div className="h-12 bg-[#E07B8B]/10 border-b border-[#E07B8B]/15" />
+          <div className="h-12 bg-[#A8B4C8]/10 border-b border-[#A8B4C8]/15" />
           {[...Array(pageSize)].map((_, i) => (
-            <div key={i} className="h-14 border-b border-[#E07B8B]/10 flex items-center px-4 gap-4">
-              <div className="h-4 bg-[#E07B8B]/10 rounded w-1/4" />
-              <div className="h-4 bg-[#E07B8B]/10 rounded w-1/3" />
-              <div className="h-4 bg-[#E07B8B]/10 rounded w-1/5" />
+            <div key={i} className="h-14 border-b border-[#A8B4C8]/10 flex items-center px-4 gap-4">
+              <div className="h-4 bg-[#A8B4C8]/10 rounded w-1/4" />
+              <div className="h-4 bg-[#A8B4C8]/10 rounded w-1/3" />
+              <div className="h-4 bg-[#A8B4C8]/10 rounded w-1/5" />
             </div>
           ))}
         </div>
@@ -160,20 +160,20 @@ export default function DataTable({
     const EmptyIcon = emptyIcon || MessageCircle;
     return (
       <div
-        className="bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl p-12 text-center"
+        className="bg-[#111111]/40 backdrop-blur-md border border-[#A8B4C8]/15 rounded-2xl p-12 text-center"
         role="status"
         aria-label="No data available"
       >
         {EmptyIcon && (
-          <EmptyIcon className="w-12 h-12 text-[#E07B8B]/30 mx-auto mb-4" aria-hidden="true" />
+          <EmptyIcon className="w-12 h-12 text-[#A8B4C8]/30 mx-auto mb-4" aria-hidden="true" />
         )}
-        <p className="text-[#F5F5F5]/50">{emptyMessage}</p>
+        <p className="text-[#F5F0E8]/50">{emptyMessage}</p>
       </div>
     );
   }
 
   return (
-    <div className="bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl overflow-hidden">
+    <div className="bg-[#111111]/40 backdrop-blur-md border border-[#A8B4C8]/15 rounded-2xl overflow-hidden">
       {/* Table container with horizontal scroll */}
       <div
         ref={tableContainerRef}
@@ -185,22 +185,22 @@ export default function DataTable({
         {/* Visual scroll indicator */}
         {hasHorizontalScroll && (
           <div
-            className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-[#0A0A0A]/80 to-transparent pointer-events-none"
+            className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-[#111111]/80 to-transparent pointer-events-none"
             aria-hidden="true"
           />
         )}
 
         <table className="w-full" role="table">
           <thead>
-            <tr className="border-b border-[#E07B8B]/20 bg-[#0A0A0A]/60">
+            <tr className="border-b border-[#A8B4C8]/20 bg-[#111111]/60">
               {columns.map((col, index) => (
                 <th
                   key={col.key || index}
                   scope="col"
                   onClick={() => col.sortable !== false && handleSort(col.key)}
                   className={cn(
-                    'px-2 sm:px-4 py-2 sm:py-3 text-left text-xs sm:text-sm font-medium text-[#FFD700]',
-                    col.sortable !== false && sortable ? 'cursor-pointer hover:bg-[#E07B8B]/5' : '',
+                    'px-2 sm:px-4 py-2 sm:py-3 text-left text-xs sm:text-sm font-medium text-[#D4AF37]',
+                    col.sortable !== false && sortable ? 'cursor-pointer hover:bg-[#A8B4C8]/5' : '',
                     'transition-colors whitespace-nowrap select-none',
                     'min-h-[44px]'
                   )}
@@ -226,7 +226,7 @@ export default function DataTable({
               {(actions || getActions) && (
                 <th
                   scope="col"
-                  className="px-2 sm:px-4 py-2 sm:py-3 text-right text-xs sm:text-sm font-medium text-[#FFD700] whitespace-nowrap min-h-[44px]"
+                  className="px-2 sm:px-4 py-2 sm:py-3 text-right text-xs sm:text-sm font-medium text-[#D4AF37] whitespace-nowrap min-h-[44px]"
                   style={{ fontFamily: 'Cinzel, serif' }}
                 >
                   Actions
@@ -242,8 +242,8 @@ export default function DataTable({
                   key={row.id || idx}
                   onClick={() => onRowClick?.(row)}
                   className={cn(
-                    'border-b border-[#E07B8B]/10',
-                    'hover:bg-[#E07B8B]/5',
+                    'border-b border-[#A8B4C8]/10',
+                    'hover:bg-[#A8B4C8]/5',
                     'transition-colors',
                     onRowClick ? 'cursor-pointer' : ''
                   )}
@@ -259,7 +259,7 @@ export default function DataTable({
                   {columns.map((col, colIdx) => (
                     <td
                       key={col.key || colIdx}
-                      className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-[#F5F5F5] whitespace-nowrap min-h-[44px]"
+                      className="px-2 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-[#F5F0E8] whitespace-nowrap min-h-[44px]"
                       role="cell"
                     >
                       {col.render ? col.render(row[col.key], row) : row[col.key]}
@@ -280,11 +280,11 @@ export default function DataTable({
       {/* Pagination */}
       {pagination && effectiveTotal > pageSize && (
         <div
-          className="flex flex-col sm:flex-row justify-between items-center px-4 py-3 border-t border-[#E07B8B]/20 gap-3"
+          className="flex flex-col sm:flex-row justify-between items-center px-4 py-3 border-t border-[#A8B4C8]/20 gap-3"
           role="navigation"
           aria-label="Table pagination"
         >
-          <span className="text-sm text-[#F5F5F5]/70" aria-live="polite">
+          <span className="text-sm text-[#F5F0E8]/70" aria-live="polite">
             Showing {((currentPage - 1) * pageSize) + 1} - {Math.min(currentPage * pageSize, effectiveTotal)} of {effectiveTotal}
           </span>
           <div className="flex items-center gap-2">
@@ -292,7 +292,7 @@ export default function DataTable({
               onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
               disabled={currentPage === 1}
               className={cn(
-                'p-2 rounded-lg border border-[#E07B8B]/20 text-[#F5F5F5]/70 hover:bg-[#E07B8B]/10',
+                'p-2 rounded-lg border border-[#A8B4C8]/20 text-[#F5F0E8]/70 hover:bg-[#A8B4C8]/10',
                 'disabled:opacity-50 disabled:cursor-not-allowed transition-colors',
                 'min-w-[44px] min-h-[44px] touch-target'
               )}
@@ -324,8 +324,8 @@ export default function DataTable({
                       'w-8 h-8 rounded-lg text-sm font-medium transition-colors',
                       'min-w-[44px] min-h-[44px] touch-target',
                       currentPage === pageNum
-                        ? 'bg-[#9333EA]/30 text-[#FFD700] border border-[#E07B8B]/30'
-                        : 'text-[#F5F5F5]/70 hover:bg-[#E07B8B]/10'
+                        ? 'bg-[#1E3A5F]/30 text-[#D4AF37] border border-[#A8B4C8]/30'
+                        : 'text-[#F5F0E8]/70 hover:bg-[#A8B4C8]/10'
                     )}
                     aria-label={`Page ${pageNum}`}
                     aria-current={currentPage === pageNum ? 'page' : undefined}
@@ -340,7 +340,7 @@ export default function DataTable({
               onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
               disabled={currentPage === totalPages}
               className={cn(
-                'p-2 rounded-lg border border-[#E07B8B]/20 text-[#F5F5F5]/70 hover:bg-[#E07B8B]/10',
+                'p-2 rounded-lg border border-[#A8B4C8]/20 text-[#F5F0E8]/70 hover:bg-[#A8B4C8]/10',
                 'disabled:opacity-50 disabled:cursor-not-allowed transition-colors',
                 'min-w-[44px] min-h-[44px] touch-target'
               )}
@@ -424,18 +424,18 @@ function ActionMenu({ actions, row }) {
         aria-haspopup="menu"
         aria-label="Row actions"
         className={cn(
-          'p-2 rounded-lg hover:bg-[#E07B8B]/10 transition-colors',
+          'p-2 rounded-lg hover:bg-[#A8B4C8]/10 transition-colors',
           'min-w-[44px] min-h-[44px] touch-target'
         )}
       >
-        <MoreHorizontal className="w-4 h-4 text-[#F5F5F5]/70" aria-hidden="true" />
+        <MoreHorizontal className="w-4 h-4 text-[#F5F0E8]/70" aria-hidden="true" />
       </button>
 
       {isOpen && (
         <div
           className={cn(
             'absolute right-0 mt-1 w-40 py-1',
-            'bg-[#0A0A0A]/95 backdrop-blur-xl border border-[#E07B8B]/20',
+            'bg-[#111111]/95 backdrop-blur-xl border border-[#A8B4C8]/20',
             'rounded-xl shadow-xl z-20',
             'animate-in fade-in zoom-in-95 duration-200'
           )}
@@ -458,7 +458,7 @@ function ActionMenu({ actions, row }) {
                   'min-h-[44px] touch-target',
                   action.variant === 'danger'
                     ? 'text-red-400 hover:bg-red-500/10'
-                    : 'text-[#F5F5F5]/70 hover:bg-[#E07B8B]/10 hover:text-[#F5F5F5]'
+                    : 'text-[#F5F0E8]/70 hover:bg-[#A8B4C8]/10 hover:text-[#F5F0E8]'
                 )}
                 role="menuitem"
               >

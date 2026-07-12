@@ -46,7 +46,7 @@ function MessageText({ text }) {
     <span className="leading-relaxed">
       {parts.map((p, i) =>
         p.startsWith('**') && p.endsWith('**')
-          ? <strong key={i} className="font-semibold text-[#FFD700]">{p.slice(2, -2)}</strong>
+          ? <strong key={i} className="font-semibold text-[#D4AF37]">{p.slice(2, -2)}</strong>
           : p.split('\n').map((line, j) => (
               <React.Fragment key={`${i}-${j}`}>
                 {j > 0 && <br />}
@@ -80,9 +80,9 @@ function StarRating({ rating }) {
   return (
     <div className="flex items-center gap-0.5">
       {[1, 2, 3, 4, 5].map(n => (
-        <Star key={n} className={`w-2.5 h-2.5 ${n <= Math.round(rating) ? 'text-[#FFD700] fill-[#FFD700]' : 'text-[#F5F5F5]/20'}`} />
+        <Star key={n} className={`w-2.5 h-2.5 ${n <= Math.round(rating) ? 'text-[#D4AF37] fill-[#D4AF37]' : 'text-[#F5F0E8]/20'}`} />
       ))}
-      <span className="text-xs text-[#F5F5F5]/40 ml-0.5">{rating.toFixed(1)}</span>
+      <span className="text-xs text-[#F5F0E8]/40 ml-0.5">{rating.toFixed(1)}</span>
     </div>
   );
 }
@@ -104,7 +104,7 @@ function ColorSwatches({ colors }) {
         );
       })}
       {colors.length > 5 && (
-        <span className="text-xs text-[#F5F5F5]/30">+{colors.length - 5}</span>
+        <span className="text-xs text-[#F5F0E8]/30">+{colors.length - 5}</span>
       )}
     </div>
   );
@@ -116,12 +116,12 @@ function SizeChips({ sizes }) {
   return (
     <div className="flex flex-wrap gap-1 mt-1">
       {sizes.slice(0, 5).map((s, i) => (
-        <span key={i} className="text-[10px] px-1.5 py-0.5 bg-[#E07B8B]/10 border border-[#E07B8B]/25 rounded text-[#F5F5F5]/60 font-medium">
+        <span key={i} className="text-[10px] px-1.5 py-0.5 bg-[#A8B4C8]/10 border border-[#A8B4C8]/25 rounded text-[#F5F0E8]/60 font-medium">
           {s}
         </span>
       ))}
       {sizes.length > 5 && (
-        <span className="text-[10px] text-[#F5F5F5]/30">+{sizes.length - 5}</span>
+        <span className="text-[10px] text-[#F5F0E8]/30">+{sizes.length - 5}</span>
       )}
     </div>
   );
@@ -150,9 +150,9 @@ function ProductCard({ product: p, isAdminUser }) {
   };
 
   return (
-    <div className="group flex flex-col bg-[#0F0810] border border-[#E07B8B]/15 rounded-2xl overflow-hidden hover:border-[#E07B8B]/50 hover:shadow-lg hover:shadow-[#E07B8B]/10 transition-all duration-300">
+    <div className="group flex flex-col bg-[#0F0810] border border-[#A8B4C8]/15 rounded-2xl overflow-hidden hover:border-[#A8B4C8]/50 hover:shadow-lg hover:shadow-[#A8B4C8]/10 transition-all duration-300">
       {/* Image — clickable to product page */}
-      <Link href={`/products/${p.id}`} className="block relative aspect-[3/4] bg-[#1A1A1A] overflow-hidden">
+      <Link href={`/products/${p.id}`} className="block relative aspect-[3/4] bg-[#1C1C1C] overflow-hidden">
         {p.image ? (
           <Image
             src={p.image}
@@ -163,12 +163,12 @@ function ProductCard({ product: p, isAdminUser }) {
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
-            <ShoppingBag className="w-8 h-8 text-[#E07B8B]/20" />
+            <ShoppingBag className="w-8 h-8 text-[#A8B4C8]/20" />
           </div>
         )}
         {p.category && (
           <div className="absolute top-2 left-2">
-            <span className="text-[10px] px-2 py-0.5 bg-black/60 backdrop-blur-sm rounded-full text-[#F5F5F5]/70">
+            <span className="text-[10px] px-2 py-0.5 bg-black/60 backdrop-blur-sm rounded-full text-[#F5F0E8]/70">
               {p.category}
             </span>
           </div>
@@ -184,7 +184,7 @@ function ProductCard({ product: p, isAdminUser }) {
       {/* Info */}
       <div className="p-3 flex flex-col gap-1.5 flex-1">
         <Link href={`/products/${p.id}`}>
-          <p className="text-xs font-semibold text-[#F5F5F5] hover:text-[#FFD700] transition-colors line-clamp-2 leading-snug">
+          <p className="text-xs font-semibold text-[#F5F0E8] hover:text-[#D4AF37] transition-colors line-clamp-2 leading-snug">
             {p.name}
           </p>
         </Link>
@@ -195,11 +195,11 @@ function ProductCard({ product: p, isAdminUser }) {
 
         <div className="flex items-center justify-between mt-auto pt-1.5">
           {p.price > 0 ? (
-            <p className="text-sm font-bold text-[#E07B8B]">
+            <p className="text-sm font-bold text-[#A8B4C8]">
               ₹{p.price.toLocaleString('en-IN')}
             </p>
           ) : (
-            <span className="text-xs text-[#F5F5F5]/40">View price</span>
+            <span className="text-xs text-[#F5F0E8]/40">View price</span>
           )}
         </div>
 
@@ -210,7 +210,7 @@ function ProductCard({ product: p, isAdminUser }) {
           className={`mt-1 w-full py-1.5 rounded-lg text-xs font-medium flex items-center justify-center gap-1.5 transition-all ${
             added
               ? 'bg-green-500/20 text-green-400 border border-green-500/30'
-              : 'bg-[#9333EA]/40 hover:bg-[#9333EA]/70 text-[#FFD700] border border-[#E07B8B]/30 disabled:opacity-40'
+              : 'bg-[#1E3A5F]/40 hover:bg-[#1E3A5F]/70 text-[#D4AF37] border border-[#A8B4C8]/30 disabled:opacity-40'
           }`}
         >
           {adding ? (
@@ -231,7 +231,7 @@ function ProductGrid({ products, isAdminUser }) {
   if (!products?.length) return null;
   return (
     <div className="mt-3">
-      <p className="text-xs text-[#F5F5F5]/40 mb-2 px-1">
+      <p className="text-xs text-[#F5F0E8]/40 mb-2 px-1">
         {products.length} item{products.length !== 1 ? 's' : ''} found — tap to view
       </p>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -242,7 +242,7 @@ function ProductGrid({ products, isAdminUser }) {
       {products.length > 6 && (
         <Link
           href="/products"
-          className="mt-3 flex items-center justify-center gap-2 py-2.5 border border-[#E07B8B]/25 rounded-xl text-xs text-[#E07B8B] hover:bg-[#E07B8B]/10 transition-colors"
+          className="mt-3 flex items-center justify-center gap-2 py-2.5 border border-[#A8B4C8]/25 rounded-xl text-xs text-[#A8B4C8] hover:bg-[#A8B4C8]/10 transition-colors"
         >
           View all {products.length}+ results <ArrowRight className="w-3 h-3" />
         </Link>
@@ -256,13 +256,13 @@ function CollectionChips({ collections }) {
   if (!collections?.length) return null;
   return (
     <div className="mt-3">
-      <p className="text-xs text-[#F5F5F5]/40 mb-2 px-1">Browse collections</p>
+      <p className="text-xs text-[#F5F0E8]/40 mb-2 px-1">Browse collections</p>
       <div className="flex flex-wrap gap-2">
         {collections.slice(0, 8).map(c => (
           <Link
             key={c.id}
             href={c.id ? `/products?collection_id=${c.id}` : '/products'}
-            className="flex items-center gap-1.5 px-3 py-2 bg-[#9333EA]/15 border border#[B76E79]/25 rounded-xl text-xs text-[#FFD700] hover:bg-[#9333EA]/30 transition-colors"
+            className="flex items-center gap-1.5 px-3 py-2 bg-[#1E3A5F]/15 border border#[B76E79]/25 rounded-xl text-xs text-[#D4AF37] hover:bg-[#1E3A5F]/30 transition-colors"
           >
             <Package className="w-3 h-3" /> {c.name}
           </Link>
@@ -276,25 +276,25 @@ function CollectionChips({ collections }) {
 function AiLoginGate() {
   const router = useRouter();
   return (
-    <div className="min-h-screen bg-[#0A0A0A] flex flex-col items-center justify-center px-4 py-12"
+    <div className="min-h-screen bg-[#111111] flex flex-col items-center justify-center px-4 py-12"
          style={{ fontFamily: "'Inter', sans-serif" }}>
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-[#E07B8B]/5 rounded-full blur-[100px]" />
+        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-[#A8B4C8]/5 rounded-full blur-[100px]" />
       </div>
       <div className="relative w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#9333EA]/20 border border-[#E07B8B]/30 rounded-full mb-5">
-            <Wand2 className="w-4 h-4 text-[#E07B8B]" />
-            <span className="text-xs text-[#E07B8B] font-medium tracking-wider uppercase">AI Shopping</span>
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#1E3A5F]/20 border border-[#A8B4C8]/30 rounded-full mb-5">
+            <Wand2 className="w-4 h-4 text-[#A8B4C8]" />
+            <span className="text-xs text-[#A8B4C8] font-medium tracking-wider uppercase">AI Shopping</span>
           </div>
-          <h1 className="text-3xl font-bold text-[#FFD700] mb-3" style={{ fontFamily: 'Cinzel, serif' }}>
+          <h1 className="text-3xl font-bold text-[#D4AF37] mb-3" style={{ fontFamily: 'Cinzel, serif' }}>
             Shop with Aarya
           </h1>
-          <p className="text-sm text-[#F5F5F5]/50 leading-relaxed">
+          <p className="text-sm text-[#F5F0E8]/50 leading-relaxed">
             Your personal AI fashion guide — discover outfits you&apos;ll love through natural conversation.
           </p>
         </div>
-        <div className="bg-[#180F14] border border-[#E07B8B]/15 rounded-2xl p-5 mb-5 space-y-3">
+        <div className="bg-[#180F14] border border-[#A8B4C8]/15 rounded-2xl p-5 mb-5 space-y-3">
           {[
             'Personalised outfit recommendations',
             'Instant product search by style or occasion',
@@ -303,24 +303,24 @@ function AiLoginGate() {
             'One-tap add to cart from chat',
           ].map((f, i) => (
             <div key={i} className="flex items-center gap-3">
-              <span className="w-5 h-5 rounded-full bg-[#E07B8B]/20 flex items-center justify-center flex-shrink-0">
-                <Check className="w-3 h-3 text-[#E07B8B]" />
+              <span className="w-5 h-5 rounded-full bg-[#A8B4C8]/20 flex items-center justify-center flex-shrink-0">
+                <Check className="w-3 h-3 text-[#A8B4C8]" />
               </span>
-              <p className="text-sm text-[#F5F5F5]/70">{f}</p>
+              <p className="text-sm text-[#F5F0E8]/70">{f}</p>
             </div>
           ))}
         </div>
         <div className="space-y-3">
           <button onClick={() => router.push('/auth/login?redirect_url=/ai')}
-            className="w-full flex items-center justify-center gap-2 py-3 bg-gradient-to-br from-[#9333EA] to-[#E07B8B] rounded-xl text-white font-semibold text-sm hover:opacity-90 transition-opacity shadow-lg shadow-[#E07B8B]/20">
+            className="w-full flex items-center justify-center gap-2 py-3 bg-gradient-to-br from-[#1E3A5F] to-[#A8B4C8] rounded-xl text-white font-semibold text-sm hover:opacity-90 transition-opacity shadow-lg shadow-[#A8B4C8]/20">
             <LogIn className="w-4 h-4" /> Sign In to Start Shopping
           </button>
           <button onClick={() => router.push('/auth/register?redirect_url=/ai')}
-            className="w-full flex items-center justify-center gap-2 py-3 bg-[#180F14] border border-[#E07B8B]/30 rounded-xl text-[#F5F5F5]/70 font-medium text-sm hover:text-[#F5F5F5] hover:border-[#E07B8B]/60 transition-all">
+            className="w-full flex items-center justify-center gap-2 py-3 bg-[#180F14] border border-[#A8B4C8]/30 rounded-xl text-[#F5F0E8]/70 font-medium text-sm hover:text-[#F5F0E8] hover:border-[#A8B4C8]/60 transition-all">
             <UserPlus className="w-4 h-4" /> Create Free Account
           </button>
           <button onClick={() => router.push('/products')}
-            className="w-full flex items-center justify-center gap-2 py-2 text-xs text-[#F5F5F5]/30 hover:text-[#F5F5F5]/50 transition-colors">
+            className="w-full flex items-center justify-center gap-2 py-2 text-xs text-[#F5F0E8]/30 hover:text-[#F5F0E8]/50 transition-colors">
             <LayoutGrid className="w-3.5 h-3.5" /> Browse without AI →
           </button>
         </div>
@@ -438,8 +438,8 @@ export default function AiShopPage() {
 
   // Auth gate — after hooks
   if (authLoading) return (
-    <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center">
-      <Loader2 className="w-7 h-7 animate-spin text-[#E07B8B]" />
+    <div className="min-h-screen bg-[#111111] flex items-center justify-center">
+      <Loader2 className="w-7 h-7 animate-spin text-[#A8B4C8]" />
     </div>
   );
   if (!user) return <AiLoginGate />;
@@ -447,23 +447,23 @@ export default function AiShopPage() {
   return (
     <div className="flex flex-col bg-[#0A0608]" style={{ minHeight: '100svh', fontFamily: "'Inter', sans-serif" }}>
       {/* ── Sticky header ── */}
-      <div className="sticky top-0 z-30 bg-[#0A0608]/90 backdrop-blur-xl border-b border-[#E07B8B]/15 flex-shrink-0">
+      <div className="sticky top-0 z-30 bg-[#0A0608]/90 backdrop-blur-xl border-b border-[#A8B4C8]/15 flex-shrink-0">
         <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-2xl bg-gradient-to-br from-[#9333EA] to-[#E07B8B] flex items-center justify-center shadow-lg shadow-[#E07B8B]/30">
+            <div className="w-9 h-9 rounded-2xl bg-gradient-to-br from-[#1E3A5F] to-[#A8B4C8] flex items-center justify-center shadow-lg shadow-[#A8B4C8]/30">
               <Sparkles className="w-4 h-4 text-white" />
             </div>
             <div>
-              <p className="text-sm font-bold text-[#FFD700]" style={{ fontFamily: 'Cinzel, serif' }}>Aarya AI</p>
+              <p className="text-sm font-bold text-[#D4AF37]" style={{ fontFamily: 'Cinzel, serif' }}>Aarya AI</p>
               <div className="flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-                <p className="text-xs text-[#F5F5F5]/40">Your fashion guide</p>
+                <p className="text-xs text-[#F5F0E8]/40">Your fashion guide</p>
               </div>
             </div>
           </div>
           <div className="flex items-center gap-2">
             {/* Language toggle */}
-            <div className="flex bg-[#180F14] border border-[#E07B8B]/20 rounded-full overflow-hidden">
+            <div className="flex bg-[#180F14] border border-[#A8B4C8]/20 rounded-full overflow-hidden">
               {[
                 { val: 'auto', label: 'Auto' },
                 { val: 'en',   label: 'A' },
@@ -474,8 +474,8 @@ export default function AiShopPage() {
                   onClick={() => setLanguage(opt.val)}
                   className={`px-2.5 py-1 text-xs font-medium transition-colors ${
                     language === opt.val
-                      ? 'bg-[#9333EA]/60 text-[#FFD700]'
-                      : 'text-[#F5F5F5]/40 hover:text-[#F5F5F5]/70'
+                      ? 'bg-[#1E3A5F]/60 text-[#D4AF37]'
+                      : 'text-[#F5F0E8]/40 hover:text-[#F5F0E8]/70'
                   }`}
                   title={opt.val === 'auto' ? 'Auto-detect' : opt.val === 'en' ? 'English' : 'Hindi'}
                 >
@@ -486,12 +486,12 @@ export default function AiShopPage() {
             <button
               onClick={() => router.push('/products')}
               title="Switch to traditional shopping"
-              className="flex items-center gap-1.5 text-xs px-3 py-1.5 border border-[#E07B8B]/25 rounded-full text-[#F5F5F5]/50 hover:text-[#F5F5F5]/80 hover:border-[#E07B8B]/50 transition-all"
+              className="flex items-center gap-1.5 text-xs px-3 py-1.5 border border-[#A8B4C8]/25 rounded-full text-[#F5F0E8]/50 hover:text-[#F5F0E8]/80 hover:border-[#A8B4C8]/50 transition-all"
             >
               <LayoutGrid className="w-3 h-3" />
               <span className="hidden sm:inline">Browse</span>
             </button>
-            <Link href="/" className="p-1.5 text-[#F5F5F5]/40 hover:text-[#F5F5F5]/70 transition-colors">
+            <Link href="/" className="p-1.5 text-[#F5F0E8]/40 hover:text-[#F5F0E8]/70 transition-colors">
               <Home className="w-4 h-4" />
             </Link>
           </div>
@@ -509,7 +509,7 @@ export default function AiShopPage() {
               <div key={msg.id} className={`flex items-start gap-2.5 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 {/* Avatar */}
                 {msg.role === 'assistant' && (
-                  <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#9333EA] to-[#E07B8B] flex items-center justify-center flex-shrink-0 mt-0.5 shadow-md shadow-[#E07B8B]/20">
+                  <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#1E3A5F] to-[#A8B4C8] flex items-center justify-center flex-shrink-0 mt-0.5 shadow-md shadow-[#A8B4C8]/20">
                     <Sparkles className="w-4 h-4 text-white" />
                   </div>
                 )}
@@ -518,13 +518,13 @@ export default function AiShopPage() {
                   {/* Bubble */}
                   <div className={`px-4 py-3 rounded-2xl text-sm ${
                     msg.role === 'user'
-                      ? 'bg-gradient-to-br from-[#9333EA] to-[#E07B8B] text-white rounded-tr-sm shadow-md'
-                      : 'bg-[#180F14] border border-[#E07B8B]/15 text-[#F5F5F5] rounded-tl-sm'
+                      ? 'bg-gradient-to-br from-[#1E3A5F] to-[#A8B4C8] text-white rounded-tr-sm shadow-md'
+                      : 'bg-[#180F14] border border-[#A8B4C8]/15 text-[#F5F0E8] rounded-tl-sm'
                   }`}>
                     {msg.streaming && !msg.text ? (
                       <div className="flex items-center gap-1.5 py-0.5">
                         {[0, 1, 2].map(i => (
-                          <span key={i} className="w-2 h-2 rounded-full bg-[#E07B8B] animate-bounce"
+                          <span key={i} className="w-2 h-2 rounded-full bg-[#A8B4C8] animate-bounce"
                             style={{ animationDelay: `${i * 150}ms` }} />
                         ))}
                       </div>
@@ -532,7 +532,7 @@ export default function AiShopPage() {
                       <>
                         <MessageText text={msg.text} />
                         {msg.streaming && (
-                          <span className="inline-block w-0.5 h-4 bg-[#E07B8B] ml-0.5 animate-pulse align-middle" />
+                          <span className="inline-block w-0.5 h-4 bg-[#A8B4C8] ml-0.5 animate-pulse align-middle" />
                         )}
                       </>
                     )}
@@ -547,7 +547,7 @@ export default function AiShopPage() {
                   )}
 
                   {/* Timestamp */}
-                  <p className="text-[10px] text-[#F5F5F5]/20 mt-1 px-1">
+                  <p className="text-[10px] text-[#F5F0E8]/20 mt-1 px-1">
                     {msg.timestamp.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
                   </p>
                 </div>
@@ -558,13 +558,13 @@ export default function AiShopPage() {
           {/* Typing indicator — only show when NOT streaming (streaming shows cursor in bubble) */}
           {loading && !messages.some(m => m.streaming) && (
             <div className="flex items-start gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#9333EA] to-[#E07B8B] flex items-center justify-center flex-shrink-0">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#1E3A5F] to-[#A8B4C8] flex items-center justify-center flex-shrink-0">
                 <Sparkles className="w-4 h-4 text-white" />
               </div>
-              <div className="bg-[#180F14] border border-[#E07B8B]/15 rounded-2xl rounded-tl-sm px-4 py-3">
+              <div className="bg-[#180F14] border border-[#A8B4C8]/15 rounded-2xl rounded-tl-sm px-4 py-3">
                 <div className="flex items-center gap-1.5 py-0.5">
                   {[0, 1, 2].map(i => (
-                    <span key={i} className="w-2 h-2 rounded-full bg-[#E07B8B] animate-bounce"
+                    <span key={i} className="w-2 h-2 rounded-full bg-[#A8B4C8] animate-bounce"
                       style={{ animationDelay: `${i * 150}ms` }} />
                   ))}
                 </div>
@@ -577,7 +577,7 @@ export default function AiShopPage() {
       </div>
 
       {/* ── Fixed bottom: suggestions + input ── */}
-      <div className="flex-shrink-0 bg-[#0A0608]/98 backdrop-blur-xl border-t border-[#E07B8B]/15">
+      <div className="flex-shrink-0 bg-[#0A0608]/98 backdrop-blur-xl border-t border-[#A8B4C8]/15">
         <div className="max-w-2xl mx-auto px-4 pt-3" style={{ paddingBottom: 'calc(1rem + env(safe-area-inset-bottom, 0px))' }}>
           {/* Quick suggestions — always visible, scrollable */}
           <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
@@ -586,7 +586,7 @@ export default function AiShopPage() {
                 key={s.label}
                 onClick={() => sendMessage(s.prompt)}
                 disabled={loading}
-                className="flex-shrink-0 px-3 py-1.5 bg-[#180F14] border border-[#E07B8B]/20 rounded-full text-xs text-[#F5F5F5]/60 hover:text-[#FFD700] hover:border-[#E07B8B]/45 whitespace-nowrap transition-colors disabled:opacity-40"
+                className="flex-shrink-0 px-3 py-1.5 bg-[#180F14] border border-[#A8B4C8]/20 rounded-full text-xs text-[#F5F0E8]/60 hover:text-[#D4AF37] hover:border-[#A8B4C8]/45 whitespace-nowrap transition-colors disabled:opacity-40"
               >
                 {s.label}
               </button>
@@ -595,7 +595,7 @@ export default function AiShopPage() {
 
           {/* Input row */}
           <div className="flex items-end gap-2 mt-1">
-            <div className="flex-1 bg-[#180F14] border border-[#E07B8B]/20 rounded-2xl px-4 py-3 focus-within:border-[#E07B8B]/50 transition-colors">
+            <div className="flex-1 bg-[#180F14] border border-[#A8B4C8]/20 rounded-2xl px-4 py-3 focus-within:border-[#A8B4C8]/50 transition-colors">
               <textarea
                 ref={inputRef}
                 value={input}
@@ -604,14 +604,14 @@ export default function AiShopPage() {
                 placeholder="Ask about a colour, style, occasion..."
                 rows={1}
                 disabled={loading}
-                className="w-full bg-transparent text-sm text-[#F5F5F5] placeholder-[#F5F5F5]/30 resize-none focus:outline-none disabled:opacity-60"
+                className="w-full bg-transparent text-sm text-[#F5F0E8] placeholder-[#F5F0E8]/30 resize-none focus:outline-none disabled:opacity-60"
                 style={{ lineHeight: '1.5', maxHeight: '120px', overflow: 'auto' }}
               />
             </div>
             <button
               onClick={() => sendMessage()}
               disabled={!input.trim() || loading}
-              className="w-11 h-11 rounded-2xl bg-gradient-to-br from-[#9333EA] to-[#E07B8B] flex items-center justify-center shadow-lg shadow-[#E07B8B]/30 hover:opacity-90 transition-opacity disabled:opacity-35 flex-shrink-0"
+              className="w-11 h-11 rounded-2xl bg-gradient-to-br from-[#1E3A5F] to-[#A8B4C8] flex items-center justify-center shadow-lg shadow-[#A8B4C8]/30 hover:opacity-90 transition-opacity disabled:opacity-35 flex-shrink-0"
             >
               {loading
                 ? <Loader2 className="w-4 h-4 text-white animate-spin" />
@@ -620,7 +620,7 @@ export default function AiShopPage() {
             </button>
           </div>
 
-          <p className="text-center text-[10px] text-[#F5F5F5]/15 mt-2">
+          <p className="text-center text-[10px] text-[#F5F0E8]/15 mt-2">
             Aarya AI · Your personal fashion guide
           </p>
         </div>

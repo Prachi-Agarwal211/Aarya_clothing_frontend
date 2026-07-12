@@ -87,8 +87,10 @@ const nextConfig = {
     reactRemoveProperties: process.env.NODE_ENV === 'production',
   },
 
-  // Experimental Features for better performance
+  // Experimental Features for better performance + soft route morphs
   experimental: {
+    // Soft cross-route morph (Chrome/Edge/Safari). CSS .route-fade / .pdp-reveal is the fallback.
+    viewTransition: true,
     optimizeCss: true,
     // Enable early import for faster builds
     optimizeServerReact: true,
@@ -105,7 +107,7 @@ const nextConfig = {
       },
     },
     // Enable newer performance optimizations - deduplicated list
-    optimizePackageImports: ['lucide-react', 'gsap', 'recharts', '@use-gesture/react'],
+    optimizePackageImports: ['lucide-react', 'gsap', 'recharts'],
   },
 
   // Modularize imports for smaller bundles

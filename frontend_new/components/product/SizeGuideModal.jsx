@@ -21,16 +21,16 @@ export default function SizeGuideModal({ isOpen, onClose }) {
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} size="md">
-      <div className="bg-[#0A0A0A] border border-[#E07B8B]/20 rounded-xl overflow-hidden">
+      <div className="bg-[#111111] border border-[#A8B4C8]/20 rounded-xl overflow-hidden">
         {/* Header */}
-        <div className="bg-gradient-to-r from-[#9333EA] to-[#E07B8B] p-4 flex items-center justify-between">
+        <div className="bg-gradient-to-r from-[#1E3A5F] to-[#A8B4C8] p-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Ruler className="w-6 h-6 text-[#FFD700]" />
-            <h2 className="text-xl font-bold text-[#FFD700]">Size Guide</h2>
+            <Ruler className="w-6 h-6 text-[#D4AF37]" />
+            <h2 className="text-xl font-bold text-[#D4AF37]">Size Guide</h2>
           </div>
           <button
             onClick={onClose}
-            className="text-[#FFD700] hover:text-white transition-colors p-2 hover:bg-white/10 rounded-lg"
+            className="text-[#D4AF37] hover:text-white transition-colors p-2 hover:bg-white/10 rounded-lg"
             aria-label="Close size guide"
           >
             <X className="w-5 h-5" />
@@ -39,24 +39,24 @@ export default function SizeGuideModal({ isOpen, onClose }) {
 
         {/* Simple Size Table */}
         <div className="p-6">
-          <div className="overflow-hidden rounded-lg border border-[#E07B8B]/20">
+          <div className="overflow-hidden rounded-lg border border-[#A8B4C8]/20">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-[#9333EA]/20">
-                  <th className="text-left py-3 px-6 text-[#FFD700] font-semibold">Size</th>
-                  <th className="text-left py-3 px-6 text-[#FFD700] font-semibold">Number</th>
+                <tr className="bg-[#1E3A5F]/20">
+                  <th className="text-left py-3 px-6 text-[#D4AF37] font-semibold">Size</th>
+                  <th className="text-left py-3 px-6 text-[#D4AF37] font-semibold">Number</th>
                 </tr>
               </thead>
               <tbody>
                 {sizeChart.map((row, index) => (
                   <tr
                     key={row.size}
-                    className={`border-t border-[#E07B8B]/10 hover:bg-[#9333EA]/10 transition-colors ${
-                      index % 2 === 0 ? 'bg-[#0A0A0A]/20' : 'bg-[#0A0A0A]/40'
+                    className={`border-t border-[#A8B4C8]/10 hover:bg-[#1E3A5F]/10 transition-colors ${
+                      index % 2 === 0 ? 'bg-[#111111]/20' : 'bg-[#111111]/40'
                     }`}
                   >
-                    <td className="py-3.5 px-6 text-[#FFD700] font-bold text-base">{row.size}</td>
-                    <td className="py-3.5 px-6 text-[#F5F5F5] text-base">{row.number}</td>
+                    <td className="py-3.5 px-6 text-[#D4AF37] font-bold text-base">{row.size}</td>
+                    <td className="py-3.5 px-6 text-[#F5F0E8] text-base">{row.number}</td>
                   </tr>
                 ))}
               </tbody>
@@ -64,8 +64,8 @@ export default function SizeGuideModal({ isOpen, onClose }) {
           </div>
 
           {/* Tips */}
-          <div className="mt-6 bg-[#9333EA]/10 border border-[#E07B8B]/20 rounded-lg p-4">
-            <p className="text-xs text-[#F5F5F5]/60 leading-relaxed">
+          <div className="mt-6 bg-[#1E3A5F]/10 border border-[#A8B4C8]/20 rounded-lg p-4">
+            <p className="text-xs text-[#F5F0E8]/60 leading-relaxed">
               When in between sizes, we recommend sizing up for comfort.
             </p>
           </div>
@@ -73,7 +73,7 @@ export default function SizeGuideModal({ isOpen, onClose }) {
           {/* Chat Support */}
           <button
             onClick={() => window.open('/chat', '_blank')}
-            className="w-full mt-4 flex items-center justify-center gap-2 bg-[#9333EA]/20 hover:bg-[#9333EA]/30 border border-[#E07B8B]/40 text-[#FFD700] px-4 py-3 rounded-lg transition-all hover:scale-[1.02]"
+            className="w-full mt-4 flex items-center justify-center gap-2 bg-[#1E3A5F]/20 hover:bg-[#1E3A5F]/30 border border-[#A8B4C8]/40 text-[#D4AF37] px-4 py-3 rounded-lg transition-all hover:scale-[1.02]"
           >
             <MessageCircle className="w-5 h-5" />
             <span>Need Help? Chat with Our Style Experts</span>

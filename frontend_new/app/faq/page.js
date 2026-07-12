@@ -3,6 +3,8 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { ChevronDown, ChevronUp, MessageCircle, Phone, Mail } from 'lucide-react';
+import EnhancedHeader from '@/components/landing/EnhancedHeader';
+import Footer from '@/components/landing/Footer';
 
 export default function FAQPage() {
   const [openCategory, setOpenCategory] = useState('orders');
@@ -113,21 +115,22 @@ export default function FAQPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A] text-[#F5F5F5] relative overflow-hidden">
+    <div className="min-h-screen bg-[#111111] text-[#F5F0E8] relative overflow-hidden">
+      <EnhancedHeader />
       {/* Background Pattern */}
       <div className="fixed inset-0 z-0 pointer-events-none">
-        <div className="absolute inset-0 bg-gradient-to-br from-[#0A0A0A] via-[#0A0A0A] to-[#1a0f12]" />
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-[#9333EA]/10 rounded-full blur-3xl" />
-        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-[#E07B8B]/10 rounded-full blur-3xl" />
+        <div className="absolute inset-0 bg-gradient-to-br from-[#111111] via-[#111111] to-[#1a0f12]" />
+        <div className="absolute top-0 left-1/4 w-96 h-96 bg-[#1E3A5F]/10 rounded-full blur-3xl" />
+        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-[#A8B4C8]/10 rounded-full blur-3xl" />
       </div>
 
       {/* Hero Section */}
       <section className="relative pt-32 pb-20 lg:pt-40 lg:pb-28 z-10">
         <div className="container mx-auto px-4 md:px-8 text-center max-w-4xl">
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 text-[#FFD700]" style={{ fontFamily: 'Cinzel, serif' }}>
+          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 text-[#D4AF37]" style={{ fontFamily: 'Cinzel, serif' }}>
             Frequently Asked Questions
           </h1>
-          <p className="text-lg text-[#F5F5F5]/70 font-light" style={{ fontFamily: 'Playfair Display, serif' }}>
+          <p className="text-lg text-[#F5F0E8]/70 font-light" style={{ fontFamily: 'Playfair Display, serif' }}>
             Find answers to common questions about our products, orders, shipping, and returns.
             If you need further assistance, our support team is always here to help.
           </p>
@@ -141,8 +144,8 @@ export default function FAQPage() {
             
             {/* Sidebar / Categories */}
             <div className="lg:w-1/3">
-              <div className="bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/20 rounded-2xl p-6 sticky top-32">
-                <h3 className="text-xl font-medium mb-6 text-[#FFD700]" style={{ fontFamily: 'Cinzel, serif' }}>
+              <div className="bg-[#111111]/40 backdrop-blur-md border border-[#A8B4C8]/20 rounded-2xl p-6 sticky top-32">
+                <h3 className="text-xl font-medium mb-6 text-[#D4AF37]" style={{ fontFamily: 'Cinzel, serif' }}>
                   Categories
                 </h3>
                 <div className="flex flex-col gap-2">
@@ -155,8 +158,8 @@ export default function FAQPage() {
                       }}
                       className={`text-left px-4 py-3 rounded-xl transition-all duration-300 ${
                         openCategory === category.id
-                          ? 'bg-gradient-to-r from-[#9333EA] to-[#E07B8B] text-white font-medium shadow-lg shadow-[#9333EA]/20'
-                          : 'text-[#F5F5F5]/70 hover:bg-[#E07B8B]/10 hover:text-[#F5F5F5]'
+                          ? 'bg-gradient-to-r from-[#1E3A5F] to-[#A8B4C8] text-white font-medium shadow-lg shadow-[#1E3A5F]/20'
+                          : 'text-[#F5F0E8]/70 hover:bg-[#A8B4C8]/10 hover:text-[#F5F0E8]'
                       }`}
                     >
                       {category.name}
@@ -165,25 +168,25 @@ export default function FAQPage() {
                 </div>
 
                 {/* Contact Help */}
-                <div className="mt-10 pt-8 border-t border-[#E07B8B]/20">
-                  <h4 className="text-lg font-medium mb-4 text-[#FFD700]" style={{ fontFamily: 'Cinzel, serif' }}>
+                <div className="mt-10 pt-8 border-t border-[#A8B4C8]/20">
+                  <h4 className="text-lg font-medium mb-4 text-[#D4AF37]" style={{ fontFamily: 'Cinzel, serif' }}>
                     Still need help?
                   </h4>
                   <div className="space-y-4">
-                    <a href="mailto:support@aaryaclothing.com" className="flex items-center gap-3 text-[#F5F5F5]/70 hover:text-[#FFD700] transition-colors">
-                      <div className="w-10 h-10 rounded-full bg-[#E07B8B]/10 flex items-center justify-center border border-[#E07B8B]/20">
+                    <a href="mailto:support@aaryaclothing.com" className="flex items-center gap-3 text-[#F5F0E8]/70 hover:text-[#D4AF37] transition-colors">
+                      <div className="w-10 h-10 rounded-full bg-[#A8B4C8]/10 flex items-center justify-center border border-[#A8B4C8]/20">
                         <Mail className="w-4 h-4" />
                       </div>
                       <span className="text-sm">support@aaryaclothing.com</span>
                     </a>
-                    <a href="tel:+919876543210" className="flex items-center gap-3 text-[#F5F5F5]/70 hover:text-[#FFD700] transition-colors">
-                      <div className="w-10 h-10 rounded-full bg-[#E07B8B]/10 flex items-center justify-center border border-[#E07B8B]/20">
+                    <a href="tel:+919876543210" className="flex items-center gap-3 text-[#F5F0E8]/70 hover:text-[#D4AF37] transition-colors">
+                      <div className="w-10 h-10 rounded-full bg-[#A8B4C8]/10 flex items-center justify-center border border-[#A8B4C8]/20">
                         <Phone className="w-4 h-4" />
                       </div>
                       <span className="text-sm">+91 98765 43210</span>
                     </a>
-                    <Link href="/contact" className="flex items-center gap-3 text-[#F5F5F5]/70 hover:text-[#FFD700] transition-colors">
-                      <div className="w-10 h-10 rounded-full bg-[#E07B8B]/10 flex items-center justify-center border border-[#E07B8B]/20">
+                    <Link href="/contact" className="flex items-center gap-3 text-[#F5F0E8]/70 hover:text-[#D4AF37] transition-colors">
+                      <div className="w-10 h-10 rounded-full bg-[#A8B4C8]/10 flex items-center justify-center border border-[#A8B4C8]/20">
                         <MessageCircle className="w-4 h-4" />
                       </div>
                       <span className="text-sm">Contact Form</span>
@@ -199,7 +202,7 @@ export default function FAQPage() {
                 {faqs[openCategory]?.map(faq => (
                   <div 
                     key={faq.id}
-                    className="bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/20 rounded-2xl overflow-hidden transition-all duration-300 hover:border-[#E07B8B]/40"
+                    className="bg-[#111111]/40 backdrop-blur-md border border-[#A8B4C8]/20 rounded-2xl overflow-hidden transition-all duration-300 hover:border-[#A8B4C8]/40"
                   >
                     <button
                       onClick={() => toggleQuestion(faq.id)}
@@ -208,10 +211,10 @@ export default function FAQPage() {
                       <h3 className="text-lg font-medium pr-8" style={{ fontFamily: 'Playfair Display, serif' }}>
                         {faq.q}
                       </h3>
-                      <div className={`flex-shrink-0 w-8 h-8 rounded-full border border-[#E07B8B]/30 flex items-center justify-center transition-transform duration-300 ${
-                        openQuestion === faq.id ? 'bg-[#E07B8B]/20 rotate-180' : ''
+                      <div className={`flex-shrink-0 w-8 h-8 rounded-full border border-[#A8B4C8]/30 flex items-center justify-center transition-transform duration-300 ${
+                        openQuestion === faq.id ? 'bg-[#A8B4C8]/20 rotate-180' : ''
                       }`}>
-                        <ChevronDown className="w-4 h-4 text-[#FFD700]" />
+                        <ChevronDown className="w-4 h-4 text-[#D4AF37]" />
                       </div>
                     </button>
                     
@@ -220,7 +223,7 @@ export default function FAQPage() {
                         openQuestion === faq.id ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
                       }`}
                     >
-                      <div className="px-6 pb-6 pt-0 text-[#F5F5F5]/70 leading-relaxed font-light">
+                      <div className="px-6 pb-6 pt-0 text-[#F5F0E8]/70 leading-relaxed font-light">
                         {faq.a}
                       </div>
                     </div>
@@ -232,6 +235,7 @@ export default function FAQPage() {
           </div>
         </div>
       </section>
+      <Footer />
     </div>
   );
 }

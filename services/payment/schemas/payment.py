@@ -60,6 +60,8 @@ class RazorpayOrderResponse(BaseModel):
     attempts: int
     notes: Optional[Any] = None  # Razorpay may return [] (list) or {} (dict)
     created_at: int
+    # Optional fields we attach for frontend sessionStorage reliability
+    gateway_response: Optional[Dict[str, Any]] = None
 
 
 class RazorpayPaymentVerification(BaseModel):

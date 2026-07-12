@@ -20,8 +20,8 @@ import { Pipette, ChevronDown } from 'lucide-react';
 const PRESETS = [
   '#E53935','#FB8C00','#FDD835','#43A047','#00ACC1',
   '#1E88E5','#8E24AA','#D81B60','#6D4C41','#546E7A',
-  '#FFFFFF','#F5F5F5','#BDBDBD','#757575','#212121',
-  '#000000','#FFD700','#FF69B4','#00CED1','#7B68EE',
+  '#FFFFFF','#F5F0E8','#BDBDBD','#757575','#212121',
+  '#000000','#D4AF37','#FF69B4','#00CED1','#7B68EE',
 ];
 
 // --- HSL <-> RGB <-> HEX helpers ---
@@ -215,28 +215,28 @@ export default function ColorPicker({ value, onChange, label = 'Color' }) {
 
   return (
     <div className="relative">
-      {label && <label className="block text-xs text-[#F5F5F5]/60 mb-1">{label}</label>}
+      {label && <label className="block text-xs text-[#F5F0E8]/60 mb-1">{label}</label>}
 
       {/* Trigger button */}
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
-        className="flex items-center gap-2 px-3 py-2 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-lg hover:border-[#E07B8B]/40 transition-colors w-full"
+        className="flex items-center gap-2 px-3 py-2 bg-[#111111]/60 border border-[#A8B4C8]/20 rounded-lg hover:border-[#A8B4C8]/40 transition-colors w-full"
       >
         <div
           className="w-6 h-6 rounded-md border border-white/10 shrink-0"
           style={{ backgroundColor: value || '#888888' }}
         />
-        <span className="text-sm font-mono text-[#F5F5F5]/80 flex-1 text-left">
+        <span className="text-sm font-mono text-[#F5F0E8]/80 flex-1 text-left">
           {value ? value.toUpperCase() : 'Pick color'}
         </span>
-        <ChevronDown className={`w-4 h-4 text-[#F5F5F5]/40 transition-transform ${open ? 'rotate-180' : ''}`} />
+        <ChevronDown className={`w-4 h-4 text-[#F5F0E8]/40 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
 
       {/* Picker panel */}
       {open && (
         <div
-          className="absolute z-50 mt-1 left-0 w-64 bg-[#141414] border border-[#E07B8B]/30 rounded-2xl shadow-2xl p-4 space-y-3"
+          className="absolute z-50 mt-1 left-0 w-64 bg-[#161616] border border-[#A8B4C8]/30 rounded-2xl shadow-2xl p-4 space-y-3"
           style={{ minWidth: 240 }}
         >
           {/* Saturation / Lightness canvas */}
@@ -266,7 +266,7 @@ export default function ColorPicker({ value, onChange, label = 'Color' }) {
           {/* Hue slider */}
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <Pipette className="w-3.5 h-3.5 text-[#F5F5F5]/40 shrink-0" />
+              <Pipette className="w-3.5 h-3.5 text-[#F5F0E8]/40 shrink-0" />
               <div
                 ref={hueRef}
                 className="relative flex-1 h-3 rounded-full cursor-pointer select-none"
@@ -308,33 +308,33 @@ export default function ColorPicker({ value, onChange, label = 'Color' }) {
 
           {/* Hex input + opacity */}
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1.5 flex-1 px-2 py-1.5 bg-[#0A0A0A]/80 border border-[#E07B8B]/20 rounded-lg">
-              <span className="text-[#F5F5F5]/40 text-xs">Hex</span>
+            <div className="flex items-center gap-1.5 flex-1 px-2 py-1.5 bg-[#111111]/80 border border-[#A8B4C8]/20 rounded-lg">
+              <span className="text-[#F5F0E8]/40 text-xs">Hex</span>
               <input
                 type="text"
                 value={hexInput}
                 onChange={handleHexInput}
                 maxLength={7}
-                className="flex-1 bg-transparent text-[#F5F5F5] text-xs font-mono focus:outline-none"
+                className="flex-1 bg-transparent text-[#F5F0E8] text-xs font-mono focus:outline-none"
                 spellCheck={false}
               />
             </div>
-            <div className="flex items-center gap-1 px-2 py-1.5 bg-[#0A0A0A]/80 border border-[#E07B8B]/20 rounded-lg w-16">
+            <div className="flex items-center gap-1 px-2 py-1.5 bg-[#111111]/80 border border-[#A8B4C8]/20 rounded-lg w-16">
               <input
                 type="number"
                 value={opacity}
                 min={0}
                 max={100}
                 onChange={(e) => setOpacity(clamp(parseInt(e.target.value) || 0, 0, 100))}
-                className="w-full bg-transparent text-[#F5F5F5] text-xs font-mono focus:outline-none text-right"
+                className="w-full bg-transparent text-[#F5F0E8] text-xs font-mono focus:outline-none text-right"
               />
-              <span className="text-[#F5F5F5]/40 text-xs">%</span>
+              <span className="text-[#F5F0E8]/40 text-xs">%</span>
             </div>
           </div>
 
           {/* Preset swatches */}
           <div>
-            <p className="text-[10px] text-[#F5F5F5]/40 mb-1.5 uppercase tracking-wider">Presets</p>
+            <p className="text-[10px] text-[#F5F0E8]/40 mb-1.5 uppercase tracking-wider">Presets</p>
             <div className="grid grid-cols-10 gap-1">
               {PRESETS.map((hex) => {
                 const selected = value && value.toUpperCase() === hex.toUpperCase();
@@ -351,7 +351,7 @@ export default function ColorPicker({ value, onChange, label = 'Color' }) {
                       notifyParent(hex.toUpperCase());
                     }}
                     className={`w-5 h-5 rounded-sm transition-transform hover:scale-125 ${
-                      selected ? 'ring-2 ring-[#FFD700] ring-offset-1 ring-offset-[#141414]' : ''
+                      selected ? 'ring-2 ring-[#D4AF37] ring-offset-1 ring-offset-[#161616]' : ''
                     } ${light ? 'border border-white/20' : ''}`}
                     style={{ backgroundColor: hex }}
                   />
@@ -361,15 +361,15 @@ export default function ColorPicker({ value, onChange, label = 'Color' }) {
           </div>
 
           {/* Current color preview + close */}
-          <div className="flex items-center justify-between pt-1 border-t border-[#E07B8B]/10">
+          <div className="flex items-center justify-between pt-1 border-t border-[#A8B4C8]/10">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg border border-white/10" style={{ backgroundColor: currentHex }} />
-              <span className="text-xs text-[#F5F5F5]/60 font-mono">{currentHex.toUpperCase()}</span>
+              <span className="text-xs text-[#F5F0E8]/60 font-mono">{currentHex.toUpperCase()}</span>
             </div>
             <button
               type="button"
               onClick={() => setOpen(false)}
-              className="text-xs px-3 py-1.5 bg-[#E07B8B]/20 hover:bg-[#E07B8B]/40 text-[#FFD700] rounded-lg transition-colors"
+              className="text-xs px-3 py-1.5 bg-[#A8B4C8]/20 hover:bg-[#A8B4C8]/40 text-[#D4AF37] rounded-lg transition-colors"
             >
               Done
             </button>

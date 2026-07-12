@@ -142,16 +142,8 @@ const AboutSection = ({
   }, [isMobile]);
 
   return (
-    <section id={id} ref={sectionRef} className="relative py-16 sm:py-20 md:py-24 lg:py-32">
-      {/* Decorative rotating element - hidden on mobile for cleaner look */}
-      <div
-        ref={decorRef}
-        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] sm:w-[700px] md:w-[800px] h-[600px] sm:h-[700px] md:h-[800px] pointer-events-none opacity-5"
-      >
-        <div className="w-full h-full border border-[#FFD700] rounded-full" />
-        <div className="absolute inset-8 border border-[#E07B8B] rounded-full" />
-        <div className="absolute inset-16 border border-[#FFD700] rounded-full" />
-      </div>
+    <section id={id} ref={sectionRef} className="relative py-16 sm:py-20 md:py-24 lg:py-32 reveal-section">
+
 
       <div className="max-w-7xl mx-auto px-5 sm:px-6 lg:px-8 relative z-10">
         {/* Mobile: Text first, then images. Desktop: Side by side */}
@@ -169,9 +161,9 @@ const AboutSection = ({
                 <div
                   className="
                     relative w-full h-full rounded-2xl sm:rounded-3xl overflow-hidden
-                    bg-[#0A0A0A]/40 backdrop-blur-md
+                    bg-[#111111]/40 backdrop-blur-md
                     border border-white/[0.06]
-                    shadow-[0_8px_32px_rgba(0,0,0,0.25)]
+                    shadow-lg
                   "
                 >
                   {images[0] ? (
@@ -184,7 +176,7 @@ const AboutSection = ({
                     />
                   ) : (
                     <div className="absolute inset-0 flex items-center justify-center">
-                      <span className="text-[#E07B8B]/30 text-xs tracking-widest uppercase">Our Craftsmanship</span>
+                      <span className="text-[#A8B4C8]/30 text-xs tracking-widest uppercase">Our Craftsmanship</span>
                     </div>
                   )}
                 </div>
@@ -198,9 +190,9 @@ const AboutSection = ({
                 <div
                   className="
                     relative w-full h-full rounded-2xl sm:rounded-3xl overflow-hidden
-                    bg-[#0A0A0A]/60 backdrop-blur-md
+                    bg-[#111111]/60 backdrop-blur-md
                     border border-white/[0.06]
-                    shadow-[0_12px_40px_rgba(0,0,0,0.3)]
+                    shadow-lg
                     p-2 sm:p-3
                   "
                 >
@@ -215,7 +207,7 @@ const AboutSection = ({
                       />
                     ) : (
                       <div className="absolute inset-0 flex items-center justify-center">
-                        <span className="text-[#FFD700]/20 text-xs tracking-widest uppercase">Fine Detail</span>
+                        <span className="text-[#D4AF37]/20 text-xs tracking-widest uppercase">Fine Detail</span>
                       </div>
                     )}
                   </div>
@@ -224,7 +216,7 @@ const AboutSection = ({
 
               {/* Decorative accent with logo - Hidden on mobile, visible on desktop */}
               {logoUrl && (
-                <div              className="hidden sm:flex absolute -bottom-4 -right-4 w-24 h-24 sm:w-32 sm:h-32 border border-white/[0.08] rounded-2xl sm:rounded-3xl z-0 items-center justify-center bg-[#0A0A0A]/40 backdrop-blur-sm">
+                <div              className="hidden sm:flex absolute -bottom-4 -right-4 w-24 h-24 sm:w-32 sm:h-32 border border-white/[0.08] rounded-2xl sm:rounded-3xl z-0 items-center justify-center bg-[#111111]/40 backdrop-blur-sm">
                   <OptimizedImage
                     src={logoUrl}
                     alt="Aarya Clothing"
@@ -242,15 +234,15 @@ const AboutSection = ({
           <div className="w-full lg:w-1/2 relative z-20 order-2">
             <div ref={contentRef} className="space-y-5 sm:space-y-8">
               <span
-                className="text-[#FFD700]/70 tracking-[0.3em] sm:tracking-[0.35em] text-[11px] sm:text-xs uppercase block"
+                className="text-[#D4AF37]/70 tracking-[0.3em] sm:tracking-[0.35em] text-[11px] sm:text-xs uppercase block"
                 style={{ fontFamily: 'var(--font-inter), system-ui, sans-serif', fontWeight: 500 }}
               >
                 Our Story
               </span>
 
               <h2
-                className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl text-[#F5F5F5] leading-tight"
-                style={{ fontFamily: 'Cinzel, serif', fontWeight: 400, textShadow: '0 0 40px rgba(255, 215, 0, 0.06)' }}
+                className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl xl:text-6xl text-[#F5F0E8] leading-tight"
+                style={{ fontFamily: 'Cinzel, serif', fontWeight: 400 }}
               >
                 {title}
               </h2>
@@ -277,12 +269,12 @@ const AboutSection = ({
             {/* Statistics - Compact on mobile */}
             <div
               ref={statsRef}
-              className="grid grid-cols-3 gap-3 sm:gap-6 md:gap-8 mt-8 sm:mt-12 pt-6 sm:pt-8 border-t border-[#FFD700]/10"
+              className="grid grid-cols-3 gap-3 sm:gap-6 md:gap-8 mt-8 sm:mt-12 pt-6 sm:pt-8 border-t border-[#D4AF37]/10"
             >
               {stats.map((stat, idx) => (
                 <div key={idx} className="text-center sm:text-left">
                   <span
-                    className="block text-xl sm:text-2xl md:text-3xl lg:text-4xl text-[#E07B8B] mb-0.5 sm:mb-1 md:mb-2"
+                    className="block text-xl sm:text-2xl md:text-3xl lg:text-4xl text-[#A8B4C8] mb-0.5 sm:mb-1 md:mb-2"
                     style={{ fontFamily: 'Cinzel, serif' }}
                   >
                     {stat.value}

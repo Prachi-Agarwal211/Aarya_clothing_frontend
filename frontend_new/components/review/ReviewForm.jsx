@@ -180,15 +180,15 @@ export default function ReviewForm({ productId, onSuccess, onCancel }) {
   }
 
   return (
-    <div className="p-4 sm:p-6 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-xl backdrop-blur-sm">
+    <div className="p-4 sm:p-6 bg-[#111111]/60 border border-[#A8B4C8]/20 rounded-xl backdrop-blur-sm">
       <div className="flex items-center justify-between mb-6">
-        <h3 className="text-lg sm:text-xl font-semibold text-[#F5F5F5]" style={{ fontFamily: 'Cinzel, serif' }}>
+        <h3 className="text-lg sm:text-xl font-semibold text-[#F5F0E8]" style={{ fontFamily: 'Cinzel, serif' }}>
           Write a Review
         </h3>
         {onCancel && (
           <button
             onClick={onCancel}
-            className="p-2 text-[#F5F5F5]/50 hover:text-[#F5F5F5] transition-colors"
+            className="p-2 text-[#F5F0E8]/50 hover:text-[#F5F0E8] transition-colors"
             aria-label="Close review form"
           >
             <X className="w-5 h-5" />
@@ -199,7 +199,7 @@ export default function ReviewForm({ productId, onSuccess, onCancel }) {
       <form onSubmit={handleSubmit} className="space-y-5">
         {/* Rating */}
         <div>
-          <label className="block text-sm font-medium text-[#F5F5F5]/80 mb-2">
+          <label className="block text-sm font-medium text-[#F5F0E8]/80 mb-2">
             Rating <span className="text-red-400">*</span>
           </label>
           <div className="flex items-center gap-2" role="radiogroup" aria-label="Product rating">
@@ -210,7 +210,7 @@ export default function ReviewForm({ productId, onSuccess, onCancel }) {
                 onClick={() => handleRatingClick(star)}
                 onMouseEnter={() => setHoveredRating(star)}
                 onMouseLeave={() => setHoveredRating(0)}
-                className="p-1 transition-transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-[#FFD700] rounded"
+                className="p-1 transition-transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-[#D4AF37] rounded"
                 aria-label={`Rate ${star} out of 5 stars`}
                 role="radio"
                 aria-checked={rating === star}
@@ -218,14 +218,14 @@ export default function ReviewForm({ productId, onSuccess, onCancel }) {
                 <Star
                   className={`w-8 h-8 transition-colors ${
                     star <= (hoveredRating || rating)
-                      ? 'text-yellow-400 fill-yellow-400'
-                      : 'text-[#F5F5F5]/20'
+                      ? 'text-[#D4AF37] fill-[#D4AF37]'
+                      : 'text-[#F5F0E8]/20'
                   }`}
                 />
               </button>
             ))}
             {rating > 0 && (
-              <span className="ml-2 text-sm text-[#F5F5F5]/60">
+              <span className="ml-2 text-sm text-[#F5F0E8]/60">
                 {rating} / 5
               </span>
             )}
@@ -234,8 +234,8 @@ export default function ReviewForm({ productId, onSuccess, onCancel }) {
 
         {/* Title */}
         <div>
-          <label htmlFor="review-title" className="block text-sm font-medium text-[#F5F5F5]/80 mb-2">
-            Review Title <span className="text-[#F5F5F5]/40">(optional)</span>
+          <label htmlFor="review-title" className="block text-sm font-medium text-[#F5F0E8]/80 mb-2">
+            Review Title <span className="text-[#F5F0E8]/40">(optional)</span>
           </label>
           <input
             id="review-title"
@@ -244,13 +244,13 @@ export default function ReviewForm({ productId, onSuccess, onCancel }) {
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Summarize your experience"
             maxLength={100}
-            className="w-full px-4 py-2.5 bg-[#141414]/60 border border-[#E07B8B]/20 rounded-lg text-[#F5F5F5] placeholder:text-[#F5F5F5]/30 focus:outline-none focus:ring-2 focus:ring-[#FFD700]/50 focus:border-[#FFD700]/50 transition-all"
+            className="w-full px-4 py-2.5 bg-[#161616]/60 border border-[#A8B4C8]/20 rounded-lg text-[#F5F0E8] placeholder:text-[#F5F0E8]/30 focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50 focus:border-[#D4AF37]/50 transition-all"
           />
         </div>
 
         {/* Comment */}
         <div>
-          <label htmlFor="review-comment" className="block text-sm font-medium text-[#F5F5F5]/80 mb-2">
+          <label htmlFor="review-comment" className="block text-sm font-medium text-[#F5F0E8]/80 mb-2">
             Your Review <span className="text-red-400">*</span>
           </label>
           <textarea
@@ -262,18 +262,18 @@ export default function ReviewForm({ productId, onSuccess, onCancel }) {
             minLength={10}
             maxLength={2000}
             required
-            className="w-full px-4 py-2.5 bg-[#141414]/60 border border-[#E07B8B]/20 rounded-lg text-[#F5F5F5] placeholder:text-[#F5F5F5]/30 focus:outline-none focus:ring-2 focus:ring-[#FFD700]/50 focus:border-[#FFD700]/50 transition-all resize-none"
+            className="w-full px-4 py-2.5 bg-[#161616]/60 border border-[#A8B4C8]/20 rounded-lg text-[#F5F0E8] placeholder:text-[#F5F0E8]/30 focus:outline-none focus:ring-2 focus:ring-[#D4AF37]/50 focus:border-[#D4AF37]/50 transition-all resize-none"
           />
           <div className="flex justify-between mt-1">
-            <span className="text-xs text-[#F5F5F5]/40">Minimum 10 characters</span>
-            <span className="text-xs text-[#F5F5F5]/40">{comment.length} / 2000</span>
+            <span className="text-xs text-[#F5F0E8]/40">Minimum 10 characters</span>
+            <span className="text-xs text-[#F5F0E8]/40">{comment.length} / 2000</span>
           </div>
         </div>
 
         {/* Image Upload */}
         <div>
-          <label className="block text-sm font-medium text-[#F5F5F5]/80 mb-2">
-            Add Photos <span className="text-[#F5F5F5]/40">(optional, max {MAX_IMAGES})</span>
+          <label className="block text-sm font-medium text-[#F5F0E8]/80 mb-2">
+            Add Photos <span className="text-[#F5F0E8]/40">(optional, max {MAX_IMAGES})</span>
           </label>
           
           {/* Image previews */}
@@ -305,7 +305,7 @@ export default function ReviewForm({ productId, onSuccess, onCancel }) {
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="w-full py-3 border-2 border-dashed border-[#E07B8B]/30 rounded-lg text-[#F5F5F5]/50 hover:text-[#F5F5F5] hover:border-[#E07B8B]/50 transition-all flex items-center justify-center gap-2"
+              className="w-full py-3 border-2 border-dashed border-[#A8B4C8]/30 rounded-lg text-[#F5F0E8]/50 hover:text-[#F5F0E8] hover:border-[#A8B4C8]/50 transition-all flex items-center justify-center gap-2"
             >
               <Upload className="w-5 h-5" />
               <span>
@@ -324,7 +324,7 @@ export default function ReviewForm({ productId, onSuccess, onCancel }) {
             aria-label="Upload review photos"
           />
 
-          <p className="text-xs text-[#F5F5F5]/40 mt-2">
+          <p className="text-xs text-[#F5F0E8]/40 mt-2">
             JPG, PNG or WebP • Max {MAX_FILE_SIZE_MB}MB per file
           </p>
         </div>
@@ -341,15 +341,14 @@ export default function ReviewForm({ productId, onSuccess, onCancel }) {
         <Button
           type="submit"
           disabled={isSubmitting || rating === 0}
-          className="w-full h-11 relative overflow-hidden rounded-xl bg-transparent border border-[#E07B8B]/40 group transition-all duration-500 hover:border-[#FFD700]/60 hover:shadow-[0_0_30px_rgba(183,110,121,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full h-11 rounded-full bg-white text-[#0D0D0D] border border-white/90 hover:bg-[#F7F4EE] disabled:opacity-50 disabled:cursor-not-allowed font-medium tracking-wide"
         >
-          <div className="absolute inset-0 bg-gradient-to-r from-[#9333EA]/80 via-[#E07B8B]/70 to-[#2A1208]/80 opacity-90"></div>
-          <span className="relative z-10 text-white font-serif tracking-[0.12em] text-base">
+          <span className="relative z-10 tracking-[0.08em] text-sm sm:text-base">
             {isSubmitting ? 'Submitting...' : 'Submit Review'}
           </span>
         </Button>
 
-        <p className="text-xs text-[#F5F5F5]/40 text-center">
+        <p className="text-xs text-[#F5F0E8]/40 text-center">
           Your review will be visible after moderator approval
         </p>
       </form>

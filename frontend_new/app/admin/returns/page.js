@@ -178,17 +178,17 @@ export default function AdminReturnsPage() {
     {
       key: 'select',
       label: (
-        <button onClick={toggleAll} className="text-[#F5F5F5]/60 hover:text-[#F5F5F5] flex items-center justify-center">
-          {allSelected ? <CheckSquare className="w-4 h-4 text-[#E07B8B]" /> : <Square className="w-4 h-4" />}
+        <button onClick={toggleAll} className="text-[#F5F0E8]/60 hover:text-[#F5F0E8] flex items-center justify-center">
+          {allSelected ? <CheckSquare className="w-4 h-4 text-[#A8B4C8]" /> : <Square className="w-4 h-4" />}
         </button>
       ),
       sortable: false,
       render: (_, row) => (
         <button
           onClick={(e) => { e.stopPropagation(); toggleOne(row.id); }}
-          className="text-[#F5F5F5]/60 hover:text-[#F5F5F5] flex items-center justify-center p-1"
+          className="text-[#F5F0E8]/60 hover:text-[#F5F0E8] flex items-center justify-center p-1"
         >
-          {selected.has(row.id) ? <CheckSquare className="w-4 h-4 text-[#E07B8B]" /> : <Square className="w-4 h-4" />}
+          {selected.has(row.id) ? <CheckSquare className="w-4 h-4 text-[#A8B4C8]" /> : <Square className="w-4 h-4" />}
         </button>
       ),
     },
@@ -196,7 +196,7 @@ export default function AdminReturnsPage() {
       key: 'id',
       label: 'Return #',
       render: (value) => (
-        <span className="font-mono text-[#FFD700]">
+        <span className="font-mono text-[#D4AF37]">
           RET-{value.toString().padStart(6, '0')}
         </span>
       ),
@@ -205,7 +205,7 @@ export default function AdminReturnsPage() {
       key: 'order_id',
       label: 'Order #',
       render: (value) => (
-        <Link href={`/admin/orders/${value}`} className="text-[#E07B8B] hover:underline">
+        <Link href={`/admin/orders/${value}`} className="text-[#A8B4C8] hover:underline">
           #{value}
         </Link>
       ),
@@ -215,7 +215,7 @@ export default function AdminReturnsPage() {
       label: 'Reason',
       render: (value, row) => (
         <div className="flex items-center gap-2">
-          <span className="text-[#F5F5F5]/70 text-sm">
+          <span className="text-[#F5F0E8]/70 text-sm">
             {getReasonLabel(value)}
           </span>
           {row.video_url ? (
@@ -239,7 +239,7 @@ export default function AdminReturnsPage() {
       key: 'refund_amount',
       label: 'Amount',
       render: (value) => (
-        <span className="text-[#FFD700] font-medium">
+        <span className="text-[#D4AF37] font-medium">
           {formatCurrency(value)}
         </span>
       ),
@@ -248,7 +248,7 @@ export default function AdminReturnsPage() {
       key: 'requested_at',
       label: 'Date',
       render: (value) => (
-        <span className="text-[#F5F5F5]/70 text-sm">
+        <span className="text-[#F5F0E8]/70 text-sm">
           {formatDate(value)}
         </span>
       ),
@@ -283,24 +283,24 @@ export default function AdminReturnsPage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-[#FFD700] font-['Cinzel']">Returns & Exchanges</h1>
-          <p className="text-[#F5F5F5]/50 mt-1">Manage customer return and exchange requests</p>
+          <h1 className="text-2xl font-bold text-[#D4AF37] font-['Cinzel']">Returns & Exchanges</h1>
+          <p className="text-[#F5F0E8]/50 mt-1">Manage customer return and exchange requests</p>
         </div>
         <div className="flex items-center gap-3">
           <button
             onClick={fetchReturns}
-            className="flex items-center gap-2 px-4 py-2 bg-[#9333EA]/20 text-[#F5F5F5] rounded-2xl hover:bg-[#9333EA]/30 transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-[#1E3A5F]/20 text-[#F5F0E8] rounded-2xl hover:bg-[#1E3A5F]/30 transition-colors"
           >
             <RefreshCw className="w-4 h-4" />
             Refresh
           </button>
-          <div className="flex items-center gap-1 text-xs text-[#F5F5F5]/50">
+          <div className="flex items-center gap-1 text-xs text-[#F5F0E8]/50">
             <Video className="w-3 h-3 text-green-400" />
             <span>Has Video</span>
             <Video className="w-3 h-3 text-red-400/50 ml-2" />
             <span>No Video</span>
           </div>
-          <button className="flex items-center gap-2 px-4 py-2 bg-[#9333EA]/20 text-[#F5F5F5] rounded-2xl hover:bg-[#9333EA]/30 transition-colors">
+          <button className="flex items-center gap-2 px-4 py-2 bg-[#1E3A5F]/20 text-[#F5F0E8] rounded-2xl hover:bg-[#1E3A5F]/30 transition-colors">
             <Download className="w-4 h-4" />
             Export
           </button>
@@ -322,11 +322,11 @@ export default function AdminReturnsPage() {
               onClick={() => handleFilterChange('status', isActive ? '' : statusKey)}
               className={`p-4 rounded-2xl border transition-all text-left ${isActive
                   ? `${activeBg} ${activeBorder}`
-                  : `bg-[#0A0A0A]/40 ${border} hover:${activeBg}`
+                  : `bg-[#111111]/40 ${border} hover:${activeBg}`
                 }`}
             >
               <p className={`text-2xl font-bold ${color}`}>{count}</p>
-              <p className={`text-xs mt-0.5 font-medium ${isActive ? color : 'text-[#F5F5F5]/60'}`}>{label}</p>
+              <p className={`text-xs mt-0.5 font-medium ${isActive ? color : 'text-[#F5F0E8]/60'}`}>{label}</p>
             </button>
           );
         })}
@@ -334,8 +334,8 @@ export default function AdminReturnsPage() {
 
       {/* Bulk Actions Bar */}
       {selected.size > 0 && (
-        <div className="flex flex-wrap items-center gap-2 p-4 bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl">
-          <span className="text-sm text-[#F5F5F5]/60 mr-2">{selected.size} selected</span>
+        <div className="flex flex-wrap items-center gap-2 p-4 bg-[#111111]/40 backdrop-blur-md border border-[#A8B4C8]/15 rounded-2xl">
+          <span className="text-sm text-[#F5F0E8]/60 mr-2">{selected.size} selected</span>
 
           <button
             onClick={handleBulkApprove}
@@ -353,7 +353,7 @@ export default function AdminReturnsPage() {
             <XCircle className="w-3.5 h-3.5" /> Reject
           </button>
 
-          <button onClick={() => setSelected(new Set())} className="ml-auto text-xs text-[#F5F5F5]/40 hover:text-[#F5F5F5]/70">
+          <button onClick={() => setSelected(new Set())} className="ml-auto text-xs text-[#F5F0E8]/40 hover:text-[#F5F0E8]/70">
             Clear
           </button>
         </div>

@@ -174,7 +174,7 @@ const Carousel = ({
           ref={containerRef}
           className={cn(
             "relative overflow-hidden rounded-3xl",
-            glassEffect && "bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/20 shadow-[0_8px_32px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.05)]"
+            glassEffect && "bg-[#111111]/40 backdrop-blur-md border border-[#A8B4C8]/20 shadow-[0_8px_32px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.05)]"
           )}
           style={{ aspectRatio }}
         >
@@ -200,7 +200,7 @@ const Carousel = ({
                   />
                   {/* Subtle gradient overlay for better visual */}
                   {!imageOnly && (
-                    <div className="absolute inset-0 bg-gradient-to-t from-[#0A0A0A]/60 via-transparent to-transparent" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-[#111111]/60 via-transparent to-transparent" />
                   )}
                 </div>
               )}
@@ -210,7 +210,7 @@ const Carousel = ({
                 <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center">
                   {slide.tagline && (
                     <span 
-                      className="text-[#E07B8B] text-xs sm:text-sm tracking-[0.3em] uppercase mb-4"
+                      className="text-[#A8B4C8] text-xs sm:text-sm tracking-[0.3em] uppercase mb-4"
                       style={{ fontFamily: 'Cinzel, serif' }}
                     >
                       {slide.tagline}
@@ -219,7 +219,7 @@ const Carousel = ({
                   
                   {slide.title && (
                     <h2 
-                      className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl text-[#F5F5F5] mb-4 max-w-2xl"
+                      className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl text-[#F5F0E8] mb-4 max-w-2xl"
                       style={{ fontFamily: 'Playfair Display, serif' }}
                     >
                       {slide.title}
@@ -227,7 +227,7 @@ const Carousel = ({
                   )}
                   
                   {slide.subtitle && (
-                    <p className="text-[#F5F5F5]/70 text-sm sm:text-base md:text-lg max-w-xl font-light">
+                    <p className="text-[#F5F0E8]/70 text-sm sm:text-base md:text-lg max-w-xl font-light">
                       {slide.subtitle}
                     </p>
                   )}
@@ -244,12 +244,12 @@ const Carousel = ({
                 className="
                   absolute left-4 top-1/2 -translate-y-1/2 z-20
                   p-2 sm:p-3
-                  bg-[#0A0A0A]/60 backdrop-blur-sm
-                  border border-[#E07B8B]/30
-                  text-[#F5F5F5] rounded-full
+                  bg-[#111111]/60 backdrop-blur-sm
+                  border border-[#A8B4C8]/30
+                  text-[#F5F0E8] rounded-full
                   opacity-0 group-hover:opacity-100
                   transition-all duration-300
-                  hover:bg-[#E07B8B]/30 hover:border-[#FFD700]/50
+                  hover:bg-[#A8B4C8]/30 hover:border-[#D4AF37]/50
                 "
                 aria-label="Previous slide"
               >
@@ -261,12 +261,12 @@ const Carousel = ({
                 className="
                   absolute right-4 top-1/2 -translate-y-1/2 z-20
                   p-2 sm:p-3
-                  bg-[#0A0A0A]/60 backdrop-blur-sm
-                  border border-[#E07B8B]/30
-                  text-[#F5F5F5] rounded-full
+                  bg-[#111111]/60 backdrop-blur-sm
+                  border border-[#A8B4C8]/30
+                  text-[#F5F0E8] rounded-full
                   opacity-0 group-hover:opacity-100
                   transition-all duration-300
-                  hover:bg-[#E07B8B]/30 hover:border-[#FFD700]/50
+                  hover:bg-[#A8B4C8]/30 hover:border-[#D4AF37]/50
                 "
                 aria-label="Next slide"
               >
@@ -286,8 +286,8 @@ const Carousel = ({
                 className={cn(
                   "transition-all duration-300 rounded-full",
                   index === currentSlide 
-                    ? 'w-8 h-2 bg-[#FFD700]' 
-                    : 'w-2 h-2 bg-[#E07B8B]/40 hover:bg-[#E07B8B]/60'
+                    ? 'w-8 h-2 bg-[#D4AF37]' 
+                    : 'w-2 h-2 bg-[#A8B4C8]/40 hover:bg-[#A8B4C8]/60'
                 )}
                 aria-label={`Go to slide ${index + 1}`}
               />
@@ -306,14 +306,14 @@ const Carousel = ({
         <>
           <button 
             onClick={() => scroll('left')}
-            className="absolute left-4 top-1/2 -translate-y-1/2 z-20 p-3 bg-[#0A0A0A]/80 border border-[#FFD700]/30 text-[#F5F5F5] rounded-full opacity-0 group-hover:opacity-100 transition-all duration-300 hover:bg-[#FFD700] hover:text-[#000000] disabled:opacity-0"
+            className="absolute left-4 top-1/2 -translate-y-1/2 z-20 p-3 bg-[#111111]/80 border border-[#D4AF37]/30 text-[#F5F0E8] rounded-full opacity-0 group-hover:opacity-100 transition-all duration-300 hover:bg-[#D4AF37] hover:text-[#000000] disabled:opacity-0"
           >
             <ChevronLeft className="w-5 h-5" />
           </button>
           
           <button 
             onClick={() => scroll('right')}
-            className="absolute right-4 top-1/2 -translate-y-1/2 z-20 p-3 bg-[#0A0A0A]/80 border border-[#FFD700]/30 text-[#F5F5F5] rounded-full opacity-0 group-hover:opacity-100 transition-all duration-300 hover:bg-[#FFD700] hover:text-[#000000]"
+            className="absolute right-4 top-1/2 -translate-y-1/2 z-20 p-3 bg-[#111111]/80 border border-[#D4AF37]/30 text-[#F5F0E8] rounded-full opacity-0 group-hover:opacity-100 transition-all duration-300 hover:bg-[#D4AF37] hover:text-[#000000]"
           >
             <ChevronRight className="w-5 h-5" />
           </button>

@@ -164,10 +164,10 @@ export default function InventoryPage() {
 
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-[#FFD700] font-cinzel">
+          <h1 className="text-2xl md:text-3xl font-bold text-[#D4AF37] font-cinzel">
             Inventory
           </h1>
-          <p className="text-[#F5F5F5]/60 mt-1">
+          <p className="text-[#F5F0E8]/60 mt-1">
             Inline edit stock and thresholds — every change is audited
           </p>
         </div>
@@ -176,7 +176,7 @@ export default function InventoryPage() {
             fetchData();
             fetchStats();
           }}
-          className="flex items-center gap-2 p-2.5 rounded-xl border border-[#E07B8B]/20 text-[#F5F5F5]/70 hover:bg-[#E07B8B]/10 transition-colors self-start"
+          className="flex items-center gap-2 p-2.5 rounded-xl border border-[#A8B4C8]/20 text-[#F5F0E8]/70 hover:bg-[#A8B4C8]/10 transition-colors self-start"
           title="Refresh"
         >
           <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
@@ -185,7 +185,7 @@ export default function InventoryPage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
         <StatCard
-          icon={<Package className="w-5 h-5 text-[#FFD700]" />}
+          icon={<Package className="w-5 h-5 text-[#D4AF37]" />}
           label="Total SKUs"
           value={stats.total}
           tone="default"
@@ -207,12 +207,12 @@ export default function InventoryPage() {
       </div>
 
       <div className="overflow-x-auto pb-1 -mx-1">
-        <div className="flex gap-1 bg-[#0A0A0A]/40 border border-[#E07B8B]/15 rounded-xl p-1 w-fit min-w-full sm:min-w-0">
+        <div className="flex gap-1 bg-[#111111]/40 border border-[#A8B4C8]/15 rounded-xl p-1 w-fit min-w-full sm:min-w-0">
           {TABS.map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${activeTab === tab ? 'bg-[#9333EA]/40 text-[#FFD700] border border-[#E07B8B]/30' : 'text-[#F5F5F5]/60 hover:text-[#F5F5F5]'}`}
+              className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${activeTab === tab ? 'bg-[#1E3A5F]/40 text-[#D4AF37] border border-[#A8B4C8]/30' : 'text-[#F5F0E8]/60 hover:text-[#F5F0E8]'}`}
             >
               {tab === 'Low Stock' ? (
                 <span className="flex items-center gap-1.5">
@@ -244,20 +244,20 @@ export default function InventoryPage() {
       )}
 
       {showSearch && (
-        <div className="bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl p-4">
+        <div className="bg-[#111111]/40 backdrop-blur-md border border-[#A8B4C8]/15 rounded-2xl p-4">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#F5F5F5]/40" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#F5F0E8]/40" />
             <input
               type="text"
               placeholder="Search by product name, SKU, size, or color..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-xl text-[#F5F5F5] placeholder-[#F5F5F5]/40 focus:outline-none focus:border-[#E07B8B]/40 text-sm"
+              className="w-full pl-10 pr-4 py-2.5 bg-[#111111]/60 border border-[#A8B4C8]/20 rounded-xl text-[#F5F0E8] placeholder-[#F5F0E8]/40 focus:outline-none focus:border-[#A8B4C8]/40 text-sm"
             />
             {search && (
               <button
                 onClick={() => setSearch('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-[#E07B8B]/10 text-[#F5F5F5]/40 hover:text-[#F5F5F5] flex items-center justify-center"
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-[#A8B4C8]/10 text-[#F5F0E8]/40 hover:text-[#F5F0E8] flex items-center justify-center"
                 title="Clear search"
               >
                 <X className="w-4 h-4" />
@@ -275,13 +275,13 @@ export default function InventoryPage() {
         />
       ) : (
         <>
-          <div className="bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl overflow-hidden">
+          <div className="bg-[#111111]/40 backdrop-blur-md border border-[#A8B4C8]/15 rounded-2xl overflow-hidden">
             {loading ? (
               <div className="flex items-center justify-center py-20">
-                <Loader2 className="w-8 h-8 text-[#E07B8B]/50 animate-spin" />
+                <Loader2 className="w-8 h-8 text-[#A8B4C8]/50 animate-spin" />
               </div>
             ) : items.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-20 text-[#F5F5F5]/40">
+              <div className="flex flex-col items-center justify-center py-20 text-[#F5F0E8]/40">
                 <Package className="w-12 h-12 mb-3" />
                 <p>
                   {debouncedSearch
@@ -297,7 +297,7 @@ export default function InventoryPage() {
               <div className="overflow-x-auto">
                 <table className="w-full text-left">
                   <thead>
-                    <tr className="bg-[#E07B8B]/5 text-[#F5F5F5]/40 text-xs uppercase tracking-wider font-bold">
+                    <tr className="bg-[#A8B4C8]/5 text-[#F5F0E8]/40 text-xs uppercase tracking-wider font-bold">
                       <th className="px-4 py-3">Product / SKU</th>
                       <th className="px-4 py-3 hidden sm:table-cell">Size</th>
                       <th className="px-4 py-3 hidden sm:table-cell">Color</th>
@@ -312,7 +312,7 @@ export default function InventoryPage() {
                       <th className="px-4 py-3 text-right">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[#E07B8B]/5">
+                  <tbody className="divide-y divide-[#A8B4C8]/5">
                     {items.map((item) => (
                       <InventoryRow
                         key={item.id}
@@ -347,19 +347,19 @@ function StatCard({ icon, label, value, tone, onClick }) {
       ? 'from-amber-500/10 border-amber-500/20 hover:border-amber-500/40'
       : tone === 'danger'
         ? 'from-red-500/10 border-red-500/20 hover:border-red-500/40'
-        : 'from-[#141414] border-[#E07B8B]/20';
+        : 'from-[#161616] border-[#A8B4C8]/20';
   const valueColor =
-    tone === 'warn' ? 'text-amber-400' : tone === 'danger' ? 'text-red-400' : 'text-[#FFD700]';
+    tone === 'warn' ? 'text-amber-400' : tone === 'danger' ? 'text-red-400' : 'text-[#D4AF37]';
 
   const Tag = onClick ? 'button' : 'div';
   return (
     <Tag
       onClick={onClick}
-      className={`bg-gradient-to-br ${toneClasses} to-[#0A0A0A] border rounded-2xl p-4 flex items-center gap-4 transition-colors text-left`}
+      className={`bg-gradient-to-br ${toneClasses} to-[#111111] border rounded-2xl p-4 flex items-center gap-4 transition-colors text-left`}
     >
-      <div className="p-2.5 rounded-xl bg-[#9333EA]/15 flex-shrink-0">{icon}</div>
+      <div className="p-2.5 rounded-xl bg-[#1E3A5F]/15 flex-shrink-0">{icon}</div>
       <div>
-        <p className="text-[#F5F5F5]/50 text-xs uppercase tracking-wider">{label}</p>
+        <p className="text-[#F5F0E8]/50 text-xs uppercase tracking-wider">{label}</p>
         <p className={`text-2xl font-bold ${valueColor}`}>{value}</p>
       </div>
     </Tag>
@@ -368,18 +368,18 @@ function StatCard({ icon, label, value, tone, onClick }) {
 
 function MovementsTable({ movements, loading, formatDate }) {
   return (
-    <div className="bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl overflow-hidden">
-      <div className="p-4 border-b border-[#E07B8B]/10">
-        <h2 className="text-base font-semibold text-[#FFD700] font-cinzel">
+    <div className="bg-[#111111]/40 backdrop-blur-md border border-[#A8B4C8]/15 rounded-2xl overflow-hidden">
+      <div className="p-4 border-b border-[#A8B4C8]/10">
+        <h2 className="text-base font-semibold text-[#D4AF37] font-cinzel">
           Stock movement history
         </h2>
       </div>
       {loading ? (
         <div className="flex items-center justify-center py-20">
-          <Loader2 className="w-8 h-8 text-[#E07B8B]/50 animate-spin" />
+          <Loader2 className="w-8 h-8 text-[#A8B4C8]/50 animate-spin" />
         </div>
       ) : movements.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-16 text-[#F5F5F5]/40">
+        <div className="flex flex-col items-center justify-center py-16 text-[#F5F0E8]/40">
           <History className="w-10 h-10 mb-3" />
           <p>No stock movements recorded yet.</p>
         </div>
@@ -387,7 +387,7 @@ function MovementsTable({ movements, loading, formatDate }) {
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
-              <tr className="bg-[#E07B8B]/5 text-[#F5F5F5]/40 text-xs uppercase tracking-wider font-bold">
+              <tr className="bg-[#A8B4C8]/5 text-[#F5F0E8]/40 text-xs uppercase tracking-wider font-bold">
                 <th className="px-5 py-3">Product</th>
                 <th className="px-5 py-3">Δ Stock</th>
                 <th className="px-5 py-3">Reason</th>
@@ -395,36 +395,36 @@ function MovementsTable({ movements, loading, formatDate }) {
                 <th className="px-5 py-3">When (IST)</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#E07B8B]/5">
+            <tbody className="divide-y divide-[#A8B4C8]/5">
               {movements.map((m) => {
                 const delta = m.delta ?? m.adjustment ?? 0;
                 return (
-                  <tr key={m.id} className="hover:bg-[#E07B8B]/5 transition-colors">
+                  <tr key={m.id} className="hover:bg-[#A8B4C8]/5 transition-colors">
                     <td className="px-5 py-3">
-                      <p className="text-sm font-medium text-[#F5F5F5]">
+                      <p className="text-sm font-medium text-[#F5F0E8]">
                         {m.product_name || '—'}
                       </p>
-                      <p className="text-xs text-[#F5F5F5]/40 font-mono">
+                      <p className="text-xs text-[#F5F0E8]/40 font-mono">
                         {m.sku || `INV-${m.variant_id || m.inventory_id}`}
                       </p>
                     </td>
                     <td className="px-5 py-3">
                       <span
-                        className={`text-sm font-bold ${delta > 0 ? 'text-green-400' : delta < 0 ? 'text-red-400' : 'text-[#F5F5F5]/50'}`}
+                        className={`text-sm font-bold ${delta > 0 ? 'text-green-400' : delta < 0 ? 'text-red-400' : 'text-[#F5F0E8]/50'}`}
                       >
                         {delta > 0 ? '+' : ''}
                         {delta}
                       </span>
                     </td>
                     <td className="px-5 py-3">
-                      <span className="px-2 py-0.5 rounded-full text-xs bg-[#9333EA]/20 text-[#F5F5F5]/70 capitalize">
+                      <span className="px-2 py-0.5 rounded-full text-xs bg-[#1E3A5F]/20 text-[#F5F0E8]/70 capitalize">
                         {m.reason || 'adjustment'}
                       </span>
                     </td>
-                    <td className="px-5 py-3 text-xs text-[#F5F5F5]/50 max-w-[260px] truncate">
+                    <td className="px-5 py-3 text-xs text-[#F5F0E8]/50 max-w-[260px] truncate">
                       {m.notes || '—'}
                     </td>
-                    <td className="px-5 py-3 text-xs text-[#F5F5F5]/50">
+                    <td className="px-5 py-3 text-xs text-[#F5F0E8]/50">
                       {formatDate(m.created_at)}
                     </td>
                   </tr>

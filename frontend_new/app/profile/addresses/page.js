@@ -183,11 +183,11 @@ export default function AddressesPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold text-[#FFD700]">My Addresses</h2>
+        <h2 className="text-xl font-semibold text-[#D4AF37]">My Addresses</h2>
         {!showAddForm && (
           <button
             onClick={() => setShowAddForm(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#9333EA] to-[#E07B8B] text-white rounded-xl hover:opacity-90 transition-opacity"
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#1E3A5F] to-[#A8B4C8] text-white rounded-xl hover:opacity-90 transition-opacity"
           >
             <Plus className="w-4 h-4" />
             Add Address
@@ -197,19 +197,19 @@ export default function AddressesPage() {
 
       {/* Add/Edit Form */}
       {showAddForm && (
-        <div className="p-6 bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl">
+        <div className="p-6 bg-[#111111]/40 backdrop-blur-md border border-[#A8B4C8]/15 rounded-2xl">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-medium text-[#FFD700]">
+            <h3 className="text-lg font-medium text-[#D4AF37]">
               {editingId ? 'Edit Address' : 'Add New Address'}
             </h3>
-            <button onClick={resetForm} className="text-[#F5F5F5]/50 hover:text-[#F5F5F5]">
+            <button onClick={resetForm} className="text-[#F5F0E8]/50 hover:text-[#F5F0E8]">
               <X className="w-5 h-5" />
             </button>
           </div>
 
           <div className="grid md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm text-[#F5F5F5]/70 mb-1">
+              <label className="block text-sm text-[#F5F0E8]/70 mb-1">
                 Full Name <span className="text-red-400">*</span>
               </label>
               <input
@@ -217,11 +217,11 @@ export default function AddressesPage() {
                 value={formData.full_name}
                 onChange={(e) => setFormData(prev => ({ ...prev, full_name: e.target.value }))}
                 required
-                className="w-full px-3 py-2.5 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-lg text-[#F5F5F5] placeholder-[#F5F5F5]/40 focus:outline-none focus:border-[#E07B8B]/40"
+                className="w-full px-3 py-2.5 bg-[#111111]/60 border border-[#A8B4C8]/20 rounded-lg text-[#F5F0E8] placeholder-[#F5F0E8]/40 focus:outline-none focus:border-[#A8B4C8]/40"
               />
             </div>
             <div>
-              <label className="block text-sm text-[#F5F5F5]/70 mb-1">
+              <label className="block text-sm text-[#F5F0E8]/70 mb-1">
                 Phone <span className="text-red-400">*</span>
               </label>
               <input
@@ -230,11 +230,11 @@ export default function AddressesPage() {
                 onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
                 required
                 placeholder="10-digit mobile number"
-                className="w-full px-3 py-2.5 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-lg text-[#F5F5F5] placeholder-[#F5F5F5]/40 focus:outline-none focus:border-[#E07B8B]/40"
+                className="w-full px-3 py-2.5 bg-[#111111]/60 border border-[#A8B4C8]/20 rounded-lg text-[#F5F0E8] placeholder-[#F5F0E8]/40 focus:outline-none focus:border-[#A8B4C8]/40"
               />
             </div>
             <div>
-              <label className="block text-sm text-[#F5F5F5]/70 mb-1">
+              <label className="block text-sm text-[#F5F0E8]/70 mb-1">
                 Pincode <span className="text-red-400">*</span>
               </label>
               <input
@@ -243,11 +243,11 @@ export default function AddressesPage() {
                 onChange={(e) => setFormData(prev => ({ ...prev, postal_code: e.target.value }))}
                 required
                 maxLength={6}
-                className="w-full px-3 py-2.5 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-lg text-[#F5F5F5] placeholder-[#F5F5F5]/40 focus:outline-none focus:border-[#E07B8B]/40"
+                className="w-full px-3 py-2.5 bg-[#111111]/60 border border-[#A8B4C8]/20 rounded-lg text-[#F5F0E8] placeholder-[#F5F0E8]/40 focus:outline-none focus:border-[#A8B4C8]/40"
               />
             </div>
             <div className="md:col-span-2">
-              <label className="block text-sm text-[#F5F5F5]/70 mb-1">
+              <label className="block text-sm text-[#F5F0E8]/70 mb-1">
                 Address Line 1 <span className="text-red-400">*</span>
               </label>
               <input
@@ -255,20 +255,20 @@ export default function AddressesPage() {
                 value={formData.address_line1}
                 onChange={(e) => setFormData(prev => ({ ...prev, address_line1: e.target.value }))}
                 required
-                className="w-full px-3 py-2.5 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-lg text-[#F5F5F5] placeholder-[#F5F5F5]/40 focus:outline-none focus:border-[#E07B8B]/40"
+                className="w-full px-3 py-2.5 bg-[#111111]/60 border border-[#A8B4C8]/20 rounded-lg text-[#F5F0E8] placeholder-[#F5F0E8]/40 focus:outline-none focus:border-[#A8B4C8]/40"
               />
             </div>
             <div className="md:col-span-2">
-              <label className="block text-sm text-[#F5F5F5]/70 mb-1">Address Line 2 (Optional)</label>
+              <label className="block text-sm text-[#F5F0E8]/70 mb-1">Address Line 2 (Optional)</label>
               <input
                 type="text"
                 value={formData.address_line2}
                 onChange={(e) => setFormData(prev => ({ ...prev, address_line2: e.target.value }))}
-                className="w-full px-3 py-2.5 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-lg text-[#F5F5F5] placeholder-[#F5F5F5]/40 focus:outline-none focus:border-[#E07B8B]/40"
+                className="w-full px-3 py-2.5 bg-[#111111]/60 border border-[#A8B4C8]/20 rounded-lg text-[#F5F0E8] placeholder-[#F5F0E8]/40 focus:outline-none focus:border-[#A8B4C8]/40"
               />
             </div>
             <div>
-              <label className="block text-sm text-[#F5F5F5]/70 mb-1">
+              <label className="block text-sm text-[#F5F0E8]/70 mb-1">
                 City <span className="text-red-400">*</span>
               </label>
               <input
@@ -276,11 +276,11 @@ export default function AddressesPage() {
                 value={formData.city}
                 onChange={(e) => setFormData(prev => ({ ...prev, city: e.target.value }))}
                 required
-                className="w-full px-3 py-2.5 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-lg text-[#F5F5F5] placeholder-[#F5F5F5]/40 focus:outline-none focus:border-[#E07B8B]/40"
+                className="w-full px-3 py-2.5 bg-[#111111]/60 border border-[#A8B4C8]/20 rounded-lg text-[#F5F0E8] placeholder-[#F5F0E8]/40 focus:outline-none focus:border-[#A8B4C8]/40"
               />
             </div>
             <div>
-              <label className="block text-sm text-[#F5F5F5]/70 mb-1">
+              <label className="block text-sm text-[#F5F0E8]/70 mb-1">
                 State <span className="text-red-400">*</span>
               </label>
               <input
@@ -288,7 +288,7 @@ export default function AddressesPage() {
                 value={formData.state}
                 onChange={(e) => setFormData(prev => ({ ...prev, state: e.target.value }))}
                 required
-                className="w-full px-3 py-2.5 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-lg text-[#F5F5F5] placeholder-[#F5F5F5]/40 focus:outline-none focus:border-[#E07B8B]/40"
+                className="w-full px-3 py-2.5 bg-[#111111]/60 border border-[#A8B4C8]/20 rounded-lg text-[#F5F0E8] placeholder-[#F5F0E8]/40 focus:outline-none focus:border-[#A8B4C8]/40"
               />
             </div>
           </div>
@@ -306,9 +306,9 @@ export default function AddressesPage() {
               id="is_default"
               checked={formData.is_default}
               onChange={(e) => setFormData(prev => ({ ...prev, is_default: e.target.checked }))}
-              className="w-4 h-4 rounded border-[#E07B8B]/30 bg-[#0A0A0A]/60 text-[#E07B8B] focus:ring-[#E07B8B]/30"
+              className="w-4 h-4 rounded border-[#A8B4C8]/30 bg-[#111111]/60 text-[#A8B4C8] focus:ring-[#A8B4C8]/30"
             />
-            <label htmlFor="is_default" className="text-sm text-[#F5F5F5]/70">
+            <label htmlFor="is_default" className="text-sm text-[#F5F0E8]/70">
               Set as default address
             </label>
           </div>
@@ -317,14 +317,14 @@ export default function AddressesPage() {
             <button
               onClick={handleSave}
               disabled={saving}
-              className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-[#9333EA] to-[#E07B8B] text-white rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50"
+              className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-[#1E3A5F] to-[#A8B4C8] text-white rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50"
             >
               <Check className="w-4 h-4" />
               {saving ? 'Saving...' : 'Save Address'}
             </button>
             <button
               onClick={resetForm}
-              className="px-6 py-2.5 border border-[#E07B8B]/20 text-[#F5F5F5]/70 rounded-xl hover:border-[#E07B8B]/40 hover:text-[#F5F5F5] transition-colors"
+              className="px-6 py-2.5 border border-[#A8B4C8]/20 text-[#F5F0E8]/70 rounded-xl hover:border-[#A8B4C8]/40 hover:text-[#F5F0E8] transition-colors"
             >
               Cancel
             </button>
@@ -335,16 +335,16 @@ export default function AddressesPage() {
       {loading ? (
         <div className="space-y-4">
           {[...Array(2)].map((_, i) => (
-            <div key={i} className="animate-pulse h-32 bg-[#E07B8B]/10 rounded-2xl" />
+            <div key={i} className="animate-pulse h-32 bg-[#A8B4C8]/10 rounded-2xl" />
           ))}
         </div>
       ) : addresses.length === 0 ? (
-        <div className="p-8 bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl text-center">
-          <MapPin className="w-16 h-16 text-[#E07B8B]/30 mx-auto mb-4" />
-          <p className="text-[#F5F5F5]/50">No addresses saved yet</p>
+        <div className="p-8 bg-[#111111]/40 backdrop-blur-md border border-[#A8B4C8]/15 rounded-2xl text-center">
+          <MapPin className="w-16 h-16 text-[#A8B4C8]/30 mx-auto mb-4" />
+          <p className="text-[#F5F0E8]/50">No addresses saved yet</p>
           <button
             onClick={() => setShowAddForm(true)}
-            className="mt-4 px-6 py-2 bg-gradient-to-r from-[#9333EA] to-[#E07B8B] text-white rounded-xl hover:opacity-90 transition-opacity"
+            className="mt-4 px-6 py-2 bg-gradient-to-r from-[#1E3A5F] to-[#A8B4C8] text-white rounded-xl hover:opacity-90 transition-opacity"
           >
             Add Your First Address
           </button>
@@ -354,15 +354,15 @@ export default function AddressesPage() {
           {addresses.map((address) => (
             <div
               key={address.id}
-              className={`p-4 bg-[#0A0A0A]/40 backdrop-blur-md border rounded-2xl ${
-                address.is_default ? 'border-[#E07B8B]' : 'border-[#E07B8B]/15'
+              className={`p-4 bg-[#111111]/40 backdrop-blur-md border rounded-2xl ${
+                address.is_default ? 'border-[#A8B4C8]' : 'border-[#A8B4C8]/15'
               }`}
             >
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-2">
-                  <span className="font-medium text-[#FFD700]">{address.full_name}</span>
+                  <span className="font-medium text-[#D4AF37]">{address.full_name}</span>
                   {address.is_default && (
-                    <span className="px-2 py-0.5 bg-[#9333EA]/30 text-[#FFD700] text-xs rounded-full">
+                    <span className="px-2 py-0.5 bg-[#1E3A5F]/30 text-[#D4AF37] text-xs rounded-full">
                       Default
                     </span>
                   )}
@@ -370,13 +370,13 @@ export default function AddressesPage() {
                 <div className="flex items-center gap-1">
                   <button
                     onClick={() => handleEdit(address)}
-                    className="p-1.5 text-[#F5F5F5]/50 hover:text-[#E07B8B] transition-colors"
+                    className="p-1.5 text-[#F5F0E8]/50 hover:text-[#A8B4C8] transition-colors"
                   >
                     <Edit2 className="w-4 h-4" />
                   </button>
                   <button
                     onClick={() => handleDelete(address.id)}
-                    className="p-1.5 text-[#F5F5F5]/50 hover:text-red-400 transition-colors"
+                    className="p-1.5 text-[#F5F0E8]/50 hover:text-red-400 transition-colors"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -384,15 +384,15 @@ export default function AddressesPage() {
               </div>
 
               <div className="space-y-1 text-sm">
-                <p className="text-[#F5F5F5]">{address.full_name}</p>
-                <p className="text-[#F5F5F5]/70">
+                <p className="text-[#F5F0E8]">{address.full_name}</p>
+                <p className="text-[#F5F0E8]/70">
                   {address.address_line1}
                   {address.address_line2 && `, ${address.address_line2}`}
                 </p>
-                <p className="text-[#F5F5F5]/70">
+                <p className="text-[#F5F0E8]/70">
                   {address.city}, {address.state} - {address.postal_code}
                 </p>
-                <p className="text-[#F5F5F5]/70 flex items-center gap-1">
+                <p className="text-[#F5F0E8]/70 flex items-center gap-1">
                   <Phone className="w-3 h-3" />
                   {address.phone}
                 </p>
@@ -401,7 +401,7 @@ export default function AddressesPage() {
               {!address.is_default && (
                 <button
                   onClick={() => handleSetDefault(address.id)}
-                  className="mt-3 text-sm text-[#E07B8B] hover:text-[#FFD700] transition-colors"
+                  className="mt-3 text-sm text-[#A8B4C8] hover:text-[#D4AF37] transition-colors"
                 >
                   Set as default
                 </button>

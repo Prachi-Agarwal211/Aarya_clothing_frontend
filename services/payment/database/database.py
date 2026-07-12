@@ -5,7 +5,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base, Session
 from sqlalchemy.pool import QueuePool
 from core.config import settings
-from shared.db_migration_helpers import ensure_column
+from shared.db_migration_helpers import ensure_column, ensure_index
 
 logger = logging.getLogger(__name__)
 
@@ -77,5 +77,12 @@ def init_db():
     ensure_column(engine, "payment_transactions", "refund_id", "VARCHAR(100)")
     ensure_column(engine, "payment_transactions", "refund_status", "VARCHAR(50)")
     ensure_column(engine, "payment_transactions", "refund_reason", "TEXT")
+
+    # Add indexes for _order_exists() queries — these columns are queried
+    # frequently by the webhook handler without indexes, causing sequential scans.
+    ensure_index(engine, "payment_transactions", "ix_payment_txn_razorpay_payment_id", "razorpay_payment_id")
+    ensure_index(engine, "payment_transactions", "ix_payment_txn_razorpay_order_id", "razorpay_order_id")
+    ensure_index(engine, "payment_transactions", "ix_payment_txn_qr_code_id", "razorpay_qr_code_id")
+    ensure_index(engine, "payment_transactions", "ix_payment_txn_user_status", "user_id, status")
 
     logger.info("✓ Payment service: Database initialized")

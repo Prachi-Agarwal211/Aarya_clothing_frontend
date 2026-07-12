@@ -169,8 +169,8 @@ export default function AdminLayout({ children }) {
     return (
       <div className="min-h-screen bg-[#000000] flex items-center justify-center">
         <div className="text-center">
-          <div className="w-12 h-12 border-2 border-[#E07B8B]/30 border-t-[#FFD700] rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-[#F5F5F5]/70">Loading dashboard...</p>
+          <div className="w-12 h-12 border-2 border-[#A8B4C8]/30 border-t-[#D4AF37] rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-[#F5F0E8]/70">Loading dashboard...</p>
         </div>
       </div>
     );
@@ -181,28 +181,27 @@ export default function AdminLayout({ children }) {
     return (
       <div className="min-h-screen bg-[#000000] flex items-center justify-center">
         <div className="text-center">
-          <div className="w-12 h-12 border-2 border-[#E07B8B]/30 border-t-[#FFD700] rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-[#F5F5F5]/70">Redirecting...</p>
+          <div className="w-12 h-12 border-2 border-[#A8B4C8]/30 border-t-[#D4AF37] rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-[#F5F0E8]/70">Redirecting...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A] relative">
-      {/* Background Pattern */}
+    <div className="min-h-screen bg-[#0D0D0D] relative">
+      {/* Clear matte + soft royal — no peach/pink, admin UI stays readable */}
       <div
         className="fixed inset-0 z-0 pointer-events-none"
         style={{
           background: `
-            radial-gradient(ellipse at 20% 20%, rgba(147, 51, 234, 0.15) 0%, transparent 60%),
-            radial-gradient(ellipse at 80% 80%, rgba(224, 123, 139, 0.1) 0%, transparent 60%),
-            radial-gradient(ellipse at 50% 50%, rgba(242, 194, 154, 0.05) 0%, transparent 70%)
-          `
+            radial-gradient(ellipse at 15% 10%, rgba(30, 58, 95, 0.22) 0%, transparent 55%),
+            radial-gradient(ellipse at 85% 90%, rgba(44, 74, 124, 0.12) 0%, transparent 50%),
+            linear-gradient(180deg, #0D0D0D 0%, #111111 100%)
+          `,
         }}
         aria-hidden="true"
       />
-      <div className="fixed inset-0 z-0 backdrop-blur-[100px] pointer-events-none opacity-50" aria-hidden="true" />
 
       {/* Sidebar - Desktop */}
       <div className="hidden lg:block">

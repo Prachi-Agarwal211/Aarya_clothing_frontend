@@ -132,11 +132,11 @@ function ResetPasswordForm() {
           <div className="flex items-center justify-between">
             {[1, 2, 3].map((stepNum) => (
               <div key={stepNum} className="flex items-center">
-                <div className="w-7 h-7 rounded-full flex items-center justify-center bg-[#FFD700] text-[#2A1208]">
+                <div className="w-7 h-7 rounded-full flex items-center justify-center bg-[#D4AF37] text-[#152238]">
                   <CheckCircle className="w-4 h-4" />
                 </div>
                 {stepNum < TOTAL_STEPS && (
-                  <div className="w-10 sm:w-16 h-0.5 mx-1.5 rounded bg-[#FFD700]" />
+                  <div className="w-10 sm:w-16 h-0.5 mx-1.5 rounded bg-[#D4AF37]" />
                 )}
               </div>
             ))}
@@ -144,8 +144,8 @@ function ResetPasswordForm() {
         </div>
 
         <div className="text-center mb-6 space-y-2 animate-fade-in-up-delay">
-          <div className="w-14 h-14 rounded-full bg-[#9333EA]/30 border border-[#FFD700]/60 flex items-center justify-center mx-auto">
-            <CheckCircle className="w-8 h-8 text-[#FFD700]" />
+          <div className="w-14 h-14 rounded-full bg-[#1E3A5F]/30 border border-[#D4AF37]/60 flex items-center justify-center mx-auto">
+            <CheckCircle className="w-8 h-8 text-[#D4AF37]" />
           </div>
           <h2 className="text-xl sm:text-2xl text-white/90 font-body">
             Password updated
@@ -157,11 +157,11 @@ function ResetPasswordForm() {
 
         <Link href="/auth/login" className="w-full animate-fade-in-up-delay">
           <Button
-            className="w-full h-11 sm:h-12 relative overflow-hidden rounded-xl bg-transparent border border-[#E07B8B]/40 group transition-all duration-500 hover:border-[#FFD700]/60 hover:shadow-[0_0_30px_rgba(183,110,121,0.3)]"
+            className="w-full h-11 sm:h-12 relative overflow-hidden rounded-xl bg-transparent border border-[#A8B4C8]/40 group transition-all duration-500 hover:border-[#D4AF37]/60 hover:shadow-[0_0_30px_rgba(183,110,121,0.3)]"
           >
-            <div className="absolute inset-0 bg-gradient-to-r from-[#9333EA]/80 via-[#E07B8B]/70 to-[#2A1208]/80 opacity-90"></div>
+            <div className="absolute inset-0 bg-gradient-to-r from-[#1E3A5F]/80 via-[#A8B4C8]/70 to-[#152238]/80 opacity-90"></div>
             <div className="animate-sheen"></div>
-            <span className="relative z-10 text-[#FFD700] font-serif tracking-[0.12em] text-base group-hover:text-white transition-colors font-heading">
+            <span className="relative z-10 text-[#D4AF37] font-serif tracking-[0.12em] text-base group-hover:text-white transition-colors font-heading">
               GO TO SIGN IN
             </span>
           </Button>
@@ -170,7 +170,7 @@ function ResetPasswordForm() {
         <div className="w-full mt-5 text-center">
           <p className="text-[#8A6A5C] text-xs">
             Remember your password now?{' '}
-            <Link href="/auth/login" className="text-[#F59E0B] hover:text-[#FFD700] transition-colors ml-1 uppercase text-sm font-bold tracking-widest">
+            <Link href="/auth/login" className="text-[#F59E0B] hover:text-[#D4AF37] transition-colors ml-1 uppercase text-sm font-bold tracking-widest">
               Sign In
             </Link>
           </p>
@@ -199,8 +199,8 @@ function ResetPasswordForm() {
               <div
                 className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 ${
                   stepNum <= 3
-                    ? 'bg-[#FFD700] text-[#2A1208]'
-                    : 'bg-[#E07B8B]/30 text-[#F5F5F5]/40'
+                    ? 'bg-[#D4AF37] text-[#152238]'
+                    : 'bg-[#A8B4C8]/30 text-[#F5F0E8]/40'
                 }`}
               >
                 {stepNum < 3 ? <CheckCircle className="w-4 h-4" /> : stepNum}
@@ -208,14 +208,14 @@ function ResetPasswordForm() {
               {stepNum < TOTAL_STEPS && (
                 <div
                   className={`w-10 sm:w-16 h-0.5 mx-1.5 rounded transition-all duration-300 ${
-                    stepNum < 3 ? 'bg-[#FFD700]' : 'bg-[#E07B8B]/30'
+                    stepNum < 3 ? 'bg-[#D4AF37]' : 'bg-[#A8B4C8]/30'
                   }`}
                 />
               )}
             </div>
           ))}
         </div>
-        <div className="flex justify-between mt-1.5 text-[11px] text-[#F5F5F5]/50 uppercase tracking-wider">
+        <div className="flex justify-between mt-1.5 text-[11px] text-[#F5F0E8]/50 uppercase tracking-wider">
           <span>Request</span>
           <span>Verify</span>
           <span>Reset</span>
@@ -233,25 +233,25 @@ function ResetPasswordForm() {
 
       <form className="w-full space-y-3 sm:space-y-3.5 animate-fade-in-up-delay" onSubmit={handleSubmit} noValidate>
         {verifiedIdentifier && (
-          <div className="flex items-center gap-2 p-2.5 rounded-lg bg-[#9333EA]/15 border border-[#E07B8B]/20 text-left">
-            <CheckCircle className="w-4 h-4 text-[#FFD700] flex-shrink-0" />
+          <div className="flex items-center gap-2 p-2.5 rounded-lg bg-[#1E3A5F]/15 border border-[#A8B4C8]/20 text-left">
+            <CheckCircle className="w-4 h-4 text-[#D4AF37] flex-shrink-0" />
             <div className="min-w-0">
-              <p className="text-[#F5F5F5]/90 text-[10px] font-bold tracking-widest uppercase">Verified</p>
-              <p className="text-[#F5F5F5]/70 text-xs truncate">{verifiedIdentifier}</p>
+              <p className="text-[#F5F0E8]/90 text-[10px] font-bold tracking-widest uppercase">Verified</p>
+              <p className="text-[#F5F0E8]/70 text-xs truncate">{verifiedIdentifier}</p>
             </div>
           </div>
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <div className="luxury-input-wrapper h-11 sm:h-12 rounded-xl relative group flex items-center px-4">
-          <Lock className="w-4 h-4 sm:w-5 sm:h-5 text-[#E07B8B] group-focus-within:text-[#FFD700] transition-colors duration-300 shrink-0" aria-hidden="true" />
+          <Lock className="w-4 h-4 sm:w-5 sm:h-5 text-[#A8B4C8] group-focus-within:text-[#D4AF37] transition-colors duration-300 shrink-0" aria-hidden="true" />
           <Input
             type={showPassword ? "text" : "password"}
             placeholder="New Password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             variant="minimal"
-            className="h-full pl-3 sm:pl-4 pr-11 text-[#F5F5F5] placeholder:text-[#8A6A5C] text-sm sm:text-base"
+            className="h-full pl-3 sm:pl-4 pr-11 text-[#F5F0E8] placeholder:text-[#8A6A5C] text-sm sm:text-base"
             autoComplete="new-password"
             aria-label="New password"
             required
@@ -259,7 +259,7 @@ function ResetPasswordForm() {
           <button
             type="button"
             onClick={() => setShowPassword(!showPassword)}
-            className="touch-target-icon absolute right-2.5 text-[#8A6A5C] hover:text-[#FFD700] transition-colors"
+            className="touch-target-icon absolute right-2.5 text-[#8A6A5C] hover:text-[#D4AF37] transition-colors"
             aria-label={showPassword ? "Hide password" : "Show password"}
             tabIndex={0}
           >
@@ -268,14 +268,14 @@ function ResetPasswordForm() {
         </div>
 
         <div className="luxury-input-wrapper h-11 sm:h-12 rounded-xl relative group flex items-center px-4">
-          <Lock className="w-4 h-4 sm:w-5 sm:h-5 text-[#E07B8B] group-focus-within:text-[#FFD700] transition-colors duration-300 shrink-0" aria-hidden="true" />
+          <Lock className="w-4 h-4 sm:w-5 sm:h-5 text-[#A8B4C8] group-focus-within:text-[#D4AF37] transition-colors duration-300 shrink-0" aria-hidden="true" />
           <Input
             type={showConfirmPassword ? "text" : "password"}
             placeholder="Confirm Password"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
             variant="minimal"
-            className="h-full pl-3 sm:pl-4 pr-11 text-[#F5F5F5] placeholder:text-[#8A6A5C] text-sm sm:text-base"
+            className="h-full pl-3 sm:pl-4 pr-11 text-[#F5F0E8] placeholder:text-[#8A6A5C] text-sm sm:text-base"
             autoComplete="new-password"
             aria-label="Confirm new password"
             required
@@ -283,7 +283,7 @@ function ResetPasswordForm() {
           <button
             type="button"
             onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-            className="touch-target-icon absolute right-2.5 text-[#8A6A5C] hover:text-[#FFD700] transition-colors"
+            className="touch-target-icon absolute right-2.5 text-[#8A6A5C] hover:text-[#D4AF37] transition-colors"
             aria-label={showConfirmPassword ? "Hide password" : "Show password"}
             tabIndex={0}
           >
@@ -324,15 +324,15 @@ function ResetPasswordForm() {
         <Button
           type="submit"
           disabled={isSubmitting}
-          className="w-full h-11 sm:h-12 mt-1 relative overflow-hidden rounded-xl bg-transparent border border-[#E07B8B]/40 group transition-all duration-500 hover:border-[#FFD700]/60 hover:shadow-[0_0_30px_rgba(183,110,121,0.3)]"
+          className="w-full h-11 sm:h-12 mt-1 relative overflow-hidden rounded-xl bg-transparent border border-[#A8B4C8]/40 group transition-all duration-500 hover:border-[#D4AF37]/60 hover:shadow-[0_0_30px_rgba(183,110,121,0.3)]"
           aria-busy={isSubmitting}
         >
-          <div className="absolute inset-0 bg-gradient-to-r from-[#9333EA]/80 via-[#E07B8B]/70 to-[#2A1208]/80 opacity-90"></div>
+          <div className="absolute inset-0 bg-gradient-to-r from-[#1E3A5F]/80 via-[#A8B4C8]/70 to-[#152238]/80 opacity-90"></div>
           <div className="animate-sheen"></div>
-          <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-[#FFD700]/70 to-transparent"></div>
-          <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-[#E07B8B]/50 to-transparent"></div>
+          <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-[#D4AF37]/70 to-transparent"></div>
+          <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-[#A8B4C8]/50 to-transparent"></div>
 
-          <span className="relative z-10 text-[#FFD700] font-serif tracking-[0.12em] text-base sm:text-lg group-hover:text-white transition-colors font-heading">
+          <span className="relative z-10 text-[#D4AF37] font-serif tracking-[0.12em] text-base sm:text-lg group-hover:text-white transition-colors font-heading">
             {isSubmitting ? 'RESETTING...' : 'RESET PASSWORD'}
           </span>
         </Button>
@@ -351,7 +351,7 @@ function ResetPasswordForm() {
       </form>
 
       <div className="w-full mt-6 sm:mt-8">
-        <Link href="/auth/login" className="text-[#8A6A5C] hover:text-[#FFD700] transition-colors text-xs sm:text-sm uppercase font-bold tracking-widest">
+        <Link href="/auth/login" className="text-[#8A6A5C] hover:text-[#D4AF37] transition-colors text-xs sm:text-sm uppercase font-bold tracking-widest">
           ← Back to Sign In
         </Link>
       </div>

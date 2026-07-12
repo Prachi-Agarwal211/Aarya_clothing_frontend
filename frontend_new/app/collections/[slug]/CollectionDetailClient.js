@@ -235,20 +235,20 @@ export default function CollectionDetailClient({ initialCollection, initialProdu
   // Check if collection exists
   if (!category) {
     return (
-      <main className="min-h-screen text-[#F5F5F5] selection:bg-[#FFD700] selection:text-[#000000]">
+      <main className="min-h-screen text-[#F5F0E8] selection:bg-[#D4AF37] selection:text-[#000000]">
         <div className="relative z-10 page-wrapper">
           <EnhancedHeader />
           <div className="container mx-auto px-4 sm:px-6 md:px-8 header-spacing">
             <div className="text-center py-20">
-              <h1 className="text-3xl md:text-4xl font-bold text-[#FFD700] mb-4" style={{ fontFamily: 'Cinzel, serif' }}>
+              <h1 className="text-3xl md:text-4xl font-bold text-[#D4AF37] mb-4" style={{ fontFamily: 'Cinzel, serif' }}>
                 Collection Not Found
               </h1>
-              <p className="text-[#F5F5F5]/60 mb-8">
+              <p className="text-[#F5F0E8]/60 mb-8">
                 The collection you&apos;re looking for doesn&apos;t exist or has been removed.
               </p>
               <Link
                 href="/"
-                className="inline-flex items-center gap-2 px-6 py-3 bg-[#9333EA] text-[#FFD700] rounded-xl hover:bg-[#9333EA]/80 transition-colors"
+                className="inline-flex items-center gap-2 px-6 py-3 bg-[#1E3A5F] text-[#D4AF37] rounded-xl hover:bg-[#1E3A5F]/80 transition-colors"
               >
                 <ArrowLeft className="w-4 h-4" />
                 Back to Home
@@ -264,7 +264,7 @@ export default function CollectionDetailClient({ initialCollection, initialProdu
   }
 
   return (
-    <main className="min-h-screen text-[#F5F5F5] selection:bg-[#FFD700] selection:text-[#000000]">
+    <main className="min-h-screen text-[#F5F0E8] selection:bg-[#D4AF37] selection:text-[#000000]">
       <div className="relative z-10 page-wrapper">
         <EnhancedHeader />
 
@@ -274,7 +274,7 @@ export default function CollectionDetailClient({ initialCollection, initialProdu
             {/* Back Button */}
             <button
               onClick={() => router.back()}
-              className="inline-flex items-center gap-2 text-sm text-[#F5F5F5]/60 hover:text-[#FFD700] transition-colors mb-4"
+              className="inline-flex items-center gap-2 text-sm text-[#F5F0E8]/60 hover:text-[#D4AF37] transition-colors mb-4"
               aria-label="Go back to previous page"
               type="button"
             >
@@ -283,17 +283,17 @@ export default function CollectionDetailClient({ initialCollection, initialProdu
             </button>
 
             {/* Breadcrumb */}
-            <nav className="flex items-center gap-2 text-sm text-[#F5F5F5]/50 mb-5" aria-label="Breadcrumb">
-              <Link href="/" className="hover:text-[#FFD700] transition-colors">Home</Link>
-              <span className="text-[#F5F5F5]/30" aria-hidden="true">/</span>
-              <Link href="/collections" className="hover:text-[#FFD700] transition-colors">Collections</Link>
-              <span className="text-[#F5F5F5]/30" aria-hidden="true">/</span>
-              <span className="text-[#FFD700]" aria-current="page">{category?.name}</span>
+            <nav className="flex items-center gap-2 text-sm text-[#F5F0E8]/50 mb-5" aria-label="Breadcrumb">
+              <Link href="/" className="hover:text-[#D4AF37] transition-colors">Home</Link>
+              <span className="text-[#F5F0E8]/30" aria-hidden="true">/</span>
+              <Link href="/collections" className="hover:text-[#D4AF37] transition-colors">Collections</Link>
+              <span className="text-[#F5F0E8]/30" aria-hidden="true">/</span>
+              <span className="text-[#D4AF37]" aria-current="page">{category?.name}</span>
             </nav>
 
             <div className="flex items-end gap-6">
               {category?.image_url && (
-                <div className="relative w-16 h-16 rounded-xl overflow-hidden border border-[#E07B8B]/20 flex-shrink-0 hidden sm:block">
+                <div className="relative w-16 h-16 rounded-xl overflow-hidden border border-[#A8B4C8]/20 flex-shrink-0 hidden sm:block">
                   <Image
                     src={category.image_url}
                     alt={category.name}
@@ -305,13 +305,13 @@ export default function CollectionDetailClient({ initialCollection, initialProdu
               )}
               <div>
                 <h1
-                  className="text-3xl md:text-4xl font-bold text-[#FFD700]"
+                  className="text-3xl md:text-4xl font-bold text-[#D4AF37]"
                   style={{ fontFamily: 'Cinzel, serif' }}
                 >
                   {category?.name}
                 </h1>
                 {category?.description && (
-                  <p className="text-[#F5F5F5]/60 mt-1.5 max-w-2xl text-sm md:text-base">
+                  <p className="text-[#F5F0E8]/60 mt-1.5 max-w-2xl text-sm md:text-base">
                     {category.description}
                   </p>
                 )}
@@ -322,16 +322,16 @@ export default function CollectionDetailClient({ initialCollection, initialProdu
           {/* Products Section */}
           <div className="container mx-auto px-4 sm:px-6 md:px-8 pb-bottom-nav lg:pb-16">
             {/* Toolbar */}
-            <div className="flex flex-wrap items-center gap-3 mb-6 pb-4 border-b border-[#E07B8B]/10">
+            <div className="flex flex-wrap items-center gap-3 mb-6 pb-4 border-b border-[#A8B4C8]/10">
               {/* Search */}
               <div className="relative flex-1 min-w-[160px] sm:min-w-[180px]">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#F5F5F5]/40" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#F5F0E8]/40" />
                 <input
                   type="text"
                   placeholder="Search in collection..."
                   value={filters.search}
                   onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
-                  className="w-full pl-9 pr-4 py-2 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-xl text-[#F5F5F5] placeholder-[#F5F5F5]/40 focus:outline-none focus:border-[#E07B8B]/40 transition-colors text-sm"
+                  className="w-full pl-9 pr-4 py-2 bg-[#111111]/60 border border-[#A8B4C8]/20 rounded-xl text-[#F5F0E8] placeholder-[#F5F0E8]/40 focus:outline-none focus:border-[#A8B4C8]/40 transition-colors text-sm"
                   aria-label="Search products in collection"
                 />
               </div>
@@ -341,14 +341,14 @@ export default function CollectionDetailClient({ initialCollection, initialProdu
                 <select
                   value={filters.priceRange}
                   onChange={(e) => setFilters(prev => ({ ...prev, priceRange: e.target.value }))}
-                  className="appearance-none pl-3 pr-8 py-2 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-xl text-[#F5F5F5] focus:outline-none focus:border-[#E07B8B]/40 transition-colors cursor-pointer text-sm min-w-[100px] sm:min-w-[140px]"
+                  className="appearance-none pl-3 pr-8 py-2 bg-[#111111]/60 border border-[#A8B4C8]/20 rounded-xl text-[#F5F0E8] focus:outline-none focus:border-[#A8B4C8]/40 transition-colors cursor-pointer text-sm min-w-[100px] sm:min-w-[140px]"
                   aria-label="Filter by price range"
                 >
                   {PRICE_RANGES.map(range => (
-                    <option key={range.value} value={range.value} className="bg-[#0A0A0A]">{range.label}</option>
+                    <option key={range.value} value={range.value} className="bg-[#111111]">{range.label}</option>
                   ))}
                 </select>
-                <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#F5F5F5]/50 pointer-events-none" aria-hidden="true" />
+                <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#F5F0E8]/50 pointer-events-none" aria-hidden="true" />
               </div>
 
               {/* Max Price Input */}
@@ -358,7 +358,7 @@ export default function CollectionDetailClient({ initialCollection, initialProdu
                   placeholder="Max ₹"
                   value={filters.maxPrice}
                   onChange={(e) => setFilters(prev => ({ ...prev, maxPrice: e.target.value }))}
-                  className="w-20 sm:w-24 px-3 py-2 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-xl text-[#F5F5F5] placeholder-[#F5F5F5]/40 focus:outline-none focus:border-[#E07B8B]/40 text-sm"
+                  className="w-20 sm:w-24 px-3 py-2 bg-[#111111]/60 border border-[#A8B4C8]/20 rounded-xl text-[#F5F0E8] placeholder-[#F5F0E8]/40 focus:outline-none focus:border-[#A8B4C8]/40 text-sm"
                   aria-label="Maximum price"
                 />
               </div>
@@ -368,21 +368,21 @@ export default function CollectionDetailClient({ initialCollection, initialProdu
                 <select
                   value={filters.sort}
                   onChange={(e) => setFilters(prev => ({ ...prev, sort: e.target.value }))}
-                  className="appearance-none pl-3 pr-8 py-2 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-xl text-[#F5F5F5] focus:outline-none focus:border-[#E07B8B]/40 transition-colors cursor-pointer text-sm"
+                  className="appearance-none pl-3 pr-8 py-2 bg-[#111111]/60 border border-[#A8B4C8]/20 rounded-xl text-[#F5F0E8] focus:outline-none focus:border-[#A8B4C8]/40 transition-colors cursor-pointer text-sm"
                   aria-label="Sort products"
                 >
                   {SORT_OPTIONS.map(option => (
-                    <option key={option.value} value={option.value} className="bg-[#0A0A0A]">{option.label}</option>
+                    <option key={option.value} value={option.value} className="bg-[#111111]">{option.label}</option>
                   ))}
                 </select>
-                <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#F5F5F5]/50 pointer-events-none" aria-hidden="true" />
+                <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#F5F0E8]/50 pointer-events-none" aria-hidden="true" />
               </div>
 
               {/* Clear Filters */}
               {hasActiveFilters && (
                 <button
                   onClick={clearFilters}
-                  className="flex items-center gap-1.5 px-3 py-2 text-sm text-[#E07B8B] hover:text-[#FFD700] border border-[#E07B8B]/20 rounded-xl hover:border-[#E07B8B]/40 transition-colors"
+                  className="flex items-center gap-1.5 px-3 py-2 text-sm text-[#A8B4C8] hover:text-[#D4AF37] border border-[#A8B4C8]/20 rounded-xl hover:border-[#A8B4C8]/40 transition-colors"
                   aria-label="Clear all filters"
                 >
                   <X className="w-3.5 h-3.5" />
@@ -391,21 +391,21 @@ export default function CollectionDetailClient({ initialCollection, initialProdu
               )}
 
               {/* Results count — full width row on mobile */}
-              <span className="w-full sm:w-auto text-center sm:text-left sm:ml-auto text-sm text-[#F5F5F5]/40">
+              <span className="w-full sm:w-auto text-center sm:text-left sm:ml-auto text-sm text-[#F5F0E8]/40">
                 {loading ? 'Loading...' : `Showing ${filteredProducts.length} of ${totalProducts} products`}
               </span>
             </div>
 
             {/* Products Grid */}
             {error ? (
-              <div className="text-center py-16 bg-[#0A0A0A]/40 rounded-2xl border border-red-500/20">
+              <div className="text-center py-16 bg-[#111111]/40 rounded-2xl border border-red-500/20">
                 <p className="text-red-400 mb-4">{error}</p>
                 <button
                   onClick={() => {
                     setRetryCount(0);
                     fetchProducts();
                   }}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#9333EA]/30 text-[#FFD700] rounded-xl hover:bg-[#9333EA]/50 transition-colors"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#1E3A5F]/30 text-[#D4AF37] rounded-xl hover:bg-[#1E3A5F]/50 transition-colors"
                 >
                   <RefreshCw className="w-4 h-4" />
                   Try Again
@@ -415,9 +415,9 @@ export default function CollectionDetailClient({ initialCollection, initialProdu
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-5">
                 {[...Array(8)].map((_, i) => (
                   <div key={i} className="animate-pulse">
-                    <div className="aspect-[3/4] bg-[#E07B8B]/10 rounded-2xl mb-3" />
-                    <div className="h-4 bg-[#E07B8B]/10 rounded w-3/4 mb-2" />
-                    <div className="h-4 bg-[#E07B8B]/10 rounded w-1/2" />
+                    <div className="aspect-[3/4] bg-[#A8B4C8]/10 rounded-2xl mb-3" />
+                    <div className="h-4 bg-[#A8B4C8]/10 rounded w-3/4 mb-2" />
+                    <div className="h-4 bg-[#A8B4C8]/10 rounded w-1/2" />
                   </div>
                 ))}
               </div>
@@ -425,22 +425,22 @@ export default function CollectionDetailClient({ initialCollection, initialProdu
               <div className="text-center py-16">
                 {hasActiveFilters ? (
                   <>
-                    <p className="text-[#F5F5F5]/50 mb-4">No products found in this collection</p>
+                    <p className="text-[#F5F0E8]/50 mb-4">No products found in this collection</p>
                     <button
                       onClick={clearFilters}
-                      className="px-6 py-2 text-sm text-[#E07B8B] hover:text-[#FFD700] border border-[#E07B8B]/20 rounded-xl hover:border-[#E07B8B]/40 transition-colors"
+                      className="px-6 py-2 text-sm text-[#A8B4C8] hover:text-[#D4AF37] border border-[#A8B4C8]/20 rounded-xl hover:border-[#A8B4C8]/40 transition-colors"
                     >
                       Clear filters
                     </button>
                   </>
                 ) : (
                   <>
-                    <p className="text-[#F5F5F5]/50 mb-6">No products in this collection yet</p>
-                    <p className="text-[#F5F5F5]/40 text-sm mb-8">Explore our featured products</p>
+                    <p className="text-[#F5F0E8]/50 mb-6">No products in this collection yet</p>
+                    <p className="text-[#F5F0E8]/40 text-sm mb-8">Explore our featured products</p>
                     {loadingFeatured ? (
                       <div className="flex justify-center gap-4">
                         {[1, 2, 3, 4].map(i => (
-                          <div key={i} className="w-48 h-64 bg-[#9333EA]/10 rounded-2xl animate-pulse" />
+                          <div key={i} className="w-48 h-64 bg-[#1E3A5F]/10 rounded-2xl animate-pulse" />
                         ))}
                       </div>
                     ) : featuredProducts.length > 0 ? (
@@ -450,7 +450,7 @@ export default function CollectionDetailClient({ initialCollection, initialProdu
                         ))}
                       </div>
                     ) : (
-                      <p className="text-[#F5F5F5]/40 text-sm">No featured products available</p>
+                      <p className="text-[#F5F0E8]/40 text-sm">No featured products available</p>
                     )}
                   </>
                 )}
@@ -469,14 +469,14 @@ export default function CollectionDetailClient({ initialCollection, initialProdu
                     className="group"
                   >
                     <div className={`
-                      bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15
+                      bg-[#111111]/40 backdrop-blur-md border border-[#A8B4C8]/15
                       rounded-2xl overflow-hidden
-                      hover:border-[#E07B8B]/30 hover:shadow-[0_0_30px_rgba(183,110,121,0.1)]
+                      hover:border-[#A8B4C8]/30 hover:shadow-[0_0_30px_rgba(183,110,121,0.1)]
                       transition-all duration-300
                       ${viewMode === 'list' ? 'flex' : ''}
                     `}>
                       {/* Image */}
-                      <div className={`relative overflow-hidden bg-[#1A1A1A] ${viewMode === 'list' ? 'w-28 h-28 flex-shrink-0' : 'aspect-[3/4]'}`}>
+                      <div className={`relative overflow-hidden bg-[#1C1C1C] ${viewMode === 'list' ? 'w-28 h-28 flex-shrink-0' : 'aspect-[3/4]'}`}>
                         {(product.primary_image || product.image_url) ? (
                           <Image
                             src={product.primary_image || product.image_url}
@@ -486,34 +486,34 @@ export default function CollectionDetailClient({ initialCollection, initialProdu
                             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
                           />
                         ) : (
-                          <div className="absolute inset-0 bg-[#141414] flex items-center justify-center">
-                            <span className="text-[#E07B8B]/30 text-xs">No Image</span>
+                          <div className="absolute inset-0 bg-[#161616] flex items-center justify-center">
+                            <span className="text-[#A8B4C8]/30 text-xs">No Image</span>
                           </div>
                         )}
                         {(product.is_new || product.is_new_arrival) && (
-                          <span className="absolute top-2 left-2 z-10 px-2 py-0.5 bg-[#9333EA]/80 text-[#FFD700] text-xs rounded-md">New</span>
+                          <span className="absolute top-2 left-2 z-10 px-2 py-0.5 bg-[#1E3A5F]/80 text-[#D4AF37] text-xs rounded-md">New</span>
                         )}
                         {product.discount_percentage > 0 && (
-                          <span className="absolute top-2 right-2 z-10 px-2 py-0.5 bg-[#E07B8B]/80 text-white text-xs rounded-md">{product.discount_percentage}% OFF</span>
+                          <span className="absolute top-2 right-2 z-10 px-2 py-0.5 bg-[#A8B4C8]/80 text-white text-xs rounded-md">{product.discount_percentage}% OFF</span>
                         )}
                       </div>
 
                       {/* Info */}
                       <div className="p-3">
-                        <h3 className="font-medium text-[#F5F5F5] group-hover:text-[#FFD700] transition-colors line-clamp-2 text-sm">
+                        <h3 className="font-medium text-[#F5F0E8] group-hover:text-[#D4AF37] transition-colors line-clamp-2 text-sm">
                           {product.name}
                         </h3>
                         <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                          <span className="font-semibold text-[#FFD700] text-sm">{formatCurrency(product.price)}</span>
+                          <span className="font-semibold text-[#D4AF37] text-sm">{formatCurrency(product.price)}</span>
                           {product.mrp > product.price && (
-                            <span className="text-xs text-[#F5F5F5]/40 line-through">{formatCurrency(product.mrp)}</span>
+                            <span className="text-xs text-[#F5F0E8]/40 line-through">{formatCurrency(product.mrp)}</span>
                           )}
                         </div>
                         {product.rating > 0 && (
                           <div className="flex items-center gap-1 mt-1">
                             <span className="text-yellow-400 text-xs">★</span>
-                            <span className="text-xs text-[#F5F5F5]/60">{product.rating}</span>
-                            <span className="text-xs text-[#F5F5F5]/40">({product.reviews_count || 0})</span>
+                            <span className="text-xs text-[#F5F0E8]/60">{product.rating}</span>
+                            <span className="text-xs text-[#F5F0E8]/40">({product.reviews_count || 0})</span>
                           </div>
                         )}
                       </div>
@@ -531,11 +531,11 @@ export default function CollectionDetailClient({ initialCollection, initialProdu
                       router.push(`/collections/${slug}?page=${newPage}`);
                     }}
                     disabled={filters.page <= 1}
-                    className="p-3 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg border border-[#E07B8B]/20 text-[#F5F5F5]/70 hover:border-[#E07B8B]/40 hover:text-[#F5F5F5] disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                    className="p-3 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg border border-[#A8B4C8]/20 text-[#F5F0E8]/70 hover:border-[#A8B4C8]/40 hover:text-[#F5F0E8] disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                   >
                     <ChevronLeft className="w-4 h-4" />
                   </button>
-                  <span className="text-sm text-[#F5F5F5]/70 px-4">
+                  <span className="text-sm text-[#F5F0E8]/70 px-4">
                     Page {filters.page} of {totalPages}
                   </span>
                   <button                    onClick={() => {
@@ -544,7 +544,7 @@ export default function CollectionDetailClient({ initialCollection, initialProdu
                       router.push(`/collections/${slug}?page=${newPage}`);
                     }}
                     disabled={filters.page >= totalPages}
-                    className="p-3 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg border border-[#E07B8B]/20 text-[#F5F5F5]/70 hover:border-[#E07B8B]/40 hover:text-[#F5F5F5] disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                    className="p-3 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg border border-[#A8B4C8]/20 text-[#F5F0E8]/70 hover:border-[#A8B4C8]/40 hover:text-[#F5F0E8] disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                   >
                     <ChevronRightIcon className="w-4 h-4" />
                   </button>

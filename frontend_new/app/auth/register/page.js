@@ -399,9 +399,9 @@ export default function RegisterPage() {
 
           {/* Phone Number - Large and prominent */}
           <div className="space-y-2">
-            <label className="text-[#F5F5F5]/80 text-sm font-medium">Phone Number</label>              <div className="luxury-input-wrapper h-14 sm:h-16 rounded-xl relative group flex items-center px-4 bg-[#0A0A0A]/80 border border-[#E07B8B]/30">
-              <Phone className="w-5 h-5 sm:w-6 sm:h-6 text-[#E07B8B] group-focus-within:text-[#FFD700] transition-colors duration-300 shrink-0" aria-hidden="true" />
-              <span className="text-[#FFD700] font-medium text-lg sm:text-xl ml-2 shrink-0 select-none">+91</span>
+            <label className="text-[#F5F0E8]/80 text-sm font-medium">Phone Number</label>              <div className="luxury-input-wrapper h-14 sm:h-16 rounded-xl relative group flex items-center px-4 bg-[#111111]/80 border border-[#A8B4C8]/30">
+              <Phone className="w-5 h-5 sm:w-6 sm:h-6 text-[#A8B4C8] group-focus-within:text-[#D4AF37] transition-colors duration-300 shrink-0" aria-hidden="true" />
+              <span className="text-[#D4AF37] font-medium text-lg sm:text-xl ml-2 shrink-0 select-none">+91</span>
               <Input
                 id="phone-register"
                 name="phone-register"
@@ -416,17 +416,17 @@ export default function RegisterPage() {
                 }}
                 placeholder="XXXXXXXXXX"
                 variant="minimal"
-                className="h-full pl-2 text-[#F5F5F5] placeholder:text-[#8A6A5C] text-lg sm:text-xl font-medium tracking-wider"
+                className="h-full pl-2 text-[#F5F0E8] placeholder:text-[#8A6A5C] text-lg sm:text-xl font-medium tracking-wider"
               />
             </div>
-            <p className="text-[#F5F5F5]/50 text-xs px-1">
+            <p className="text-[#F5F0E8]/50 text-xs px-1">
               {AUTH_COPY.phoneFormatHint}
             </p>
           </div>
 
           {/* OTP Method Selector */}
           <div className="space-y-2">
-            <p className="text-[#F5F5F5]/60 text-xs uppercase tracking-widest">Send OTP via</p>
+            <p className="text-[#F5F0E8]/60 text-xs uppercase tracking-widest">Send OTP via</p>
             <div className="flex gap-3">
               <button 
                 type="button" 
@@ -434,14 +434,14 @@ export default function RegisterPage() {
                 disabled={!smsOtpEnabled}
                 className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-xl border-2 transition-all duration-300 ${
                   !smsOtpEnabled 
-                    ? 'opacity-50 cursor-not-allowed bg-[#9333EA]/5 border-[#E07B8B]/20'
+                    ? 'opacity-50 cursor-not-allowed bg-[#1E3A5F]/5 border-[#A8B4C8]/20'
                     : verificationMethod === 'otp_sms'
-                      ? 'bg-[#9333EA]/20 border-[#FFD700]/60 shadow-[0_0_20px_rgba(242,194,154,0.15)]'
-                      : 'bg-[#9333EA]/10 border-[#E07B8B]/30 hover:border-[#FFD700]/40'
+                      ? 'bg-[#1E3A5F]/20 border-[#D4AF37]/60 shadow-[0_0_20px_rgba(242,194,154,0.15)]'
+                      : 'bg-[#1E3A5F]/10 border-[#A8B4C8]/30 hover:border-[#D4AF37]/40'
                 }`}
               >
-                <Smartphone className={`w-5 h-5 ${verificationMethod === 'otp_sms' ? 'text-[#FFD700]' : 'text-[#E07B8B]'}`} />
-                <span className="text-sm font-medium text-[#F5F5F5]/90">SMS</span>
+                <Smartphone className={`w-5 h-5 ${verificationMethod === 'otp_sms' ? 'text-[#D4AF37]' : 'text-[#A8B4C8]'}`} />
+                <span className="text-sm font-medium text-[#F5F0E8]/90">SMS</span>
               </button>
               
               <button 
@@ -450,14 +450,14 @@ export default function RegisterPage() {
                 disabled={!whatsappEnabled}
                 className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-xl border-2 transition-all duration-300 ${
                   !whatsappEnabled 
-                    ? 'opacity-50 cursor-not-allowed bg-[#9333EA]/5 border-[#E07B8B]/20'
+                    ? 'opacity-50 cursor-not-allowed bg-[#1E3A5F]/5 border-[#A8B4C8]/20'
                     : verificationMethod === 'otp_whatsapp'
-                      ? 'bg-[#9333EA]/20 border-[#FFD700]/60 shadow-[0_0_20px_rgba(242,194,154,0.15)]'
-                      : 'bg-[#9333EA]/10 border-[#E07B8B]/30 hover:border-[#FFD700]/40'
+                      ? 'bg-[#1E3A5F]/20 border-[#D4AF37]/60 shadow-[0_0_20px_rgba(242,194,154,0.15)]'
+                      : 'bg-[#1E3A5F]/10 border-[#A8B4C8]/30 hover:border-[#D4AF37]/40'
                 }`}
               >
-                <MessageCircle className={`w-5 h-5 ${verificationMethod === 'otp_whatsapp' ? 'text-[#FFD700]' : 'text-[#E07B8B]'}`} />
-                <span className="text-sm font-medium text-[#F5F5F5]/90">WhatsApp</span>
+                <MessageCircle className={`w-5 h-5 ${verificationMethod === 'otp_whatsapp' ? 'text-[#D4AF37]' : 'text-[#A8B4C8]'}`} />
+                <span className="text-sm font-medium text-[#F5F0E8]/90">WhatsApp</span>
               </button>
               
               <button 
@@ -465,12 +465,12 @@ export default function RegisterPage() {
                 onClick={() => setVerificationMethod('otp_email')}
                 className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-xl border-2 transition-all duration-300 ${
                   verificationMethod === 'otp_email'
-                    ? 'bg-[#9333EA]/20 border-[#FFD700]/60 shadow-[0_0_20px_rgba(242,194,154,0.15)]'
-                    : 'bg-[#9333EA]/10 border-[#E07B8B]/30 hover:border-[#FFD700]/40'
+                    ? 'bg-[#1E3A5F]/20 border-[#D4AF37]/60 shadow-[0_0_20px_rgba(242,194,154,0.15)]'
+                    : 'bg-[#1E3A5F]/10 border-[#A8B4C8]/30 hover:border-[#D4AF37]/40'
                 }`}
               >
-                <Mail className={`w-5 h-5 ${verificationMethod === 'otp_email' ? 'text-[#FFD700]' : 'text-[#E07B8B]'}`} />
-                <span className="text-sm font-medium text-[#F5F5F5]/90">Email</span>
+                <Mail className={`w-5 h-5 ${verificationMethod === 'otp_email' ? 'text-[#D4AF37]' : 'text-[#A8B4C8]'}`} />
+                <span className="text-sm font-medium text-[#F5F0E8]/90">Email</span>
               </button>
             </div>
           </div>
@@ -479,16 +479,16 @@ export default function RegisterPage() {
           <Button
             type="submit"
             disabled={isSubmitting || !phone || phone.length < 10}
-            className="w-full h-14 sm:h-16 relative overflow-hidden rounded-xl bg-transparent border border-[#E07B8B]/40 group transition-all duration-500 hover:border-[#FFD700]/60 hover:shadow-[0_0_30px_rgba(183,110,121,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full h-14 sm:h-16 relative overflow-hidden rounded-xl bg-transparent border border-[#A8B4C8]/40 group transition-all duration-500 hover:border-[#D4AF37]/60 hover:shadow-[0_0_30px_rgba(183,110,121,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <div className="absolute inset-0 bg-gradient-to-r from-[#9333EA]/80 via-[#E07B8B]/70 to-[#2A1208]/80 opacity-90"></div>
+            <div className="absolute inset-0 bg-gradient-to-r from-[#1E3A5F]/80 via-[#A8B4C8]/70 to-[#152238]/80 opacity-90"></div>
             <div className="animate-sheen"></div>
-            <span className="relative z-10 text-[#FFD700] font-serif tracking-[0.12em] text-lg group-hover:text-white transition-colors font-heading">
+            <span className="relative z-10 text-[#D4AF37] font-serif tracking-[0.12em] text-lg group-hover:text-white transition-colors font-heading">
               {isSubmitting ? AUTH_COPY.sendingOtp : AUTH_COPY.sendOtpButton}
             </span>
           </Button>
 
-          <p className="text-center text-[#F5F5F5]/50 text-sm px-2">
+          <p className="text-center text-[#F5F0E8]/50 text-sm px-2">
             {AUTH_COPY.newUserMessage}
           </p>
         </form>
@@ -504,19 +504,19 @@ export default function RegisterPage() {
           )}
 
           <div className="text-center mb-4">
-            <div className="w-14 h-14 rounded-full bg-[#9333EA]/30 border border-[#E07B8B]/30 flex items-center justify-center mx-auto mb-3">
+            <div className="w-14 h-14 rounded-full bg-[#1E3A5F]/30 border border-[#A8B4C8]/30 flex items-center justify-center mx-auto mb-3">
               {verificationMethod === 'otp_email' ? (
-                <Mail className="w-7 h-7 text-[#FFD700]" />
+                <Mail className="w-7 h-7 text-[#D4AF37]" />
               ) : verificationMethod === 'otp_whatsapp' ? (
-                <MessageCircle className="w-7 h-7 text-[#FFD700]" />
+                <MessageCircle className="w-7 h-7 text-[#D4AF37]" />
               ) : (
-                <Smartphone className="w-7 h-7 text-[#FFD700]" />
+                <Smartphone className="w-7 h-7 text-[#D4AF37]" />
               )}
             </div>
-            <p className="text-[#F5F5F5]/80 text-base mb-1">
+            <p className="text-[#F5F0E8]/80 text-base mb-1">
               {AUTH_COPY.otpEnterCode}
             </p>
-            <p className="text-[#FFD700] font-medium text-lg">
+            <p className="text-[#D4AF37] font-medium text-lg">
               +91 {phone}
             </p>
           </div>
@@ -534,7 +534,7 @@ export default function RegisterPage() {
                 onChange={(e) => handleOtpChange(index, e.target.value)}
                 onKeyDown={(e) => handleOtpKeyDown(index, e)}
                 disabled={isSubmitting || otpExpired}
-                className="w-12 sm:w-14 h-14 text-center text-xl font-bold border-2 border-[#E07B8B]/30 bg-[#0A0A0A]/60 text-[#FFD700] rounded-xl focus:border-[#FFD700] focus:outline-none focus:shadow-[0_0_0_3px_rgba(242,194,154,0.1)]"
+                className="w-12 sm:w-14 h-14 text-center text-xl font-bold border-2 border-[#A8B4C8]/30 bg-[#111111]/60 text-[#D4AF37] rounded-xl focus:border-[#D4AF37] focus:outline-none focus:shadow-[0_0_0_3px_rgba(242,194,154,0.1)]"
               />
             ))}
           </div>
@@ -542,7 +542,7 @@ export default function RegisterPage() {
           {/* Timer and Resend */}
           <div className="text-center space-y-2">
             {!otpExpired ? (
-              <p className="text-sm text-[#F5F5F5]/70">{AUTH_COPY.otpExpiresIn} {formatTime(otpTimeLeft)}</p>
+              <p className="text-sm text-[#F5F0E8]/70">{AUTH_COPY.otpExpiresIn} {formatTime(otpTimeLeft)}</p>
             ) : (
               <p className="text-sm text-red-300">Code expired. Request a new one.</p>
             )}
@@ -550,7 +550,7 @@ export default function RegisterPage() {
               type="button"
               onClick={handleResendOtp}
               disabled={resendCooldown > 0 || resending}
-              className="text-sm font-medium text-[#F59E0B] hover:text-[#FFD700] disabled:text-[#8A6A5C] disabled:cursor-not-allowed"
+              className="text-sm font-medium text-[#F59E0B] hover:text-[#D4AF37] disabled:text-[#8A6A5C] disabled:cursor-not-allowed"
             >
               {resending
                 ? 'Sending…'
@@ -564,18 +564,18 @@ export default function RegisterPage() {
           <Button
             type="submit"
             disabled={isSubmitting || otpExpired || otpDigits.some(d => !d)}
-            className="w-full h-14 sm:h-16 relative overflow-hidden rounded-xl bg-transparent border border-[#E07B8B]/40 group transition-all duration-500 hover:border-[#FFD700]/60 hover:shadow-[0_0_30px_rgba(183,110,121,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full h-14 sm:h-16 relative overflow-hidden rounded-xl bg-transparent border border-[#A8B4C8]/40 group transition-all duration-500 hover:border-[#D4AF37]/60 hover:shadow-[0_0_30px_rgba(183,110,121,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <div className="absolute inset-0 bg-gradient-to-r from-[#9333EA]/80 via-[#E07B8B]/70 to-[#2A1208]/80 opacity-90"></div>
+            <div className="absolute inset-0 bg-gradient-to-r from-[#1E3A5F]/80 via-[#A8B4C8]/70 to-[#152238]/80 opacity-90"></div>
             <div className="animate-sheen"></div>
-            <span className="relative z-10 text-[#FFD700] font-serif tracking-[0.12em] text-lg group-hover:text-white transition-colors font-heading">
+            <span className="relative z-10 text-[#D4AF37] font-serif tracking-[0.12em] text-lg group-hover:text-white transition-colors font-heading">
               {isSubmitting ? AUTH_COPY.verifying : AUTH_COPY.verifyButton}
             </span>
           </Button>
 
           <div className="text-center">
             <button type="button" onClick={() => { setStep(1); setError(''); }}
-              className="text-sm text-[#8A6A5C] hover:text-[#F5F5F5]/80"
+              className="text-sm text-[#8A6A5C] hover:text-[#F5F0E8]/80"
             >
               ← Change phone number
             </button>
@@ -588,7 +588,7 @@ export default function RegisterPage() {
       {step === 3 && (
         <div className="w-full space-y-4 animate-fade-in-up-delay">
           <div className="text-center mb-2">
-            <p className="text-[#F5F5F5]/70 text-sm">
+            <p className="text-[#F5F0E8]/70 text-sm">
               Tell us a bit about yourself so we can personalize your experience.
             </p>
           </div>
@@ -601,45 +601,45 @@ export default function RegisterPage() {
 
           <form className="space-y-4" onSubmit={handleProfileSubmit}>
             <div className="space-y-2">
-              <label className="text-[#F5F5F5]/80 text-sm font-medium">First Name *</label>
+              <label className="text-[#F5F0E8]/80 text-sm font-medium">First Name *</label>
               <div className="luxury-input-wrapper h-12 rounded-xl">
                 <input
                   type="text"
                   value={firstName}
                   onChange={(e) => setFirstName(e.target.value)}
                   placeholder="Enter your first name"
-                  className="w-full h-full px-4 bg-transparent text-[#F5F5F5] placeholder:text-[#8A6A5C]"
+                  className="w-full h-full px-4 bg-transparent text-[#F5F0E8] placeholder:text-[#8A6A5C]"
                   required
                 />
               </div>
             </div>
 
             <div className="space-y-2">
-              <label className="text-[#F5F5F5]/80 text-sm font-medium">Last Name</label>
+              <label className="text-[#F5F0E8]/80 text-sm font-medium">Last Name</label>
               <div className="luxury-input-wrapper h-12 rounded-xl">
                 <input
                   type="text"
                   value={lastName}
                   onChange={(e) => setLastName(e.target.value)}
                   placeholder="Enter your last name"
-                  className="w-full h-full px-4 bg-transparent text-[#F5F5F5] placeholder:text-[#8A6A5C]"
+                  className="w-full h-full px-4 bg-transparent text-[#F5F0E8] placeholder:text-[#8A6A5C]"
                 />
               </div>
             </div>
 
             <div className="space-y-2">
-              <label className="text-[#F5F5F5]/80 text-sm font-medium">Email Address</label>
+              <label className="text-[#F5F0E8]/80 text-sm font-medium">Email Address</label>
               <div className="luxury-input-wrapper h-12 rounded-xl relative group flex items-center">
-                <Mail className="w-5 h-5 text-[#E07B8B] group-focus-within:text-[#FFD700] transition-colors duration-300 ml-4 shrink-0" aria-hidden="true" />
+                <Mail className="w-5 h-5 text-[#A8B4C8] group-focus-within:text-[#D4AF37] transition-colors duration-300 ml-4 shrink-0" aria-hidden="true" />
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="your@email.com"
-                  className="w-full h-full px-3 bg-transparent text-[#F5F5F5] placeholder:text-[#8A6A5C]"
+                  className="w-full h-full px-3 bg-transparent text-[#F5F0E8] placeholder:text-[#8A6A5C]"
                 />
               </div>
-              <p className="text-[#F5F5F5]/40 text-xs px-1">
+              <p className="text-[#F5F0E8]/40 text-xs px-1">
                 We'll use this for order updates and account recovery. No spam, ever.
               </p>
             </div>
@@ -647,16 +647,16 @@ export default function RegisterPage() {
             <Button
               type="submit"
               disabled={isSubmitting || !firstName.trim()}
-              className="w-full h-14 relative overflow-hidden rounded-xl bg-transparent border border-[#E07B8B]/40 group transition-all duration-500 hover:border-[#FFD700]/60 hover:shadow-[0_0_30px_rgba(183,110,121,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full h-14 relative overflow-hidden rounded-xl bg-transparent border border-[#A8B4C8]/40 group transition-all duration-500 hover:border-[#D4AF37]/60 hover:shadow-[0_0_30px_rgba(183,110,121,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <div className="absolute inset-0 bg-gradient-to-r from-[#9333EA]/80 via-[#E07B8B]/70 to-[#2A1208]/80 opacity-90"></div>
+              <div className="absolute inset-0 bg-gradient-to-r from-[#1E3A5F]/80 via-[#A8B4C8]/70 to-[#152238]/80 opacity-90"></div>
               <div className="animate-sheen"></div>
-              <span className="relative z-10 text-[#FFD700] font-serif tracking-[0.12em] text-lg group-hover:text-white transition-colors font-heading">
+              <span className="relative z-10 text-[#D4AF37] font-serif tracking-[0.12em] text-lg group-hover:text-white transition-colors font-heading">
                 {isSubmitting ? 'Saving...' : 'Continue'}
               </span>
             </Button>
 
-            <p className="text-center text-[#F5F5F5]/40 text-xs px-1">
+            <p className="text-center text-[#F5F0E8]/40 text-xs px-1">
               You can update these later from your profile settings.
             </p>
           </form>
@@ -673,7 +673,7 @@ export default function RegisterPage() {
               </svg>
             </div>
             <h3 className="text-xl text-white font-medium mb-2">{AUTH_COPY.accountCreated}</h3>
-            <p className="text-[#F5F5F5]/50 text-xs">
+            <p className="text-[#F5F0E8]/50 text-xs">
               Redirecting you to our products...
             </p>
           </div>
@@ -683,7 +683,7 @@ export default function RegisterPage() {
       <div className="w-full mt-6 sm:mt-8">
         <p className="text-center text-[#8A6A5C] text-xs sm:text-sm tracking-wide">
           Already have an account?{' '}
-          <Link href="/auth/login" className="text-[#F59E0B] hover:text-[#FFD700] transition-colors ml-1 uppercase text-sm font-bold tracking-widest">
+          <Link href="/auth/login" className="text-[#F59E0B] hover:text-[#D4AF37] transition-colors ml-1 uppercase text-sm font-bold tracking-widest">
             Sign in
           </Link>
         </p>

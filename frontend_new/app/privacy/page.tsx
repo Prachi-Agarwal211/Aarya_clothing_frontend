@@ -74,33 +74,33 @@ export default function PrivacyPolicyPage() {
       <div className="container mx-auto px-4 sm:px-6 md:px-8 max-w-4xl">
         {/* Header */}
         <div className="text-center mb-12">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-[#E07B8B]/20 mb-6">
-            <Lock className="w-8 h-8 text-[#FFD700]" />
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-[#A8B4C8]/20 mb-6">
+            <Lock className="w-8 h-8 text-[#D4AF37]" />
           </div>
           <h1 
-            className="text-3xl sm:text-4xl md:text-5xl font-semibold text-[#FFD700] mb-4"
+            className="text-3xl sm:text-4xl md:text-5xl font-semibold text-[#D4AF37] mb-4"
             style={{ fontFamily: 'Cinzel, serif' }}
           >
             Privacy Policy
           </h1>
-          <p className="text-[#F5F5F5]/70 text-sm sm:text-base max-w-2xl mx-auto">
+          <p className="text-[#F5F0E8]/70 text-sm sm:text-base max-w-2xl mx-auto">
             Last updated: {new Date().toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' })}
           </p>
         </div>
 
         {/* Content Container */}
-        <div className="relative rounded-3xl p-6 sm:p-8 md:p-12 bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
+        <div className="relative rounded-3xl p-6 sm:p-8 md:p-12 bg-[#111111]/40 backdrop-blur-md border border-[#A8B4C8]/15 shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
           
           {/* Introduction */}
           <section className="mb-10">
-            <p className="text-[#F5F5F5]/80 leading-relaxed mb-6">
+            <p className="text-[#F5F0E8]/80 leading-relaxed mb-6">
               At Aarya Clothing, we are committed to protecting your privacy and ensuring the security of your 
               personal information. This Privacy Policy explains how we collect, use, disclose, and safeguard 
               your information when you visit our website or make purchases from us.
             </p>
-            <div className="flex items-start gap-3 p-4 rounded-xl bg-[#FFD700]/10 border border-[#FFD700]/20">
-              <Shield className="w-5 h-5 text-[#FFD700] flex-shrink-0 mt-0.5" />
-              <p className="text-sm text-[#F5F5F5]/70">
+            <div className="flex items-start gap-3 p-4 rounded-xl bg-[#D4AF37]/10 border border-[#D4AF37]/20">
+              <Shield className="w-5 h-5 text-[#D4AF37] flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-[#F5F0E8]/70">
                 We comply with applicable data protection laws, including the General Data Protection Regulation (GDPR) 
                 and the Information Technology Act, 2000 of India.
               </p>
@@ -109,14 +109,14 @@ export default function PrivacyPolicyPage() {
 
           {/* Section 1 */}
           <section className="mb-10">
-            <h2 className="text-xl sm:text-2xl text-[#F5F5F5] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
-              <Eye className="w-6 h-6 text-[#FFD700]" />
+            <h2 className="text-xl sm:text-2xl text-[#F5F0E8] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
+              <Eye className="w-6 h-6 text-[#D4AF37]" />
               Information We Collect
             </h2>
-            <div className="space-y-6 text-[#F5F5F5]/70 leading-relaxed pl-4">
+            <div className="space-y-6 text-[#F5F0E8]/70 leading-relaxed pl-4">
               
               <div>
-                <h3 className="text-[#F5F5F5] font-medium mb-2">Personal Information</h3>
+                <h3 className="text-[#F5F0E8] font-medium mb-2">Personal Information</h3>
                 <p className="mb-3">
                   When you create an account, place an order, or interact with our website, we may collect the 
                   following personal information:
@@ -132,7 +132,7 @@ export default function PrivacyPolicyPage() {
               </div>
 
               <div>
-                <h3 className="text-[#F5F5F5] font-medium mb-2">Automatically Collected Information</h3>
+                <h3 className="text-[#F5F0E8] font-medium mb-2">Automatically Collected Information</h3>
                 <p className="mb-3">
                   When you visit our website, we automatically collect certain information about your device and 
                   browsing activity:
@@ -151,11 +151,11 @@ export default function PrivacyPolicyPage() {
 
           {/* Section 2 */}
           <section className="mb-10">
-            <h2 className="text-xl sm:text-2xl text-[#F5F5F5] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
-              <Database className="w-6 h-6 text-[#FFD700]" />
+            <h2 className="text-xl sm:text-2xl text-[#F5F0E8] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
+              <Database className="w-6 h-6 text-[#D4AF37]" />
               How We Use Your Information
             </h2>
-            <div className="space-y-4 text-[#F5F5F5]/70 leading-relaxed pl-4">
+            <div className="space-y-4 text-[#F5F0E8]/70 leading-relaxed pl-4">
               <p>We use the information we collect for the following purposes:</p>
               <ul className="list-disc list-inside space-y-3 ml-4">
                 <li><strong>Order Processing:</strong> To process and fulfill your orders, including payment processing and shipping</li>
@@ -172,11 +172,11 @@ export default function PrivacyPolicyPage() {
 
           {/* Section 3 */}
           <section className="mb-10">
-            <h2 className="text-xl sm:text-2xl text-[#F5F5F5] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
-              <Globe className="w-6 h-6 text-[#FFD700]" />
+            <h2 className="text-xl sm:text-2xl text-[#F5F0E8] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
+              <Globe className="w-6 h-6 text-[#D4AF37]" />
               Data Sharing and Disclosure
             </h2>
-            <div className="space-y-4 text-[#F5F5F5]/70 leading-relaxed pl-4">
+            <div className="space-y-4 text-[#F5F0E8]/70 leading-relaxed pl-4">
               <p>
                 We do not sell, trade, or rent your personal information to third parties. We may share your 
                 information with the following categories of recipients:
@@ -199,9 +199,9 @@ export default function PrivacyPolicyPage() {
                   consent to such sharing
                 </li>
               </ul>
-              <div className="flex items-start gap-3 p-4 rounded-xl bg-[#FFD700]/5 border border-[#FFD700]/10">
-                <Shield className="w-5 h-5 text-[#FFD700] flex-shrink-0 mt-0.5" />
-                <p className="text-sm text-[#F5F5F5]/70">
+              <div className="flex items-start gap-3 p-4 rounded-xl bg-[#D4AF37]/5 border border-[#D4AF37]/10">
+                <Shield className="w-5 h-5 text-[#D4AF37] flex-shrink-0 mt-0.5" />
+                <p className="text-sm text-[#F5F0E8]/70">
                   All third-party service providers are contractually obligated to protect your information and 
                   use it only for the purposes we specify.
                 </p>
@@ -211,11 +211,11 @@ export default function PrivacyPolicyPage() {
 
           {/* Section 4 */}
           <section className="mb-10">
-            <h2 className="text-xl sm:text-2xl text-[#F5F5F5] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
-              <Lock className="w-6 h-6 text-[#FFD700]" />
+            <h2 className="text-xl sm:text-2xl text-[#F5F0E8] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
+              <Lock className="w-6 h-6 text-[#D4AF37]" />
               Data Security Measures
             </h2>
-            <div className="space-y-4 text-[#F5F5F5]/70 leading-relaxed pl-4">
+            <div className="space-y-4 text-[#F5F0E8]/70 leading-relaxed pl-4">
               <p>
                 We implement appropriate technical and organizational measures to protect your personal information 
                 against unauthorized access, alteration, disclosure, or destruction:
@@ -228,9 +228,9 @@ export default function PrivacyPolicyPage() {
                 <li><strong>Regular Audits:</strong> We conduct regular security assessments and updates</li>
                 <li><strong>Firewall Protection:</strong> Our systems are protected by advanced firewall technology</li>
               </ul>
-              <div className="flex items-start gap-3 p-4 rounded-xl bg-[#FFD700]/10 border border-[#FFD700]/20">
-                <Lock className="w-5 h-5 text-[#FFD700] flex-shrink-0 mt-0.5" />
-                <p className="text-sm text-[#F5F5F5]/70">
+              <div className="flex items-start gap-3 p-4 rounded-xl bg-[#D4AF37]/10 border border-[#D4AF37]/20">
+                <Lock className="w-5 h-5 text-[#D4AF37] flex-shrink-0 mt-0.5" />
+                <p className="text-sm text-[#F5F0E8]/70">
                   While we strive to protect your information, no method of transmission over the internet or 
                   electronic storage is 100% secure. We cannot guarantee absolute security.
                 </p>
@@ -240,11 +240,11 @@ export default function PrivacyPolicyPage() {
 
           {/* Section 5 */}
           <section className="mb-10">
-            <h2 className="text-xl sm:text-2xl text-[#F5F5F5] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
-              <UserCheck className="w-6 h-6 text-[#FFD700]" />
+            <h2 className="text-xl sm:text-2xl text-[#F5F0E8] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
+              <UserCheck className="w-6 h-6 text-[#D4AF37]" />
               Your Rights and Choices
             </h2>
-            <div className="space-y-4 text-[#F5F5F5]/70 leading-relaxed pl-4">
+            <div className="space-y-4 text-[#F5F0E8]/70 leading-relaxed pl-4">
               <p>
                 Under applicable data protection laws, you have the following rights regarding your personal information:
               </p>
@@ -276,7 +276,7 @@ export default function PrivacyPolicyPage() {
               </ul>
               <p>
                 To exercise these rights, please contact us at{' '}
-                <span className="text-[#FFD700]">privacy@aaryaclothing.com</span>. We will respond to your request 
+                <span className="text-[#D4AF37]">privacy@aaryaclothing.com</span>. We will respond to your request 
                 within 30 days.
               </p>
             </div>
@@ -284,18 +284,18 @@ export default function PrivacyPolicyPage() {
 
           {/* Return Policy Section */}
           <section className="mb-10">
-            <h2 className="text-xl sm:text-2xl text-[#F5F5F5] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
-              <RotateCcw className="w-6 h-6 text-[#FFD700]" />
+            <h2 className="text-xl sm:text-2xl text-[#F5F0E8] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
+              <RotateCcw className="w-6 h-6 text-[#D4AF37]" />
               Return & Refund Policy
             </h2>
-            <div className="space-y-6 text-[#F5F5F5]/70 leading-relaxed pl-4">
+            <div className="space-y-6 text-[#F5F0E8]/70 leading-relaxed pl-4">
               <p>
                 We want you to be completely satisfied with your purchase. If you're not happy with your order, 
                 we offer a hassle-free return policy as outlined below.
               </p>
 
               <div className="space-y-4">
-                <h3 className="text-[#F5F5F5] font-medium text-lg">Eligibility for Returns</h3>
+                <h3 className="text-[#F5F0E8] font-medium text-lg">Eligibility for Returns</h3>
                 <ul className="list-disc list-inside space-y-2 ml-4">
                   <li>Returns are accepted for orders that have been delivered and show delivery confirmation</li>
                   <li>Returns must be initiated within 7 days of delivery</li>
@@ -304,11 +304,11 @@ export default function PrivacyPolicyPage() {
                 </ul>
               </div>
 
-              <div className="p-4 rounded-xl bg-[#FFD700]/10 border border-[#FFD700]/20">
+              <div className="p-4 rounded-xl bg-[#D4AF37]/10 border border-[#D4AF37]/20">
                 <div className="flex items-start gap-3">
-                  <Video className="w-5 h-5 text-[#FFD700] flex-shrink-0 mt-0.5" />
+                  <Video className="w-5 h-5 text-[#D4AF37] flex-shrink-0 mt-0.5" />
                   <div>
-                    <p className="text-[#F5F5F5] font-medium mb-1">Video Proof Required for All Returns</p>
+                    <p className="text-[#F5F0E8] font-medium mb-1">Video Proof Required for All Returns</p>
                     <p className="text-sm">
                       To process your return, you must record a video while unboxing the product. This video must clearly show:
                     </p>
@@ -326,7 +326,7 @@ export default function PrivacyPolicyPage() {
               </div>
 
               <div className="space-y-4">
-                <h3 className="text-[#F5F5F5] font-medium text-lg">How to Submit a Return</h3>
+                <h3 className="text-[#F5F0E8] font-medium text-lg">How to Submit a Return</h3>
                 <ol className="list-decimal list-inside space-y-2 ml-4">
                   <li>Log into your account and go to "My Orders"</li>
                   <li>Select the order containing the item(s) you wish to return</li>
@@ -339,7 +339,7 @@ export default function PrivacyPolicyPage() {
               </div>
 
               <div className="space-y-4">
-                <h3 className="text-[#F5F5F5] font-medium text-lg">Refund Process</h3>
+                <h3 className="text-[#F5F0E8] font-medium text-lg">Refund Process</h3>
                 <ul className="list-disc list-inside space-y-2 ml-4">
                   <li>Refunds are processed within 5-7 business days after return is received and verified</li>
                   <li>Refunds are credited to your original payment method</li>
@@ -360,11 +360,11 @@ export default function PrivacyPolicyPage() {
 
           {/* Section 6 */}
           <section className="mb-10">
-            <h2 className="text-xl sm:text-2xl text-[#F5F5F5] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
-              <Cookie className="w-6 h-6 text-[#FFD700]" />
+            <h2 className="text-xl sm:text-2xl text-[#F5F0E8] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
+              <Cookie className="w-6 h-6 text-[#D4AF37]" />
               Cookies and Tracking Technologies
             </h2>
-            <div className="space-y-4 text-[#F5F5F5]/70 leading-relaxed pl-4">
+            <div className="space-y-4 text-[#F5F0E8]/70 leading-relaxed pl-4">
               <p>
                 We use cookies and similar tracking technologies to enhance your browsing experience, analyze 
                 website traffic, and personalize content. Cookies are small data files stored on your device 
@@ -372,22 +372,22 @@ export default function PrivacyPolicyPage() {
               </p>
               
               <div className="space-y-3">
-                <h3 className="text-[#F5F5F5] font-medium">Types of Cookies We Use:</h3>
+                <h3 className="text-[#F5F0E8] font-medium">Types of Cookies We Use:</h3>
                 <ul className="space-y-3 ml-4">
-                  <li className="p-3 rounded-lg bg-[#FFD700]/5 border border-[#FFD700]/10">
-                    <strong className="text-[#F5F5F5]">Essential Cookies:</strong>
+                  <li className="p-3 rounded-lg bg-[#D4AF37]/5 border border-[#D4AF37]/10">
+                    <strong className="text-[#F5F0E8]">Essential Cookies:</strong>
                     <p className="text-sm mt-1">Required for basic website functionality, such as adding items to cart and secure checkout</p>
                   </li>
-                  <li className="p-3 rounded-lg bg-[#FFD700]/5 border border-[#FFD700]/10">
-                    <strong className="text-[#F5F5F5]">Performance Cookies:</strong>
+                  <li className="p-3 rounded-lg bg-[#D4AF37]/5 border border-[#D4AF37]/10">
+                    <strong className="text-[#F5F0E8]">Performance Cookies:</strong>
                     <p className="text-sm mt-1">Help us understand how visitors interact with our website to improve performance</p>
                   </li>
-                  <li className="p-3 rounded-lg bg-[#FFD700]/5 border border-[#FFD700]/10">
-                    <strong className="text-[#F5F5F5]">Functional Cookies:</strong>
+                  <li className="p-3 rounded-lg bg-[#D4AF37]/5 border border-[#D4AF37]/10">
+                    <strong className="text-[#F5F0E8]">Functional Cookies:</strong>
                     <p className="text-sm mt-1">Remember your preferences and settings for a personalized experience</p>
                   </li>
-                  <li className="p-3 rounded-lg bg-[#FFD700]/5 border border-[#FFD700]/10">
-                    <strong className="text-[#F5F5F5]">Marketing Cookies:</strong>
+                  <li className="p-3 rounded-lg bg-[#D4AF37]/5 border border-[#D4AF37]/10">
+                    <strong className="text-[#F5F0E8]">Marketing Cookies:</strong>
                     <p className="text-sm mt-1">Used to deliver relevant advertisements and track marketing campaign effectiveness</p>
                   </li>
                 </ul>
@@ -402,11 +402,11 @@ export default function PrivacyPolicyPage() {
 
           {/* Section 7 */}
           <section className="mb-10">
-            <h2 className="text-xl sm:text-2xl text-[#F5F5F5] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
-              <Globe className="w-6 h-6 text-[#FFD700]" />
+            <h2 className="text-xl sm:text-2xl text-[#F5F0E8] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
+              <Globe className="w-6 h-6 text-[#D4AF37]" />
               International Data Transfers
             </h2>
-            <div className="space-y-4 text-[#F5F5F5]/70 leading-relaxed pl-4">
+            <div className="space-y-4 text-[#F5F0E8]/70 leading-relaxed pl-4">
               <p>
                 Your information may be transferred to and processed in countries other than your country of 
                 residence. These countries may have data protection laws that are different from those of your 
@@ -421,11 +421,11 @@ export default function PrivacyPolicyPage() {
 
           {/* Section 8 */}
           <section className="mb-10">
-            <h2 className="text-xl sm:text-2xl text-[#F5F5F5] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
-              <Mail className="w-6 h-6 text-[#FFD700]" />
+            <h2 className="text-xl sm:text-2xl text-[#F5F0E8] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
+              <Mail className="w-6 h-6 text-[#D4AF37]" />
               Data Retention
             </h2>
-            <div className="space-y-4 text-[#F5F5F5]/70 leading-relaxed pl-4">
+            <div className="space-y-4 text-[#F5F0E8]/70 leading-relaxed pl-4">
               <p>
                 We retain your personal information only for as long as necessary to fulfill the purposes outlined 
                 in this Privacy Policy, unless a longer retention period is required by law.
@@ -441,11 +441,11 @@ export default function PrivacyPolicyPage() {
 
           {/* Section 9 */}
           <section className="mb-10">
-            <h2 className="text-xl sm:text-2xl text-[#F5F5F5] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
-              <Shield className="w-6 h-6 text-[#FFD700]" />
+            <h2 className="text-xl sm:text-2xl text-[#F5F0E8] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
+              <Shield className="w-6 h-6 text-[#D4AF37]" />
               Children's Privacy
             </h2>
-            <div className="space-y-4 text-[#F5F5F5]/70 leading-relaxed pl-4">
+            <div className="space-y-4 text-[#F5F0E8]/70 leading-relaxed pl-4">
               <p>
                 Our website is not intended for children under the age of 18. We do not knowingly collect personal 
                 information from children. If you are a parent or guardian and believe your child has provided us 
@@ -457,11 +457,11 @@ export default function PrivacyPolicyPage() {
 
           {/* Section 10 */}
           <section className="mb-10">
-            <h2 className="text-xl sm:text-2xl text-[#F5F5F5] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
-              <Mail className="w-6 h-6 text-[#FFD700]" />
+            <h2 className="text-xl sm:text-2xl text-[#F5F0E8] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
+              <Mail className="w-6 h-6 text-[#D4AF37]" />
               Changes to This Privacy Policy
             </h2>
-            <div className="space-y-4 text-[#F5F5F5]/70 leading-relaxed pl-4">
+            <div className="space-y-4 text-[#F5F0E8]/70 leading-relaxed pl-4">
               <p>
                 We may update this Privacy Policy from time to time to reflect changes in our practices, technology, 
                 legal requirements, or other factors. When we make changes, we will update the "Last updated" date 
@@ -476,27 +476,27 @@ export default function PrivacyPolicyPage() {
 
           {/* Section 11 */}
           <section className="mb-10">
-            <h2 className="text-xl sm:text-2xl text-[#F5F5F5] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
-              <Mail className="w-6 h-6 text-[#FFD700]" />
+            <h2 className="text-xl sm:text-2xl text-[#F5F0E8] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
+              <Mail className="w-6 h-6 text-[#D4AF37]" />
               Contact Us
             </h2>
-            <div className="space-y-4 text-[#F5F5F5]/70 leading-relaxed pl-4">
+            <div className="space-y-4 text-[#F5F0E8]/70 leading-relaxed pl-4">
               <p>
                 If you have any questions, concerns, or requests regarding this Privacy Policy or our data practices, 
                 please contact us:
               </p>
-              <div className="p-6 rounded-xl bg-[#FFD700]/5 border border-[#FFD700]/10 space-y-3">
-                <p className="text-[#F5F5F5]">
-                  <strong className="text-[#FFD700]">Email:</strong> privacy@aaryaclothing.com
+              <div className="p-6 rounded-xl bg-[#D4AF37]/5 border border-[#D4AF37]/10 space-y-3">
+                <p className="text-[#F5F0E8]">
+                  <strong className="text-[#D4AF37]">Email:</strong> privacy@aaryaclothing.com
                 </p>
-                <p className="text-[#F5F5F5]">
-                  <strong className="text-[#FFD700]">Data Protection Officer:</strong> dpo@aaryaclothing.com
+                <p className="text-[#F5F0E8]">
+                  <strong className="text-[#D4AF37]">Data Protection Officer:</strong> dpo@aaryaclothing.com
                 </p>
-                <p className="text-[#F5F5F5]">
-                  <strong className="text-[#FFD700]">Phone:</strong> +91-XXXXXXXXXX
+                <p className="text-[#F5F0E8]">
+                  <strong className="text-[#D4AF37]">Phone:</strong> +91-XXXXXXXXXX
                 </p>
-                <p className="text-[#F5F5F5]">
-                  <strong className="text-[#FFD700]">Address:</strong> [Registered Office Address], India
+                <p className="text-[#F5F0E8]">
+                  <strong className="text-[#D4AF37]">Address:</strong> [Registered Office Address], India
                 </p>
               </div>
               <p className="text-sm">
@@ -507,10 +507,10 @@ export default function PrivacyPolicyPage() {
           </section>
 
           {/* Back to Top */}
-          <div className="pt-8 border-t border-[#E07B8B]/15">
+          <div className="pt-8 border-t border-[#A8B4C8]/15">
             <Link 
               href="/" 
-              className="inline-flex items-center gap-2 text-[#FFD700] hover:text-[#F5F5F5] transition-colors text-sm"
+              className="inline-flex items-center gap-2 text-[#D4AF37] hover:text-[#F5F0E8] transition-colors text-sm"
             >
               ← Back to Home
             </Link>

@@ -339,7 +339,7 @@ export default function ChatPage() {
     <div className="h-[calc(100vh-8rem)] flex gap-4 relative">
       {/* Chat Rooms Sidebar - Responsive */}
       <div className={cn(
-        'flex-shrink-0 bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl flex flex-col',
+        'flex-shrink-0 bg-[#111111]/40 backdrop-blur-md border border-[#A8B4C8]/15 rounded-2xl flex flex-col',
         'transition-all duration-300',
         'w-full md:w-80 lg:w-80',
         'absolute md:relative inset-0 z-10',
@@ -347,32 +347,32 @@ export default function ChatPage() {
         !showMobileRooms && 'md:static'
       )}>
         {/* Header */}
-        <div className="p-4 border-b border-[#E07B8B]/15">
+        <div className="p-4 border-b border-[#A8B4C8]/15">
           <div className="flex items-center justify-between mb-3">
             <h2
-              className="text-lg font-semibold text-[#FFD700]"
+              className="text-lg font-semibold text-[#D4AF37]"
               style={{ fontFamily: 'Cinzel, serif' }}
             >
               Conversations
               {totalUnread > 0 && (
-                <span className="ml-2 px-2 py-0.5 bg-[#E07B8B] text-white text-xs rounded-full">
+                <span className="ml-2 px-2 py-0.5 bg-[#A8B4C8] text-white text-xs rounded-full">
                   {totalUnread}
                 </span>
               )}
             </h2>
             <button
               onClick={() => fetchRooms(false)}
-              className="p-1.5 rounded-lg hover:bg-[#E07B8B]/10 transition-colors flex items-center justify-center min-w-[44px] min-h-[44px] touch-target"
+              className="p-1.5 rounded-lg hover:bg-[#A8B4C8]/10 transition-colors flex items-center justify-center min-w-[44px] min-h-[44px] touch-target"
               title="Refresh"
               aria-label="Refresh conversations"
             >
-              <RefreshCw className={cn('w-4 h-4 text-[#F5F5F5]/70', loading ? 'animate-spin' : '')} />
+              <RefreshCw className={cn('w-4 h-4 text-[#F5F0E8]/70', loading ? 'animate-spin' : '')} />
             </button>
           </div>
 
           {/* Search */}
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#F5F5F5]/40" aria-hidden="true" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#F5F0E8]/40" aria-hidden="true" />
             <input
               type="search"
               placeholder="Search conversations..."
@@ -380,9 +380,9 @@ export default function ChatPage() {
               onChange={(e) => setSearchQuery(e.target.value)}
               className={cn(
                 'w-full pl-9 pr-3 py-2',
-                'bg-[#0A0A0A]/60 border border-[#E07B8B]/20',
-                'rounded-xl text-[#F5F5F5] placeholder-[#F5F5F5]/40',
-                'focus:outline-none focus:border-[#E07B8B]/40',
+                'bg-[#111111]/60 border border-[#A8B4C8]/20',
+                'rounded-xl text-[#F5F0E8] placeholder-[#F5F0E8]/40',
+                'focus:outline-none focus:border-[#A8B4C8]/40',
                 'transition-colors text-sm',
                 'min-h-[44px] touch-target'
               )}
@@ -395,13 +395,13 @@ export default function ChatPage() {
         <div className="flex-1 overflow-y-auto">
           {loading ? (
             <div className="p-8 text-center">
-              <RefreshCw className="w-8 h-8 text-[#E07B8B]/30 mx-auto mb-3 animate-spin" />
-              <p className="text-[#F5F5F5]/50 text-sm">Loading...</p>
+              <RefreshCw className="w-8 h-8 text-[#A8B4C8]/30 mx-auto mb-3 animate-spin" />
+              <p className="text-[#F5F0E8]/50 text-sm">Loading...</p>
             </div>
           ) : filteredRooms.length === 0 ? (
             <div className="p-8 text-center">
-              <MessageCircle className="w-12 h-12 text-[#E07B8B]/30 mx-auto mb-3" aria-hidden="true" />
-              <p className="text-[#F5F5F5]/50">No conversations found</p>
+              <MessageCircle className="w-12 h-12 text-[#A8B4C8]/30 mx-auto mb-3" aria-hidden="true" />
+              <p className="text-[#F5F0E8]/50">No conversations found</p>
             </div>
           ) : (
             <ul role="listbox" aria-label="Chat conversations">
@@ -412,9 +412,9 @@ export default function ChatPage() {
                     <button
                       onClick={() => handleRoomSelect(room)}
                       className={cn(
-                        'w-full p-4 text-left border-b border-[#E07B8B]/10',
-                        'hover:bg-[#E07B8B]/5 transition-colors',
-                        selectedRoom?.id === room.id ? 'bg-[#9333EA]/20' : '',
+                        'w-full p-4 text-left border-b border-[#A8B4C8]/10',
+                        'hover:bg-[#A8B4C8]/5 transition-colors',
+                        selectedRoom?.id === room.id ? 'bg-[#1E3A5F]/20' : '',
                         'min-h-[44px] touch-target'
                       )}
                       role="option"
@@ -422,24 +422,24 @@ export default function ChatPage() {
                     >
                       <div className="flex items-start gap-3">
                         <div className="relative">
-                          <div className="w-10 h-10 rounded-full bg-[#9333EA]/30 flex items-center justify-center" aria-hidden="true">
-                            <User className="w-5 h-5 text-[#E07B8B]" />
+                          <div className="w-10 h-10 rounded-full bg-[#1E3A5F]/30 flex items-center justify-center" aria-hidden="true">
+                            <User className="w-5 h-5 text-[#A8B4C8]" />
                           </div>
-                          <span className={cn('absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-[#0A0A0A]', getStatusColor(room.status))} aria-hidden="true" />
+                          <span className={cn('absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-[#111111]', getStatusColor(room.status))} aria-hidden="true" />
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between">
-                            <p className="font-medium text-[#F5F5F5] truncate">{room.user_name}</p>
+                            <p className="font-medium text-[#F5F0E8] truncate">{room.user_name}</p>
                             {unread > 0 && (
-                              <span className="px-2 py-0.5 bg-[#E07B8B] text-white text-xs rounded-full flex-shrink-0" aria-label={`${unread} unread messages`}>
+                              <span className="px-2 py-0.5 bg-[#A8B4C8] text-white text-xs rounded-full flex-shrink-0" aria-label={`${unread} unread messages`}>
                                 {unread}
                               </span>
                             )}
                           </div>
-                          <p className="text-xs text-[#F5F5F5]/50 mt-0.5 truncate">
+                          <p className="text-xs text-[#F5F0E8]/50 mt-0.5 truncate">
                             {room.last_message || 'No messages yet'}
                           </p>
-                          <p className="text-[10px] text-[#F5F5F5]/30 mt-0.5">
+                          <p className="text-[10px] text-[#F5F0E8]/30 mt-0.5">
                             {formatDate(room.updated_at)} {formatTime(room.updated_at)}
                           </p>
                         </div>
@@ -455,7 +455,7 @@ export default function ChatPage() {
 
       {/* Chat Window - Responsive */}
       <div className={cn(
-        'flex-1 bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl flex flex-col',
+        'flex-1 bg-[#111111]/40 backdrop-blur-md border border-[#A8B4C8]/15 rounded-2xl flex flex-col',
         'absolute md:relative inset-0 z-20',
         showMobileRooms ? 'translate-x-full md:translate-x-0' : 'translate-x-0',
         !showMobileRooms && 'md:static'
@@ -463,41 +463,41 @@ export default function ChatPage() {
         {selectedRoom ? (
           <>
             {/* Chat Header */}
-            <div className="p-4 border-b border-[#E07B8B]/15 flex items-center justify-between">
+            <div className="p-4 border-b border-[#A8B4C8]/15 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 {/* Mobile back button */}
                 <button
                   onClick={handleBackToRooms}
-                  className="md:hidden p-2 rounded-lg hover:bg-[#E07B8B]/10 transition-colors min-w-[44px] min-h-[44px] touch-target"
+                  className="md:hidden p-2 rounded-lg hover:bg-[#A8B4C8]/10 transition-colors min-w-[44px] min-h-[44px] touch-target"
                   aria-label="Back to conversations"
                 >
-                  <ArrowLeft className="w-5 h-5 text-[#F5F5F5]/70" />
+                  <ArrowLeft className="w-5 h-5 text-[#F5F0E8]/70" />
                 </button>
 
                 <div className="relative">
-                  <div className="w-10 h-10 rounded-full bg-[#9333EA]/30 flex items-center justify-center" aria-hidden="true">
-                    <User className="w-5 h-5 text-[#E07B8B]" />
+                  <div className="w-10 h-10 rounded-full bg-[#1E3A5F]/30 flex items-center justify-center" aria-hidden="true">
+                    <User className="w-5 h-5 text-[#A8B4C8]" />
                   </div>
-                  <span className={cn('absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-[#0A0A0A]', getStatusColor(selectedRoom.status))} aria-hidden="true" />
+                  <span className={cn('absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-[#111111]', getStatusColor(selectedRoom.status))} aria-hidden="true" />
                 </div>
                 <div>
-                  <p className="font-medium text-[#F5F5F5]">{selectedRoom.user_name}</p>
-                  <p className="text-xs text-[#F5F5F5]/50 capitalize flex items-center gap-1">
+                  <p className="font-medium text-[#F5F0E8]">{selectedRoom.user_name}</p>
+                  <p className="text-xs text-[#F5F0E8]/50 capitalize flex items-center gap-1">
                     {selectedRoom.status}
-                    <span className="text-[#F5F5F5]/30" aria-hidden="true">•</span>
+                    <span className="text-[#F5F0E8]/30" aria-hidden="true">•</span>
                     {getConnectionIcon()}
                   </p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <button className="p-2 rounded-lg hover:bg-[#E07B8B]/10 transition-colors min-w-[44px] min-h-[44px] touch-target" title="Call" aria-label="Call user">
-                  <Phone className="w-4 h-4 text-[#F5F5F5]/70" />
+                <button className="p-2 rounded-lg hover:bg-[#A8B4C8]/10 transition-colors min-w-[44px] min-h-[44px] touch-target" title="Call" aria-label="Call user">
+                  <Phone className="w-4 h-4 text-[#F5F0E8]/70" />
                 </button>
-                <button className="p-2 rounded-lg hover:bg-[#E07B8B]/10 transition-colors min-w-[44px] min-h-[44px] touch-target" title="Email" aria-label="Email user">
-                  <Mail className="w-4 h-4 text-[#F5F5F5]/70" />
+                <button className="p-2 rounded-lg hover:bg-[#A8B4C8]/10 transition-colors min-w-[44px] min-h-[44px] touch-target" title="Email" aria-label="Email user">
+                  <Mail className="w-4 h-4 text-[#F5F0E8]/70" />
                 </button>
-                <button className="p-2 rounded-lg hover:bg-[#E07B8B]/10 transition-colors min-w-[44px] min-h-[44px] touch-target" title="More options" aria-label="More options">
-                  <MoreVertical className="w-4 h-4 text-[#F5F5F5]/70" />
+                <button className="p-2 rounded-lg hover:bg-[#A8B4C8]/10 transition-colors min-w-[44px] min-h-[44px] touch-target" title="More options" aria-label="More options">
+                  <MoreVertical className="w-4 h-4 text-[#F5F0E8]/70" />
                 </button>
               </div>
             </div>
@@ -518,8 +518,8 @@ export default function ChatPage() {
                     className={cn(
                       'max-w-[70%] px-4 py-2.5 rounded-2xl relative group',
                       msg.sender_type === 'admin'
-                        ? 'bg-[#9333EA]/30 text-[#F5F5F5] rounded-br-md'
-                        : 'bg-[#0A0A0A]/60 border border-[#E07B8B]/20 text-[#F5F5F5] rounded-bl-md',
+                        ? 'bg-[#1E3A5F]/30 text-[#F5F0E8] rounded-br-md'
+                        : 'bg-[#111111]/60 border border-[#A8B4C8]/20 text-[#F5F0E8] rounded-bl-md',
                       msg.pending ? 'opacity-60' : '',
                       msg.failed ? 'border-red-500/50' : ''
                     )}
@@ -540,17 +540,17 @@ export default function ChatPage() {
 
                     <p className="text-sm">{msg.message}</p>
                     <div className={cn('flex items-center gap-1 mt-1', msg.sender_type === 'admin' ? 'justify-end' : 'justify-start')}>
-                      <span className={cn('text-xs', msg.sender_type === 'admin' ? 'text-[#F5F5F5]/50' : 'text-[#F5F5F5]/40')}>
+                      <span className={cn('text-xs', msg.sender_type === 'admin' ? 'text-[#F5F0E8]/50' : 'text-[#F5F0E8]/40')}>
                         {formatTime(msg.created_at)}
                       </span>
                       {msg.sender_type === 'admin' && (
                         <>
                           {msg.pending ? (
-                            <Clock className="w-3 h-3 text-[#F5F5F5]/30" aria-label="Sending" />
+                            <Clock className="w-3 h-3 text-[#F5F0E8]/30" aria-label="Sending" />
                           ) : msg.failed ? (
                             <X className="w-3 h-3 text-red-400" aria-label="Failed" />
                           ) : (
-                            <CheckCheck className="w-3 h-3 text-[#E07B8B]" aria-label="Read" />
+                            <CheckCheck className="w-3 h-3 text-[#A8B4C8]" aria-label="Read" />
                           )}
                         </>
                       )}
@@ -561,7 +561,7 @@ export default function ChatPage() {
 
               {connectionStatus === 'connected' && messages.length > 0 && (
                 <div className="text-center py-2">
-                  <span className="text-xs text-[#F5F5F5]/30">Connected</span>
+                  <span className="text-xs text-[#F5F0E8]/30">Connected</span>
                 </div>
               )}
 
@@ -569,7 +569,7 @@ export default function ChatPage() {
             </div>
 
             {/* Message Input */}
-            <div className="p-4 border-t border-[#E07B8B]/15">
+            <div className="p-4 border-t border-[#A8B4C8]/15">
               <div className="flex items-center gap-3">
                 <input
                   type="text"
@@ -580,9 +580,9 @@ export default function ChatPage() {
                   disabled={selectedRoom.status === 'closed'}
                   className={cn(
                     'flex-1 px-4 py-2.5',
-                    'bg-[#0A0A0A]/60 border border-[#E07B8B]/20',
-                    'rounded-xl text-[#F5F5F5] placeholder-[#F5F5F5]/40',
-                    'focus:outline-none focus:border-[#E07B8B]/40',
+                    'bg-[#111111]/60 border border-[#A8B4C8]/20',
+                    'rounded-xl text-[#F5F0E8] placeholder-[#F5F0E8]/40',
+                    'focus:outline-none focus:border-[#A8B4C8]/40',
                     'transition-colors',
                     'disabled:opacity-50',
                     'min-h-[44px] touch-target'
@@ -593,7 +593,7 @@ export default function ChatPage() {
                   onClick={sendMessage}
                   disabled={!newMessage.trim() || isSending || selectedRoom.status === 'closed'}
                   className={cn(
-                    'p-2.5 bg-[#9333EA]/30 border border-[#E07B8B]/30 rounded-xl text-[#FFD700] hover:bg-[#9333EA]/40 transition-colors',
+                    'p-2.5 bg-[#1E3A5F]/30 border border-[#A8B4C8]/30 rounded-xl text-[#D4AF37] hover:bg-[#1E3A5F]/40 transition-colors',
                     'disabled:opacity-50',
                     'min-w-[44px] min-h-[44px] touch-target'
                   )}
@@ -633,9 +633,9 @@ export default function ChatPage() {
         ) : (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
-              <MessageCircle className="w-16 h-16 text-[#E07B8B]/30 mx-auto mb-4" aria-hidden="true" />
-              <p className="text-[#F5F5F5]/70 mb-2">Select a conversation to start chatting</p>
-              <p className="text-[#F5F5F5]/40 text-sm">Messages appear in real-time when connected</p>
+              <MessageCircle className="w-16 h-16 text-[#A8B4C8]/30 mx-auto mb-4" aria-hidden="true" />
+              <p className="text-[#F5F0E8]/70 mb-2">Select a conversation to start chatting</p>
+              <p className="text-[#F5F0E8]/40 text-sm">Messages appear in real-time when connected</p>
             </div>
           </div>
         )}

@@ -3,8 +3,22 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { CreditCard, ChevronRight, Lock, Shield, Check, AlertCircle, ShoppingBag, X, RotateCcw, QrCode, Clock, Timer } from 'lucide-react';
-import { paymentApi, cartApi, userApi } from '@/lib/customerApi';
+import {
+  CreditCard,
+  ChevronRight,
+  Lock,
+  Shield,
+  Check,
+  AlertCircle,
+  ShoppingBag,
+  X,
+  RotateCcw,
+  QrCode,
+  Clock,
+  Timer,
+  Smartphone,
+} from 'lucide-react';
+import { paymentApi, cartApi } from '@/lib/customerApi';
 import { useCart } from '@/lib/cartContext';
 import { useAuth } from '@/lib/authContext';
 import logger from '@/lib/logger';
@@ -15,11 +29,30 @@ const LOGO_URL = 'https://pub-7846c786f7154610b57735df47899fa0.r2.dev/logo.png';
 const RAZORPAY_BUTTON_TEXT = 'Pay Now';
 
 /**
+ * UPI brand chips (UX only). We do NOT deep-link with raw upi://pay to a
+ * merchant VPA (that bypasses Razorpay settlement/webhooks).
+ *
+ * Correct flow (Razorpay Standard + UPI Intent on mWeb):
+ *  1. Create order on our backend (stock reserved + pending_order_id)
+ *  2. POST hosted checkout with method=upi (+ contact/email prefill)
+ *  3. On phone, Razorpay opens Intent tray of installed UPI apps
+ *  4. User pays in their app → redirect-callback → confirm + webhook SoT
+ *
+ * Every chip uses the same Intent path — the phone shows all installed apps.
+ */
+const UPI_APP_OPTIONS = [
+  { id: 'gpay', name: 'Google Pay', icon: 'G', hint: 'via UPI Intent' },
+  { id: 'phonepe', name: 'PhonePe', icon: 'P', hint: 'via UPI Intent' },
+  { id: 'paytm', name: 'Paytm', icon: '₹', hint: 'via UPI Intent' },
+  { id: 'any', name: 'Any UPI app', icon: '◆', hint: 'chooser' },
+];
+
+/**
  * CheckoutPaymentPage — Razorpay integration.
  * Flow:
  *  1. Backend creates Razorpay order → returns { id, amount, currency }
- *  2. Frontend loads Razorpay checkout.js → opens modal
- *  3. On success handler receives { razorpay_payment_id, razorpay_order_id, razorpay_signature }
+ *  2. Frontend POSTs hosted checkout (no checkout.js iframe) → Razorpay
+ *  3. On mobile UPI path: method=upi → Intent opens installed UPI apps
  *  4. Backend verifies HMAC signature → redirect to /checkout/confirm
  */
 export default function CheckoutPaymentPage() {
@@ -31,7 +64,8 @@ export default function CheckoutPaymentPage() {
   const [stockError, setStockError] = useState(null);
   const [razorpayReady, setRazorpayReady] = useState(false);
   const [redirectProcessing, setRedirectProcessing] = useState(false);
-  const [selectedGateway, setSelectedGateway] = useState('razorpay'); // 'razorpay' or 'upi_qr'
+  // razorpay | upi_qr | upi_intent
+  const [selectedGateway, setSelectedGateway] = useState('razorpay');
   const [paymentConfig, setPaymentConfig] = useState(null);
   const cachedKeyIdRef = React.useRef(null);
   const cachedConfigIdRef = React.useRef(null);
@@ -45,6 +79,24 @@ export default function CheckoutPaymentPage() {
   const [qrError, setQrError] = useState(null);
   const pollingRef = useRef(null);
   const timerRef = useRef(null);
+
+  // Mobile → default to UPI Intent (open GPay/PhonePe/etc via Razorpay)
+  const [isMobile, setIsMobile] = useState(false);
+  const [isAndroid, setIsAndroid] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const ua = navigator.userAgent || '';
+    const mobile = /Android|iPhone|iPad|iPod|Mobile/i.test(ua);
+    const android = /Android/i.test(ua);
+    setIsMobile(mobile);
+    setIsAndroid(android);
+    // Phones: UPI Intent is the most convenient path
+    // Desktop: full Razorpay (or QR to scan with phone)
+    if (mobile) {
+      setSelectedGateway('upi_intent');
+    }
+  }, []);
 
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -102,30 +154,25 @@ export default function CheckoutPaymentPage() {
   }, []);
 
   /**
-   * DIRECT PAYMENT — the primary payment method.
+   * DIRECT PAYMENT — hosted Razorpay checkout via top-level form POST.
    *
-   * Submits a hidden HTML form directly to Razorpay's hosted checkout endpoint
-   * (https://api.razorpay.com/v1/checkout/embedded) WITHOUT loading checkout.js.
+   * Why form POST (not checkout.js modal):
+   * checkout.js opens a hidden iframe that tracker blockers often kill.
+   * Form POST is a full navigation — works with adblockers and is Razorpay-supported.
    *
-   * Why this works when the modal/SDK-redirect does NOT:
-   * Razorpay's checkout.js always creates a hidden iframe to api.razorpay.com
-   * FIRST (even with redirect:true) to initialise the session. This iframe is
-   * blocked by Edge Enhanced Tracking Protection, uBlock Origin, Kaspersky Web
-   * Protection and similar tools, causing chrome-error:// and the
-   * "Unsafe attempt to load URL" console error that breaks BOTH modal AND SDK-
-   * redirect modes simultaneously.
-   *
-   * A plain HTML form POST is a top-level navigation — not an iframe, not a
-   * cross-origin script — so it is never intercepted by tracker blockers.
-   * This is Razorpay's officially supported "Checkout without JS SDK" approach.
-   *
-   * IMPORTANT: Uses standard checkout endpoint (NOT embedded) to ensure ALL
-   * payment methods including UPI, Cards, Net Banking, and Wallets are shown.
+   * @param {{ preferUpi?: boolean, preferredApp?: string }} opts
+   *  preferUpi: preselect UPI so mobile opens Intent tray (GPay/PhonePe/…)
+   *  preferredApp: UX hint only (logged); Razorpay Intent lists installed apps
    */
-  const handleDirectPayment = async () => {
+  const handleDirectPayment = async (opts = {}) => {
+    const preferUpi = Boolean(opts?.preferUpi);
+    const preferredApp = opts?.preferredApp || null;
     try {
       setRedirectProcessing(true);
       setError(null);
+      if (preferUpi) {
+        logger.info('Starting UPI Intent checkout', { preferredApp, isMobile, isAndroid });
+      }
 
       // Generate idempotency key BEFORE payment to prevent duplicate orders
       const idempotencyKey = `order_${user?.id || 'guest'}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -203,7 +250,13 @@ export default function CheckoutPaymentPage() {
         });
       } catch (orderErr) {
         logger.error('Order creation error:', orderErr);
-        setError('Failed to initialise payment. Please try again.');
+        // Surface backend stock / prepare messages (hard gate returns real detail)
+        const detail =
+          orderErr?.response?.data?.detail ||
+          orderErr?.data?.detail ||
+          orderErr?.message ||
+          'Failed to initialise payment. Please try again.';
+        setError(typeof detail === 'string' ? detail : 'Failed to initialise payment. Please try again.');
         setRedirectProcessing(false);
         return;
       }
@@ -224,7 +277,15 @@ export default function CheckoutPaymentPage() {
       const origin = typeof window !== 'undefined' ? window.location.origin : 'https://aaryaclothing.in';
       const customerName  = user?.profile?.full_name || user?.full_name || user?.username || '';
       const customerEmail = user?.email || '';
-      const customerPhone = user?.profile?.phone   || user?.phone        || '';
+      // Razorpay expects +91… for India; improves UPI Intent conversion
+      const rawPhone = String(user?.profile?.phone || user?.phone || '').replace(/\s+/g, '');
+      let customerPhone = rawPhone;
+      if (rawPhone && !rawPhone.startsWith('+')) {
+        const digits = rawPhone.replace(/\D/g, '');
+        if (digits.length === 10) customerPhone = `+91${digits}`;
+        else if (digits.length === 12 && digits.startsWith('91')) customerPhone = `+${digits}`;
+        else if (digits) customerPhone = `+${digits}`;
+      }
 
       // Build a hidden form and submit it directly to Razorpay.
       // No checkout.js, no iframe — pure top-level navigation.
@@ -247,18 +308,34 @@ export default function CheckoutPaymentPage() {
       addField('amount',            orderData.amount);
       addField('currency',          orderData.currency || 'INR');
       addField('name',              'Aarya Clothing');
-      addField('description',       'Premium Ethnic Wear');
-      addField('buttontext',        RAZORPAY_BUTTON_TEXT);
+      addField('description',       preferUpi ? 'Pay with UPI' : 'Premium Ethnic Wear');
+      addField('buttontext',        preferUpi ? 'Pay with UPI' : RAZORPAY_BUTTON_TEXT);
       addField('image',             LOGO_URL);
       addField('prefill[name]',     customerName);
       addField('prefill[email]',    customerEmail);
+      // Phone is critical for UPI Intent conversion on mobile
       addField('prefill[contact]',  customerPhone);
-      addField('theme[color]',      '#E07B8B');
-      
+      addField('theme[color]',      '#D4AF37');
+
+      // UPI Intent path: preselect UPI method.
+      // Razorpay docs: method preselect works when contact + email are prefilled.
+      // On Android/iOS mWeb this surfaces Intent (installed UPI apps) instead of Collect.
+      if (preferUpi && customerEmail && customerPhone) {
+        addField('method', 'upi');
+      } else if (preferUpi) {
+        // Still open checkout; user selects UPI if prefill incomplete
+        addField('method', 'upi');
+        logger.warn('UPI Intent: missing email/phone prefill — method still set to upi');
+      }
+
+      if (preferredApp && preferredApp !== 'any') {
+        addField('notes[preferred_upi_app]', preferredApp);
+      }
+
       // Callback URLs
       addField('callback_url',      `${origin}/api/v1/payments/razorpay/redirect-callback`);
       addField('cancel_url',        `${origin}/checkout/payment?error=payment_cancelled`);
-      
+
       // Redirect mode - sends user to Razorpay hosted page
       addField('redirect',          'true');
       addField('redirect_behavior', 'redirect');
@@ -282,6 +359,10 @@ export default function CheckoutPaymentPage() {
       setError('Payment failed. Please try again.');
       setRedirectProcessing(false);
     }
+  };
+
+  const handleUpiIntentPayment = (appId = 'any') => {
+    handleDirectPayment({ preferUpi: true, preferredApp: appId });
   };
 
   // Razorpay hosted checkout + UPI QR supported
@@ -386,7 +467,12 @@ export default function CheckoutPaymentPage() {
 
     } catch (err) {
       logger.error('QR payment error:', err);
-      setQrError(err.message || 'Failed to generate QR code. Please try again.');
+      const detail =
+        err?.response?.data?.detail ||
+        err?.data?.detail ||
+        err?.message ||
+        'Failed to generate QR code. Please try again.';
+      setQrError(typeof detail === 'string' ? detail : 'Failed to generate QR code. Please try again.');
       setQrPaymentState('error');
     }
   };
@@ -507,10 +593,10 @@ export default function CheckoutPaymentPage() {
       {/* Out of Stock Modal */}
       {stockError && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-          <div className="relative bg-[#0A0A0A] border border-[#E07B8B]/30 rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl">
+          <div className="relative bg-[#111111] border border-[#A8B4C8]/30 rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl">
             <button
               onClick={() => setStockError(null)}
-              className="absolute top-4 right-4 text-[#F5F5F5]/50 hover:text-[#F5F5F5] transition-colors"
+              className="absolute top-4 right-4 text-[#F5F0E8]/50 hover:text-[#F5F0E8] transition-colors"
             >
               <X className="w-5 h-5" />
             </button>
@@ -518,15 +604,15 @@ export default function CheckoutPaymentPage() {
               <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-500/10 flex items-center justify-center">
                 <AlertCircle className="w-8 h-8 text-red-400" />
               </div>
-              <h3 className="text-xl font-semibold text-[#FFD700] mb-2">Items Out of Stock</h3>
-              <p className="text-[#F5F5F5]/70 mb-6">
+              <h3 className="text-xl font-semibold text-[#D4AF37] mb-2">Items Out of Stock</h3>
+              <p className="text-[#F5F0E8]/70 mb-6">
                 Sorry, the following items are no longer available:
               </p>
               <div className="space-y-3 mb-6">
                 {stockError.items.map((item, i) => (
                   <div key={i} className="flex items-center gap-3 p-3 bg-red-500/5 border border-red-500/10 rounded-xl">
                     <ShoppingBag className="w-5 h-5 text-red-400 shrink-0" />
-                    <span className="text-[#F5F5F5] text-sm truncate">
+                    <span className="text-[#F5F0E8] text-sm truncate">
                       {item.name || item.product_name || `Product #${item.product_id}`}
                     </span>
                   </div>
@@ -534,7 +620,7 @@ export default function CheckoutPaymentPage() {
               </div>
               <button
                 onClick={() => { setStockError(null); router.push('/cart'); }}
-                className="w-full px-6 py-3 bg-gradient-to-r from-[#9333EA] to-[#E07B8B] text-white font-medium rounded-xl hover:opacity-90 transition-opacity"
+                className="w-full px-6 py-3 bg-gradient-to-r from-[#1E3A5F] to-[#A8B4C8] text-white font-medium rounded-xl hover:opacity-90 transition-opacity"
               >
                 Return to Cart
               </button>
@@ -544,36 +630,82 @@ export default function CheckoutPaymentPage() {
       )}
 
       {/* Order Cost Breakdown — moved to TOP for mobile visibility */}
-      <div className="p-5 bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl">
-        <h3 className="text-sm font-semibold text-[#FFD700] mb-4 uppercase tracking-wider">Order Summary</h3>
+      <div className="p-5 bg-[#111111]/40 backdrop-blur-md border border-[#A8B4C8]/15 rounded-2xl">
+        <h3 className="text-sm font-semibold text-[#D4AF37] mb-4 uppercase tracking-wider">Order Summary</h3>
         <div className="space-y-2 text-sm">
           {cart?.discount > 0 && (
             <div className="flex justify-between">
-              <span className="text-[#F5F5F5]/60">Discount Applied</span>
+              <span className="text-[#F5F0E8]/60">Discount Applied</span>
               <span className="text-green-400">-{formatCurrency(cart.discount)}</span>
             </div>
           )}
-          <div className="flex justify-between pt-3 mt-1 border-t border-[#E07B8B]/20 font-semibold text-base">
-            <span className="text-[#FFD700]">Total Payable</span>
-            <span className="text-[#FFD700]">{formatCurrency(cart?.total)}</span>
+          <div className="flex justify-between pt-3 mt-1 border-t border-[#A8B4C8]/20 font-semibold text-base">
+            <span className="text-[#D4AF37]">Total Payable</span>
+            <span className="text-[#D4AF37]">{formatCurrency(cart?.total)}</span>
           </div>
-          <p className="text-xs text-[#F5F5F5]/40 pt-1">
+          <p className="text-xs text-[#F5F0E8]/40 pt-1">
             Inclusive of all taxes &amp; free shipping
           </p>
         </div>
       </div>
 
-      {/* Payment Gateway Selection */}
-      <div className="p-6 bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl">
-        <h2 className="text-xl font-semibold text-[#FFD700] mb-4">Pay with</h2>
+      {/* Payment Gateway Selection — mobile-first UPI Intent */}
+      <div className="p-5 sm:p-6 bg-[#161616] border border-white/[0.06] rounded-2xl">
+        <h2 className="text-lg sm:text-xl font-semibold text-white mb-1" style={{ fontFamily: 'var(--font-cinzel), Cinzel, serif' }}>
+          Pay with
+        </h2>
+        <p className="text-xs sm:text-sm text-[#C8BFAF] mb-4">
+          {isMobile
+            ? 'On mobile, UPI opens your installed apps (GPay, PhonePe, Paytm…) for a one-tap PIN.'
+            : 'Choose a secure method. On phone, prefer UPI apps; on desktop, pay online or scan QR.'}
+        </p>
         <div className="space-y-3">
-          {/* Razorpay Option */}
+          {/* UPI Intent — primary on mobile */}
           <button
+            type="button"
+            onClick={() => setSelectedGateway('upi_intent')}
+            className={`w-full min-h-[56px] p-4 border-2 rounded-xl transition-all text-left ${
+              selectedGateway === 'upi_intent'
+                ? 'border-[#D4AF37] bg-[#D4AF37]/10'
+                : 'border-white/[0.08] hover:border-[#D4AF37]/40'
+            }`}
+          >
+            <div className="flex items-start gap-3">
+              <input
+                type="radio"
+                name="gateway"
+                checked={selectedGateway === 'upi_intent'}
+                onChange={() => setSelectedGateway('upi_intent')}
+                className="w-4 h-4 mt-1 accent-[#D4AF37]"
+              />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Smartphone className="w-5 h-5 text-[#D4AF37] shrink-0" />
+                  <p className="font-semibold text-[#F7F4EE]">UPI apps</p>
+                  {isMobile && (
+                    <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-[#D4AF37]/15 text-[#D4AF37] border border-[#D4AF37]/30">
+                      Recommended
+                    </span>
+                  )}
+                </div>
+                <p className="text-sm text-[#C8BFAF] mt-1">
+                  Open Google Pay, PhonePe, Paytm or any UPI app — amount prefilled
+                </p>
+              </div>
+              {selectedGateway === 'upi_intent' && (
+                <Check className="w-5 h-5 text-[#D4AF37] shrink-0" />
+              )}
+            </div>
+          </button>
+
+          {/* Full Razorpay (cards / netbanking / wallets / UPI) */}
+          <button
+            type="button"
             onClick={() => setSelectedGateway('razorpay')}
-            className={`w-full p-4 border-2 rounded-xl transition-all text-left ${
+            className={`w-full min-h-[56px] p-4 border-2 rounded-xl transition-all text-left ${
               selectedGateway === 'razorpay'
-                ? 'border-[#FFD700] bg-[#FFD700]/10'
-                : 'border-[#E07B8B]/30 hover:border-[#FFD700]/40'
+                ? 'border-[#D4AF37] bg-[#D4AF37]/10'
+                : 'border-white/[0.08] hover:border-[#D4AF37]/40'
             }`}
           >
             <div className="flex items-start gap-3">
@@ -582,25 +714,29 @@ export default function CheckoutPaymentPage() {
                 name="gateway"
                 checked={selectedGateway === 'razorpay'}
                 onChange={() => setSelectedGateway('razorpay')}
-                className="w-4 h-4 mt-1"
+                className="w-4 h-4 mt-1 accent-[#D4AF37]"
               />
               <div className="flex-1">
-                <p className="font-semibold text-[#FFD700]">Pay Online</p>
-                <p className="text-sm text-[#F5F5F5]/60 mt-1">UPI, Cards, Net Banking, Wallets</p>
+                <div className="flex items-center gap-2">
+                  <CreditCard className="w-5 h-5 text-[#A8B4C8]" />
+                  <p className="font-semibold text-[#F7F4EE]">Cards & more</p>
+                </div>
+                <p className="text-sm text-[#C8BFAF] mt-1">UPI, Cards, Net Banking, Wallets</p>
               </div>
               {selectedGateway === 'razorpay' && (
-                <Check className="w-5 h-5 text-[#FFD700]" />
+                <Check className="w-5 h-5 text-[#D4AF37]" />
               )}
             </div>
           </button>
 
-          {/* UPI QR Code Option */}
+          {/* UPI QR — best on desktop */}
           <button
+            type="button"
             onClick={() => setSelectedGateway('upi_qr')}
-            className={`w-full p-4 border-2 rounded-xl transition-all text-left ${
+            className={`w-full min-h-[56px] p-4 border-2 rounded-xl transition-all text-left ${
               selectedGateway === 'upi_qr'
-                ? 'border-[#FFD700] bg-[#FFD700]/10'
-                : 'border-[#E07B8B]/30 hover:border-[#FFD700]/40'
+                ? 'border-[#D4AF37] bg-[#D4AF37]/10'
+                : 'border-white/[0.08] hover:border-[#D4AF37]/40'
             }`}
           >
             <div className="flex items-start gap-3">
@@ -609,17 +745,26 @@ export default function CheckoutPaymentPage() {
                 name="gateway"
                 checked={selectedGateway === 'upi_qr'}
                 onChange={() => setSelectedGateway('upi_qr')}
-                className="w-4 h-4 mt-1"
+                className="w-4 h-4 mt-1 accent-[#D4AF37]"
               />
               <div className="flex-1">
                 <div className="flex items-center gap-2">
-                  <QrCode className="w-5 h-5 text-[#FFD700]" />
-                  <p className="font-semibold text-[#FFD700]">UPI QR Code</p>
+                  <QrCode className="w-5 h-5 text-[#A8B4C8]" />
+                  <p className="font-semibold text-[#F7F4EE]">UPI QR Code</p>
+                  {!isMobile && (
+                    <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-[#1E3A5F]/40 text-[#A8B4C8] border border-[#3D5A80]/40">
+                      Desktop
+                    </span>
+                  )}
                 </div>
-                <p className="text-sm text-[#F5F5F5]/60 mt-1">Scan with any UPI app (5 min expiry)</p>
+                <p className="text-sm text-[#C8BFAF] mt-1">
+                  {isMobile
+                    ? 'Scan from another phone, or use UPI apps above on this device'
+                    : 'Scan with your phone’s UPI app (5 min expiry)'}
+                </p>
               </div>
               {selectedGateway === 'upi_qr' && (
-                <Check className="w-5 h-5 text-[#FFD700]" />
+                <Check className="w-5 h-5 text-[#D4AF37]" />
               )}
             </div>
           </button>
@@ -627,24 +772,41 @@ export default function CheckoutPaymentPage() {
       </div>
 
       {/* Security + Return — compact single-line strip (replaces 3 separate cards) */}
-      <div className="flex items-center justify-center gap-4 text-xs text-[#F5F5F5]/50 py-1">
-        <span className="flex items-center gap-1"><Lock className="w-3 h-3 text-[#E07B8B]/60" /> Secure</span>
-        <span className="flex items-center gap-1"><Shield className="w-3 h-3 text-[#E07B8B]/60" /> Encrypted</span>
-        <span className="flex items-center gap-1"><RotateCcw className="w-3 h-3 text-[#E07B8B]/60" /> <Link href="/returns" className="hover:text-[#FFD700]">7-day returns</Link></span>
+      <div className="flex items-center justify-center gap-4 text-xs text-[#F5F0E8]/50 py-1">
+        <span className="flex items-center gap-1"><Lock className="w-3 h-3 text-[#A8B4C8]/60" /> Secure</span>
+        <span className="flex items-center gap-1"><Shield className="w-3 h-3 text-[#A8B4C8]/60" /> Encrypted</span>
+        <span className="flex items-center gap-1"><RotateCcw className="w-3 h-3 text-[#A8B4C8]/60" /> <Link href="/returns" className="hover:text-[#D4AF37]">7-day returns</Link></span>
       </div>
 
-      {/* Error */}
+      {/* Always-visible payment guidance (ui-ux-pro-max) */}
+      <div className="p-3 sm:p-4 bg-[#D4AF37]/5 border border-[#D4AF37]/20 rounded-xl text-center">
+        <p className="text-xs sm:text-sm text-[#F5F0E8]/70 leading-relaxed">
+          Keep this page open until payment finishes. If money is deducted but you see no order,
+          use <Link href="/profile/orders/recover" className="text-[#D4AF37] underline underline-offset-2">Recover order</Link>
+          {' '}or check My Orders — never pay twice.
+        </p>
+      </div>
+
+      {/* Error — actionable */}
       {error && (
         <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl flex items-start gap-3">
           <AlertCircle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
-          <p className="text-sm text-red-300">{error}</p>
+          <div className="space-y-2 min-w-0">
+            <p className="text-sm text-red-300">{error}</p>
+            <Link
+              href="/profile/orders/recover"
+              className="inline-flex text-xs text-[#D4AF37] hover:underline"
+            >
+              Already paid? Recover your order →
+            </Link>
+          </div>
         </div>
       )}
 
       {/* QR Code Payment UI */}
       {selectedGateway === 'upi_qr' && (
-        <div className="p-6 bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl">
-          <h2 className="text-xl font-semibold text-[#FFD700] mb-4 flex items-center gap-2">
+        <div className="p-6 bg-[#111111]/40 backdrop-blur-md border border-[#A8B4C8]/15 rounded-2xl">
+          <h2 className="text-xl font-semibold text-[#D4AF37] mb-4 flex items-center gap-2">
             <QrCode className="w-5 h-5" />
             UPI QR Code Payment
           </h2>
@@ -652,20 +814,35 @@ export default function CheckoutPaymentPage() {
           {/* Generating State */}
           {qrPaymentState === 'generating' && (
             <div className="text-center py-8">
-              <svg className="animate-spin w-12 h-12 mx-auto mb-4 text-[#FFD700]" viewBox="0 0 24 24" fill="none">
+              <svg className="animate-spin w-12 h-12 mx-auto mb-4 text-[#D4AF37]" viewBox="0 0 24 24" fill="none">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8h4z"/>
               </svg>
-              <p className="text-[#F5F5F5]/70">Generating QR code...</p>
+              <p className="text-[#F5F0E8]/70">Generating QR code...</p>
             </div>
           )}
 
           {/* Waiting for Payment State */}
           {qrPaymentState === 'waiting' && qrCodeData && (
             <div className="space-y-6">
+              {isMobile && (
+                <div className="p-3 rounded-xl bg-[#1E3A5F]/25 border border-[#3D5A80]/35 text-sm text-[#F5F0E8]">
+                  Hard to scan a QR on the same phone?{' '}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      cancelQrPayment();
+                      setSelectedGateway('upi_intent');
+                    }}
+                    className="text-[#D4AF37] underline underline-offset-2 font-medium"
+                  >
+                    Open UPI apps instead
+                  </button>
+                </div>
+              )}
               {/* QR Code Display */}
               <div className="flex flex-col items-center">
-                <div className="p-6 bg-white rounded-xl mb-4">
+                <div className="p-4 sm:p-6 bg-white rounded-xl mb-4 max-w-[min(100%,280px)]">
                   <Image
                     src={qrCodeData.image_url}
                     alt="UPI QR Code"
@@ -673,21 +850,22 @@ export default function CheckoutPaymentPage() {
                     height={280}
                     unoptimized
                     priority
+                    className="w-full h-auto"
                   />
                 </div>
-                <p className="text-[#F5F5F5]/70 text-sm text-center">
+                <p className="text-[#C8BFAF] text-sm text-center px-2">
                   Scan with any UPI app (Google Pay, PhonePe, Paytm, etc.)
                 </p>
               </div>
 
               {/* Timer Display */}
               {timeRemaining !== null && timeRemaining > 0 && (
-                <div className="flex items-center justify-center gap-2 p-4 bg-[#9333EA]/20 border border-[#E07B8B]/30 rounded-xl">
-                  <Timer className="w-5 h-5 text-[#FFD700]" />
-                  <span className="text-[#FFD700] font-mono text-lg">
+                <div className="flex items-center justify-center gap-2 p-4 bg-[#1E3A5F]/20 border border-[#A8B4C8]/30 rounded-xl">
+                  <Timer className="w-5 h-5 text-[#D4AF37]" />
+                  <span className="text-[#D4AF37] font-mono text-lg">
                     {formatTimeRemaining(timeRemaining)}
                   </span>
-                  <span className="text-[#F5F5F5]/60 text-sm">remaining</span>
+                  <span className="text-[#F5F0E8]/60 text-sm">remaining</span>
                 </div>
               )}
 
@@ -715,7 +893,7 @@ export default function CheckoutPaymentPage() {
                 <Check className="w-8 h-8 text-green-400" />
               </div>
               <h3 className="text-xl font-semibold text-green-400 mb-2">Payment Successful!</h3>
-              <p className="text-[#F5F5F5]/70">Redirecting to confirmation...</p>
+              <p className="text-[#F5F0E8]/70">Redirecting to confirmation...</p>
             </div>
           )}
 
@@ -726,10 +904,10 @@ export default function CheckoutPaymentPage() {
                 <Clock className="w-8 h-8 text-yellow-400" />
               </div>
               <h3 className="text-xl font-semibold text-yellow-400 mb-2">QR Code Expired</h3>
-              <p className="text-[#F5F5F5]/70 mb-4">The QR code has expired. Please generate a new one.</p>
+              <p className="text-[#F5F0E8]/70 mb-4">The QR code has expired. Please generate a new one.</p>
               <button
                 onClick={handleQrPayment}
-                className="px-6 py-3 bg-gradient-to-r from-[#9333EA] to-[#E07B8B] text-white font-medium rounded-xl hover:opacity-90 transition-opacity"
+                className="px-6 py-3 bg-gradient-to-r from-[#1E3A5F] to-[#A8B4C8] text-white font-medium rounded-xl hover:opacity-90 transition-opacity"
               >
                 Generate New QR Code
               </button>
@@ -743,10 +921,10 @@ export default function CheckoutPaymentPage() {
                 <AlertCircle className="w-8 h-8 text-red-400" />
               </div>
               <h3 className="text-xl font-semibold text-red-400 mb-2">Payment Failed</h3>
-              <p className="text-[#F5F5F5]/70 mb-4">{qrError || 'An error occurred during payment'}</p>
+              <p className="text-[#F5F0E8]/70 mb-4">{qrError || 'An error occurred during payment'}</p>
               <button
                 onClick={cancelQrPayment}
-                className="px-6 py-3 bg-gradient-to-r from-[#9333EA] to-[#E07B8B] text-white font-medium rounded-xl hover:opacity-90 transition-opacity"
+                className="px-6 py-3 bg-gradient-to-r from-[#1E3A5F] to-[#A8B4C8] text-white font-medium rounded-xl hover:opacity-90 transition-opacity"
               >
                 Try Again
               </button>
@@ -758,7 +936,7 @@ export default function CheckoutPaymentPage() {
             <button
               onClick={handleQrPayment}
               disabled={processing}
-              className="w-full flex items-center justify-center gap-2 px-8 py-3.5 bg-gradient-to-r from-[#9333EA] to-[#E07B8B] text-white font-semibold rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50"
+              className="w-full flex items-center justify-center gap-2 px-8 py-3.5 bg-gradient-to-r from-[#1E3A5F] to-[#A8B4C8] text-white font-semibold rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50"
             >
               <QrCode className="w-5 h-5" />
               Generate QR Code - {formatCurrency(cart?.total)}
@@ -768,13 +946,88 @@ export default function CheckoutPaymentPage() {
         </div>
       )}
 
-      {/* Pay Button - Razorpay redirect (Non-QR) */}
-      {selectedGateway !== 'upi_qr' && (
+      {/* UPI Intent — open installed apps via Razorpay (settlement + webhooks intact) */}
+      {selectedGateway === 'upi_intent' && (
+        <div className="p-5 sm:p-6 bg-[#161616] border border-white/[0.06] rounded-2xl space-y-4">
+          <div>
+            <h2 className="text-lg font-semibold text-white flex items-center gap-2">
+              <Smartphone className="w-5 h-5 text-[#D4AF37]" />
+              Pay with your UPI app
+            </h2>
+            <p className="text-sm text-[#C8BFAF] mt-1.5 leading-relaxed">
+              Tap pay once. Secure UPI checkout opens — your phone shows installed apps
+              (GPay, PhonePe, Paytm, BHIM…). Amount is prefilled; you only enter UPI PIN.
+              Brand chips below are the same Intent path (not separate deep links).
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2.5 sm:gap-3" aria-hidden="false">
+            {UPI_APP_OPTIONS.map((app) => (
+              <button
+                key={app.id}
+                type="button"
+                onClick={() => handleUpiIntentPayment(app.id)}
+                disabled={redirectProcessing}
+                title="Opens UPI app chooser with amount prefilled"
+                className="min-h-[56px] p-3 sm:p-4 border border-white/[0.08] rounded-xl hover:border-[#D4AF37]/50 hover:bg-[#D4AF37]/5 active:scale-[0.98] transition-all flex items-center gap-2.5 disabled:opacity-50 text-left"
+              >
+                <span className="w-9 h-9 rounded-full bg-[#1E3A5F]/40 border border-[#3D5A80]/40 flex items-center justify-center text-[#D4AF37] text-sm font-semibold shrink-0">
+                  {app.icon}
+                </span>
+                <span className="min-w-0">
+                  <span className="block font-medium text-[#F5F0E8] text-sm truncate">{app.name}</span>
+                  <span className="block text-[11px] text-[#C8BFAF] truncate">{app.hint}</span>
+                </span>
+              </button>
+            ))}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => handleUpiIntentPayment('any')}
+            disabled={processing || redirectProcessing}
+            className="w-full min-h-[52px] flex items-center justify-center gap-2 px-6 py-3.5 bg-gradient-to-b from-[#E8C547] to-[#D4AF37] text-[#0D0D0D] font-semibold rounded-xl hover:shadow-[0_8px_24px_rgba(212,175,55,0.25)] active:scale-[0.99] transition-all disabled:opacity-50"
+          >
+            {redirectProcessing ? (
+              <>
+                <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8h4z" />
+                </svg>
+                Opening UPI…
+              </>
+            ) : (
+              <>
+                <Smartphone className="w-4 h-4" />
+                {`Pay ${formatCurrency(cart?.total)} with UPI`}
+                <ChevronRight className="w-4 h-4" />
+              </>
+            )}
+          </button>
+
+          <ul className="text-[11px] sm:text-xs text-[#C8BFAF] space-y-1.5 leading-relaxed">
+            <li>• Stay on this browser tab until you return from the UPI app.</li>
+            <li>• Money deducted but no order? Use{' '}
+              <Link href="/profile/orders/recover" className="text-[#D4AF37] underline underline-offset-2">
+                Recover order
+              </Link>
+              {' '}— never pay twice.
+            </li>
+            {!isMobile && (
+              <li>• On desktop, Razorpay may show a QR to scan with your phone’s UPI app.</li>
+            )}
+          </ul>
+        </div>
+      )}
+
+      {/* Pay Button - full Razorpay (cards & more) */}
+      {selectedGateway === 'razorpay' && (
         <div className="space-y-3">
           <button
-            onClick={handleDirectPayment}
+            type="button"
+            onClick={() => handleDirectPayment({ preferUpi: false })}
             disabled={processing || redirectProcessing}
-            className="w-full flex items-center justify-center gap-2 px-8 py-3.5 bg-gradient-to-r from-[#9333EA] to-[#E07B8B] text-white font-semibold rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50"
+            className="w-full min-h-[52px] flex items-center justify-center gap-2 px-8 py-3.5 bg-gradient-to-b from-[#E8C547] to-[#D4AF37] text-[#0D0D0D] font-semibold rounded-xl hover:shadow-[0_8px_24px_rgba(212,175,55,0.25)] transition-all disabled:opacity-50"
           >
             {redirectProcessing ? (
               <>
@@ -792,8 +1045,8 @@ export default function CheckoutPaymentPage() {
               </>
             )}
           </button>
-          <p className="text-center text-xs text-[#F5F5F5]/40">
-            Secure checkout powered by Razorpay • UPI, Cards, Net Banking, Wallets
+          <p className="text-center text-xs text-[#C8BFAF]">
+            Secure checkout powered by Razorpay · UPI, Cards, Net Banking, Wallets
           </p>
         </div>
       )}

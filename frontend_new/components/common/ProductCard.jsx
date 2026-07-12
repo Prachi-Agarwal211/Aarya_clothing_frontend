@@ -13,9 +13,11 @@ import { AddToCartButton } from '@/components/cart/CartAnimation';
  */
 const ensureFullUrl = (url) => url || '';
 
+/**
+ * ProductCard — sleek, borderless, deep aesthetic.
+ * No white glow / product-card-enhanced underline. Hover lifts with dark soft shadow.
+ */
 const ProductCard = ({ product, className, priority = false }) => {
-  // Support both old shape {id,name,price,image,category,isNew,originalPrice}
-  // and new DB-driven shape {id,name,price,mrp,image_url,collection_name,is_new_arrival,discount_percentage}
   const id = product.id;
   const name = product.name;
   const price = product.price;
@@ -24,148 +26,191 @@ const ProductCard = ({ product, className, priority = false }) => {
   const isNew = product.is_new_arrival ?? product.isNew ?? false;
   const originalPrice = product.mrp || product.originalPrice;
 
-
   const router = useRouter();
-
-  // Build product URL from slug first (preferred), then id
   const productHandle = product.slug || id;
   const productHref = productHandle ? `/products/${productHandle}` : '/products';
 
-  // Always navigate to product page from hover — users must select size & color
-  const handleAddToCart = async (productData) => {
+  const handleAddToCart = async () => {
     router.push(productHref);
   };
 
   const addToCartButtonText = 'View Details';
+  const onSale = originalPrice && originalPrice > price;
 
   return (
-    <>
-      <div className={cn("group relative w-full product-card-enhanced", className)}>
-        <div className="relative aspect-[3/4] overflow-hidden bg-[#1A1A1A] rounded-2xl">
-          {/* Tappable image area — navigates to product on mobile */}
-          <Link href={productHref} className="absolute inset-0 z-10 lg:pointer-events-none" aria-label={`View ${name}`} />
+    <div
+      className={cn(
+        'group relative w-full flex flex-col gap-4 rounded-2xl',
+        'transition-all duration-500 ease-out',
+        'hover:-translate-y-2',
+        'hover:shadow-[0_20px_40px_-15px_rgba(0,0,0,0.7)]',
+        className
+      )}
+    >
+      {/* Image frame — deep, near-invisible structure (no shared view-transition-name; only PDP hero uses pdp-gallery) */}
+      <div
+        className={cn(
+          'relative aspect-[3/4] overflow-hidden rounded-2xl',
+          'bg-[#111111]',
+          'border border-white/[0.03]',
+          'transition-[border-color,box-shadow] duration-500',
+          'group-hover:border-white/[0.08]'
+        )}
+      >
+        <Link
+          href={productHref}
+          className="absolute inset-0 z-10 lg:pointer-events-none"
+          aria-label={`View ${name}`}
+        />
 
-          {/* Sale Badge — top-right so it doesn't overlap NEW */}
-          {originalPrice && originalPrice > price && (
-            <div className="absolute top-4 right-4 z-20">
-              <span className="px-3 py-1 text-xs tracking-wider text-white bg-[#9333EA] font-medium rounded-full">
-                {Math.round((1 - price / originalPrice) * 100)}% OFF
-              </span>
-            </div>
-          )}
-
-          {/* Premium New Badge with Animation — top-left */}
-          {isNew && (
-            <div className="absolute top-4 left-4 z-20">
-              <span className="relative px-4 py-1.5 text-xs tracking-[0.2em] text-[#000000] bg-gradient-to-r from-[#FFD700] via-[#F5F5F5] to-[#FFD700] font-cinzel font-semibold rounded-full overflow-hidden">
-                <span className="relative z-10">NEW</span>
-                <span className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent animate-shimmer" />
-              </span>
-            </div>
-          )}
-
-          {/* Product Image - Optimized with proper loading strategy */}
-          <OptimizedImage
-            src={ensureFullUrl(image)}
-            alt={name}
-            fill
-            sizes="(max-width: 640px) 280px, (max-width: 1024px) 320px, 360px"
-            className="object-cover transition-all duration-700 group-hover:scale-110 group-hover:brightness-110"
-            priority={priority}
-            blur={true}
-            fallbackSrc="/placeholder-image.jpg"
-          />
-
-          {/* Mobile: subtle gradient at bottom for add-to-cart (NO blur, NO full overlay) */}
-          <div className="absolute bottom-0 left-0 right-0 z-20 flex items-end p-3 lg:hidden">
-            <div className="absolute inset-0 bg-gradient-to-t from-[#000000]/90 via-[#000000]/40 to-transparent rounded-b-2xl" />
-            <AddToCartButton
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                handleAddToCart(product);
-              }}
-              className="relative w-full min-h-[44px] bg-gradient-to-r from-[#F5F5F5] to-[#FFD700] text-[#000000] rounded-full active:scale-95 flex items-center justify-center gap-2 font-medium transition-transform"
-            >
-              <ShoppingBag className="w-5 h-5" />
-              <span>{addToCartButtonText}</span>
-            </AddToCartButton>
-          </div>
-
-          {/* Desktop: hover overlay with richer micro-interactions */}
-          <div className="absolute inset-0 bg-[#000000]/60 hidden lg:flex opacity-0 group-hover:opacity-100 transition-all duration-500 flex-col items-center justify-center gap-4 backdrop-blur-[6px] rounded-2xl">
-            <AddToCartButton
-              onClick={(e) => {
-                e.preventDefault();
-                handleAddToCart(product);
-              }}
-              className="p-4 bg-gradient-to-r from-[#F5F5F5] to-[#FFD700] text-[#000000] rounded-full transform translate-y-6 scale-90 opacity-0 group-hover:translate-y-0 group-hover:scale-100 group-hover:opacity-100 transition-all duration-500 delay-100 hover:shadow-[0_0_40px_rgba(242,194,154,0.5)] active:scale-95 flex items-center justify-center"
-              title="View product details and select size"
-            >
-              <ShoppingBag className="w-5 h-5" />
-            </AddToCartButton>
-            {/* Quick-view price on hover */}
-            <span className="text-[#FFD700] text-sm font-medium opacity-0 group-hover:opacity-100 transition-all duration-500 delay-200 translate-y-4 group-hover:translate-y-0" style={{ fontFamily: 'Playfair Display, serif' }}>
-              {originalPrice && originalPrice > price ? (
-                <>
-                  <span className="line-through text-[#F5F5F5]/40 mr-2">₹{originalPrice?.toLocaleString()}</span>
-                  ₹{price?.toLocaleString()}
-                </>
-              ) : (
-                <>₹{price?.toLocaleString()}</>
+        {/* Sale badge — frosted glass */}
+        {onSale && (
+          <div className="absolute top-3 right-3 z-20">
+            <span
+              className={cn(
+                'inline-flex px-2.5 py-1 text-[10px] sm:text-xs tracking-[0.12em] uppercase',
+                'rounded-full font-medium text-[#F5F0E8]',
+                'bg-black/45 backdrop-blur-md border border-white/10'
               )}
+            >
+              {Math.round((1 - price / originalPrice) * 100)}% OFF
             </span>
           </div>
+        )}
 
-          {/* Bottom Gradient Line Animation */}
-          <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-[#9333EA] via-[#E07B8B] to-[#FFD700] transform scale-x-0 group-hover:scale-x-100 transition-transform duration-500 origin-left z-30" />
+        {/* NEW badge — frosted glass (not solid yellow) */}
+        {isNew && (
+          <div className="absolute top-3 left-3 z-20">
+            <span
+              className={cn(
+                'inline-flex px-2.5 py-1 text-[10px] sm:text-xs tracking-[0.18em] uppercase',
+                'rounded-full font-medium text-[#F0D78C]',
+                'bg-black/45 backdrop-blur-md border border-[#D4AF37]/20'
+              )}
+            >
+              NEW
+            </span>
+          </div>
+        )}
+
+        <OptimizedImage
+          src={ensureFullUrl(image)}
+          alt={name}
+          fill
+          sizes="(max-width: 640px) 280px, (max-width: 1024px) 320px, 360px"
+          className="object-cover transition-transform duration-700 ease-out group-hover:scale-[1.06]"
+          priority={priority}
+          blur={true}
+          fallbackSrc="/placeholder-image.svg"
+        />
+
+        {/* Mobile CTA */}
+        <div className="absolute bottom-0 left-0 right-0 z-20 flex items-end p-3 lg:hidden">
+          <div
+            className="absolute inset-0 bg-gradient-to-t from-[#0D0D0D]/95 via-[#0D0D0D]/45 to-transparent rounded-b-2xl"
+            aria-hidden="true"
+          />
+          <AddToCartButton
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              handleAddToCart();
+            }}
+            className="relative w-full min-h-[44px] bg-[#D4AF37] text-[#0D0D0D] rounded-full active:scale-95 flex items-center justify-center gap-2 font-medium transition-transform"
+          >
+            <ShoppingBag className="w-5 h-5" />
+            <span>{addToCartButtonText}</span>
+          </AddToCartButton>
         </div>
 
-        {/* Premium Product Info */}
-        <div className="mt-4 text-center">
-          <p className="text-xs text-[#E07B8B] uppercase tracking-[0.2em] mb-2 font-medium">{category}</p>
-          <Link href={productHref}>
-            <h3 className="text-lg font-cinzel text-[#F5F5F5] group-hover:text-[#FFD700] transition-colors duration-300 truncate px-2 hover:drop-shadow-[0_0_10px_rgba(242,194,154,0.3)]">
-              {name}
-            </h3>
-          </Link>
-          {/* Color dots */}
-          {product.colors && product.colors.length > 0 && (
-            <div className="flex items-center justify-center gap-1.5 mt-2">
-              {product.colors.slice(0, 4).map((color) => (
-                <div
-                  key={color.name}
-                  className="w-3 h-3 rounded-full border border-white/20"
-                  style={{ backgroundColor: color.hex || '#888888' }}
-                  title={color.display_name || color.displayName || color.color_name || color.name}
-                />
-              ))}
-              {product.colors.length > 4 && (
-                <span className="text-xs text-[#F5F5F5]/40">+{product.colors.length - 4}</span>
-              )}
-            </div>
-          )}
-          <div className="mt-2 flex items-center justify-center gap-2">
-            <p className="font-playfair text-[#FFD700] text-lg font-medium tracking-wide">
-              ₹{price?.toLocaleString()}
-            </p>
-            {originalPrice && originalPrice > price && (
-              <p className="text-sm text-[#737373] line-through">
-                ₹{originalPrice?.toLocaleString()}
-              </p>
+        {/* Desktop hover — soft dark veil, no white glow */}
+        <div className="absolute inset-0 hidden lg:flex opacity-0 group-hover:opacity-100 transition-opacity duration-500 flex-col items-center justify-center gap-3 bg-[#0D0D0D]/55 rounded-2xl">
+          <AddToCartButton
+            onClick={(e) => {
+              e.preventDefault();
+              handleAddToCart();
+            }}
+            className={cn(
+              'p-3.5 rounded-full flex items-center justify-center',
+              'bg-[#D4AF37] text-[#0D0D0D]',
+              'transform translate-y-4 scale-95 opacity-0',
+              'group-hover:translate-y-0 group-hover:scale-100 group-hover:opacity-100',
+              'transition-all duration-500 delay-75',
+              'active:scale-95'
             )}
-          </div>
+            title="View product details and select size"
+          >
+            <ShoppingBag className="w-5 h-5" />
+          </AddToCartButton>
+          <span
+            className="text-[#D4AF37] text-sm opacity-0 group-hover:opacity-100 transition-all duration-500 delay-150 translate-y-3 group-hover:translate-y-0"
+            style={{ fontFamily: 'var(--font-playfair), Georgia, serif' }}
+          >
+            {onSale ? (
+              <>
+                <span className="line-through text-[#F5F0E8]/35 mr-2">
+                  ₹{originalPrice?.toLocaleString()}
+                </span>
+                ₹{price?.toLocaleString()}
+              </>
+            ) : (
+              <>₹{price?.toLocaleString()}</>
+            )}
+          </span>
         </div>
       </div>
-    </>
+
+      {/* Product meta — breathing room, elegant type */}
+      <div className="px-1 pb-1 text-center space-y-1.5">
+        {category ? (
+          <p
+            className="text-[10px] sm:text-[11px] text-[#8A919C] uppercase tracking-[0.22em] font-medium"
+            style={{ fontFamily: 'var(--font-inter), system-ui, sans-serif' }}
+          >
+            {category}
+          </p>
+        ) : null}
+        <Link href={productHref} className="block">
+          <h3
+            className="text-base sm:text-lg text-white group-hover:text-[#D4AF37] transition-colors duration-300 line-clamp-2 px-1 leading-snug"
+            style={{ fontFamily: 'var(--font-cinzel), Cinzel, serif', fontWeight: 400 }}
+          >
+            {name}
+          </h3>
+        </Link>
+        {product.colors && product.colors.length > 0 && (
+          <div className="flex items-center justify-center gap-1.5 pt-0.5">
+            {product.colors.slice(0, 4).map((color) => (
+              <div
+                key={color.name}
+                className="w-2.5 h-2.5 rounded-full border border-white/15"
+                style={{ backgroundColor: color.hex || '#888888' }}
+                title={color.display_name || color.displayName || color.color_name || color.name}
+              />
+            ))}
+            {product.colors.length > 4 && (
+              <span className="text-[10px] text-[#8A919C]">+{product.colors.length - 4}</span>
+            )}
+          </div>
+        )}
+        <div className="flex items-center justify-center gap-2 pt-0.5">
+          <p
+            className="text-[#D4AF37] text-base sm:text-lg tracking-wide"
+            style={{ fontFamily: 'var(--font-playfair), Georgia, serif', fontWeight: 500 }}
+          >
+            ₹{price?.toLocaleString()}
+          </p>
+          {onSale && (
+            <p className="text-sm text-[#8A919C] line-through">
+              ₹{originalPrice?.toLocaleString()}
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
   );
 };
 
-/**
- * Custom comparator: only re-render when the product ID, priority, or className changes.
- * product is a new object reference on every parent render (from _enrich_product),
- * so shallow comparison would never prevent re-renders.
- */
 const areEqual = (prev, next) => (
   prev.product?.id === next.product?.id &&
   prev.priority === next.priority &&

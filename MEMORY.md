@@ -53,6 +53,23 @@ Consistent recent work (hotfix-branch):
 - Payment reliability is currently the highest business risk area.
 - Mobile experience (especially auth + checkout on real devices) is the current UX focus.
 
+## 2026-07-12 Production Incident Lessons (Images + Orders + Auth)
+
+### Images
+- Frontend SSR **must** call the nginx gateway (`NEXT_INTERNAL_API_URL` / `INTERNAL_API_URL=http://nginx:80`), never commerce directly for landing.
+- Nginx routes `/api/v1/landing/*` → **admin** (CMS). Commerce `/landing/all` can return empty hero slides (device_variant mismatch + stale redis).
+- docker-compose historically set only `INTERNAL_API_URL`; `getCoreBaseUrl` only read `NEXT_INTERNAL_API_URL` → empty SSR landing → **no images on homepage**.
+- Product PNGs on R2 are often 2MB+; throttle concurrent image loads or users see blank cards.
+
+### Payments / Orders
+- `create-order` **must** call commerce `prepare` and put `pending_order_id` in Razorpay notes + `gateway_response` **before** payment. Never rely only on post-pay `register_payment`.
+- Schema drift kills webhooks: `PendingOrder.reservation_ids` was in the ORM but missing in Postgres → every pending load 500 → paid-but-no-order. Always `ensure_column` for new model fields.
+- After schema fix, recover orphans with `create_order_from_pending_id` when `gateway_response.pending_order_id` still exists.
+
+### Auth concurrency
+- Rate limits must count **failures only** for login IP/account; successful logins on shared NAT must not lock others out.
+- OTP rate limit must increment **after** successful send, not before.
+
 ### User Guidance & Instruction Debt (June 2026 Discovery)
 - The hardest user friction is **not** missing features — it is missing, inconsistent, or buried instructions and error recovery guidance in the two most important flows: Authentication (login/OTP/register with phone requirements) and Variant Selection (size + color for real garments).
 - Login/OTP pages use generic placeholders with no examples at the input. Helpful phone format text is duplicated in 4+ places with slight differences and often appears too late or only on the Register page.

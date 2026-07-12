@@ -32,16 +32,16 @@ export default function Pagination({
     total != null ? Math.min(total, page * pageSize) : page * pageSize;
 
   return (
-    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-[#F5F5F5]/60">
+    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-[#F5F0E8]/60">
       <div>
         {total != null ? (
           total === 0 ? (
             <>No results</>
           ) : (
             <>
-              Showing <span className="text-[#F5F5F5]">{startItem}</span>–
-              <span className="text-[#F5F5F5]">{endItem}</span> of{' '}
-              <span className="text-[#F5F5F5]">{total}</span>
+              Showing <span className="text-[#F5F0E8]">{startItem}</span>–
+              <span className="text-[#F5F0E8]">{endItem}</span> of{' '}
+              <span className="text-[#F5F0E8]">{total}</span>
             </>
           )
         ) : (
@@ -54,7 +54,7 @@ export default function Pagination({
           type="button"
           onClick={() => canGoBack && onChange(page - 1)}
           disabled={!canGoBack}
-          className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-[#E07B8B]/20 text-[#F5F5F5]/70 hover:bg-[#E07B8B]/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-[#A8B4C8]/20 text-[#F5F0E8]/70 hover:bg-[#A8B4C8]/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <ChevronLeft className="w-3.5 h-3.5" />
           Prev
@@ -67,7 +67,7 @@ export default function Pagination({
           type="button"
           onClick={() => canGoForward && onChange(page + 1)}
           disabled={!canGoForward}
-          className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-[#E07B8B]/20 text-[#F5F5F5]/70 hover:bg-[#E07B8B]/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-[#A8B4C8]/20 text-[#F5F0E8]/70 hover:bg-[#A8B4C8]/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
           Next
           <ChevronRight className="w-3.5 h-3.5" />

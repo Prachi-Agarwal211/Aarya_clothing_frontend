@@ -70,7 +70,7 @@ def get_db_context() -> Session:
 def init_db():
     """Initialize database tables."""
     from shared.db_migration_helpers import ensure_column
-    from models import User, EmailVerification, OTP
+    from models import User, EmailVerification
 
     # Skip create_all to avoid foreign key issues with database initialization order
     # Tables are created by init.sql script

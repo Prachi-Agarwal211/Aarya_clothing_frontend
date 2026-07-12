@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session, joinedload, selectinload
 from core.config import settings
 from core.redis_client import redis_client
 from database.database import get_db
-from helpers import enrich_collection, enrich_product
+from helpers import enrich_collection, enrich_product, r2_url
 from models.collection import Collection as Category
 from models.product import Product
 from shared.auth_middleware import get_current_user_optional
@@ -51,7 +51,7 @@ async def get_landing_page_config(db: Session = Depends(get_db)):
     for img in images:
         image_map.setdefault(img[0], []).append(
             {
-                "image_url": img[1],
+                "image_url": r2_url(img[1]),
                 "title": img[2],
                 "subtitle": img[3],
                 "link_url": img[4],
@@ -172,7 +172,7 @@ async def get_landing_all(db: Session = Depends(get_db)):
         for img in images:
             img_data = {
                 "id": img[0],
-                "url": img[2],
+                "url": r2_url(img[2]),
                 "title": img[3],
                 "subtitle": img[4],
                 "link": img[5],
@@ -185,17 +185,33 @@ async def get_landing_all(db: Session = Depends(get_db)):
         hero_config = result["hero"].get("config", {})
         hero_images = result["hero"].get("images", [])
 
-        # Group images by device variant
-        laptop_images = [i for i in hero_images if not i.get("device") or i["device"] == "laptop"]
-        phone_images = [i for i in hero_images if i.get("device") in ("phone", "mobile")]
+        # Group images by device variant.
+        # Admin CMS stores "desktop" / "mobile"; older rows use "laptop" / "phone" / null.
+        DESKTOP_VARIANTS = {"desktop", "laptop", "web", ""}
+        MOBILE_VARIANTS = {"mobile", "phone"}
 
-        # Build slides: pair laptop + phone images by index
+        def _variant(img: dict) -> str:
+            return (img.get("device") or "").strip().lower()
+
+        laptop_images = [
+            i for i in hero_images
+            if _variant(i) in DESKTOP_VARIANTS or _variant(i) not in MOBILE_VARIANTS
+        ]
+        # Prefer explicit mobile variants; if none, reuse desktop for mobile
+        phone_images = [i for i in hero_images if _variant(i) in MOBILE_VARIANTS]
+        if not phone_images:
+            phone_images = laptop_images
+
+        # Build slides: pair laptop + phone images by display order index
         slides = []
         max_slides = max(len(laptop_images), len(phone_images), 0)
         for i in range(max_slides):
             slide = {}
             if i < len(laptop_images):
                 slide["image"] = laptop_images[i]["url"]
+                slide["title"] = laptop_images[i].get("title")
+                slide["subtitle"] = laptop_images[i].get("subtitle")
+                slide["link"] = laptop_images[i].get("link")
             if i < len(phone_images):
                 slide["imageMobile"] = phone_images[i]["url"]
             # If only one variant exists, use it for both
@@ -203,7 +219,7 @@ async def get_landing_all(db: Session = Depends(get_db)):
                 slide["image"] = slide["imageMobile"]
             if not slide.get("imageMobile") and slide.get("image"):
                 slide["imageMobile"] = slide["image"]
-            if slide:
+            if slide.get("image") or slide.get("imageMobile"):
                 slides.append(slide)
 
         # Extract buttons from config (or use defaults)
@@ -244,8 +260,8 @@ async def get_landing_all(db: Session = Depends(get_db)):
                     "id": p[0], "name": p[1], "slug": p[2], "description": p[3],
                     "price": float(p[4]), "mrp": float(p[5]) if p[5] else None,
                     "is_new_arrival": bool(p[6]),
-                    "image_url": p[7],
-                    "primary_image": p[7],
+                    "image_url": r2_url(p[7]),
+                    "primary_image": r2_url(p[7]),
                 } for p in featured
             ]
 
@@ -276,7 +292,7 @@ async def get_landing_all(db: Session = Depends(get_db)):
                     "name": c[1],
                     "slug": c[2],
                     "description": c[3],
-                    "image_url": c[4],
+                    "image_url": r2_url(c[4]),
                 }
                 for c in collections
             ],

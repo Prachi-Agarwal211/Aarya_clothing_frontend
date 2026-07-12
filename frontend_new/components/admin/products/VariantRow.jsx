@@ -36,12 +36,12 @@ export default function VariantRow({
   const previewUrl = variant.image?.preview || variant.image_url || '';
 
   return (
-    <div className="p-3 bg-[#0A0A0A]/60 border border-[#E07B8B]/10 rounded-xl space-y-3">
+    <div className="p-3 bg-[#111111]/60 border border-[#A8B4C8]/10 rounded-xl space-y-3">
       <div className="flex flex-col md:flex-row gap-3">
         {/* Left: image preview / picker */}
         <div className="md:w-32 shrink-0">
           {previewUrl ? (
-            <div className="relative aspect-square w-full rounded-lg overflow-hidden bg-[#9333EA]/10 border border-[#E07B8B]/30 group">
+            <div className="relative aspect-square w-full rounded-lg overflow-hidden bg-[#1E3A5F]/10 border border-[#A8B4C8]/30 group">
               <Image
                 src={previewUrl}
                 alt={`${variant.color || 'variant'} ${variant.size || ''}`.trim()}
@@ -63,7 +63,7 @@ export default function VariantRow({
                   type="button"
                   onClick={() => onCopyImageToColor(index)}
                   title={`Copy this image to all "${variant.color}" sizes`}
-                  className="absolute bottom-1 right-1 p-1 bg-[#9333EA]/80 rounded-md text-[#FFD700] opacity-0 group-hover:opacity-100 hover:bg-[#9333EA] transition-all"
+                  className="absolute bottom-1 right-1 p-1 bg-[#1E3A5F]/80 rounded-md text-[#D4AF37] opacity-0 group-hover:opacity-100 hover:bg-[#1E3A5F] transition-all"
                 >
                   <Copy className="w-3.5 h-3.5" />
                 </button>
@@ -84,18 +84,18 @@ export default function VariantRow({
         <div className="flex-1 space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs text-[#F5F5F5]/50 block mb-1">Size</label>
+              <label className="text-xs text-[#F5F0E8]/50 block mb-1">Size</label>
               <input
                 type="text"
                 placeholder="S, M, L, XL, Free"
                 value={variant.size || ''}
                 onChange={(e) => update('size', e.target.value)}
-                className="w-full px-3 py-2 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-lg text-[#F5F5F5] placeholder-[#F5F5F5]/40 focus:outline-none focus:border-[#E07B8B]/40 text-sm"
+                className="w-full px-3 py-2 bg-[#111111]/60 border border-[#A8B4C8]/20 rounded-lg text-[#F5F0E8] placeholder-[#F5F0E8]/40 focus:outline-none focus:border-[#A8B4C8]/40 text-sm"
               />
             </div>
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="text-xs text-[#F5F5F5]/50 block">Color</label>
+                <label className="text-xs text-[#F5F0E8]/50 block">Color</label>
                 {variant.color_hex && variant.id && (
                   <button
                     type="button"
@@ -112,7 +112,7 @@ export default function VariantRow({
                         // Silently ignore — non-critical helper
                       }
                     }}
-                    className="text-[10px] text-[#E07B8B] hover:text-[#FFD700] transition-colors"
+                    className="text-[10px] text-[#A8B4C8] hover:text-[#D4AF37] transition-colors"
                     title="Fetch correct color name from backend"
                   >
                     Refresh Name
@@ -132,13 +132,13 @@ export default function VariantRow({
                 }}
               />
               <div className="mt-1.5 space-y-1">
-                <label className="text-[10px] text-[#F5F5F5]/40 block uppercase">Color Label</label>
+                <label className="text-[10px] text-[#F5F0E8]/40 block uppercase">Color Label</label>
                 <input
                   type="text"
                   placeholder="e.g. Royal Wine"
                   value={variant.color || ''}
                   onChange={(e) => update('color', e.target.value)}
-                  className="w-full px-2 py-1 bg-[#0A0A0A]/40 border border-[#E07B8B]/10 rounded text-[#F5F5F5] placeholder-[#F5F5F5]/20 focus:outline-none focus:border-[#E07B8B]/30 text-xs"
+                  className="w-full px-2 py-1 bg-[#111111]/40 border border-[#A8B4C8]/10 rounded text-[#F5F0E8] placeholder-[#F5F0E8]/20 focus:outline-none focus:border-[#A8B4C8]/30 text-xs"
                 />
               </div>
             </div>
@@ -146,25 +146,25 @@ export default function VariantRow({
 
           <div className="grid grid-cols-12 gap-2 items-end">
             <div className="col-span-4">
-              <label className="text-xs text-[#F5F5F5]/50 block mb-1">Qty</label>
+              <label className="text-xs text-[#F5F0E8]/50 block mb-1">Qty</label>
               <input
                 type="number"
                 min="0"
                 placeholder="0"
                 value={variant.quantity ?? ''}
                 onChange={(e) => update('quantity', e.target.value)}
-                className="w-full px-3 py-2 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-lg text-[#F5F5F5] placeholder-[#F5F5F5]/40 focus:outline-none focus:border-[#E07B8B]/40 text-sm"
+                className="w-full px-3 py-2 bg-[#111111]/60 border border-[#A8B4C8]/20 rounded-lg text-[#F5F0E8] placeholder-[#F5F0E8]/40 focus:outline-none focus:border-[#A8B4C8]/40 text-sm"
               />
             </div>
             <div className="col-span-4">
-              <label className="text-xs text-[#F5F5F5]/50 block mb-1">Low-stock at</label>
+              <label className="text-xs text-[#F5F0E8]/50 block mb-1">Low-stock at</label>
               <input
                 type="number"
                 min="0"
                 placeholder="10"
                 value={variant.low_stock_threshold ?? ''}
                 onChange={(e) => update('low_stock_threshold', e.target.value)}
-                className="w-full px-3 py-2 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-lg text-[#F5F5F5] placeholder-[#F5F5F5]/40 focus:outline-none focus:border-[#E07B8B]/40 text-sm"
+                className="w-full px-3 py-2 bg-[#111111]/60 border border-[#A8B4C8]/20 rounded-lg text-[#F5F0E8] placeholder-[#F5F0E8]/40 focus:outline-none focus:border-[#A8B4C8]/40 text-sm"
               />
             </div>
             <div className="col-span-3 flex items-center gap-2 pb-1">
@@ -173,9 +173,9 @@ export default function VariantRow({
                 type="checkbox"
                 checked={variant.is_active !== false}
                 onChange={(e) => update('is_active', e.target.checked)}
-                className="w-4 h-4 rounded border-[#E07B8B]/30 bg-[#0A0A0A]/60 text-[#E07B8B] focus:ring-[#E07B8B]/30"
+                className="w-4 h-4 rounded border-[#A8B4C8]/30 bg-[#111111]/60 text-[#A8B4C8] focus:ring-[#A8B4C8]/30"
               />
-              <label htmlFor={`variant-active-${index}`} className="text-xs text-[#F5F5F5]/70">
+              <label htmlFor={`variant-active-${index}`} className="text-xs text-[#F5F0E8]/70">
                 Active
               </label>
             </div>
@@ -192,7 +192,7 @@ export default function VariantRow({
           </div>
 
           {variant.sku && (
-            <p className="text-[11px] text-[#F5F5F5]/40">
+            <p className="text-[11px] text-[#F5F0E8]/40">
               SKU: <span className="font-mono">{variant.sku}</span>
             </p>
           )}

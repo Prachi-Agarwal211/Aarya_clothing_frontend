@@ -24,8 +24,8 @@ export default function AdminAiMonitoringRedirect() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#000000]">
         <div className="text-center">
-          <div className="w-12 h-12 border-2 border-[#E07B8B]/30 border-t-[#FFD700] rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-[#F5F5F5]/70">Redirecting...</p>
+          <div className="w-12 h-12 border-2 border-[#A8B4C8]/30 border-t-[#D4AF37] rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-[#F5F0E8]/70">Redirecting...</p>
         </div>
       </div>
     );

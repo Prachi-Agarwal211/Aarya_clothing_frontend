@@ -381,7 +381,7 @@ export default function LoginPageContent({ redirectUrl = '/products' }) {
               <p className="text-red-300">No account found with this {isEmailMode ? 'email' : 'phone number'}.</p>
               <Link
                 href="/auth/register"
-                className="text-[#FFD700] hover:text-white font-medium underline mt-1 inline-block"
+                className="text-[#D4AF37] hover:text-white font-medium underline mt-1 inline-block"
                 onClick={() => setAccountNotFound(false)}
               >
                 Create an account →
@@ -399,49 +399,49 @@ export default function LoginPageContent({ redirectUrl = '/products' }) {
           <form onSubmit={handleProfileSubmit} className="space-y-4">
             {/* First Name */}
             <div className="space-y-2">
-              <label className="text-[#F5F5F5]/80 text-sm font-medium">First Name *</label>
-              <div className="luxury-input-wrapper h-12 sm:h-14 rounded-xl relative group flex items-center px-4 bg-[#0A0A0A]/80 border border-[#E07B8B]/30">
-                <User className="w-5 h-5 text-[#E07B8B] group-focus-within:text-[#FFD700] transition-colors duration-300 shrink-0" aria-hidden="true" />
+              <label className="text-[#F5F0E8]/80 text-sm font-medium">First Name *</label>
+              <div className="luxury-input-wrapper h-12 sm:h-14 rounded-xl relative group flex items-center px-4 bg-[#111111]/80 border border-[#A8B4C8]/30">
+                <User className="w-5 h-5 text-[#A8B4C8] group-focus-within:text-[#D4AF37] transition-colors duration-300 shrink-0" aria-hidden="true" />
                 <input
                   type="text"
                   value={profileFirstName}
                   onChange={(e) => setProfileFirstName(e.target.value)}
                   placeholder="Enter your first name"
                   required
-                  className="w-full h-full px-3 bg-transparent text-[#F5F5F5] placeholder:text-[#8A6A5C] text-sm sm:text-base outline-none"
+                  className="w-full h-full px-3 bg-transparent text-[#F5F0E8] placeholder:text-[#8A6A5C] text-sm sm:text-base outline-none"
                 />
               </div>
             </div>
 
             {/* Last Name */}
             <div className="space-y-2">
-              <label className="text-[#F5F5F5]/80 text-sm font-medium">Last Name</label>
-              <div className="luxury-input-wrapper h-12 sm:h-14 rounded-xl relative group flex items-center px-4 bg-[#0A0A0A]/80 border border-[#E07B8B]/30">
-                <User className="w-5 h-5 text-[#E07B8B] group-focus-within:text-[#FFD700] transition-colors duration-300 shrink-0" aria-hidden="true" />
+              <label className="text-[#F5F0E8]/80 text-sm font-medium">Last Name</label>
+              <div className="luxury-input-wrapper h-12 sm:h-14 rounded-xl relative group flex items-center px-4 bg-[#111111]/80 border border-[#A8B4C8]/30">
+                <User className="w-5 h-5 text-[#A8B4C8] group-focus-within:text-[#D4AF37] transition-colors duration-300 shrink-0" aria-hidden="true" />
                 <input
                   type="text"
                   value={profileLastName}
                   onChange={(e) => setProfileLastName(e.target.value)}
                   placeholder="Enter your last name (optional)"
-                  className="w-full h-full px-3 bg-transparent text-[#F5F5F5] placeholder:text-[#8A6A5C] text-sm sm:text-base outline-none"
+                  className="w-full h-full px-3 bg-transparent text-[#F5F0E8] placeholder:text-[#8A6A5C] text-sm sm:text-base outline-none"
                 />
               </div>
             </div>
 
             {/* Email */}
             <div className="space-y-2">
-              <label className="text-[#F5F5F5]/80 text-sm font-medium">Email Address</label>
-              <div className="luxury-input-wrapper h-12 sm:h-14 rounded-xl relative group flex items-center px-4 bg-[#0A0A0A]/80 border border-[#E07B8B]/30">
-                <Mail className="w-5 h-5 text-[#E07B8B] group-focus-within:text-[#FFD700] transition-colors duration-300 shrink-0" aria-hidden="true" />
+              <label className="text-[#F5F0E8]/80 text-sm font-medium">Email Address</label>
+              <div className="luxury-input-wrapper h-12 sm:h-14 rounded-xl relative group flex items-center px-4 bg-[#111111]/80 border border-[#A8B4C8]/30">
+                <Mail className="w-5 h-5 text-[#A8B4C8] group-focus-within:text-[#D4AF37] transition-colors duration-300 shrink-0" aria-hidden="true" />
                 <input
                   type="email"
                   value={profileEmail}
                   onChange={(e) => setProfileEmail(e.target.value)}
                   placeholder="your@email.com (optional)"
-                  className="w-full h-full px-3 bg-transparent text-[#F5F5F5] placeholder:text-[#8A6A5C] text-sm sm:text-base outline-none"
+                  className="w-full h-full px-3 bg-transparent text-[#F5F0E8] placeholder:text-[#8A6A5C] text-sm sm:text-base outline-none"
                 />
               </div>
-              <p className="text-[#F5F5F5]/40 text-xs px-1">
+              <p className="text-[#F5F0E8]/40 text-xs px-1">
                 We'll use this for order updates and account recovery. No spam, ever.
               </p>
             </div>
@@ -450,16 +450,16 @@ export default function LoginPageContent({ redirectUrl = '/products' }) {
             <Button 
               type="submit" 
               disabled={profileSaving || !profileFirstName.trim()}
-              className="w-full h-14 sm:h-16 relative overflow-hidden rounded-xl bg-transparent border border-[#E07B8B]/40 group transition-all duration-500 hover:border-[#FFD700]/60 hover:shadow-[0_0_30px_rgba(183,110,121,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full h-14 sm:h-16 relative overflow-hidden rounded-xl bg-transparent border border-[#A8B4C8]/40 group transition-all duration-500 hover:border-[#D4AF37]/60 hover:shadow-[0_0_30px_rgba(183,110,121,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <div className="absolute inset-0 bg-gradient-to-r from-[#9333EA]/80 via-[#E07B8B]/70 to-[#2A1208]/80 opacity-90"></div>
+              <div className="absolute inset-0 bg-gradient-to-r from-[#1E3A5F]/80 via-[#A8B4C8]/70 to-[#152238]/80 opacity-90"></div>
               <div className="animate-sheen"></div>
-              <span className="relative z-10 text-[#FFD700] font-serif tracking-[0.12em] text-lg group-hover:text-white transition-colors font-heading">
+              <span className="relative z-10 text-[#D4AF37] font-serif tracking-[0.12em] text-lg group-hover:text-white transition-colors font-heading">
                 {profileSaving ? 'Saving...' : 'Save & Continue'}
               </span>
             </Button>
 
-            <p className="text-center text-[#F5F5F5]/40 text-xs px-1">
+            <p className="text-center text-[#F5F0E8]/40 text-xs px-1">
               You can update these later from your profile settings.
             </p>
           </form>
@@ -473,16 +473,16 @@ export default function LoginPageContent({ redirectUrl = '/products' }) {
             <>
               {/* Identifier Input — phone or email based on selected method */}
               <div className="space-y-2">
-                <label className="text-[#F5F5F5]/80 text-sm font-medium">
+                <label className="text-[#F5F0E8]/80 text-sm font-medium">
                   {isEmailMode ? 'Email Address' : 'Phone Number'}
                 </label>
-                <div className="luxury-input-wrapper h-14 sm:h-16 rounded-xl relative group flex items-center px-4 bg-[#0A0A0A]/80 border border-[#E07B8B]/30">
+                <div className="luxury-input-wrapper h-14 sm:h-16 rounded-xl relative group flex items-center px-4 bg-[#111111]/80 border border-[#A8B4C8]/30">
                   {isEmailMode ? (
-                    <Mail className="w-5 h-5 sm:w-6 sm:h-6 text-[#E07B8B] group-focus-within:text-[#FFD700] transition-colors duration-300 shrink-0" aria-hidden="true" />
+                    <Mail className="w-5 h-5 sm:w-6 sm:h-6 text-[#A8B4C8] group-focus-within:text-[#D4AF37] transition-colors duration-300 shrink-0" aria-hidden="true" />
                   ) : (
                     <>
-                      <Phone className="w-5 h-5 sm:w-6 sm:h-6 text-[#E07B8B] group-focus-within:text-[#FFD700] transition-colors duration-300 shrink-0" aria-hidden="true" />
-                      <span className="text-[#FFD700] font-medium text-lg sm:text-xl ml-2 shrink-0 select-none">+91</span>
+                      <Phone className="w-5 h-5 sm:w-6 sm:h-6 text-[#A8B4C8] group-focus-within:text-[#D4AF37] transition-colors duration-300 shrink-0" aria-hidden="true" />
+                      <span className="text-[#D4AF37] font-medium text-lg sm:text-xl ml-2 shrink-0 select-none">+91</span>
                     </>
                   )}
                   {isEmailMode ? (
@@ -497,7 +497,7 @@ export default function LoginPageContent({ redirectUrl = '/products' }) {
                       onChange={(e) => setIdentifier(e.target.value)}
                       placeholder="your@email.com"
                       variant="minimal"
-                      className="h-full pl-3 text-[#F5F5F5] placeholder:text-[#8A6A5C] text-base sm:text-lg font-medium"
+                      className="h-full pl-3 text-[#F5F0E8] placeholder:text-[#8A6A5C] text-base sm:text-lg font-medium"
                     />
                   ) : (
                     <Input
@@ -514,11 +514,11 @@ export default function LoginPageContent({ redirectUrl = '/products' }) {
                       }}
                       placeholder="XXXXXXXXXX"
                       variant="minimal"
-                      className="h-full pl-2 text-[#F5F5F5] placeholder:text-[#8A6A5C] text-lg sm:text-xl font-medium tracking-wider"
+                      className="h-full pl-2 text-[#F5F0E8] placeholder:text-[#8A6A5C] text-lg sm:text-xl font-medium tracking-wider"
                     />
                   )}
                 </div>
-                <p className="text-[#F5F5F5]/50 text-xs px-1">
+                <p className="text-[#F5F0E8]/50 text-xs px-1">
                   {isEmailMode
                     ? 'We\'ll send a verification code to this email address.'
                     : AUTH_COPY.phoneFormatHint}
@@ -527,7 +527,7 @@ export default function LoginPageContent({ redirectUrl = '/products' }) {
 
               {/* OTP Method Selector */}
               <div className="space-y-2">
-                <p className="text-[#F5F5F5]/60 text-xs uppercase tracking-widest">Send OTP via</p>
+                <p className="text-[#F5F0E8]/60 text-xs uppercase tracking-widest">Send OTP via</p>
                 <div className="flex gap-3">
                   <button 
                     type="button" 
@@ -535,14 +535,14 @@ export default function LoginPageContent({ redirectUrl = '/products' }) {
                     disabled={!smsOtpEnabled}
                     className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-xl border-2 transition-all duration-300 ${
                       !smsOtpEnabled 
-                        ? 'opacity-50 cursor-not-allowed bg-[#9333EA]/5 border-[#E07B8B]/20'
+                        ? 'opacity-50 cursor-not-allowed bg-[#1E3A5F]/5 border-[#A8B4C8]/20'
                         : verificationMethod === 'otp_sms'
-                          ? 'bg-[#9333EA]/20 border-[#FFD700]/60 shadow-[0_0_20px_rgba(242,194,154,0.15)]'
-                          : 'bg-[#9333EA]/10 border-[#E07B8B]/30 hover:border-[#FFD700]/40'
+                          ? 'bg-[#1E3A5F]/20 border-[#D4AF37]/60 shadow-[0_0_20px_rgba(242,194,154,0.15)]'
+                          : 'bg-[#1E3A5F]/10 border-[#A8B4C8]/30 hover:border-[#D4AF37]/40'
                     }`}
                   >
-                    <Smartphone className={`w-5 h-5 ${verificationMethod === 'otp_sms' ? 'text-[#FFD700]' : 'text-[#E07B8B]'}`} />
-                    <span className="text-sm font-medium text-[#F5F5F5]/90">SMS</span>
+                    <Smartphone className={`w-5 h-5 ${verificationMethod === 'otp_sms' ? 'text-[#D4AF37]' : 'text-[#A8B4C8]'}`} />
+                    <span className="text-sm font-medium text-[#F5F0E8]/90">SMS</span>
                   </button>
                   
                   <button 
@@ -551,14 +551,14 @@ export default function LoginPageContent({ redirectUrl = '/products' }) {
                     disabled={!whatsappEnabled}
                     className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-xl border-2 transition-all duration-300 ${
                       !whatsappEnabled 
-                        ? 'opacity-50 cursor-not-allowed bg-[#9333EA]/5 border-[#E07B8B]/20'
+                        ? 'opacity-50 cursor-not-allowed bg-[#1E3A5F]/5 border-[#A8B4C8]/20'
                         : verificationMethod === 'otp_whatsapp'
-                          ? 'bg-[#9333EA]/20 border-[#FFD700]/60 shadow-[0_0_20px_rgba(242,194,154,0.15)]'
-                          : 'bg-[#9333EA]/10 border-[#E07B8B]/30 hover:border-[#FFD700]/40'
+                          ? 'bg-[#1E3A5F]/20 border-[#D4AF37]/60 shadow-[0_0_20px_rgba(242,194,154,0.15)]'
+                          : 'bg-[#1E3A5F]/10 border-[#A8B4C8]/30 hover:border-[#D4AF37]/40'
                     }`}
                   >
-                    <MessageCircle className={`w-5 h-5 ${verificationMethod === 'otp_whatsapp' ? 'text-[#FFD700]' : 'text-[#E07B8B]'}`} />
-                    <span className="text-sm font-medium text-[#F5F5F5]/90">WhatsApp</span>
+                    <MessageCircle className={`w-5 h-5 ${verificationMethod === 'otp_whatsapp' ? 'text-[#D4AF37]' : 'text-[#A8B4C8]'}`} />
+                    <span className="text-sm font-medium text-[#F5F0E8]/90">WhatsApp</span>
                   </button>
                   
                   <button 
@@ -566,18 +566,18 @@ export default function LoginPageContent({ redirectUrl = '/products' }) {
                     onClick={() => switchVerificationMethod('otp_email')}
                     className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-xl border-2 transition-all duration-300 ${
                       verificationMethod === 'otp_email'
-                        ? 'bg-[#9333EA]/20 border-[#FFD700]/60 shadow-[0_0_20px_rgba(242,194,154,0.15)]'
-                        : 'bg-[#9333EA]/10 border-[#E07B8B]/30 hover:border-[#FFD700]/40'
+                        ? 'bg-[#1E3A5F]/20 border-[#D4AF37]/60 shadow-[0_0_20px_rgba(242,194,154,0.15)]'
+                        : 'bg-[#1E3A5F]/10 border-[#A8B4C8]/30 hover:border-[#D4AF37]/40'
                     }`}
                   >
-                    <Mail className={`w-5 h-5 ${verificationMethod === 'otp_email' ? 'text-[#FFD700]' : 'text-[#E07B8B]'}`} />
-                    <span className="text-sm font-medium text-[#F5F5F5]/90">Email</span>
+                    <Mail className={`w-5 h-5 ${verificationMethod === 'otp_email' ? 'text-[#D4AF37]' : 'text-[#A8B4C8]'}`} />
+                    <span className="text-sm font-medium text-[#F5F0E8]/90">Email</span>
                   </button>
                 </div>
               </div>
 
               {/* Remember me */}
-              <label htmlFor="remember-me-otp" className="flex items-center gap-2 text-sm text-[#F5F5F5]/85 cursor-pointer">
+              <label htmlFor="remember-me-otp" className="flex items-center gap-2 text-sm text-[#F5F0E8]/85 cursor-pointer">
                 <span className="checkbox-wrapper">
                   <input id="remember-me-otp" type="checkbox" checked={rememberMe}
                     onChange={(e) => setRememberMe(e.target.checked)} aria-label="Remember me on this device" />
@@ -590,16 +590,16 @@ export default function LoginPageContent({ redirectUrl = '/products' }) {
                 type="button" 
                 onClick={handleRequestOtp} 
                 disabled={isSubmitting || !identifier || (isEmailMode ? !identifier.includes('@') : identifier.length < 10)}
-                className="w-full h-14 sm:h-16 relative overflow-hidden rounded-xl bg-transparent border border-[#E07B8B]/40 group transition-all duration-500 hover:border-[#FFD700]/60 hover:shadow-[0_0_30px_rgba(183,110,121,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full h-14 sm:h-16 relative overflow-hidden rounded-xl bg-transparent border border-[#A8B4C8]/40 group transition-all duration-500 hover:border-[#D4AF37]/60 hover:shadow-[0_0_30px_rgba(183,110,121,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <div className="absolute inset-0 bg-gradient-to-r from-[#9333EA]/80 via-[#E07B8B]/70 to-[#2A1208]/80 opacity-90"></div>
+                <div className="absolute inset-0 bg-gradient-to-r from-[#1E3A5F]/80 via-[#A8B4C8]/70 to-[#152238]/80 opacity-90"></div>
                 <div className="animate-sheen"></div>
-                <span className="relative z-10 text-[#FFD700] font-serif tracking-[0.12em] text-lg group-hover:text-white transition-colors font-heading">
+                <span className="relative z-10 text-[#D4AF37] font-serif tracking-[0.12em] text-lg group-hover:text-white transition-colors font-heading">
                   {isSubmitting ? AUTH_COPY.sendingOtp : AUTH_COPY.sendOtpButton}
                 </span>
               </Button>
 
-              <p className="text-center text-[#F5F5F5]/50 text-sm px-2">
+              <p className="text-center text-[#F5F0E8]/50 text-sm px-2">
                 {AUTH_COPY.newUserMessage}
               </p>
             </>
@@ -607,22 +607,22 @@ export default function LoginPageContent({ redirectUrl = '/products' }) {
             <>
               {/* OTP Verification */}
               <div className="text-center mb-4">
-                <div className="w-14 h-14 rounded-full bg-[#9333EA]/30 border border-[#E07B8B]/30 flex items-center justify-center mx-auto mb-3">
+                <div className="w-14 h-14 rounded-full bg-[#1E3A5F]/30 border border-[#A8B4C8]/30 flex items-center justify-center mx-auto mb-3">
                   {verificationMethod === 'otp_sms' ? (
-                    <Smartphone className="w-7 h-7 text-[#FFD700]" />
+                    <Smartphone className="w-7 h-7 text-[#D4AF37]" />
                   ) : verificationMethod === 'otp_whatsapp' ? (
-                    <MessageCircle className="w-7 h-7 text-[#FFD700]" />
+                    <MessageCircle className="w-7 h-7 text-[#D4AF37]" />
                   ) : (
-                    <Mail className="w-7 h-7 text-[#FFD700]" />
+                    <Mail className="w-7 h-7 text-[#D4AF37]" />
                   )}
                 </div>
-                <p className="text-[#F5F5F5]/80 text-base mb-1">
+                <p className="text-[#F5F0E8]/80 text-base mb-1">
                   {AUTH_COPY.otpEnterCode}
                 </p>
-                <p className="text-[#FFD700] font-medium text-lg">
+                <p className="text-[#D4AF37] font-medium text-lg">
                   {displayIdentifier}
                 </p>
-                <p className={`text-sm mt-2 ${otpExpired ? 'text-red-300' : otpTimeLeft <= 30 ? 'text-amber-300' : 'text-[#F5F5F5]/70'}`}>
+                <p className={`text-sm mt-2 ${otpExpired ? 'text-red-300' : otpTimeLeft <= 30 ? 'text-amber-300' : 'text-[#F5F0E8]/70'}`}>
                   {otpExpired ? 'Code expired' : `${AUTH_COPY.otpExpiresIn} ${formatTime(otpTimeLeft)}`}
                 </p>
               </div>
@@ -639,7 +639,7 @@ export default function LoginPageContent({ redirectUrl = '/products' }) {
                     value={digit}
                     onChange={(e) => handleOtpDigit(index, e.target.value)}
                     onKeyDown={(e) => handleOtpKeyDown(index, e)}
-                    className="w-12 sm:w-14 h-14 text-center text-xl font-bold border-2 border-[#E07B8B]/30 bg-[#0A0A0A]/60 text-[#FFD700] rounded-xl focus:border-[#FFD700] focus:outline-none focus:shadow-[0_0_0_3px_rgba(242,194,154,0.1)]"
+                    className="w-12 sm:w-14 h-14 text-center text-xl font-bold border-2 border-[#A8B4C8]/30 bg-[#111111]/60 text-[#D4AF37] rounded-xl focus:border-[#D4AF37] focus:outline-none focus:shadow-[0_0_0_3px_rgba(242,194,154,0.1)]"
                   />
                 ))}
               </div>
@@ -649,11 +649,11 @@ export default function LoginPageContent({ redirectUrl = '/products' }) {
                 type="button" 
                 onClick={() => handleOtpVerify()} 
                 disabled={isSubmitting || otpDigits.some((d) => !d)}
-                className="w-full h-14 sm:h-16 relative overflow-hidden rounded-xl bg-transparent border border-[#E07B8B]/40 group transition-all duration-500 hover:border-[#FFD700]/60 hover:shadow-[0_0_30px_rgba(183,110,121,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full h-14 sm:h-16 relative overflow-hidden rounded-xl bg-transparent border border-[#A8B4C8]/40 group transition-all duration-500 hover:border-[#D4AF37]/60 hover:shadow-[0_0_30px_rgba(183,110,121,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <div className="absolute inset-0 bg-gradient-to-r from-[#9333EA]/80 via-[#E07B8B]/70 to-[#2A1208]/80 opacity-90"></div>
+                <div className="absolute inset-0 bg-gradient-to-r from-[#1E3A5F]/80 via-[#A8B4C8]/70 to-[#152238]/80 opacity-90"></div>
                 <div className="animate-sheen"></div>
-                <span className="relative z-10 text-[#FFD700] font-serif tracking-[0.12em] text-lg group-hover:text-white transition-colors font-heading">
+                <span className="relative z-10 text-[#D4AF37] font-serif tracking-[0.12em] text-lg group-hover:text-white transition-colors font-heading">
                   {isSubmitting ? AUTH_COPY.verifying : AUTH_COPY.verifyButton}
                 </span>
               </Button>
@@ -661,21 +661,21 @@ export default function LoginPageContent({ redirectUrl = '/products' }) {
               {/* Resend OTP */}
               <div className="text-center">
                 {resendCooldown > 0 ? (
-                  <p className="text-sm text-[#F5F5F5]/70">{AUTH_COPY.otpResendIn} {resendCooldown}s</p>
+                  <p className="text-sm text-[#F5F0E8]/70">{AUTH_COPY.otpResendIn} {resendCooldown}s</p>
                 ) : (
-                  <button type="button" onClick={handleResendOtp} className="text-sm text-[#F59E0B] hover:text-[#FFD700]">
+                  <button type="button" onClick={handleResendOtp} className="text-sm text-[#F59E0B] hover:text-[#D4AF37]">
                     {AUTH_COPY.otpResend}
                   </button>
                 )}
               </div>
 
-              <p className="text-center text-[#F5F5F5]/50 text-xs px-2">
+              <p className="text-center text-[#F5F0E8]/50 text-xs px-2">
                 {AUTH_COPY.otpTroubleshooting}
               </p>
 
               <div className="text-center">
                 <button type="button" onClick={() => { setOtpSent(false); setError(''); setAccountNotFound(false); }}
-                  className="text-sm text-[#8A6A5C] hover:text-[#F5F5F5]/80"
+                  className="text-sm text-[#8A6A5C] hover:text-[#F5F0E8]/80"
                 >
                   ← Change {isEmailMode ? 'email' : 'phone number'}
                 </button>
@@ -689,25 +689,25 @@ export default function LoginPageContent({ redirectUrl = '/products' }) {
       {!showProfileForm && mode === 'password' && (
         <form className="w-full space-y-3 sm:space-y-3.5 animate-fade-in-up-delay" onSubmit={handlePasswordLogin} noValidate>
           <div className="luxury-input-wrapper h-11 sm:h-12 rounded-xl relative group flex items-center px-4">
-            <Mail className="w-4 h-4 sm:w-5 sm:h-5 text-[#E07B8B] group-focus-within:text-[#FFD700] transition-colors duration-300 shrink-0" aria-hidden="true" />
+            <Mail className="w-4 h-4 sm:w-5 sm:h-5 text-[#A8B4C8] group-focus-within:text-[#D4AF37] transition-colors duration-300 shrink-0" aria-hidden="true" />
             <Input
               id="identifier" name="identifier" type="text" autoComplete="username"
               required value={identifier} onChange={(e) => setIdentifier(e.target.value)}
               placeholder="Email, username, or phone" variant="minimal"
-              className="h-full pl-3 sm:pl-4 text-[#F5F5F5] placeholder:text-[#8A6A5C] text-sm sm:text-base"
+              className="h-full pl-3 sm:pl-4 text-[#F5F0E8] placeholder:text-[#8A6A5C] text-sm sm:text-base"
             />
           </div>
 
           <div className="luxury-input-wrapper h-11 sm:h-12 rounded-xl relative group flex items-center px-4">
-            <Lock className="w-4 h-4 sm:w-5 sm:h-5 text-[#E07B8B] group-focus-within:text-[#FFD700] transition-colors duration-300 shrink-0" aria-hidden="true" />
+            <Lock className="w-4 h-4 sm:w-5 sm:h-5 text-[#A8B4C8] group-focus-within:text-[#D4AF37] transition-colors duration-300 shrink-0" aria-hidden="true" />
             <Input
               id="password" name="password" type={showPassword ? 'text' : 'password'}
               autoComplete="current-password" required value={password}
               onChange={(e) => setPassword(e.target.value)} variant="minimal"
-              className="h-full pl-3 sm:pl-4 pr-10 text-[#F5F5F5] placeholder:text-[#8A6A5C] text-sm sm:text-base"
+              className="h-full pl-3 sm:pl-4 pr-10 text-[#F5F0E8] placeholder:text-[#8A6A5C] text-sm sm:text-base"
             />
             <button type="button" onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-2 touch-target-icon text-[#E07B8B] hover:text-[#FFD700] transition-colors"
+              className="absolute right-2 touch-target-icon text-[#A8B4C8] hover:text-[#D4AF37] transition-colors"
               aria-label={showPassword ? 'Hide password' : 'Show password'}
             >
               {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
@@ -715,24 +715,24 @@ export default function LoginPageContent({ redirectUrl = '/products' }) {
           </div>
 
           <div className="flex items-center justify-between gap-3">
-            <label htmlFor="remember-me" className="flex items-center gap-2 text-sm text-[#F5F5F5]/85 cursor-pointer">
+            <label htmlFor="remember-me" className="flex items-center gap-2 text-sm text-[#F5F0E8]/85 cursor-pointer">
               <span className="checkbox-wrapper">
                 <input id="remember-me" name="remember-me" type="checkbox"
                   checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} aria-label="Remember me" />
               </span>
               <span>Remember me</span>
             </label>
-            <Link href="/auth/forgot-password" className="text-sm text-[#F59E0B] hover:text-[#FFD700] transition-colors">
+            <Link href="/auth/forgot-password" className="text-sm text-[#F59E0B] hover:text-[#D4AF37] transition-colors">
               Forgot password?
             </Link>
           </div>
 
           <Button type="submit" disabled={isSubmitting}
-            className="w-full h-11 sm:h-12 relative overflow-hidden rounded-xl bg-transparent border border-[#E07B8B]/40 group transition-all duration-500 hover:border-[#FFD700]/60 hover:shadow-[0_0_30px_rgba(183,110,121,0.3)]"
+            className="w-full h-11 sm:h-12 relative overflow-hidden rounded-xl bg-transparent border border-[#A8B4C8]/40 group transition-all duration-500 hover:border-[#D4AF37]/60 hover:shadow-[0_0_30px_rgba(183,110,121,0.3)]"
           >
-            <div className="absolute inset-0 bg-gradient-to-r from-[#9333EA]/80 via-[#E07B8B]/70 to-[#2A1208]/80 opacity-90"></div>
+            <div className="absolute inset-0 bg-gradient-to-r from-[#1E3A5F]/80 via-[#A8B4C8]/70 to-[#152238]/80 opacity-90"></div>
             <div className="animate-sheen"></div>
-            <span className="relative z-10 text-[#FFD700] font-serif tracking-[0.12em] text-base group-hover:text-white transition-colors font-heading">
+            <span className="relative z-10 text-[#D4AF37] font-serif tracking-[0.12em] text-base group-hover:text-white transition-colors font-heading">
               {isSubmitting ? 'SIGNING IN...' : 'SIGN IN'}
             </span>
           </Button>
@@ -746,7 +746,7 @@ export default function LoginPageContent({ redirectUrl = '/products' }) {
             <button 
               type="button" 
               onClick={() => switchMode(mode === 'otp' ? 'password' : 'otp')}
-              className="text-xs text-[#8A6A5C] hover:text-[#F5F5F5]/80 transition-colors"
+              className="text-xs text-[#8A6A5C] hover:text-[#F5F0E8]/80 transition-colors"
             >
               {mode === 'otp' ? 'Use password instead' : 'Use OTP instead (recommended)'}
             </button>
@@ -754,7 +754,7 @@ export default function LoginPageContent({ redirectUrl = '/products' }) {
           
           <p className="text-center text-[#8A6A5C] text-xs sm:text-sm tracking-wide">
             New here?{' '}
-            <Link href="/auth/register" className="text-[#F59E0B] hover:text-[#FFD700] transition-colors ml-1 uppercase text-sm font-bold tracking-widest">
+            <Link href="/auth/register" className="text-[#F59E0B] hover:text-[#D4AF37] transition-colors ml-1 uppercase text-sm font-bold tracking-widest">
               Create account
             </Link>
           </p>

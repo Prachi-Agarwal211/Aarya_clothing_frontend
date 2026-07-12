@@ -34,29 +34,29 @@ const formatDate = (d) =>
 export default function CustomerRow({ row, selected, onToggleSelect, copied, onCopy }) {
   return (
     <tr
-      className={`border-b border-[#E07B8B]/5 hover:bg-[#E07B8B]/5 transition-colors ${selected ? 'bg-[#E07B8B]/10' : ''}`}
+      className={`border-b border-[#A8B4C8]/5 hover:bg-[#A8B4C8]/5 transition-colors ${selected ? 'bg-[#A8B4C8]/10' : ''}`}
     >
       <td className="px-6 py-4">
         <button
           onClick={onToggleSelect}
-          className="p-2 rounded hover:bg-[#E07B8B]/10"
+          className="p-2 rounded hover:bg-[#A8B4C8]/10"
           aria-label={selected ? 'Deselect customer' : 'Select customer'}
         >
           {selected ? (
-            <CheckSquare className="w-5 h-5 text-[#E07B8B]" />
+            <CheckSquare className="w-5 h-5 text-[#A8B4C8]" />
           ) : (
-            <Square className="w-5 h-5 text-[#F5F5F5]/40" />
+            <Square className="w-5 h-5 text-[#F5F0E8]/40" />
           )}
         </button>
       </td>
       <td className="px-4 py-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#9333EA] to-[#E07B8B] flex items-center justify-center text-white text-sm font-bold">
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#1E3A5F] to-[#A8B4C8] flex items-center justify-center text-white text-sm font-bold">
             {initialsOf(row.full_name)}
           </div>
           <div>
-            <p className="font-medium text-[#F5F5F5]">{row.full_name || '—'}</p>
-            <p className="text-xs text-[#F5F5F5]/50">@{row.username}</p>
+            <p className="font-medium text-[#F5F0E8]">{row.full_name || '—'}</p>
+            <p className="text-xs text-[#F5F0E8]/50">@{row.username}</p>
           </div>
         </div>
       </td>
@@ -64,14 +64,14 @@ export default function CustomerRow({ row, selected, onToggleSelect, copied, onC
         <div className="flex items-center gap-2 group">
           <a
             href={`mailto:${row.email}`}
-            className="text-[#F5F5F5]/70 hover:text-[#FFD700] transition-colors flex items-center gap-1 min-w-0"
+            className="text-[#F5F0E8]/70 hover:text-[#D4AF37] transition-colors flex items-center gap-1 min-w-0"
           >
             <Mail className="w-3 h-3 flex-shrink-0" />
             <span className="truncate max-w-[180px]">{row.email}</span>
           </a>
           <button
             onClick={() => onCopy(row.email, `email-${row.id}`)}
-            className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-[#E07B8B]/10 text-[#F5F5F5]/50 hover:text-[#F5F5F5] transition-all"
+            className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-[#A8B4C8]/10 text-[#F5F0E8]/50 hover:text-[#F5F0E8] transition-all"
             title="Copy email"
           >
             {copied === `email-${row.id}` ? (
@@ -86,21 +86,21 @@ export default function CustomerRow({ row, selected, onToggleSelect, copied, onC
         {row.phone ? (
           <a
             href={`tel:${row.phone}`}
-            className="text-[#F5F5F5]/70 hover:text-[#FFD700] transition-colors flex items-center gap-1"
+            className="text-[#F5F0E8]/70 hover:text-[#D4AF37] transition-colors flex items-center gap-1"
           >
             <Phone className="w-3 h-3" /> {row.phone}
           </a>
         ) : (
-          <span className="text-[#F5F5F5]/30">—</span>
+          <span className="text-[#F5F0E8]/30">—</span>
         )}
       </td>
       <td className="px-4 py-4">
-        <span className="flex items-center gap-1 text-[#F5F5F5]">
-          <ShoppingBag className="w-4 h-4 text-[#E07B8B]/50" />
+        <span className="flex items-center gap-1 text-[#F5F0E8]">
+          <ShoppingBag className="w-4 h-4 text-[#A8B4C8]/50" />
           {row.order_count || 0}
         </span>
       </td>
-      <td className="px-4 py-4 font-medium text-[#FFD700]">
+      <td className="px-4 py-4 font-medium text-[#D4AF37]">
         {formatINR(row.total_spent)}
       </td>
       <td className="px-4 py-4">
@@ -111,14 +111,14 @@ export default function CustomerRow({ row, selected, onToggleSelect, copied, onC
         </span>
       </td>
       <td className="px-4 py-4">
-        <span className="text-[#F5F5F5]/60 text-sm flex items-center gap-1">
+        <span className="text-[#F5F0E8]/60 text-sm flex items-center gap-1">
           <Calendar className="w-3 h-3" /> {formatDate(row.created_at)}
         </span>
       </td>
       <td className="px-4 py-4 text-right">
         <Link
           href={`/admin/customers/${row.id}`}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#9333EA]/20 border border-[#E07B8B]/20 text-[#F5F5F5]/70 hover:text-[#FFD700] hover:bg-[#9333EA]/40 transition-colors text-xs"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1E3A5F]/20 border border-[#A8B4C8]/20 text-[#F5F0E8]/70 hover:text-[#D4AF37] hover:bg-[#1E3A5F]/40 transition-colors text-xs"
         >
           <Eye className="w-3.5 h-3.5" /> View
         </Link>

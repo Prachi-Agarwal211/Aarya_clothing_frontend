@@ -11,32 +11,32 @@ export const metadata = {
 
 export default function CollectionNotFound() {
   return (
-    <main className="min-h-screen text-[#F5F5F5] selection:bg-[#FFD700] selection:text-[#000000]">
+    <main className="min-h-screen text-[#F5F0E8] selection:bg-[#D4AF37] selection:text-[#000000]">
       <div className="relative z-10 page-wrapper">
         <EnhancedHeader />
         
         <div className="page-content">
           <div className="container mx-auto px-4 sm:px-6 md:px-8 header-spacing">
             <div className="text-center py-20">
-              <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-[#E07B8B]/10 flex items-center justify-center">
-                <Tag className="w-10 h-10 text-[#E07B8B]/60" />
+              <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-[#A8B4C8]/10 flex items-center justify-center">
+                <Tag className="w-10 h-10 text-[#A8B4C8]/60" />
               </div>
-              <h1 className="text-2xl md:text-3xl font-bold text-[#FFD700] mb-3" style={{ fontFamily: 'Cinzel, serif' }}>
+              <h1 className="text-2xl md:text-3xl font-bold text-[#D4AF37] mb-3" style={{ fontFamily: 'Cinzel, serif' }}>
                 Collection Not Found
               </h1>
-              <p className="text-[#F5F5F5]/60 mb-8 max-w-md mx-auto">
+              <p className="text-[#F5F0E8]/60 mb-8 max-w-md mx-auto">
                 The collection you&apos;re looking for doesn&apos;t exist or has been removed.
               </p>
               <div className="flex items-center justify-center gap-4">
                 <Link
                   href="/collections"
-                  className="inline-flex items-center gap-2 px-6 py-3 bg-[#9333EA]/30 text-[#FFD700] rounded-xl hover:bg-[#9333EA]/50 transition-colors"
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-[#1E3A5F]/30 text-[#D4AF37] rounded-xl hover:bg-[#1E3A5F]/50 transition-colors"
                 >
                   Browse Collections
                 </Link>
                 <Link
                   href="/"
-                  className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#9333EA] to-[#E07B8B] text-white rounded-xl hover:opacity-90 transition-opacity"
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#1E3A5F] to-[#A8B4C8] text-white rounded-xl hover:opacity-90 transition-opacity"
                 >
                   <ArrowLeft className="w-4 h-4" />
                   Back to Home

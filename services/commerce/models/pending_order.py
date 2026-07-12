@@ -44,6 +44,9 @@ class PendingOrder(Base):
     payment_completed_at = Column(DateTime(timezone=True), nullable=True)
     order_created_at = Column(DateTime(timezone=True), nullable=True)
     
+    # Stock reservation tracking
+    reservation_ids = Column(JSONB, nullable=True)  # [{"sku": "...", "reservation_id": "...", "qty": N}]
+    
     # Error tracking
     error_message = Column(Text, nullable=True)
     error_details = Column(JSONB, nullable=True)

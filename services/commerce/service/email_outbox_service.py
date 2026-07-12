@@ -313,24 +313,154 @@ Estimated Delivery: {(order.created_at + timedelta(days=7)).strftime("%B %d, %Y"
 Track your order: {track_url}
 """
 
-    # Placeholder builders for other email types
     def _build_shipped_html(self, order, user, tracking_number):
-        return "<h1>Shipped</h1>"
+        items_html = ""
+        for item in order.items:
+            item_details = item.product_name
+            details_parts = []
+            if item.size:
+                details_parts.append(f"Size: {item.size}")
+            if item.color:
+                details_parts.append(f"Color: {item.color}")
+            details_str = " | ".join(details_parts) if details_parts else ""
+            items_html += f"""
+            <tr style="border-bottom: 1px solid rgba(183, 110, 121, 0.2);">
+                <td style="padding: 15px 10px; color: #EAE0D5;">
+                    <strong style="color: #F2C29A; font-size: 16px;">{item.product_name}</strong>
+                    {f'<br><span style="color: #B76E79; font-size: 13px;">{details_str}</span>' if details_str else ""}
+                </td>
+                <td style="padding: 15px 10px; color: #EAE0D5; text-align: center;">{item.quantity}</td>
+                <td style="padding: 15px 10px; color: #F2C29A; text-align: right; font-weight: bold;">₹{float(item.price):.0f}</td>
+            </tr>"""
+        total_display = f"₹{float(order.total_amount):.0f}"
+        track_url = self._public_track_url(order)
+        return f"""<!DOCTYPE html><html><head><meta charset="utf-8"><title>Shipped</title></head>
+<body style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#1a1a1a;color:#EAE0D5;padding:20px;">
+<div style="background:linear-gradient(135deg,#B76E79,#8B4557);padding:30px;text-align:center;border-radius:10px 10px 0 0;">
+<h1 style="color:#F2C29A;margin:0;">Your Order is Shipped! 🚚</h1></div>
+<div style="background:#2a2a2a;padding:30px;border-radius:0 0 10px 10px;border:1px solid #B76E79;border-top:none;">
+<p style="font-size:16px;margin-bottom:20px;">Good news, <strong>{user.username or "Customer"}</strong>!</p>
+<p style="color:#F2C29A;font-size:18px;">Order #: {order.invoice_number or f"#{order.id}"}</p>
+<p>Your order has been shipped and is on its way to you.</p>
+<div style="background:#1a1a1a;padding:15px;border-radius:5px;margin:20px 0;text-align:center;">
+<p style="margin:5px 0;color:#F2C29A;font-weight:bold;">Tracking Number: {tracking_number or "Not available"}</p>
+</div>
+<table style="width:100%;border-collapse:collapse;margin:20px 0;"><thead><tr style="background:#3a3a3a;">
+<th style="padding:10px;text-align:left;">Item</th><th style="padding:10px;text-align:center;">Qty</th><th style="padding:10px;text-align:right;">Price</th>
+</tr></thead><tbody>{items_html}</tbody></table>
+<p style="text-align:center;font-size:18px;font-weight:bold;color:#F2C29A;">Total: {total_display}</p>
+<div style="background:linear-gradient(135deg,#B76E79,#8B4557);padding:15px;text-align:center;border-radius:5px;margin-top:30px;">
+<p style="margin:0;"><a href="{track_url}" style="color:#F2C29A;text-decoration:underline;">Track Your Order</a></p></div>
+<p style="text-align:center;color:#888;margin-top:30px;font-size:12px;">Need help? support@aaryaclothing.in</p>
+</div></body></html>"""
 
     def _build_shipped_text(self, order, user, tracking_number):
-        return f"Order {order.id} shipped. Tracking: {tracking_number}"
+        items_text = "\n".join(
+            f"  - {i.product_name} x {i.quantity} = ₹{float(i.price):.0f}" for i in order.items
+        )
+        track_url = self._public_track_url(order)
+        return f"""Your Order has been Shipped! #{order.invoice_number or order.id}
+
+Hi {user.username or "Customer"},
+
+Your order is on its way!
+
+Tracking Number: {tracking_number or "Not available"}
+
+Items:
+{items_text}
+
+Total: ₹{float(order.total_amount):.0f}
+
+Track your order: {track_url}
+
+Thank you for shopping with Aarya Clothing!
+- Team Aarya"""
 
     def _build_delivered_html(self, order, user):
-        return "<h1>Delivered</h1>"
+        items_html = ""
+        for item in order.items:
+            items_html += f"""<tr style="border-bottom:1px solid rgba(183,110,121,0.2);">
+<td style="padding:15px 10px;color:#EAE0D5;"><strong style="color:#F2C29A;">{item.product_name}</strong></td>
+<td style="padding:15px 10px;color:#EAE0D5;text-align:center;">{item.quantity}</td>
+<td style="padding:15px 10px;color:#F2C29A;text-align:right;">₹{float(item.price):.0f}</td></tr>"""
+        total_display = f"₹{float(order.total_amount):.0f}"
+        return f"""<!DOCTYPE html><html><head><meta charset="utf-8"><title>Delivered</title></head>
+<body style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#1a1a1a;color:#EAE0D5;padding:20px;">
+<div style="background:linear-gradient(135deg,#B76E79,#8B4557);padding:30px;text-align:center;border-radius:10px 10px 0 0;">
+<h1 style="color:#F2C29A;margin:0;">Order Delivered! ✅</h1></div>
+<div style="background:#2a2a2a;padding:30px;border-radius:0 0 10px 10px;border:1px solid #B76E79;border-top:none;">
+<p style="font-size:16px;">Hi <strong>{user.username or "Customer"}</strong>,</p>
+<p>Your order has been delivered successfully. We hope you love your purchase!</p>
+<table style="width:100%;border-collapse:collapse;margin:20px 0;"><thead><tr style="background:#3a3a3a;">
+<th style="padding:10px;text-align:left;">Item</th><th style="padding:10px;text-align:center;">Qty</th><th style="padding:10px;text-align:right;">Price</th>
+</tr></thead><tbody>{items_html}</tbody></table>
+<p style="text-align:center;font-size:18px;font-weight:bold;color:#F2C29A;">Total: {total_display}</p>
+<div style="background:linear-gradient(135deg,#B76E79,#8B4557);padding:15px;text-align:center;border-radius:5px;margin-top:30px;">
+<p style="margin:0;color:#EAE0D5;">Love your outfit? Share a photo and tag us on social media!</p></div>
+<p style="text-align:center;color:#888;margin-top:30px;font-size:12px;">Need help? support@aaryaclothing.in</p>
+</div></body></html>"""
 
     def _build_delivered_text(self, order, user):
-        return f"Order {order.id} delivered."
+        items_text = "\n".join(
+            f"  - {i.product_name} x {i.quantity} = ₹{float(i.price):.0f}" for i in order.items
+        )
+        return f"""Order Delivered! #{order.invoice_number or order.id}
+
+Hi {user.username or "Customer"},
+
+Your order has been delivered successfully!
+
+Items:
+{items_text}
+
+Total: ₹{float(order.total_amount):.0f}
+
+We hope you love your purchase!
+- Team Aarya"""
 
     def _build_cancelled_html(self, order, user, reason):
-        return "<h1>Cancelled</h1>"
+        items_html = ""
+        for item in order.items:
+            items_html += f"""<tr style="border-bottom:1px solid rgba(183,110,121,0.2);">
+<td style="padding:15px 10px;color:#EAE0D5;"><strong style="color:#F2C29A;">{item.product_name}</strong></td>
+<td style="padding:15px 10px;color:#EAE0D5;text-align:center;">{item.quantity}</td>
+<td style="padding:15px 10px;color:#F2C29A;text-align:right;">₹{float(item.price):.0f}</td></tr>"""
+        total_display = f"₹{float(order.total_amount):.0f}"
+        return f"""<!DOCTYPE html><html><head><meta charset="utf-8"><title>Cancelled</title></head>
+<body style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#1a1a1a;color:#EAE0D5;padding:20px;">
+<div style="background:linear-gradient(135deg,#B76E79,#8B4557);padding:30px;text-align:center;border-radius:10px 10px 0 0;">
+<h1 style="color:#F2C29A;margin:0;">Order Cancelled</h1></div>
+<div style="background:#2a2a2a;padding:30px;border-radius:0 0 10px 10px;border:1px solid #B76E79;border-top:none;">
+<p style="font-size:16px;">Hi <strong>{user.username or "Customer"}</strong>,</p>
+<p>Your order has been cancelled as requested.</p>
+{f'<p style="color:#B76E79;">Reason: {reason}</p>' if reason else ""}
+<table style="width:100%;border-collapse:collapse;margin:20px 0;"><thead><tr style="background:#3a3a3a;">
+<th style="padding:10px;text-align:left;">Item</th><th style="padding:10px;text-align:center;">Qty</th><th style="padding:10px;text-align:right;">Price</th>
+</tr></thead><tbody>{items_html}</tbody></table>
+<p style="text-align:center;font-size:18px;font-weight:bold;color:#F2C29A;">Total: {total_display}</p>
+<div style="background:#1a1a1a;padding:15px;text-align:center;border-radius:5px;margin-top:30px;">
+<p style="margin:0;color:#EAE0D5;">If you paid online, your refund will be processed within 5-7 business days.</p></div>
+<p style="text-align:center;color:#888;margin-top:30px;font-size:12px;">Need help? support@aaryaclothing.in</p>
+</div></body></html>"""
 
     def _build_cancelled_text(self, order, user, reason):
-        return f"Order {order.id} cancelled. Reason: {reason}"
+        items_text = "\n".join(
+            f"  - {i.product_name} x {i.quantity} = ₹{float(i.price):.0f}" for i in order.items
+        )
+        return f"""Order Cancelled #{order.invoice_number or order.id}
+
+Hi {user.username or "Customer"},
+
+Your order has been cancelled{f' ({reason})' if reason else ''}.
+
+Items:
+{items_text}
+
+Total: ₹{float(order.total_amount):.0f}
+
+If you paid online, your refund will be processed within 5-7 business days.
+- Team Aarya"""
 
     def _public_track_url(self, order) -> str:
         from service.guest_tracking_token import create_guest_tracking_token

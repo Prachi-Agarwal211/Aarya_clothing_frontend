@@ -1,5 +1,4 @@
 """Core Platform Service - Aarya Clothing"""
-from .otp import OTP
 from .user_consolidated import (
     User,
     UserRole,

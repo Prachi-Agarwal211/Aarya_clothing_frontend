@@ -62,7 +62,7 @@ const statusTone = (s) => {
     case 'failed':
       return 'bg-red-500/20 text-red-400 border-red-500/30';
     default:
-      return 'bg-[#9333EA]/20 text-[#F5F5F5]/70 border-[#E07B8B]/30';
+      return 'bg-[#1E3A5F]/20 text-[#F5F0E8]/70 border-[#A8B4C8]/30';
   }
 };
 
@@ -160,7 +160,7 @@ export default function CustomerDetailPage({ params }) {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <Loader2 className="w-8 h-8 text-[#E07B8B]/60 animate-spin" />
+        <Loader2 className="w-8 h-8 text-[#A8B4C8]/60 animate-spin" />
       </div>
     );
   }
@@ -170,7 +170,7 @@ export default function CustomerDetailPage({ params }) {
       <div className="space-y-4">
         <button
           onClick={() => router.push('/admin/customers')}
-          className="flex items-center gap-2 text-sm text-[#F5F5F5]/70 hover:text-[#FFD700]"
+          className="flex items-center gap-2 text-sm text-[#F5F0E8]/70 hover:text-[#D4AF37]"
         >
           <ArrowLeft className="w-4 h-4" /> Back to customers
         </button>
@@ -195,7 +195,7 @@ export default function CustomerDetailPage({ params }) {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <button
           onClick={() => router.push('/admin/customers')}
-          className="flex items-center gap-2 text-sm text-[#F5F5F5]/70 hover:text-[#FFD700]"
+          className="flex items-center gap-2 text-sm text-[#F5F0E8]/70 hover:text-[#D4AF37]"
         >
           <ArrowLeft className="w-4 h-4" /> Back to customers
         </button>
@@ -205,7 +205,7 @@ export default function CustomerDetailPage({ params }) {
               fetchCustomer();
               fetchOrders();
             }}
-            className="p-2.5 rounded-xl border border-[#E07B8B]/20 text-[#F5F5F5]/70 hover:bg-[#E07B8B]/10 transition-colors"
+            className="p-2.5 rounded-xl border border-[#A8B4C8]/20 text-[#F5F0E8]/70 hover:bg-[#A8B4C8]/10 transition-colors"
             title="Refresh"
           >
             <RefreshCw
@@ -226,7 +226,7 @@ export default function CustomerDetailPage({ params }) {
           </button>
           <Link
             href={`/admin/orders?user_id=${customer.id}`}
-            className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[#9333EA]/40 border border-[#E07B8B]/40 text-[#FFD700] hover:bg-[#9333EA]/60 transition-colors text-sm"
+            className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[#1E3A5F]/40 border border-[#A8B4C8]/40 text-[#D4AF37] hover:bg-[#1E3A5F]/60 transition-colors text-sm"
           >
             <ExternalLink className="w-4 h-4" /> All orders
           </Link>
@@ -256,16 +256,16 @@ export default function CustomerDetailPage({ params }) {
 
 function ProfileHeader({ customer, copied, onCopy }) {
   return (
-    <div className="bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl p-6">
+    <div className="bg-[#111111]/40 backdrop-blur-md border border-[#A8B4C8]/15 rounded-2xl p-6">
       <div className="flex flex-col sm:flex-row items-start gap-4">
-        <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#9333EA] to-[#E07B8B] flex items-center justify-center text-white text-xl font-bold flex-shrink-0">
+        <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#1E3A5F] to-[#A8B4C8] flex items-center justify-center text-white text-xl font-bold flex-shrink-0">
           {initials(customer.full_name)}
         </div>
         <div className="flex-1 min-w-0">
-          <h1 className="text-2xl font-bold text-[#FFD700] font-cinzel">
+          <h1 className="text-2xl font-bold text-[#D4AF37] font-cinzel">
             {customer.full_name || '—'}
           </h1>
-          <p className="text-sm text-[#F5F5F5]/50">@{customer.username}</p>
+          <p className="text-sm text-[#F5F0E8]/50">@{customer.username}</p>
           <div className="flex flex-wrap items-center gap-2 mt-3">
             <span
               className={`px-2.5 py-1 rounded-full text-xs font-medium border ${customer.is_active ? 'bg-green-500/20 text-green-400 border-green-500/30' : 'bg-red-500/20 text-red-400 border-red-500/30'}`}
@@ -310,8 +310,8 @@ function ProfileHeader({ customer, copied, onCopy }) {
 
 function ContactCard({ icon, label, value, href, copied, onCopy }) {
   return (
-    <div className="bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-xl p-4">
-      <label className="text-xs text-[#F5F5F5]/50 flex items-center gap-1 mb-2">
+    <div className="bg-[#111111]/60 border border-[#A8B4C8]/20 rounded-xl p-4">
+      <label className="text-xs text-[#F5F0E8]/50 flex items-center gap-1 mb-2">
         {icon} {label}
       </label>
       <div className="flex items-center gap-2">
@@ -319,14 +319,14 @@ function ContactCard({ icon, label, value, href, copied, onCopy }) {
           <>
             <a
               href={href}
-              className="text-[#F5F5F5] hover:text-[#FFD700] transition-colors text-sm flex-1 truncate"
+              className="text-[#F5F0E8] hover:text-[#D4AF37] transition-colors text-sm flex-1 truncate"
             >
               {value}
             </a>
             <button
               type="button"
               onClick={onCopy}
-              className="p-2 rounded-lg hover:bg-[#E07B8B]/10 text-[#F5F5F5]/50 hover:text-[#F5F5F5] transition-colors"
+              className="p-2 rounded-lg hover:bg-[#A8B4C8]/10 text-[#F5F0E8]/50 hover:text-[#F5F0E8] transition-colors"
               title={`Copy ${label.toLowerCase()}`}
             >
               {copied ? (
@@ -337,7 +337,7 @@ function ContactCard({ icon, label, value, href, copied, onCopy }) {
             </button>
           </>
         ) : (
-          <span className="text-[#F5F5F5]/40 text-sm">Not provided</span>
+          <span className="text-[#F5F0E8]/40 text-sm">Not provided</span>
         )}
       </div>
     </div>
@@ -347,17 +347,17 @@ function ContactCard({ icon, label, value, href, copied, onCopy }) {
 function StatsGrid({ customer }) {
   const stats = [
     {
-      icon: <ShoppingBag className="w-5 h-5 text-[#E07B8B]" />,
+      icon: <ShoppingBag className="w-5 h-5 text-[#A8B4C8]" />,
       label: 'Total orders',
       value: customer.order_count || 0,
     },
     {
-      icon: <IndianRupee className="w-5 h-5 text-[#E07B8B]" />,
+      icon: <IndianRupee className="w-5 h-5 text-[#A8B4C8]" />,
       label: 'Total spent',
       value: formatINR(customer.total_spent),
     },
     {
-      icon: <Clock className="w-5 h-5 text-[#E07B8B]" />,
+      icon: <Clock className="w-5 h-5 text-[#A8B4C8]" />,
       label: 'Last order',
       value: customer.last_order_date ? formatDate(customer.last_order_date) : 'Never',
       small: true,
@@ -369,15 +369,15 @@ function StatsGrid({ customer }) {
       {stats.map((s) => (
         <div
           key={s.label}
-          className="bg-[#0A0A0A]/40 border border-[#E07B8B]/15 rounded-2xl p-4 flex items-center gap-4"
+          className="bg-[#111111]/40 border border-[#A8B4C8]/15 rounded-2xl p-4 flex items-center gap-4"
         >
-          <div className="p-2.5 rounded-xl bg-[#9333EA]/15 flex-shrink-0">{s.icon}</div>
+          <div className="p-2.5 rounded-xl bg-[#1E3A5F]/15 flex-shrink-0">{s.icon}</div>
           <div className="min-w-0">
-            <p className="text-xs text-[#F5F5F5]/50 uppercase tracking-wider">
+            <p className="text-xs text-[#F5F0E8]/50 uppercase tracking-wider">
               {s.label}
             </p>
             <p
-              className={`font-bold text-[#FFD700] ${s.small ? 'text-base' : 'text-2xl'}`}
+              className={`font-bold text-[#D4AF37] ${s.small ? 'text-base' : 'text-2xl'}`}
             >
               {s.value}
             </p>
@@ -390,9 +390,9 @@ function StatsGrid({ customer }) {
 
 function AccountInfo({ customer }) {
   return (
-    <div className="bg-[#0A0A0A]/40 border border-[#E07B8B]/15 rounded-2xl p-5">
-      <h2 className="text-sm font-semibold text-[#F5F5F5] mb-3 flex items-center gap-2">
-        <Calendar className="w-4 h-4 text-[#E07B8B]" /> Account information
+    <div className="bg-[#111111]/40 border border-[#A8B4C8]/15 rounded-2xl p-5">
+      <h2 className="text-sm font-semibold text-[#F5F0E8] mb-3 flex items-center gap-2">
+        <Calendar className="w-4 h-4 text-[#A8B4C8]" /> Account information
       </h2>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
         <Field label="Customer ID" value={`#${customer.id}`} />
@@ -407,8 +407,8 @@ function AccountInfo({ customer }) {
 function Field({ label, value, capitalize = false }) {
   return (
     <div>
-      <p className="text-[#F5F5F5]/50 text-xs">{label}</p>
-      <p className={`text-[#F5F5F5] mt-0.5 ${capitalize ? 'capitalize' : ''}`}>
+      <p className="text-[#F5F0E8]/50 text-xs">{label}</p>
+      <p className={`text-[#F5F0E8] mt-0.5 ${capitalize ? 'capitalize' : ''}`}>
         {value || '—'}
       </p>
     </div>
@@ -417,33 +417,33 @@ function Field({ label, value, capitalize = false }) {
 
 function OrdersSection({ orders, loading, page, total, onPageChange }) {
   return (
-    <div className="bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl overflow-hidden">
-      <div className="p-4 border-b border-[#E07B8B]/10 flex items-center justify-between">
-        <h2 className="text-base font-semibold text-[#FFD700] font-cinzel flex items-center gap-2">
+    <div className="bg-[#111111]/40 backdrop-blur-md border border-[#A8B4C8]/15 rounded-2xl overflow-hidden">
+      <div className="p-4 border-b border-[#A8B4C8]/10 flex items-center justify-between">
+        <h2 className="text-base font-semibold text-[#D4AF37] font-cinzel flex items-center gap-2">
           <ShoppingBag className="w-4 h-4" /> Order history
         </h2>
         {total > 0 && (
-          <span className="text-xs text-[#F5F5F5]/50">{total} orders</span>
+          <span className="text-xs text-[#F5F0E8]/50">{total} orders</span>
         )}
       </div>
 
       {loading ? (
         <div className="flex items-center justify-center py-16">
-          <Loader2 className="w-6 h-6 text-[#E07B8B]/60 animate-spin" />
+          <Loader2 className="w-6 h-6 text-[#A8B4C8]/60 animate-spin" />
         </div>
       ) : orders.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-12 text-[#F5F5F5]/40">
+        <div className="flex flex-col items-center justify-center py-12 text-[#F5F0E8]/40">
           <ShoppingBag className="w-10 h-10 mb-3" />
           <p>No orders for this customer yet.</p>
         </div>
       ) : (
         <>
-          <div className="divide-y divide-[#E07B8B]/5">
+          <div className="divide-y divide-[#A8B4C8]/5">
             {orders.map((o) => (
               <OrderRow key={o.id} order={o} />
             ))}
           </div>
-          <div className="p-4 border-t border-[#E07B8B]/10">
+          <div className="p-4 border-t border-[#A8B4C8]/10">
             <Pagination
               page={page}
               pageSize={PAGE_SIZE}
@@ -461,10 +461,10 @@ function OrderRow({ order }) {
   return (
     <Link
       href={`/admin/orders/${order.id}`}
-      className="flex items-center justify-between p-4 hover:bg-[#E07B8B]/5 transition-colors gap-4"
+      className="flex items-center justify-between p-4 hover:bg-[#A8B4C8]/5 transition-colors gap-4"
     >
       <div className="flex items-center gap-3 min-w-0">
-        <div className="w-10 h-10 rounded-lg bg-[#0A0A0A] border border-[#E07B8B]/20 flex items-center justify-center flex-shrink-0 overflow-hidden">
+        <div className="w-10 h-10 rounded-lg bg-[#111111] border border-[#A8B4C8]/20 flex items-center justify-center flex-shrink-0 overflow-hidden">
           {order.items?.[0]?.image_url ? (
             <img
               src={getImageUrl(order.items[0].image_url)}
@@ -473,21 +473,21 @@ function OrderRow({ order }) {
               loading="lazy"
             />
           ) : (
-            <ShoppingBag className="w-4 h-4 text-[#E07B8B]/40" />
+            <ShoppingBag className="w-4 h-4 text-[#A8B4C8]/40" />
           )}
         </div>
         <div className="min-w-0">
-          <p className="text-sm font-medium text-[#F5F5F5]">
+          <p className="text-sm font-medium text-[#F5F0E8]">
             #{order.order_number || order.id}
           </p>
-          <p className="text-xs text-[#F5F5F5]/50">
+          <p className="text-xs text-[#F5F0E8]/50">
             {formatDate(order.created_at)}
             {order.items?.length ? ` · ${order.items.length} item(s)` : ''}
           </p>
         </div>
       </div>
       <div className="flex items-center gap-3 flex-shrink-0">
-        <span className="text-sm font-medium text-[#FFD700]">
+        <span className="text-sm font-medium text-[#D4AF37]">
           {formatINR(order.total_amount)}
         </span>
         <span
@@ -495,7 +495,7 @@ function OrderRow({ order }) {
         >
           {order.status || 'pending'}
         </span>
-        <Eye className="w-4 h-4 text-[#F5F5F5]/40" />
+        <Eye className="w-4 h-4 text-[#F5F0E8]/40" />
       </div>
     </Link>
   );

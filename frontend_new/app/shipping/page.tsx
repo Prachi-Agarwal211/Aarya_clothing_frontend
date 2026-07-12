@@ -32,34 +32,34 @@ export default function ShippingPolicyPage() {
       <div className="container mx-auto px-4 sm:px-6 md:px-8 max-w-4xl">
         {/* Header */}
         <div className="text-center mb-12">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-[#E07B8B]/20 mb-6">
-            <Truck className="w-8 h-8 text-[#FFD700]" />
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-[#A8B4C8]/20 mb-6">
+            <Truck className="w-8 h-8 text-[#D4AF37]" />
           </div>
           <h1 
-            className="text-3xl sm:text-4xl md:text-5xl font-semibold text-[#FFD700] mb-4"
+            className="text-3xl sm:text-4xl md:text-5xl font-semibold text-[#D4AF37] mb-4"
             style={{ fontFamily: 'Cinzel, serif' }}
           >
             Shipping Policy
           </h1>
-          <p className="text-[#F5F5F5]/70 text-sm sm:text-base max-w-2xl mx-auto">
+          <p className="text-[#F5F0E8]/70 text-sm sm:text-base max-w-2xl mx-auto">
             Last updated: {new Date().toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' })}
           </p>
         </div>
 
         {/* Content Container */}
-        <div className="relative rounded-3xl p-6 sm:p-8 md:p-12 bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
+        <div className="relative rounded-3xl p-6 sm:p-8 md:p-12 bg-[#111111]/40 backdrop-blur-md border border-[#A8B4C8]/15 shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
           
           {/* Free Shipping Banner */}
           <section className="mb-10">
-            <div className="p-6 rounded-2xl bg-gradient-to-br from-[#FFD700]/15 to-[#E07B8B]/10 border border-[#FFD700]/25">
+            <div className="p-6 rounded-2xl bg-gradient-to-br from-[#D4AF37]/15 to-[#A8B4C8]/10 border border-[#D4AF37]/25">
               <div className="flex items-center justify-center gap-3 mb-4">
-                <CheckCircle className="w-6 h-6 text-[#FFD700]" />
-                <h2 className="text-xl text-[#F5F5F5] font-medium" style={{ fontFamily: 'Cinzel, serif' }}>
+                <CheckCircle className="w-6 h-6 text-[#D4AF37]" />
+                <h2 className="text-xl text-[#F5F0E8] font-medium" style={{ fontFamily: 'Cinzel, serif' }}>
                   Free Shipping Across India
                 </h2>
               </div>
-              <p className="text-[#F5F5F5]/80 leading-relaxed text-center">
-                Enjoy <strong className="text-[#FFD700]">free shipping on all orders</strong>. 
+              <p className="text-[#F5F0E8]/80 leading-relaxed text-center">
+                Enjoy <strong className="text-[#D4AF37]">free shipping on all orders</strong>. 
                 No minimum order value required.
               </p>
             </div>
@@ -67,13 +67,13 @@ export default function ShippingPolicyPage() {
 
           {/* Section 1 */}
           <section className="mb-10">
-            <h2 className="text-xl sm:text-2xl text-[#F5F5F5] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
-              <MapPin className="w-6 h-6 text-[#FFD700]" />
+            <h2 className="text-xl sm:text-2xl text-[#F5F0E8] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
+              <MapPin className="w-6 h-6 text-[#D4AF37]" />
               Shipping Areas
             </h2>
-            <div className="space-y-4 text-[#F5F5F5]/70 leading-relaxed pl-4">
+            <div className="space-y-4 text-[#F5F0E8]/70 leading-relaxed pl-4">
               <p>
-                We ship to <strong className="text-[#FFD700]">all locations across India</strong>, including:
+                We ship to <strong className="text-[#D4AF37]">all locations across India</strong>, including:
               </p>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mt-4">
                 {[
@@ -84,8 +84,8 @@ export default function ShippingPolicyPage() {
                   'Rural Areas',
                   'Remote Locations'
                 ].map((area) => (
-                  <div key={area} className="p-3 rounded-lg bg-[#FFD700]/5 border border-[#FFD700]/10 text-center">
-                    <p className="text-sm text-[#F5F5F5]">{area}</p>
+                  <div key={area} className="p-3 rounded-lg bg-[#D4AF37]/5 border border-[#D4AF37]/10 text-center">
+                    <p className="text-sm text-[#F5F0E8]">{area}</p>
                   </div>
                 ))}
               </div>
@@ -97,14 +97,14 @@ export default function ShippingPolicyPage() {
 
           {/* Section 2 */}
           <section className="mb-10">
-            <h2 className="text-xl sm:text-2xl text-[#F5F5F5] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
-              <Clock className="w-6 h-6 text-[#FFD700]" />
+            <h2 className="text-xl sm:text-2xl text-[#F5F0E8] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
+              <Clock className="w-6 h-6 text-[#D4AF37]" />
               Processing Time
             </h2>
-            <div className="space-y-4 text-[#F5F5F5]/70 leading-relaxed pl-4">
-              <div className="p-5 rounded-xl bg-[#FFD700]/10 border border-[#FFD700]/20">
-                <p className="text-[#F5F5F5] leading-relaxed">
-                  <strong className="text-[#FFD700]">10-15 Business Days:</strong> All orders are processed and 
+            <div className="space-y-4 text-[#F5F0E8]/70 leading-relaxed pl-4">
+              <div className="p-5 rounded-xl bg-[#D4AF37]/10 border border-[#D4AF37]/20">
+                <p className="text-[#F5F0E8] leading-relaxed">
+                  <strong className="text-[#D4AF37]">10-15 Business Days:</strong> All orders are processed and 
                   dispatched within 10-15 business days (excluding weekends and public holidays) after payment 
                   confirmation.
                 </p>
@@ -118,18 +118,18 @@ export default function ShippingPolicyPage() {
 
           {/* Section 4 */}
           <section className="mb-10">
-            <h2 className="text-xl sm:text-2xl text-[#F5F5F5] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
-              <DollarSign className="w-6 h-6 text-[#FFD700]" />
+            <h2 className="text-xl sm:text-2xl text-[#F5F0E8] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
+              <DollarSign className="w-6 h-6 text-[#D4AF37]" />
               Shipping Costs
             </h2>
-            <div className="space-y-4 text-[#F5F5F5]/70 leading-relaxed pl-4">
-              <div className="p-5 rounded-xl bg-gradient-to-br from-[#FFD700]/15 to-[#FFD700]/5 border border-[#FFD700]/25">
+            <div className="space-y-4 text-[#F5F0E8]/70 leading-relaxed pl-4">
+              <div className="p-5 rounded-xl bg-gradient-to-br from-[#D4AF37]/15 to-[#D4AF37]/5 border border-[#D4AF37]/25">
                   <div className="flex items-center gap-2 mb-3">
-                    <CheckCircle className="w-5 h-5 text-[#FFD700]" />
-                    <h3 className="text-[#F5F5F5] font-medium">All Orders</h3>
+                    <CheckCircle className="w-5 h-5 text-[#D4AF37]" />
+                    <h3 className="text-[#F5F0E8] font-medium">All Orders</h3>
                   </div>
-                  <p className="text-3xl text-[#FFD700] font-semibold mb-2">FREE</p>
-                  <p className="text-xs text-[#F5F5F5]/60">Free shipping on all orders</p>
+                  <p className="text-3xl text-[#D4AF37] font-semibold mb-2">FREE</p>
+                  <p className="text-xs text-[#F5F0E8]/60">Free shipping on all orders</p>
                 </div>
               
               <p className="text-sm">
@@ -141,43 +141,43 @@ export default function ShippingPolicyPage() {
 
           {/* Section 7 */}
           <section className="mb-10">
-            <h2 className="text-xl sm:text-2xl text-[#F5F5F5] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
-              <AlertCircle className="w-6 h-6 text-[#FFD700]" />
+            <h2 className="text-xl sm:text-2xl text-[#F5F0E8] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
+              <AlertCircle className="w-6 h-6 text-[#D4AF37]" />
               Return Process
             </h2>
-            <div className="space-y-4 text-[#F5F5F5]/70 leading-relaxed pl-4">
+            <div className="space-y-4 text-[#F5F0E8]/70 leading-relaxed pl-4">
               <p>
                 For customers who wish to return products, please follow our video-based return process:
               </p>
               <div className="space-y-3 mt-4">
-                <div className="p-4 rounded-xl bg-[#FFD700]/5 border border-[#FFD700]/10">
-                  <p className="text-sm text-[#F5F5F5]">
-                    <strong className="text-[#FFD700]">Step 1 - Create Unboxing Video:</strong> 
+                <div className="p-4 rounded-xl bg-[#D4AF37]/5 border border-[#D4AF37]/10">
+                  <p className="text-sm text-[#F5F0E8]">
+                    <strong className="text-[#D4AF37]">Step 1 - Create Unboxing Video:</strong> 
                     Record a video showing the sealed package, unboxing process, and product condition
                   </p>
                 </div>
-                <div className="p-4 rounded-xl bg-[#FFD700]/5 border border-[#FFD700]/10">
-                  <p className="text-sm text-[#F5F5F5]">
-                    <strong className="text-[#FFD700]">Step 2 - Upload Video:</strong> 
+                <div className="p-4 rounded-xl bg-[#D4AF37]/5 border border-[#D4AF37]/10">
+                  <p className="text-sm text-[#F5F0E8]">
+                    <strong className="text-[#D4AF37]">Step 2 - Upload Video:</strong> 
                     Submit your return request with the unboxing video within 7 days of delivery
                   </p>
                 </div>
-                <div className="p-4 rounded-xl bg-[#FFD700]/5 border border-[#FFD700]/10">
-                  <p className="text-sm text-[#F5F5F5]">
-                    <strong className="text-[#FFD700]">Step 3 - Review Process:</strong> 
+                <div className="p-4 rounded-xl bg-[#D4AF37]/5 border border-[#D4AF37]/10">
+                  <p className="text-sm text-[#F5F0E8]">
+                    <strong className="text-[#D4AF37]">Step 3 - Review Process:</strong> 
                     Our team will review your video and accept or reject the return request based on evidence
                   </p>
                 </div>
-                <div className="p-4 rounded-xl bg-[#FFD700]/5 border border-[#FFD700]/10">
-                  <p className="text-sm text-[#F5F5F5]">
-                    <strong className="text-[#FFD700]">Step 4 - Product Return:</strong> 
+                <div className="p-4 rounded-xl bg-[#D4AF37]/5 border border-[#D4AF37]/10">
+                  <p className="text-sm text-[#F5F0E8]">
+                    <strong className="text-[#D4AF37]">Step 4 - Product Return:</strong> 
                     If approved, ship the product back to us for exchange or refund processing
                   </p>
                 </div>
               </div>
-              <div className="flex items-start gap-3 p-4 rounded-xl bg-[#FFD700]/5 border border-[#FFD700]/10 mt-4">
-                <AlertCircle className="w-5 h-5 text-[#FFD700] flex-shrink-0 mt-0.5" />
-                <p className="text-sm text-[#F5F5F5]/70">
+              <div className="flex items-start gap-3 p-4 rounded-xl bg-[#D4AF37]/5 border border-[#D4AF37]/10 mt-4">
+                <AlertCircle className="w-5 h-5 text-[#D4AF37] flex-shrink-0 mt-0.5" />
+                <p className="text-sm text-[#F5F0E8]/70">
                   Unboxing videos are mandatory for all return requests. Returns without proper video evidence 
                   will not be accepted. Ensure videos clearly show product condition and any issues.
                 </p>
@@ -187,11 +187,11 @@ export default function ShippingPolicyPage() {
 
           {/* Section 8 */}
           <section className="mb-10">
-            <h2 className="text-xl sm:text-2xl text-[#F5F5F5] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
-              <AlertCircle className="w-6 h-6 text-[#FFD700]" />
+            <h2 className="text-xl sm:text-2xl text-[#F5F0E8] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
+              <AlertCircle className="w-6 h-6 text-[#D4AF37]" />
               Undelivered Packages
             </h2>
-            <div className="space-y-4 text-[#F5F5F5]/70 leading-relaxed pl-4">
+            <div className="space-y-4 text-[#F5F0E8]/70 leading-relaxed pl-4">
               <p>
                 If your package remains undelivered after 3 attempts:
               </p>
@@ -200,9 +200,9 @@ export default function ShippingPolicyPage() {
                 <li>You will be notified via email and SMS</li>
                 <li>We will contact you to confirm if you want a reshipment or refund</li>
               </ul>
-              <div className="p-5 rounded-xl bg-[#FFD700]/10 border border-[#FFD700]/20 mt-4">
-                <p className="text-[#F5F5F5] text-sm">
-                  <strong className="text-[#FFD700]">Reshipment:</strong> If you request reshipment, we will dispatch 
+              <div className="p-5 rounded-xl bg-[#D4AF37]/10 border border-[#D4AF37]/20 mt-4">
+                <p className="text-[#F5F0E8] text-sm">
+                  <strong className="text-[#D4AF37]">Reshipment:</strong> If you request reshipment, we will dispatch 
                   your order again at no additional cost. For refund requests, our team will contact you with further details.
                 </p>
               </div>
@@ -212,11 +212,11 @@ export default function ShippingPolicyPage() {
 
           {/* Section 9 */}
           <section className="mb-10">
-            <h2 className="text-xl sm:text-2xl text-[#F5F5F5] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
-              <AlertCircle className="w-6 h-6 text-[#FFD700]" />
+            <h2 className="text-xl sm:text-2xl text-[#F5F0E8] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
+              <AlertCircle className="w-6 h-6 text-[#D4AF37]" />
               Delivery Issues
             </h2>
-            <div className="space-y-4 text-[#F5F5F5]/70 leading-relaxed pl-4">
+            <div className="space-y-4 text-[#F5F0E8]/70 leading-relaxed pl-4">
               <p>
                 If you experience any delivery issues:
               </p>
@@ -234,33 +234,33 @@ export default function ShippingPolicyPage() {
 
           {/* Section 10 */}
           <section className="mb-10">
-            <h2 className="text-xl sm:text-2xl text-[#F5F5F5] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
-              <Headphones className="w-6 h-6 text-[#FFD700]" />
+            <h2 className="text-xl sm:text-2xl text-[#F5F0E8] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
+              <Headphones className="w-6 h-6 text-[#D4AF37]" />
               Contact Us
             </h2>
-            <div className="space-y-4 text-[#F5F5F5]/70 leading-relaxed pl-4">
+            <div className="space-y-4 text-[#F5F0E8]/70 leading-relaxed pl-4">
               <p>
                 For any shipping-related queries or concerns, please contact us:
               </p>
-              <div className="p-6 rounded-xl bg-[#FFD700]/5 border border-[#FFD700]/10 space-y-3">
-                <p className="text-[#F5F5F5]">
-                  <strong className="text-[#FFD700]">Customer Support:</strong> support@aaryaclothing.com
+              <div className="p-6 rounded-xl bg-[#D4AF37]/5 border border-[#D4AF37]/10 space-y-3">
+                <p className="text-[#F5F0E8]">
+                  <strong className="text-[#D4AF37]">Customer Support:</strong> support@aaryaclothing.com
                 </p>
-                <p className="text-[#F5F5F5]">
-                  <strong className="text-[#FFD700]">Phone:</strong> +91 7300186757
+                <p className="text-[#F5F0E8]">
+                  <strong className="text-[#D4AF37]">Phone:</strong> +91 7300186757
                 </p>
-                <p className="text-[#F5F5F5]">
-                  <strong className="text-[#FFD700]">Hours:</strong> Monday - Saturday, 10 AM - 7 PM IST
+                <p className="text-[#F5F0E8]">
+                  <strong className="text-[#D4AF37]">Hours:</strong> Monday - Saturday, 10 AM - 7 PM IST
                 </p>
               </div>
             </div>
           </section>
 
           {/* Back to Top */}
-          <div className="pt-8 border-t border-[#E07B8B]/15">
+          <div className="pt-8 border-t border-[#A8B4C8]/15">
             <Link 
               href="/" 
-              className="inline-flex items-center gap-2 text-[#FFD700] hover:text-[#F5F5F5] transition-colors text-sm"
+              className="inline-flex items-center gap-2 text-[#D4AF37] hover:text-[#F5F0E8] transition-colors text-sm"
             >
               ← Back to Home
             </Link>

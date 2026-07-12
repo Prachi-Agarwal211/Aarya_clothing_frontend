@@ -62,44 +62,44 @@ export default function ProductShareButton({ product, className = '' }) {
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="p-3.5 rounded-xl border border-[#E07B8B]/20 text-[#F5F5F5]/70 hover:text-[#FFD700] hover:border-[#FFD700]/40 transition-all duration-300"
+        className="p-3.5 rounded-xl border border-[#A8B4C8]/20 text-[#F5F0E8]/70 hover:text-[#D4AF37] hover:border-[#D4AF37]/40 transition-all duration-300"
         aria-label="Share product"
       >
         <Share2 className="w-5 h-5" />
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 top-full mt-2 w-56 bg-[#0A0A0A] border border-[#E07B8B]/30 rounded-xl shadow-2xl overflow-hidden z-50">
-          <div className="px-4 py-3 border-b border-[#E07B8B]/20">
-            <p className="text-[#F5F5F5]/80 text-xs font-medium uppercase tracking-wider">Share this product</p>
+        <div className="absolute right-0 top-full mt-2 w-56 bg-[#111111] border border-[#A8B4C8]/30 rounded-xl shadow-2xl overflow-hidden z-50">
+          <div className="px-4 py-3 border-b border-[#A8B4C8]/20">
+            <p className="text-[#F5F0E8]/80 text-xs font-medium uppercase tracking-wider">Share this product</p>
           </div>
           <div className="p-2">
             <button
               type="button"
               onClick={handleWhatsAppShare}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-[#9333EA]/20 transition-colors text-left"
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-[#1E3A5F]/20 transition-colors text-left"
             >
               <div className="w-8 h-8 rounded-full bg-[#25D366]/20 flex items-center justify-center">
                 <MessageCircle className="w-4 h-4 text-[#25D366]" />
               </div>
-              <span className="text-[#F5F5F5]/90 text-sm">Share on WhatsApp</span>
+              <span className="text-[#F5F0E8]/90 text-sm">Share on WhatsApp</span>
             </button>
             <button
               type="button"
               onClick={handleCopyLink}
-              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-[#9333EA]/20 transition-colors text-left"
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-[#1E3A5F]/20 transition-colors text-left"
             >
-              <div className="w-8 h-8 rounded-full bg-[#E07B8B]/20 flex items-center justify-center">
-                {copied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4 text-[#E07B8B]" />}
+              <div className="w-8 h-8 rounded-full bg-[#A8B4C8]/20 flex items-center justify-center">
+                {copied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4 text-[#A8B4C8]" />}
               </div>
-              <span className="text-[#F5F5F5]/90 text-sm">{copied ? 'Copied!' : 'Copy Link'}</span>
+              <span className="text-[#F5F0E8]/90 text-sm">{copied ? 'Copied!' : 'Copy Link'}</span>
             </button>
           </div>
           <div className="px-2 pb-2">
             <button
               type="button"
               onClick={() => setIsOpen(false)}
-              className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg hover:bg-[#9333EA]/10 transition-colors text-[#F5F5F5]/50 text-xs"
+              className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg hover:bg-[#1E3A5F]/10 transition-colors text-[#F5F0E8]/50 text-xs"
             >
               <X className="w-3 h-3" />
               Close

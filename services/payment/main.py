@@ -34,6 +34,7 @@ from shared.auth_middleware import (
     require_staff,
     initialize_auth_middleware
 )
+from shared.rate_limiter import rate_limit
 from schemas.payment import (
     PaymentRequest, PaymentResponse, PaymentStatus, PaymentMethod,
     RazorpayOrderRequest, RazorpayOrderResponse, RazorpayPaymentVerification,
@@ -163,8 +164,14 @@ async def create_razorpay_order(
 ):
     """
     Create a Razorpay order for payment.
-    
-    This endpoint creates a Razorpay order that can be used to initiate payment.
+
+    CRITICAL reliability path:
+    1. Prepare PendingOrder in commerce (stock reservation + cart snapshot)
+    2. Create Razorpay order with pending_order_id + user_id in notes
+    3. Persist PaymentTransaction with checkout metadata
+
+    Webhooks (payment.captured) use notes.pending_order_id / gateway_response
+    to create the real order even if the user never reaches /checkout/confirm.
     """
     try:
         # Minimum amount guard: Razorpay requires >= 100 paise (₹1).
@@ -182,55 +189,174 @@ async def create_razorpay_order(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Receipt too long: {len(request.receipt)} characters. Maximum is 40 characters."
             )
-        
+
+        user_id = current_user.get("user_id")
+        notes = dict(request.notes or {})
+        notes["user_id"] = str(user_id)
+        pending_id = None
+        amount_rupees = float(Decimal(str(request.amount)) / Decimal("100"))
+
         logger.info(
-            f"create-order: user={current_user.get('user_id')} amount={request.amount} paise "
-            f"({request.amount/100:.2f} INR) "
+            f"create-order: user={user_id} amount={request.amount} paise "
+            f"({amount_rupees:.2f} INR) "
             f"currency={request.currency} receipt={request.receipt}"
         )
+
+        # ── 1. Prepare pending + RESERVE STOCK before Razorpay ──
+        # HARD GATE: no Razorpay order if stock cannot be reserved.
+        # 10 units / 15 payers → only 10 open the gateway; 5 get clear 400.
+        if not request.cart_snapshot or not request.shipping_address:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="cart_snapshot and shipping_address are required to start payment",
+            )
+
+        try:
+            import httpx
+            commerce_url = os.environ.get("COMMERCE_SERVICE_URL", "http://commerce:5002")
+            internal_secret = os.environ.get("INTERNAL_SERVICE_SECRET")
+            async with httpx.AsyncClient(timeout=12.0) as client:
+                prepare_resp = await client.post(
+                    f"{commerce_url}/api/v1/orders/internal/orders/prepare",
+                    json={
+                        "user_id": user_id,
+                        "cart_snapshot": request.cart_snapshot,
+                        "shipping_address": request.shipping_address,
+                        "total_amount": amount_rupees,
+                        "subtotal": float(notes.get("subtotal", amount_rupees)),
+                        "discount_applied": float(notes.get("discount_applied", 0)),
+                        "shipping_cost": float(notes.get("shipping_cost", 0)),
+                    },
+                    headers={"X-Internal-Secret": internal_secret},
+                )
+            if prepare_resp.status_code != 200:
+                detail = "Unable to reserve stock for this order. Please update your cart."
+                try:
+                    body = prepare_resp.json()
+                    detail = body.get("detail") or body.get("message") or detail
+                except Exception:
+                    detail = prepare_resp.text[:300] or detail
+                logger.warning(
+                    f"PREPARE_BLOCKED_PAYMENT: user={user_id} status={prepare_resp.status_code} "
+                    f"detail={str(detail)[:200]}"
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=detail if isinstance(detail, str) else str(detail),
+                )
+            pending_data = prepare_resp.json()
+            pending_id = pending_data.get("pending_order_id")
+            if pending_id is None:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Stock reservation did not return a pending order. Try again.",
+                )
+            if not pending_data.get("stock_reserved", True):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Stock could not be reserved. Please update your cart.",
+                )
+            notes["pending_order_id"] = str(pending_id)
+            logger.info(
+                f"✓ CREATE_ORDER_PENDING_PREPARED: id={pending_id} user={user_id} "
+                f"reservations={pending_data.get('reserved_count')}"
+            )
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"PREPARE_ERROR create-order: {e}", exc_info=True)
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Checkout service unavailable. Please try again in a moment.",
+            )
+
+        # ── 2. Create Razorpay order (notes carry pending_order_id + user_id) ──
         razorpay_client = get_razorpay_client()
         order = razorpay_client.create_order(
             amount=int(request.amount),
             currency=request.currency,
             receipt=request.receipt,
-            notes=request.notes,
+            notes=notes,
             checkout_config_id=settings.RAZORPAY_CHECKOUT_CONFIG_ID or None,
         )
         logger.info(
             f"✓ Order created: id={order.get('id')} "
-            f"amount={order.get('amount')} status={order.get('status')}"
+            f"amount={order.get('amount')} status={order.get('status')} "
+            f"pending_id={pending_id}"
         )
 
-        # Create payment transaction record with cart_snapshot backup.
-        # NOTE: pending_order is created later by register_payment() in commerce service
-        # (the confirm page calls register_payment which snapshots the cart and creates the
-        # pending_order). This avoids double pending_order creation.
+        # ── 3. Link razorpay_order_id onto the pending order (best-effort) ──
+        if pending_id and order.get("id"):
+            try:
+                import httpx
+                commerce_url = os.environ.get("COMMERCE_SERVICE_URL", "http://commerce:5002")
+                internal_secret = os.environ.get("INTERNAL_SERVICE_SECRET")
+                async with httpx.AsyncClient(timeout=5.0) as client:
+                    link_resp = await client.patch(
+                        f"{commerce_url}/api/v1/orders/internal/orders/pending/{pending_id}",
+                        json={"razorpay_order_id": order["id"]},
+                        headers={"X-Internal-Secret": internal_secret},
+                    )
+                    if link_resp.status_code == 200:
+                        logger.info(
+                            f"✓ Linked pending={pending_id} → razorpay_order={order['id']}"
+                        )
+                    else:
+                        logger.warning(
+                            f"pending link status={link_resp.status_code} body={link_resp.text[:200]}"
+                        )
+            except Exception as link_err:
+                logger.warning(
+                    f"Could not link razorpay_order_id to pending {pending_id}: {link_err}"
+                )
+
+        # ── 4. Create payment transaction with full checkout metadata ──
         try:
             from models.payment import PaymentTransaction
 
+            gateway_response = {
+                "cart_snapshot": request.cart_snapshot or [],
+                "shipping_address": request.shipping_address,
+                "created_during": "create-order",
+            }
+            if pending_id is not None:
+                gateway_response["pending_order_id"] = pending_id
+
             transaction = PaymentTransaction(
-                user_id=current_user.get('user_id'),
+                user_id=user_id,
                 amount=Decimal(str(request.amount)) / Decimal('100'),
                 currency=request.currency,
                 payment_method='razorpay',
                 razorpay_order_id=order['id'],
                 status='pending',
-                gateway_response={
-                    'cart_snapshot': request.cart_snapshot or [],
-                    'shipping_address': request.shipping_address,
-                    'created_during': 'create-order',
-                }
+                gateway_response=gateway_response,
             )
             db.add(transaction)
             db.commit()
-            logger.info(f"✓ PaymentTransaction created: id={transaction.id} txn_id={transaction.transaction_id}")
+            logger.info(
+                f"✓ PaymentTransaction created: id={transaction.id} "
+                f"txn_id={transaction.transaction_id} pending_id={pending_id}"
+            )
         except Exception as e:
             db.rollback()
             logger.error(f"✗ Failed to create payment transaction: {e}")
-            # Don't fail the whole request - Razorpay order is already created
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to create payment transaction. Order not charged."
+            )
+
+        # Surface pending_order_id to frontend (sessionStorage) via notes + gateway_response
+        if pending_id is not None:
+            if not isinstance(order.get("notes"), dict):
+                order["notes"] = dict(notes)
+            else:
+                order["notes"] = {**order.get("notes", {}), **notes}
+            order["gateway_response"] = {"pending_order_id": pending_id}
 
         return RazorpayOrderResponse(**order)
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"✗ create-order failed: {e}")
         raise HTTPException(
@@ -373,11 +499,21 @@ async def razorpay_redirect_callback(request: Request):
 
             # HMAC mismatch — before rejecting, confirm with Razorpay's API.
             # If the payment is genuinely captured we should never strand the user.
+            #
+            # SECURITY: This fallback is rate-limited to prevent abuse (5 per 60s per IP).
+            # An attacker who can craft a redirect with a valid payment_id from another
+            # user would still need Razorpay's API to report "captured" AND the order_id
+            # to match — both are gated by the merchant's API key which is server-side only.
             logger.warning(
-                f"HMAC failed for order={razorpay_order_id} payment={razorpay_payment_id}. "
+                f"HMAC_FAILED: order={razorpay_order_id} payment={razorpay_payment_id}. "
                 "Fetching payment from Razorpay API as fallback…"
             )
             try:
+                from shared.rate_limiter import get_rate_limiter
+                rl = get_rate_limiter()
+                client_ip = request.client.host if request.client else "unknown"
+                rl.check(f"hmac_fallback:{client_ip}", limit=5, window=60)
+
                 payment_data = razorpay_client.fetch_payment(razorpay_payment_id)
                 api_status   = payment_data.get("status", "")
                 api_order_id = payment_data.get("order_id", "")
@@ -386,9 +522,9 @@ async def razorpay_redirect_callback(request: Request):
                     f"status={api_status} order_id={api_order_id}"
                 )
                 if api_status == "captured" and api_order_id == razorpay_order_id:
-                    logger.warning(
-                        f"⚠ Accepting payment via API fallback (HMAC failed but captured): "
-                        f"order={razorpay_order_id} payment={razorpay_payment_id}"
+                    logger.critical(
+                        f"HMAC_FALLBACK_ACCEPTED: order={razorpay_order_id} "
+                        f"payment={razorpay_payment_id} ip={client_ip}"
                     )
                     return RedirectResponse(
                         url=(
@@ -404,7 +540,10 @@ async def razorpay_redirect_callback(request: Request):
                     f"(expected 'captured', order_id match={api_order_id == razorpay_order_id})"
                 )
             except Exception as fetch_err:
-                logger.error(f"Razorpay API fallback fetch failed: {fetch_err}")
+                if "429" in str(fetch_err) or "rate_limit" in str(fetch_err).lower():
+                    logger.error(f"HMAC_FALLBACK_RATE_LIMITED: IP={client_ip}, payment={razorpay_payment_id}")
+                else:
+                    logger.error(f"Razorpay API fallback fetch failed: {fetch_err}")
 
             return RedirectResponse(
                 url=f"{frontend_url}/checkout/payment?error=verification_failed",
@@ -466,42 +605,82 @@ async def create_qr_code(
         now = int(time.time())
         close_by = now + 300  # 5 minutes in seconds
 
-        notes = request.notes or {}
-        pending_id = None  # Initialize — may be set by commerce prepare call
+        notes = dict(request.notes or {})
+        notes["user_id"] = str(current_user["user_id"])
+        pending_id = None
 
-        # If we have a cart snapshot, prepare a pending order in commerce
-        if request.cart_snapshot and request.shipping_address:
-            try:
-                import httpx
-                commerce_url = os.environ.get("COMMERCE_SERVICE_URL", "http://commerce:5002")
-                internal_secret = os.environ.get("INTERNAL_SERVICE_SECRET")
+        # HARD GATE: reserve stock before QR is shown (same as create-order)
+        if not request.cart_snapshot or not request.shipping_address:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="cart_snapshot and shipping_address are required for QR payment",
+            )
+        try:
+            import httpx
+            commerce_url = os.environ.get("COMMERCE_SERVICE_URL", "http://commerce:5002")
+            internal_secret = os.environ.get("INTERNAL_SERVICE_SECRET")
+            async with httpx.AsyncClient(timeout=12.0) as client:
+                prepare_resp = await client.post(
+                    f"{commerce_url}/api/v1/orders/internal/orders/prepare",
+                    json={
+                        "user_id": current_user["user_id"],
+                        "cart_snapshot": request.cart_snapshot,
+                        "shipping_address": request.shipping_address,
+                        "total_amount": float(request.amount) / 100.0,
+                        "subtotal": float(notes.get("subtotal", float(request.amount) / 100.0)),
+                        "discount_applied": float(notes.get("discount_applied", 0)),
+                        "shipping_cost": float(notes.get("shipping_cost", 0)),
+                    },
+                    headers={"X-Internal-Secret": internal_secret},
+                )
+            if prepare_resp.status_code != 200:
+                detail = "Unable to reserve stock for QR payment. Please update your cart."
+                try:
+                    body = prepare_resp.json()
+                    detail = body.get("detail") or detail
+                except Exception:
+                    pass
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
+            pending_data = prepare_resp.json()
+            pending_id = pending_data.get("pending_order_id")
+            if pending_id is None or not pending_data.get("stock_reserved", True):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Stock reservation failed. Please update your cart.",
+                )
+            notes["pending_order_id"] = str(pending_id)
+            logger.info(
+                f"✓ QR_PENDING_ORDER_PREPARED: id={pending_id} user={current_user['user_id']}"
+            )
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"QR prepare failed: {e}", exc_info=True)
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Checkout service unavailable. Please try again.",
+            )
 
-                # FIX: Use context manager to avoid leaking httpx.AsyncClient per request.
-                # The old code created a new AsyncClient() every call and never closed it,
-                # leaking connection pools and file descriptors under load.
-                async with httpx.AsyncClient(timeout=5.0) as client:
-                    prepare_resp = await client.post(
-                        f"{commerce_url}/api/v1/orders/internal/orders/prepare",
-                        json={
-                            "user_id": current_user["user_id"],
-                            "cart_snapshot": request.cart_snapshot,
-                            "shipping_address": request.shipping_address,
-                            "total_amount": float(request.amount) / 100.0,
-                            "subtotal": float(notes.get("subtotal", float(request.amount) / 100.0)),
-                            "discount_applied": float(notes.get("discount_applied", 0)),
-                            "shipping_cost": float(notes.get("shipping_cost", 0)),
-                        },
-                        headers={"X-Internal-Secret": internal_secret},
-                    )
-                if prepare_resp.status_code == 200:
-                    pending_data = prepare_resp.json()
-                    pending_id = pending_data.get("pending_order_id")
-                    notes["pending_order_id"] = str(pending_id)
-                    logger.info(f"✓ QR_PENDING_ORDER_PREPARED: id={pending_id} for user={current_user['user_id']}")
-            except Exception as e:
-                logger.warning(f"⚠ Failed to prepare QR pending order: {e}")
+        # Generate transaction ID
+        transaction_id = f"txn_qr_{now}_{uuid.uuid4().hex[:8]}"
 
-        # Create Razorpay QR code
+        # Create transaction record FIRST to avoid orphaned QR codes.
+        # order_id is NULL — order is created AFTER payment succeeds.
+        transaction = PaymentTransaction(
+            order_id=None,
+            user_id=current_user["user_id"],
+            amount=request.amount / Decimal('100'),
+            currency="INR",
+            payment_method="upi_qr",
+            transaction_id=transaction_id,
+            status="pending",
+            description=request.description,
+            gateway_response={"created_during": "create-qr"},
+        )
+        db.add(transaction)
+        db.flush()  # get transaction.id without committing yet
+
+        # Now create Razorpay QR code
         razorpay_client = get_razorpay_client()
         qr_response = razorpay_client.create_qr_code(
             amount=int(request.amount),
@@ -514,44 +693,49 @@ async def create_qr_code(
         image_url = qr_response.get("image_url")
 
         if not qr_code_id or not image_url:
+            transaction.status = "failed"
+            db.commit()
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Failed to create QR code: missing required fields"
             )
 
-        # Generate transaction ID
-        transaction_id = f"txn_qr_{now}_{uuid.uuid4().hex[:8]}"
-
-        # FIX: Store cart_snapshot and shipping_address in gateway_response
-        # so _create_order_from_webhook can find order data via _checkout_meta
-        qr_gateway_response = {
+        # Update transaction with QR code ID and cart data.
+        # CRITICAL: pending_order_id must live on gateway_response so webhooks
+        # and recovery can create the order after qr_code.credited.
+        transaction.razorpay_qr_code_id = qr_code_id
+        gateway_response = {
             "created_during": "create-qr",
             "qr_code_id": qr_code_id,
         }
+        if pending_id is not None:
+            gateway_response["pending_order_id"] = pending_id
         if request.cart_snapshot:
-            qr_gateway_response["cart_snapshot"] = request.cart_snapshot
+            gateway_response["cart_snapshot"] = request.cart_snapshot
         if request.shipping_address:
-            qr_gateway_response["shipping_address"] = request.shipping_address
+            gateway_response["shipping_address"] = request.shipping_address
+        transaction.gateway_response = gateway_response
 
-        # Create transaction record
-        # order_id is NULL at this point — the order is created AFTER payment succeeds
-        transaction = PaymentTransaction(
-            order_id=None,
-            user_id=current_user["user_id"],  # Use JWT user_id, not notes string
-            amount=request.amount / Decimal('100'),  # Convert paise to rupees
-            currency="INR",
-            payment_method="upi_qr",
-            transaction_id=transaction_id,
-            status="pending",
-            razorpay_qr_code_id=qr_code_id,
-            description=request.description,
-            gateway_response=qr_gateway_response,
-        )
+        # Link razorpay QR notes already have pending_id; also link pending row if possible
+        if pending_id is not None:
+            try:
+                import httpx as _httpx
+                commerce_url = os.environ.get("COMMERCE_SERVICE_URL", "http://commerce:5002")
+                internal_secret = os.environ.get("INTERNAL_SERVICE_SECRET")
+                async with _httpx.AsyncClient(timeout=5.0) as client:
+                    await client.patch(
+                        f"{commerce_url}/api/v1/orders/internal/orders/pending/{pending_id}",
+                        json={"transaction_id": transaction_id},
+                        headers={"X-Internal-Secret": internal_secret},
+                    )
+            except Exception as link_err:
+                logger.warning(f"Could not link QR pending {pending_id}: {link_err}")
 
-        db.add(transaction)
         db.commit()
 
-        logger.info(f"QR code created: {qr_code_id}, transaction: {transaction_id}")
+        logger.info(
+            f"QR code created: {qr_code_id}, transaction: {transaction_id}, pending_id={pending_id}"
+        )
 
         return QrCodeCreateResponse(
             success=True,
@@ -733,7 +917,8 @@ async def refund_payment(
     transaction_id: str,
     reason: str = "Customer request",
     amount: Optional[Decimal] = None,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _: dict = Depends(require_admin)
 ):
     """
     Process a refund for a transaction.
@@ -833,11 +1018,17 @@ async def get_transaction_history(
           tags=["Webhooks"])
 async def razorpay_webhook(
     request: Request,
-    x_razorpay_signature: str = Header(..., description="Razorpay webhook signature")
+    x_razorpay_signature: str = Header(..., description="Razorpay webhook signature"),
+    _: None = Depends(rate_limit("razorpay_webhook", limit=60, window=10)),
 ):
     """
     Handle Razorpay webhook events.
-    
+
+    RATE LIMITED: 60 requests per 10 seconds (safety valve against retry storms).
+    Razorpay fires up to 3 events per payment (authorized, captured, order.paid),
+    each with up to 3 retries — 9+ webhooks per payment. With 100+ payments/day,
+    that's 900+ webhooks. Rate limiting prevents cascading failure.
+
     This endpoint processes webhook events from Razorpay for payment status updates.
     """
     try:
@@ -853,6 +1044,10 @@ async def razorpay_webhook(
         )
         
         if not is_valid:
+            logger.warning(
+                f"INVALID_WEBHOOK_SIGNATURE: sig={x_razorpay_signature[:20] if x_razorpay_signature else 'none'}... "
+                f"body_preview={body_str[:200]}"
+            )
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid webhook signature"

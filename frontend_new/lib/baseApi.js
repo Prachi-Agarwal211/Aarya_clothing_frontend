@@ -444,41 +444,46 @@ export class BaseApiClient {
  *
  * @returns {string} Gateway base URL for `/api/v1/*` calls
  */
+/**
+ * Resolve the Docker/nginx gateway URL for Next.js SSR.
+ *
+ * docker-compose sets INTERNAL_API_URL=http://nginx:80 (not NEXT_INTERNAL_API_URL).
+ * If we return '' here, SSR fetch('/api/v1/landing/all') has no host and fails →
+ * empty hero slides / missing images on the storefront.
+ */
+function getServerGatewayUrl() {
+  if (typeof process === 'undefined') return '';
+  const candidates = [
+    process.env.NEXT_INTERNAL_API_URL,
+    process.env.INTERNAL_API_URL,
+    process.env.NEXT_PUBLIC_API_URL,
+  ];
+  for (const value of candidates) {
+    if (value && String(value).trim()) {
+      return String(value).trim();
+    }
+  }
+  // Last-resort Docker network default (matches docker-compose frontend service)
+  return 'http://nginx:80';
+}
+
 export function getCoreBaseUrl() {
-  // Browser: use current origin
+  // Browser: use current origin (nginx terminates TLS and routes /api/v1/*)
   if (typeof window !== 'undefined') {
     return window.location.origin;
   }
 
-  // Server-side (SSR): check for internal URL first
-  if (typeof process !== 'undefined' && process.env?.NEXT_INTERNAL_API_URL?.trim()) {
-    return process.env.NEXT_INTERNAL_API_URL.trim();
-  }
-  
-  // Server-side fallback to public URL
-  if (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_API_URL?.trim()) {
-    return process.env.NEXT_PUBLIC_API_URL.trim();
-  }
-
-  return '';
+  return getServerGatewayUrl();
 }
 
 export function getCommerceBaseUrl() {
-  // Client-side: use same origin (nginx will proxy to commerce service)
+  // Client-side: same origin via nginx
   if (typeof window !== 'undefined') {
     return window.location.origin;
   }
-  
-  // Server-side (SSR): use env var if set (http://nginx:80 in Docker)
-  let serverUrl = '';
-  if (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_API_URL) {
-    serverUrl = process.env.NEXT_PUBLIC_API_URL.trim();
-  } else {
-    // Fallback: use nginx hostname directly
-    serverUrl = 'http://nginx';
-  }
-  
-  return serverUrl;
+
+  // SSR: same gateway as core/landing so routes hit the correct upstream
+  return getServerGatewayUrl();
 }
 
 export function getAdminBaseUrl() {

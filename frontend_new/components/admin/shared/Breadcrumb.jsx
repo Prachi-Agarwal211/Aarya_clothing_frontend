@@ -34,7 +34,7 @@ export default function Breadcrumb({ items, homeLabel = 'Home', homeHref = '/adm
             href={homeHref}
             className={cn(
               'flex items-center gap-1 px-2 py-1 rounded-lg',
-              'text-[#F5F5F5]/50 hover:text-[#F5F5F5]/80',
+              'text-[#F5F0E8]/50 hover:text-[#F5F0E8]/80',
               'transition-colors',
               'min-h-[44px] min-w-[44px] touch-target'
             )}
@@ -53,7 +53,7 @@ export default function Breadcrumb({ items, homeLabel = 'Home', homeHref = '/adm
             <li key={item.href || item.label} className="flex items-center">
               {/* Separator */}
               <ChevronRight
-                className="w-4 h-4 text-[#F5F5F5]/30 mx-1 flex-shrink-0"
+                className="w-4 h-4 text-[#F5F0E8]/30 mx-1 flex-shrink-0"
                 aria-hidden="true"
               />
 
@@ -62,8 +62,8 @@ export default function Breadcrumb({ items, homeLabel = 'Home', homeHref = '/adm
                 <span
                   className={cn(
                     'px-2 py-1 rounded-lg',
-                    'text-[#FFD700] font-medium',
-                    'bg-[#9333EA]/20 border border-[#E07B8B]/20',
+                    'text-[#D4AF37] font-medium',
+                    'bg-[#1E3A5F]/20 border border-[#A8B4C8]/20',
                     'truncate max-w-[200px] sm:max-w-none'
                   )}
                   aria-current="page"
@@ -75,7 +75,7 @@ export default function Breadcrumb({ items, homeLabel = 'Home', homeHref = '/adm
                   href={item.href}
                   className={cn(
                     'flex items-center gap-1 px-2 py-1 rounded-lg',
-                    'text-[#F5F5F5]/50 hover:text-[#F5F5F5]/80',
+                    'text-[#F5F0E8]/50 hover:text-[#F5F0E8]/80',
                     'transition-colors',
                     'truncate max-w-[150px] sm:max-w-none',
                     'min-h-[44px] touch-target'

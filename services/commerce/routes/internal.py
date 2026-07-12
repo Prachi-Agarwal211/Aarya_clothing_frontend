@@ -234,10 +234,174 @@ async def internal_prepare_pending_order(
         shipping_cost=Decimal(str(body.get("shipping_cost", 0))),
     )
 
+    # ── STOCK RESERVATION (hard gate before payment) ──
+    # Scenario: 10 units, 15 customers pay concurrently.
+    # CORRECT: first 10 reserve under FOR UPDATE; next 5 get 400 BEFORE Razorpay.
+    # WRONG (old): prepare returned success even when reserve failed → 15 pay, 5 stranded.
+    from service.inventory_service import InventoryService
+    from models.stock_reservation import StockReservation, ReservationStatus
+    import uuid as _uuid
+
+    inv_service = InventoryService(db)
+    reservation_ids = []
+    reservable_items = [
+        item for item in cart_snapshot
+        if item.get("sku") and int(item.get("quantity") or 0) >= 1
+    ]
+    if not reservable_items:
+        raise HTTPException(
+            status_code=400,
+            detail="Cart has no reservable SKUs — cannot start payment",
+        )
+
+    try:
+        for item in reservable_items:
+            sku = item["sku"]
+            qty = int(item.get("quantity", 1))
+
+            # Reuse this user's pending reservation for the same SKU if qty enough
+            existing = (
+                db.query(StockReservation)
+                .filter(
+                    StockReservation.user_id == user_id,
+                    StockReservation.sku == sku,
+                    StockReservation.status == ReservationStatus.PENDING,
+                )
+                .with_for_update(skip_locked=False)
+                .order_by(StockReservation.created_at.desc())
+                .first()
+            )
+            if existing and existing.quantity >= qty:
+                reservation_ids.append({
+                    "sku": sku,
+                    "quantity": qty,
+                    "reservation_id": existing.reservation_id,
+                    "reused": True,
+                })
+                logger.info(
+                    f"PREPARE_REUSE_RESERVATION: sku={sku} "
+                    f"existing_id={existing.reservation_id}"
+                )
+                continue
+
+            reservation_id = f"res_{_uuid.uuid4().hex[:16]}"
+            inv_service.reserve_stock(
+                sku=sku,
+                quantity=qty,
+                user_id=user_id,
+                reservation_id=reservation_id,
+                ttl_minutes=30,
+            )
+            reservation_ids.append({
+                "sku": sku,
+                "quantity": qty,
+                "reservation_id": reservation_id,
+                "reused": False,
+            })
+
+        if len(reservation_ids) != len(reservable_items):
+            raise HTTPException(
+                status_code=400,
+                detail="Could not reserve stock for every cart item. Please update your cart.",
+            )
+
+        pending.reservation_ids = reservation_ids
+        db.commit()
+        logger.info(
+            f"PREPARE_STOCK_RESERVED: user={user_id} pending={pending.id} "
+            f"items={len(reservation_ids)}"
+        )
+    except HTTPException as http_exc:
+        # Uncommitted reserve_stock work is rolled back here.
+        # Reused reservations (from earlier validate) stay intact.
+        db.rollback()
+        try:
+            po = db.query(PendingOrder).filter(PendingOrder.id == pending.id).first()
+            if po and po.status == "pending" and not po.order_id:
+                po.status = "cancelled"
+                if hasattr(po, "error_message"):
+                    po.error_message = "stock_reservation_failed"
+                db.commit()
+        except Exception:
+            db.rollback()
+        logger.warning(
+            f"PREPARE_STOCK_BLOCKED: user={user_id} pending={pending.id} "
+            f"detail={getattr(http_exc, 'detail', http_exc)}"
+        )
+        raise
+    except Exception as res_err:
+        db.rollback()
+        logger.error(f"PREPARE_STOCK_RESERVE_FAILED: user={user_id} error={res_err}", exc_info=True)
+        try:
+            po = db.query(PendingOrder).filter(PendingOrder.id == pending.id).first()
+            if po and po.status == "pending" and not po.order_id:
+                po.status = "cancelled"
+                if hasattr(po, "error_message"):
+                    po.error_message = str(res_err)[:500]
+                db.commit()
+        except Exception:
+            db.rollback()
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Insufficient stock to start payment: {res_err}. "
+                "Please update your cart and try again."
+            ),
+        )
+
     return {
         "success": True,
         "pending_order_id": pending.id,
         "payment_intent_id": str(pending.payment_intent_id),
+        "reservation_ids": [r["reservation_id"] for r in reservation_ids],
+        "stock_reserved": True,
+        "reserved_count": len(reservation_ids),
+    }
+
+
+@router.patch(
+    "/api/v1/orders/internal/orders/pending/{pending_id}",
+    tags=["Internal - Payment Preparation"],
+)
+async def internal_link_pending_order(
+    pending_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    _: bool = Depends(verify_internal_secret),
+):
+    """Attach razorpay_order_id (or other fields) to an existing pending order.
+
+    Called by payment service after Razorpay order creation so webhooks can
+    resolve PendingOrder by razorpay_order_id as well as by pending_order_id.
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON body")
+
+    pending = (
+        db.query(PendingOrder)
+        .filter(PendingOrder.id == pending_id)
+        .with_for_update(skip_locked=True)
+        .first()
+    )
+    if not pending:
+        raise HTTPException(status_code=404, detail=f"Pending order {pending_id} not found")
+
+    razorpay_order_id = body.get("razorpay_order_id")
+    if razorpay_order_id:
+        pending.razorpay_order_id = razorpay_order_id
+    if body.get("transaction_id"):
+        pending.transaction_id = body["transaction_id"]
+
+    db.commit()
+    logger.info(
+        f"PENDING_LINKED: id={pending_id} razorpay_order_id={pending.razorpay_order_id}"
+    )
+    return {
+        "success": True,
+        "pending_order_id": pending.id,
+        "razorpay_order_id": pending.razorpay_order_id,
     }
 
 
@@ -274,43 +438,45 @@ async def internal_create_order_from_payment(
         raise HTTPException(
             status_code=400, detail="user_id and payment_id are required"
         )
+    user_id = int(user_id)
 
-    # ── IDEMPOTENCY CHECK ──
-    # Before attempting order creation, check if an order already exists.
-    # This is cheap and prevents unnecessary lock contention.
-    #
-    # CRITICAL: Build query dynamically — only include razorpay_order_id
-    # when actually provided. Using razorpay_order_id='' (None fallback)
-    # caused ALL QR payment webhooks to match the FIRST order with empty
-    # razorpay_order_id (order #838), creating cross-user contamination
-    # where different users' payments all linked to the same wrong order.
+    # ── IDEMPOTENCY CHECK (identity-safe) ──
+    # Match by payment IDs globally, then VERIFY order.user_id == request user_id.
+    # Returning another user's order here is a security/integrity failure.
     idem_params = {"payment_id": payment_id}
     idem_where = """
-        SELECT id FROM orders
+        SELECT id, user_id FROM orders
         WHERE (transaction_id = :payment_id
            OR razorpay_payment_id = :payment_id)
     """
     if razorpay_order_id:
         idem_where += " OR razorpay_order_id = :razorpay_order_id"
         idem_params["razorpay_order_id"] = razorpay_order_id
-    idem_where += " LIMIT 1"
-    existing = db.execute(text(idem_where), idem_params).fetchone()
-    if existing:
-        logger.info(f"IDEMPOTENCY_HIT: order {existing[0]} already exists for payment={payment_id}")
-        return {"found": True, "order_id": existing[0]}
+    idem_where += " ORDER BY id ASC LIMIT 5"
+    existing_rows = db.execute(text(idem_where), idem_params).fetchall()
+    for row in existing_rows:
+        existing_id, existing_user = row[0], row[1]
+        if int(existing_user) != user_id:
+            logger.critical(
+                f"CROSS_USER_IDEMPOTENCY_BLOCK: payment={payment_id} requested by "
+                f"user={user_id} but order={existing_id} belongs to user={existing_user}"
+            )
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    "Payment identity collision with another account. "
+                    "Contact support — do not create a second order."
+                ),
+            )
+        logger.info(f"IDEMPOTENCY_HIT: order {existing_id} already exists for payment={payment_id}")
+        return {"found": True, "order_id": existing_id}
 
     order_service = OrderService(db)
 
     # ── Accept qr_code_id from payment service webhook payload ──
-    # This ensures the order's payment_transactions record contains the QR code ID,
-    # allowing the frontend's find_order_by_payment(qr_code_id) to find the order
-    # even when payment.captured fires before qr_code.credited.
     qr_code_id = body.get("qr_code_id")
 
-    # ── FALLBACK: If no pending_order_id provided, try to find one by razorpay_order_id ──
-    # This handles the case where the payment service's prepare endpoint failed,
-    # so pending_order_id wasn't stored in Razorpay notes, but register_payment
-    # created a new pending order with the same razorpay_order_id.
+    # ── FALLBACK: pending by razorpay_order_id (same user only) ──
     if not pending_order_id and razorpay_order_id:
         fallback_pending = (
             db.query(PendingOrder)
@@ -328,15 +494,35 @@ async def internal_create_order_from_payment(
                 f"by razorpay_order_id={razorpay_order_id} user={user_id}"
             )
 
+    # ── IDENTITY: pending must belong to this user ──
+    if pending_order_id:
+        po = (
+            db.query(PendingOrder)
+            .filter(PendingOrder.id == int(pending_order_id))
+            .first()
+        )
+        if not po:
+            raise HTTPException(status_code=400, detail=f"Pending order {pending_order_id} not found")
+        if int(po.user_id) != user_id:
+            logger.critical(
+                f"CROSS_USER_PENDING_BLOCK: pending={pending_order_id} owner={po.user_id} "
+                f"requested_user={user_id} payment={payment_id}"
+            )
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Pending order does not belong to this user",
+            )
+
     try:
         logger.info(f"INTERNAL_ORDER_CREATE: user={user_id} payment={payment_id} pending_id={pending_order_id} qr_code_id={qr_code_id}")
 
         if pending_order_id:
             order = order_service.create_order_from_pending_id(
-                pending_id=pending_order_id,
+                pending_id=int(pending_order_id),
                 transaction_id=payment_id,
                 payment_method=body.get("payment_method", "razorpay"),
                 qr_code_id=qr_code_id,
+                expected_user_id=user_id,
             )
         elif pending_order_data:
             order = order_service.create_order_from_pending_order(
@@ -540,6 +726,198 @@ async def internal_link_payment_details(
         "razorpay_payment_id": order.razorpay_payment_id,
         "razorpay_order_id": order.razorpay_order_id,
     }
+
+
+@router.post(
+    "/api/v1/internal/orders/reserve-stock",
+    tags=["Internal - Stock Reservation"],
+)
+async def internal_reserve_stock(
+    request: Request,
+    db: Session = Depends(get_db),
+    _: bool = Depends(verify_internal_secret),
+):
+    """Reserve stock for a user's checkout (pre-payment).
+
+    Called by the payment service when the user clicks "Pay Now".
+    Increments reserved_quantity on each SKU atomically with SELECT FOR UPDATE.
+    The reservation expires after 30 minutes if payment is not completed.
+    """
+    from service.inventory_service import InventoryService
+    import uuid as _uuid
+
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON body")
+
+    user_id = body.get("user_id")
+    items = body.get("items", [])  # [{"sku": "...", "quantity": 1}, ...]
+
+    if not user_id or not items:
+        raise HTTPException(status_code=400, detail="user_id and items are required")
+
+    inv_service = InventoryService(db)
+    reservation_ids = []
+
+    try:
+        for item in items:
+            sku = item.get("sku")
+            qty = item.get("quantity", 1)
+            if not sku or qty < 1:
+                continue
+
+            reservation_id = f"res_{_uuid.uuid4().hex[:16]}"
+            inv_service.reserve_stock(
+                sku=sku,
+                quantity=qty,
+                user_id=user_id,
+                reservation_id=reservation_id,
+                ttl_minutes=30,
+            )
+            reservation_ids.append({"sku": sku, "quantity": qty, "reservation_id": reservation_id})
+
+        db.commit()
+        logger.info(
+            f"STOCK_RESERVED: user={user_id} items={len(reservation_ids)} "
+            f"reservations={[r['reservation_id'] for r in reservation_ids]}"
+        )
+        return {"success": True, "reservations": reservation_ids}
+
+    except Exception as e:
+        db.rollback()
+        # Release any reservations we already created in this transaction
+        for r in reservation_ids:
+            try:
+                inv_service.release_reservation(r["reservation_id"])
+            except Exception:
+                pass
+        db.rollback()
+        logger.error(f"STOCK_RESERVE_FAILED: user={user_id} error={e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e) if str(e) else "Failed to reserve stock",
+        )
+
+
+@router.post(
+    "/api/v1/internal/orders/confirm-reservation",
+    tags=["Internal - Stock Reservation"],
+)
+async def internal_confirm_reservation_payment(
+    request: Request,
+    db: Session = Depends(get_db),
+    _: bool = Depends(verify_internal_secret),
+):
+    """Confirm reservations after payment succeeds.
+
+    Called by the webhook handler after order creation.
+    Converts reserved_quantity → permanent stock deduction.
+    """
+    from service.inventory_service import InventoryService
+
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON body")
+
+    reservation_ids = body.get("reservation_ids", [])
+    order_id = body.get("order_id")
+
+    if not reservation_ids:
+        return {"success": True, "message": "No reservations to confirm"}
+
+    inv_service = InventoryService(db)
+    confirmed = 0
+
+    for rid in reservation_ids:
+        try:
+            from models.stock_reservation import StockReservation
+            res = db.query(StockReservation).filter(StockReservation.reservation_id == rid).first()
+            if res and order_id:
+                res.order_id = order_id
+            if inv_service.confirm_reservation(rid):
+                confirmed += 1
+        except Exception as e:
+            logger.warning(f"CONFIRM_RESERVATION_FAILED: {rid} error={e}")
+
+    db.commit()
+    return {"success": True, "confirmed": confirmed}
+
+
+@router.post(
+    "/api/v1/internal/orders/release-reservations",
+    tags=["Internal - Stock Reservation"],
+)
+async def internal_release_reservations(
+    request: Request,
+    db: Session = Depends(get_db),
+    _: bool = Depends(verify_internal_secret),
+):
+    """Release reservations when payment fails or is abandoned.
+
+    Called by the payment service on payment.captured failure, payment.failed,
+    or the reservation expiry background job.
+    """
+    from service.inventory_service import InventoryService
+
+    try:
+        body = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON body")
+
+    reservation_ids = body.get("reservation_ids", [])
+    user_id = body.get("user_id")
+
+    inv_service = InventoryService(db)
+    released = 0
+
+    if reservation_ids:
+        for rid in reservation_ids:
+            try:
+                if inv_service.release_reservation(rid):
+                    released += 1
+            except Exception as e:
+                logger.warning(f"RELEASE_RESERVATION_FAILED: {rid} error={e}")
+    elif user_id:
+        # Release all pending reservations for a user
+        from models.stock_reservation import StockReservation, ReservationStatus
+        pending = (
+            db.query(StockReservation)
+            .filter(
+                StockReservation.user_id == user_id,
+                StockReservation.status == ReservationStatus.PENDING,
+            )
+            .all()
+        )
+        for res in pending:
+            try:
+                if inv_service.release_reservation(res.reservation_id):
+                    released += 1
+            except Exception as e:
+                logger.warning(f"RELEASE_RESERVATION_FAILED: {res.reservation_id} error={e}")
+
+    db.commit()
+    logger.info(f"RELEASED_RESERVATIONS: count={released} user={user_id}")
+    return {"success": True, "released": released}
+
+
+@router.post(
+    "/api/v1/internal/orders/expire-reservations",
+    tags=["Internal - Stock Reservation"],
+)
+async def internal_expire_reservations(
+    db: Session = Depends(get_db),
+    _: bool = Depends(verify_internal_secret),
+):
+    """Expire stale reservations (background job endpoint).
+
+    Releases reservations older than 30 minutes that were never confirmed.
+    """
+    from service.inventory_service import InventoryService
+    inv_service = InventoryService(db)
+    released = inv_service.expire_stale_reservations(max_age_minutes=30)
+    return {"success": True, "expired": released}
 
 
 @router.get(

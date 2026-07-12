@@ -36,8 +36,8 @@ const isLocalStaticAsset = (src: string): boolean => {
   const staticAssets = [
     "/logo.png",                    // Branding logo
     "/noise.png",                   // Texture overlay
-    "/placeholder-image.jpg",       // Fallback for broken images
-    "/placeholder-collection.jpg",  // Fallback for collections
+    "/placeholder-image.svg",       // Fallback for broken images
+    "/placeholder-collection.svg",  // Fallback for collections
     "/Create_a_video_",             // Intro video thumbnail
     // NOTE: About page images (kurti1.jpg, kurti2.jpg) come from R2 via API
     // They are NOT local static assets - database stores R2 relative paths
@@ -52,7 +52,7 @@ export default function cloudflareLoader({
 }: ImageLoaderProps): string {
   // Handle non-string sources
   if (!src || typeof src !== 'string' || src.trim() === "") {
-    return `/placeholder-image.jpg`;
+    return `/placeholder-image.svg`;
   }
 
   // Local static assets are served from /public directly

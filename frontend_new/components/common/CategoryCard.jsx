@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils';
  * this is a safety net for any edge cases.
  */
 function ensureFullUrl(url) {
-  if (!url) return '/placeholder-collection.jpg';
+  if (!url) return '/placeholder-collection.svg';
   if (url.startsWith('http://') || url.startsWith('https://')) return url;
   return url.startsWith('/') ? url : `/${url}`;
 }
@@ -46,14 +46,14 @@ const CollectionCard = ({ collection, category, className }) => {
       {/* Content */}
       <div className="absolute bottom-0 left-0 w-full p-8 transform transition-transform duration-500">
         <div className="relative z-10">
-          <span className="text-[#FFD700] text-xs tracking-[0.2em] uppercase block mb-2 opacity-0 transform -translate-y-4 transition-all duration-500 group-hover:opacity-100 group-hover:translate-y-0">
+          <span className="text-[#D4AF37] text-xs tracking-[0.2em] uppercase block mb-2 opacity-0 transform -translate-y-4 transition-all duration-500 group-hover:opacity-100 group-hover:translate-y-0">
             Collection
           </span>
-          <h3 className="text-3xl font-cinzel text-[#F5F5F5] mb-2 group-hover:text-white transition-colors">
+          <h3 className="text-3xl font-cinzel text-[#F5F0E8] mb-2 group-hover:text-white transition-colors">
             {name}
           </h3>
           <div className="h-0 overflow-hidden group-hover:h-auto transition-all duration-500">
-            <div className="pt-4 flex items-center gap-2 text-[#E07B8B] tracking-wider text-sm font-medium">
+            <div className="pt-4 flex items-center gap-2 text-[#A8B4C8] tracking-wider text-sm font-medium">
               EXPLORE <ArrowRight className="w-4 h-4" />
             </div>
           </div>
@@ -61,7 +61,7 @@ const CollectionCard = ({ collection, category, className }) => {
       </div>
 
       {/* Border Effect */}
-      <div className="absolute inset-4 border border-[#FFD700]/20 scale-95 opacity-0 transition-all duration-500 group-hover:scale-100 group-hover:opacity-100 pointer-events-none rounded-2xl" />
+      <div className="absolute inset-4 border border-[#D4AF37]/20 scale-95 opacity-0 transition-all duration-500 group-hover:scale-100 group-hover:opacity-100 pointer-events-none rounded-2xl" />
     </Link>
   );
 };

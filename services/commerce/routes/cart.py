@@ -20,7 +20,7 @@ from typing import Optional
 
 from shared.time_utils import now_ist
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
 from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.orm import Session
@@ -70,9 +70,23 @@ async def add_to_my_cart(
     request: Request,
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user),
+    idempotency_key: Optional[str] = Header(None, alias="Idempotency-Key"),
 ):
-    """Add an item to the authenticated user's cart, validating stock first."""
-    if not check_rate_limit(request, "cart_add", limit=100, window=60):
+    """Add an item to the authenticated user's cart, validating stock first.
+
+    Supports an optional ``Idempotency-Key`` header: if a request with the
+    same key is repeated within 60 seconds, the cached response is returned
+    and the operation is not applied twice.
+    """
+    # Idempotency check: return cached response if key already processed
+    if idempotency_key:
+        user_id = current_user["user_id"]
+        cache_key = f"idempotent:cart_add:{user_id}:{idempotency_key}"
+        cached = redis_client.get_cache(cache_key)
+        if cached:
+            return CartResponse(**cached)
+
+    if not check_rate_limit(request, "cart_add", limit=30, window=60):
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="Too many cart operations. Please try again later.",
@@ -88,6 +102,12 @@ async def add_to_my_cart(
         "quantity": item.quantity,
     }
     cart_data = CartConcurrencyManager.add_to_cart_locked(user_id, item_data, db)
+
+    # Cache response for idempotency
+    if idempotency_key:
+        cart_dict = cart_data if isinstance(cart_data, dict) else cart_data.model_dump()
+        redis_client.set_cache(cache_key, cart_dict, ttl=60)
+
     return CartResponse(**cart_data)
 
 
@@ -346,12 +366,16 @@ async def add_to_cart(
             detail="Product not found",
         )
 
-    if product.total_stock < item.quantity:
-        # NOTE: total_stock is denormalized and may be stale.
-        # The real stock check happens in CartService.add_to_cart().
+    # Query available_quantity from inventory (not denormalized total_stock)
+    variant_filter = Inventory.product_id == item.product_id
+    if item.variant_id:
+        variant_filter = Inventory.id == item.variant_id
+    inventory = db.query(Inventory).filter(variant_filter).first()
+    avail = getattr(inventory, "available_quantity", 0) if inventory else 0
+    if avail < item.quantity:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Insufficient inventory",
+            detail=f"Insufficient inventory. Available: {avail}",
         )
 
     item_data = {

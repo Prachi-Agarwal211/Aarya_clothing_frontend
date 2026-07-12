@@ -75,12 +75,12 @@ function CollectionModal({ collection, onClose, onSaved }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-      <div className="bg-[#0A0A0A] border border-[#E07B8B]/30 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-6 border-b border-[#E07B8B]/20">
-          <h2 className="text-xl font-bold text-[#FFD700]" style={{ fontFamily: 'Cinzel, serif' }}>
+      <div className="bg-[#111111] border border-[#A8B4C8]/30 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between p-6 border-b border-[#A8B4C8]/20">
+          <h2 className="text-xl font-bold text-[#D4AF37]" style={{ fontFamily: 'Cinzel, serif' }}>
             {isEdit ? 'Edit Collection' : 'Add New Collection'}
           </h2>
-          <button onClick={onClose} className="p-2 rounded-lg hover:bg-[#E07B8B]/10 text-[#F5F5F5]/60 hover:text-[#F5F5F5]">
+          <button onClick={onClose} className="p-2 rounded-lg hover:bg-[#A8B4C8]/10 text-[#F5F0E8]/60 hover:text-[#F5F0E8]">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -91,9 +91,9 @@ function CollectionModal({ collection, onClose, onSaved }) {
 
           {/* Image Upload */}
           <div>
-            <label className="block text-sm text-[#F5F5F5]/70 mb-2">Collection Image (R2)</label>
+            <label className="block text-sm text-[#F5F0E8]/70 mb-2">Collection Image (R2)</label>
             <label
-              className="relative border-2 border-dashed border-[#E07B8B]/30 rounded-xl overflow-hidden cursor-pointer hover:border-[#E07B8B]/60 transition-colors block"
+              className="relative border-2 border-dashed border-[#A8B4C8]/30 rounded-xl overflow-hidden cursor-pointer hover:border-[#A8B4C8]/60 transition-colors block"
               style={{ height: '140px' }}
             >
               {imagePreview ? (
@@ -108,9 +108,9 @@ function CollectionModal({ collection, onClose, onSaved }) {
                 />
               ) : (
                 <div className="flex flex-col items-center justify-center h-full">
-                  <Upload className="w-8 h-8 text-[#E07B8B]/40 mb-2" />
-                  <p className="text-sm text-[#F5F5F5]/40">Click to upload image</p>
-                  <p className="text-xs text-[#F5F5F5]/25 mt-1">Stored on Cloudflare R2</p>
+                  <Upload className="w-8 h-8 text-[#A8B4C8]/40 mb-2" />
+                  <p className="text-sm text-[#F5F0E8]/40">Click to upload image</p>
+                  <p className="text-xs text-[#F5F0E8]/25 mt-1">Stored on Cloudflare R2</p>
                 </div>
               )}
               {imagePreview && (
@@ -125,20 +125,20 @@ function CollectionModal({ collection, onClose, onSaved }) {
 
           <div className="grid grid-cols-1 gap-4">
             <div>
-              <label className="block text-sm text-[#F5F5F5]/70 mb-1">Collection Name *</label>
+              <label className="block text-sm text-[#F5F0E8]/70 mb-1">Collection Name *</label>
               <input name="name" value={form.name} onChange={handleChange} required
                 placeholder="e.g., Formal Wear, Casual Collection"
-                className="w-full px-3 py-2 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-xl text-[#F5F5F5] focus:outline-none focus:border-[#E07B8B]/50 text-sm" />
+                className="w-full px-3 py-2 bg-[#111111]/60 border border-[#A8B4C8]/20 rounded-xl text-[#F5F0E8] focus:outline-none focus:border-[#A8B4C8]/50 text-sm" />
             </div>
             <div>
-              <label className="block text-sm text-[#F5F5F5]/70 mb-1">Description</label>
+              <label className="block text-sm text-[#F5F0E8]/70 mb-1">Description</label>
               <textarea name="description" value={form.description} onChange={handleChange} rows={2}
-                className="w-full px-3 py-2 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-xl text-[#F5F5F5] focus:outline-none focus:border-[#E07B8B]/50 text-sm resize-none" />
+                className="w-full px-3 py-2 bg-[#111111]/60 border border-[#A8B4C8]/20 rounded-xl text-[#F5F0E8] focus:outline-none focus:border-[#A8B4C8]/50 text-sm resize-none" />
             </div>
             <div>
-              <label className="block text-sm text-[#F5F5F5]/70 mb-1">Display Order</label>
+              <label className="block text-sm text-[#F5F0E8]/70 mb-1">Display Order</label>
               <input name="display_order" type="number" min="0" value={form.display_order} onChange={handleChange}
-                className="w-full px-3 py-2 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-xl text-[#F5F5F5] focus:outline-none focus:border-[#E07B8B]/50 text-sm" />
+                className="w-full px-3 py-2 bg-[#111111]/60 border border-[#A8B4C8]/20 rounded-xl text-[#F5F0E8] focus:outline-none focus:border-[#A8B4C8]/50 text-sm" />
             </div>
           </div>
 
@@ -147,21 +147,21 @@ function CollectionModal({ collection, onClose, onSaved }) {
             {[['is_active', 'Active', Eye], ['is_featured', 'Featured on Homepage', Star]].map(([key, label, Icon]) => (
               <label key={key} className="flex items-center gap-2 cursor-pointer">
                 <input type="checkbox" name={key} checked={form[key]} onChange={handleChange} className="sr-only" />
-                <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${form[key] ? 'bg-[#E07B8B] border-[#E07B8B]' : 'border-[#E07B8B]/30 bg-transparent'}`}>
+                <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${form[key] ? 'bg-[#A8B4C8] border-[#A8B4C8]' : 'border-[#A8B4C8]/30 bg-transparent'}`}>
                   {form[key] && <Icon className="w-3 h-3 text-white" />}
                 </div>
-                <span className="text-sm text-[#F5F5F5]/80">{label}</span>
+                <span className="text-sm text-[#F5F0E8]/80">{label}</span>
               </label>
             ))}
           </div>
 
           <div className="flex gap-3 pt-2">
             <button type="button" onClick={onClose}
-              className="flex-1 py-2.5 rounded-xl border border-[#E07B8B]/30 text-[#F5F5F5]/70 hover:bg-[#E07B8B]/10 transition-colors text-sm">
+              className="flex-1 py-2.5 rounded-xl border border-[#A8B4C8]/30 text-[#F5F0E8]/70 hover:bg-[#A8B4C8]/10 transition-colors text-sm">
               Cancel
             </button>
             <button type="submit" disabled={saving}
-              className="flex-1 py-2.5 rounded-xl bg-[#9333EA]/40 border border-[#E07B8B]/40 text-[#FFD700] hover:bg-[#9333EA]/60 transition-colors text-sm font-medium disabled:opacity-50 flex items-center justify-center gap-2">
+              className="flex-1 py-2.5 rounded-xl bg-[#1E3A5F]/40 border border-[#A8B4C8]/40 text-[#D4AF37] hover:bg-[#1E3A5F]/60 transition-colors text-sm font-medium disabled:opacity-50 flex items-center justify-center gap-2">
               {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
               {saving ? 'Saving...' : isEdit ? 'Update Collection' : 'Create Collection'}
             </button>
@@ -271,16 +271,16 @@ export default function CollectionsPage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-[#FFD700]" style={{ fontFamily: 'Cinzel, serif' }}>
+          <h1 className="text-2xl md:text-3xl font-bold text-[#D4AF37]" style={{ fontFamily: 'Cinzel, serif' }}>
             Collections
           </h1>
-          <p className="text-[#F5F5F5]/60 mt-1">
+          <p className="text-[#F5F0E8]/60 mt-1">
             Manage product collections for organizing your catalog
           </p>
         </div>
         <button
           onClick={() => { setEditCollection(null); setShowModal(true); }}
-          className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-[#9333EA] to-[#E07B8B] rounded-xl text-white hover:opacity-90 transition-opacity text-sm font-semibold shadow-lg shadow-[#E07B8B]/20"
+          className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-[#1E3A5F] to-[#A8B4C8] rounded-xl text-white hover:opacity-90 transition-opacity text-sm font-semibold shadow-lg shadow-[#A8B4C8]/20"
         >
           <Plus className="w-4 h-4" /> Add Collection
         </button>
@@ -289,13 +289,13 @@ export default function CollectionsPage() {
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         {[
-          { label: 'Total', value: collections.length, color: 'text-[#FFD700]', border: 'border-[#E07B8B]/20', bg: 'bg-[#9333EA]/10', Icon: Layers },
+          { label: 'Total', value: collections.length, color: 'text-[#D4AF37]', border: 'border-[#A8B4C8]/20', bg: 'bg-[#1E3A5F]/10', Icon: Layers },
           { label: 'Active', value: collections.filter(c => c.is_active).length, color: 'text-green-400', border: 'border-green-500/20', bg: 'bg-green-500/5', Icon: Eye },
           { label: 'Featured', value: collections.filter(c => c.is_featured).length, color: 'text-yellow-400', border: 'border-yellow-500/20', bg: 'bg-yellow-500/5', Icon: Star },
         ].map(({ label, value, color, border, bg, Icon }) => (
           <div key={label} className={`${bg} backdrop-blur-md border ${border} rounded-2xl p-4`}>
             <div className="flex items-center justify-between mb-2">
-              <p className="text-[#F5F5F5]/60 text-sm">{label}</p>
+              <p className="text-[#F5F0E8]/60 text-sm">{label}</p>
               <Icon className={`w-4 h-4 ${color} opacity-70`} />
             </div>
             <p className={`text-3xl font-bold ${color}`}>{value}</p>
@@ -304,26 +304,26 @@ export default function CollectionsPage() {
       </div>
 
       {/* Filters + Bulk Actions */}
-      <div className="bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl p-4 space-y-3">
+      <div className="bg-[#111111]/40 backdrop-blur-md border border-[#A8B4C8]/15 rounded-2xl p-4 space-y-3">
         <div className="flex flex-col md:flex-row gap-3">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#F5F5F5]/40" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#F5F0E8]/40" />
             <input
               type="text"
               placeholder="Search collections…"
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-xl text-[#F5F5F5] placeholder-[#F5F5F5]/40 focus:outline-none focus:border-[#E07B8B]/40 text-sm"
+              className="w-full pl-10 pr-4 py-2.5 bg-[#111111]/60 border border-[#A8B4C8]/20 rounded-xl text-[#F5F0E8] placeholder-[#F5F0E8]/40 focus:outline-none focus:border-[#A8B4C8]/40 text-sm"
             />
           </div>
-          <button onClick={fetchData} className="p-2.5 rounded-xl border border-[#E07B8B]/20 text-[#F5F5F5]/70 hover:bg-[#E07B8B]/10 transition-colors">
+          <button onClick={fetchData} className="p-2.5 rounded-xl border border-[#A8B4C8]/20 text-[#F5F0E8]/70 hover:bg-[#A8B4C8]/10 transition-colors">
             <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
           </button>
         </div>
 
         {selected.size > 0 && (
-          <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-[#E07B8B]/10">
-            <span className="text-sm text-[#F5F5F5]/60">{selected.size} selected</span>
+          <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-[#A8B4C8]/10">
+            <span className="text-sm text-[#F5F0E8]/60">{selected.size} selected</span>
             <button onClick={() => handleBulkStatus(true)} disabled={bulkLoading}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-500/10 border border-green-500/30 text-green-400 hover:bg-green-500/20 text-xs transition-colors disabled:opacity-50">
               <Eye className="w-3.5 h-3.5" /> Activate
@@ -332,7 +332,7 @@ export default function CollectionsPage() {
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-yellow-500/10 border border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/20 text-xs transition-colors disabled:opacity-50">
               <EyeOff className="w-3.5 h-3.5" /> Deactivate
             </button>
-            <button onClick={() => setSelected(new Set())} className="ml-auto text-xs text-[#F5F5F5]/40 hover:text-[#F5F5F5]/70">
+            <button onClick={() => setSelected(new Set())} className="ml-auto text-xs text-[#F5F0E8]/40 hover:text-[#F5F0E8]/70">
               Clear
             </button>
           </div>
@@ -348,14 +348,14 @@ export default function CollectionsPage() {
       {/* Grid */}
       {loading ? (
         <div className="flex items-center justify-center py-20">
-          <RefreshCw className="w-8 h-8 text-[#E07B8B]/50 animate-spin" />
+          <RefreshCw className="w-8 h-8 text-[#A8B4C8]/50 animate-spin" />
         </div>
       ) : filtered.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 text-[#F5F5F5]/40">
+        <div className="flex flex-col items-center justify-center py-20 text-[#F5F0E8]/40">
           <Layers className="w-12 h-12 mb-3" />
           <p>No collections found</p>
           <button onClick={() => setShowModal(true)}
-            className="mt-4 flex items-center gap-2 px-4 py-2 bg-[#9333EA]/20 border border-[#E07B8B]/30 rounded-xl text-[#FFD700] hover:bg-[#9333EA]/40 text-sm transition-colors">
+            className="mt-4 flex items-center gap-2 px-4 py-2 bg-[#1E3A5F]/20 border border-[#A8B4C8]/30 rounded-xl text-[#D4AF37] hover:bg-[#1E3A5F]/40 text-sm transition-colors">
             <Plus className="w-4 h-4" /> Create First Collection
           </button>
         </div>
@@ -365,11 +365,11 @@ export default function CollectionsPage() {
           {pagedCollections
             .map((c) => (
               <div key={c.id}
-                className={`bg-[#0A0A0A]/40 backdrop-blur-md border rounded-2xl overflow-hidden transition-all ${selected.has(c.id) ? 'border-[#E07B8B]/50 ring-1 ring-[#E07B8B]/30' : 'border-[#E07B8B]/15 hover:border-[#E07B8B]/30'
+                className={`bg-[#111111]/40 backdrop-blur-md border rounded-2xl overflow-hidden transition-all ${selected.has(c.id) ? 'border-[#A8B4C8]/50 ring-1 ring-[#A8B4C8]/30' : 'border-[#A8B4C8]/15 hover:border-[#A8B4C8]/30'
                   }`}
               >
                 {/* Image */}
-                <div className="relative h-40 bg-[#9333EA]/10">
+                <div className="relative h-40 bg-[#1E3A5F]/10">
                   {c.image_url ? (
                     <Image
                       src={c.image_url}
@@ -382,7 +382,7 @@ export default function CollectionsPage() {
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">
-                      <ImageIcon className="w-10 h-10 text-[#E07B8B]/20" />
+                      <ImageIcon className="w-10 h-10 text-[#A8B4C8]/20" />
                     </div>
                   )}
                   {/* Select checkbox overlay */}
@@ -391,7 +391,7 @@ export default function CollectionsPage() {
                     className="absolute top-3 left-3 p-1 rounded-lg bg-black/40 backdrop-blur-sm text-white hover:bg-black/60 transition-colors"
                   >
                     {selected.has(c.id)
-                      ? <CheckSquare className="w-4 h-4 text-[#E07B8B]" />
+                      ? <CheckSquare className="w-4 h-4 text-[#A8B4C8]" />
                       : <Square className="w-4 h-4" />
                     }
                   </button>
@@ -410,21 +410,21 @@ export default function CollectionsPage() {
                 <div className="p-4">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <h3 className="font-semibold text-[#F5F5F5] truncate">{c.name}</h3>
+                      <h3 className="font-semibold text-[#F5F0E8] truncate">{c.name}</h3>
                     </div>
                     <div className="flex items-center gap-1 flex-shrink-0">
-                      <span className="text-xs text-[#F5F5F5]/40 bg-[#E07B8B]/10 px-2 py-0.5 rounded-full">
+                      <span className="text-xs text-[#F5F0E8]/40 bg-[#A8B4C8]/10 px-2 py-0.5 rounded-full">
                         {c.product_count || 0} products
                       </span>
                     </div>
                   </div>
                   {c.description && (
-                    <p className="text-xs text-[#F5F5F5]/50 mt-2 line-clamp-2">{c.description}</p>
+                    <p className="text-xs text-[#F5F0E8]/50 mt-2 line-clamp-2">{c.description}</p>
                   )}
 
                   {/* Order control */}
                   <div className="flex items-center gap-2 mt-3">
-                    <span className="text-xs text-[#F5F5F5]/40">Order:</span>
+                    <span className="text-xs text-[#F5F0E8]/40">Order:</span>
                     <input
                       type="number"
                       min="0"
@@ -433,7 +433,7 @@ export default function CollectionsPage() {
                         const val = parseInt(e.target.value);
                         if (!isNaN(val) && val !== c.display_order) handleReorder(c.id, val);
                       }}
-                      className="w-16 px-2 py-1 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-lg text-[#F5F5F5] text-xs focus:outline-none focus:border-[#E07B8B]/40"
+                      className="w-16 px-2 py-1 bg-[#111111]/60 border border-[#A8B4C8]/20 rounded-lg text-[#F5F0E8] text-xs focus:outline-none focus:border-[#A8B4C8]/40"
                     />
                   </div>
 
@@ -441,7 +441,7 @@ export default function CollectionsPage() {
                   <div className="flex gap-2 mt-3">
                     <button
                       onClick={() => setEditCollection(c)}
-                      className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-[#9333EA]/20 border border-[#E07B8B]/20 text-[#F5F5F5]/70 hover:text-[#FFD700] hover:bg-[#9333EA]/40 transition-colors text-xs"
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-[#1E3A5F]/20 border border-[#A8B4C8]/20 text-[#F5F0E8]/70 hover:text-[#D4AF37] hover:bg-[#1E3A5F]/40 transition-colors text-xs"
                     >
                       <Edit className="w-3.5 h-3.5" /> Edit
                     </button>

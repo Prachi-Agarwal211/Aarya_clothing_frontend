@@ -527,20 +527,28 @@ services:
       context: ./frontend_new
       dockerfile: Dockerfile
       args:
-        # SSR uses internal Docker URL, client uses window.location.origin
-        - NEXT_PUBLIC_API_URL=http://nginx:80
-        - NEXT_PUBLIC_INTERNAL_COMMERCE_URL=http://commerce:5002
-        - NEXT_PUBLIC_R2_PUBLIC_URL=https://pub-7846c786f7154610b57735df47899fa0.r2.dev
+        # NEXT_PUBLIC_* vars baked at build time.
+        # Empty string = client uses relative paths (/api/v1/...) — browser sends to same origin.
+        # Never bake an internal Docker hostname (nginx:80) here — browsers can't resolve it.
+        - NEXT_PUBLIC_API_URL=
+        - NEXT_PUBLIC_INTERNAL_COMMERCE_URL=
+        - NEXT_PUBLIC_R2_PUBLIC_URL=${R2_PUBLIC_URL:-https://pub-7846c786f7154610b57735df47899fa0.r2.dev}
     container_name: aarya_frontend
     environment:
       - NODE_ENV=production
       - DOCKER_ENV=true
       - NODE_OPTIONS=--max-old-space-size=1536
       - NEXT_SHARP_PATH=/app/node_modules/sharp
-      # SSR needs absolute URL for Node.js fetch() - nginx will proxy to backend
-      # Client-side code uses window.location.origin (CSP compliant)
-      - NEXT_PUBLIC_API_URL=http://nginx:80
-      - NEXT_PUBLIC_INTERNAL_COMMERCE_URL=http://commerce:5002
+      # NEXT_PUBLIC vars: empty = client uses relative paths (resolved by browser against current origin)
+      # Nginx is on port 80 on the same host, so /api/v1/... resolves correctly in the browser.
+      - NEXT_PUBLIC_API_URL=
+      # SSR gateway URL — Node must hit nginx so /api/v1/landing/* routes to admin
+      # (not commerce). baseApi.js reads NEXT_INTERNAL_API_URL then INTERNAL_API_URL.
+      - NEXT_INTERNAL_API_URL=http://nginx:80
+      - INTERNAL_API_URL=http://nginx:80
+      - NEXT_PUBLIC_INTERNAL_COMMERCE_URL=
+      - INTERNAL_COMMERCE_URL=http://commerce:5002
+      # R2 public URL — the browser fetches images directly from Cloudflare CDN, no proxy needed
       - NEXT_PUBLIC_R2_PUBLIC_URL=${R2_PUBLIC_URL:-https://pub-7846c786f7154610b57735df47899fa0.r2.dev}
       - SECRET_KEY=${SECRET_KEY:?SECRET_KEY environment variable is required}
     expose:

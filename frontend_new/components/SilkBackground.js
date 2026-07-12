@@ -20,7 +20,17 @@ import logger from '@/lib/logger';
  * - WebGL context loss handling
  * - Proper cleanup on unmount
  */
-const STATIC_GRADIENT = 'linear-gradient(135deg, #0A0A0A 0%, #111114 25%, #6366F1 50%, #9333EA 75%, #A855F7 100%)';
+// Grayish metal-royal silk (steel blue, not purple/neon)
+// #0D0D0D → #1a2332 → #1E3A5F → #2C4A7C → steel #5a6f8a
+const STATIC_GRADIENT =
+  'radial-gradient(ellipse 130% 90% at 15% 5%, rgba(61,90,128,0.55) 0%, transparent 52%),' +
+  'radial-gradient(ellipse 110% 80% at 90% 80%, rgba(30,58,95,0.55) 0%, transparent 48%),' +
+  'radial-gradient(ellipse 60% 50% at 50% 50%, rgba(90,111,138,0.12) 0%, transparent 60%),' +
+  'linear-gradient(155deg, #0B0D10 0%, #121820 22%, #1a2332 42%, #1E3A5F 68%, #2C4A7C 88%, #0D1118 100%)';
+
+/** Admin: flat matte so dashboards stay crisp (no competing silk) */
+const ADMIN_GRADIENT =
+  'linear-gradient(180deg, #0B0D10 0%, #111418 50%, #0D0D0D 100%)';
 
 export default function SilkBackground() {
   const canvasRef = useRef(null);
@@ -38,38 +48,40 @@ export default function SilkBackground() {
   const cleanupRef = useRef(null);
 
   const pathname = usePathname();
-  // Static background on admin / auth / checkout — no GPU waste
-  const shouldAnimate = !pathname?.startsWith('/admin') &&
-                        !pathname?.startsWith('/checkout');
+  // Full silk animation on storefront. Static only on heavy admin dashboards.
+  // Auth/checkout keep a subtle static silk (not flat black) for brand continuity.
+  const shouldAnimate = !pathname?.startsWith('/admin');
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    // Static gradient for non-animated routes
+    // Always paint a rich CSS base immediately (avoids black flash before WebGL)
+    canvas.style.background = shouldAnimate ? STATIC_GRADIENT : ADMIN_GRADIENT;
+
+    // Static matte for admin — clear UI, no animated silk competing with tables
     if (!shouldAnimate) {
-      canvas.style.background = STATIC_GRADIENT;
       return;
     }
 
     // prefers-reduced-motion: static gradient, no animation
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      canvas.style.background = STATIC_GRADIENT;
       return;
     }
 
-    // Mobile devices: static gradient saves battery + prevents thermal throttling
-    // on mid/low-end Androids. WebGL on mobile adds GPU pressure with no visible benefit
-    // since the silk animation is barely visible while scrolling on small screens.
-    isMobileRef.current = window.innerWidth < 768 ||
-      /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    // Phones: keep rich static silk (battery). Tablets/laptops (≥768) get WebGL.
+    isMobileRef.current =
+      window.innerWidth < 768 ||
+      /Android|webOS|iPhone|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
-    if (isMobileRef.current) {
-      canvas.style.background = STATIC_GRADIENT;
+    // iPad-class often reports as mobile UA but is large — still animate if wide
+    const isDesktopWidth = window.innerWidth >= 768;
+    if (isMobileRef.current && !isDesktopWidth) {
       return;
     }
+    isMobileRef.current = false; // force full desktop shader on laptop+
 
-    // Desktop: full WebGL at 30fps
+    // Desktop / laptop: full WebGL silk at 30fps
     const frameInterval = 1000 / 30;
     const maxDimension = 1920;
 
@@ -89,7 +101,7 @@ export default function SilkBackground() {
       
       if (!gl) {
         logger.warn('WebGL not supported, falling back to CSS gradient');
-        canvas.style.background = 'linear-gradient(135deg, #0A0A0A 0%, #111114 25%, #6366F1 50%, #9333EA 75%, #A855F7 100%)';
+        canvas.style.background = STATIC_GRADIENT;
         return;
       }
       glRef.current = gl;
@@ -126,107 +138,79 @@ export default function SilkBackground() {
         void main() {
           vec2 uv = v_uv;
 
-          // Time and speed - balanced for smooth, elegant animation
-          float t = u_time * 0.0002;
-          float speed = 0.006;
-          float scale = 2.0;
-          float noiseIntensity = 0.8;
+          // Grayish metal-royal flow (steel + royal blue, no purple)
+          float t = u_time * 0.00026;
+          float speed = 0.0085;
+          float scale = 2.15;
+          float noiseIntensity = 0.48;
 
-          // Calculate UV in scaled space
           float u = uv.x * scale;
           float v = uv.y * scale;
-
-          // Time offset
           float tOffset = speed * t * 1000.0;
 
-          // Texture coordinates with wave distortion
           float tex_x = u;
-          float tex_y = v + 0.03 * sin(8.0 * tex_x - tOffset);
+          float tex_y = v + 0.04 * sin(6.5 * tex_x - tOffset);
 
-          // PERFORMANCE: Simplified pattern calculation for mobile
-          // Mobile: simpler sine pattern (fewer operations)
-          // Desktop: full complex pattern with cos/sin layers
-          float pattern;
-          if (u_isMobile > 0.5) {
-            // Mobile shader: simplified pattern - 60% fewer GPU operations
-            pattern = 0.6 + 0.4 * sin(3.0 * (tex_x + tex_y) + 0.01 * tOffset);
-          } else {
-            // Desktop shader: full complex pattern for premium experience
-            pattern = 0.6 + 0.4 * sin(
-              5.0 * (tex_x + tex_y +
-                cos(3.0 * tex_x + 5.0 * tex_y) +
-                0.02 * tOffset) +
-              sin(20.0 * (tex_x + tex_y - 0.1 * tOffset))
-            );
-          }
+          float pattern = 0.52 + 0.48 * sin(
+            4.8 * (tex_x + tex_y +
+              cos(2.8 * tex_x + 4.6 * tex_y) +
+              0.022 * tOffset) +
+            sin(16.0 * (tex_x + tex_y - 0.1 * tOffset))
+          );
 
-          // Noise contribution - using smooth noise instead of harsh noise
-          float rnd = fract(sin(dot(uv * 100.0, vec2(12.9898, 78.233))) * 43758.5453);
-          float intensity = max(0.0, pattern - rnd / 15.0 * noiseIntensity);
+          float rnd = fract(sin(dot(uv * 88.0, vec2(12.9898, 78.233))) * 43758.5453);
+          float intensity = max(0.4, pattern - rnd / 20.0 * noiseIntensity);
 
-          // Color palette — black/grey base with silver and violet accents
+          // Metal steel → royal blue palette (grayish cool blue)
           vec3 colors[8];
-          colors[0] = vec3(0.0, 0.0, 0.0) / 255.0;        // #000000 pure black
-          colors[1] = vec3(18.0, 18.0, 18.0) / 255.0;      // #121212 dark grey
-          colors[2] = vec3(40.0, 40.0, 40.0) / 255.0;      // #282828 medium grey
-          colors[3] = vec3(60.0, 60.0, 60.0) / 255.0;      // #3C3C3C lighter grey
-          colors[4] = vec3(80.0, 80.0, 80.0) / 255.0;        // #505050 silver grey
-          colors[5] = vec3(147.0, 51.0, 234.0) / 255.0;    // #9333EA electric violet
-          colors[6] = vec3(99.0, 102.0, 241.0) / 255.0;    // #6366F1 indigo
-          colors[7] = vec3(30.0, 30.0, 30.0) / 255.0;      // #1E1E1E charcoal
+          colors[0] = vec3(11.0, 13.0, 16.0) / 255.0;      // near black
+          colors[1] = vec3(22.0, 28.0, 38.0) / 255.0;      // graphite blue-grey
+          colors[2] = vec3(32.0, 42.0, 58.0) / 255.0;      // metal slate
+          colors[3] = vec3(30.0, 58.0, 95.0) / 255.0;      // #1E3A5F royal
+          colors[4] = vec3(44.0, 74.0, 124.0) / 255.0;     // #2C4A7C mid royal
+          colors[5] = vec3(74.0, 98.0, 130.0) / 255.0;     // steel blue-grey
+          colors[6] = vec3(90.0, 111.0, 138.0) / 255.0;    // metal highlight
+          colors[7] = vec3(26.0, 34.0, 48.0) / 255.0;      // deep metal
 
-          // --- IMPROVED COLOR INTERPOLATION BLOCK ---
-          // Color position calculation - smooth diagonal flow (original style)
-          float colorPos = (sin(t * 4.0 + uv.x * 1.5 + uv.y * 1.0) + 1.0) * 0.5;
+          float colorPos = (sin(t * 4.2 + uv.x * 1.6 + uv.y * 1.15) + 1.0) * 0.5;
 
-          vec3 color = vec3(0.0);
-
-          // Iterate through the color palette to blend continuously
+          vec3 color = colors[0];
           for (int i = 0; i < 7; ++i) {
               float segmentStart = float(i) / 7.0;
               float segmentEnd = float(i + 1) / 7.0;
-
               if (colorPos >= segmentStart && colorPos <= segmentEnd) {
                   float blendFactor = (colorPos - segmentStart) / (segmentEnd - segmentStart);
                   color = mix(colors[i], colors[i+1], smoothstep(0.0, 1.0, blendFactor));
                   break;
               }
           }
-          // Handle edge cases for float precision
-          if (colorPos > 6.0/7.0 && colorPos <= 1.0 + 0.0001) {
+          if (colorPos > 6.0/7.0) {
               float blendFactor = (colorPos - 6.0/7.0) * 7.0;
               color = mix(colors[6], colors[7], smoothstep(0.0, 1.0, blendFactor));
-          } else if (colorPos < 0.0 + 0.0001) {
-              color = colors[0];
           }
-          // --- END IMPROVED COLOR INTERPOLATION BLOCK ---
 
-          // Apply intensity (matching original: 0.75)
-          color = color * intensity * 0.75;
+          color = color * intensity * 1.08;
 
-          // Base gradient overlay - smooth multi-directional blend
           float gradientX = smoothstep(0.0, 1.0, uv.x);
           float gradientY = smoothstep(0.0, 1.0, uv.y);
-          float gradientFactor = gradientX * 0.4 + gradientY * 0.6;
+          float gradientFactor = gradientX * 0.32 + gradientY * 0.68;
 
-          // Cool grey-to-violet gradient overlay
-          vec3 gradientColor1 = vec3(0.0, 0.0, 0.0);         // pure black
-          vec3 gradientColor2 = vec3(0.07, 0.07, 0.07);      // dark grey
-          vec3 gradientColor3 = vec3(0.39, 0.2, 0.92);       // violet
-          vec3 gradientColor4 = vec3(0.58, 0.4, 0.94);       // light violet
+          // Cool metal wash
+          vec3 gradientColor1 = vec3(0.04, 0.05, 0.07);
+          vec3 gradientColor2 = vec3(0.08, 0.11, 0.16);
+          vec3 gradientColor3 = vec3(0.12, 0.23, 0.37); // royal
+          vec3 gradientColor4 = vec3(0.20, 0.29, 0.42); // steel blue
 
           vec3 gradientColor = mix(gradientColor1, gradientColor2, smoothstep(0.0, 0.33, gradientFactor));
           gradientColor = mix(gradientColor, gradientColor3, smoothstep(0.33, 0.66, gradientFactor));
           gradientColor = mix(gradientColor, gradientColor4, smoothstep(0.66, 1.0, gradientFactor));
 
-          // Blend pattern with gradient
-          color = mix(gradientColor, color, 0.7);
+          color = mix(gradientColor, color, 0.78);
 
-          // Radial overlay — subtle dark vignette
-          vec2 center = vec2(0.4, 0.3);
+          vec2 center = vec2(0.42, 0.32);
           float dist = length(uv - center);
-          float radialFade = smoothstep(0.8, 0.0, dist);
-          color = mix(color, vec3(0.0, 0.0, 0.0), 0.1 * (1.0 - radialFade));
+          float radialFade = smoothstep(1.0, 0.0, dist);
+          color = mix(color, vec3(0.03, 0.04, 0.06), 0.14 * (1.0 - radialFade));
 
           gl_FragColor = vec4(color, 1.0);
         }
@@ -251,7 +235,7 @@ export default function SilkBackground() {
       
       if (!vertexShader || !fragmentShader) {
         logger.error('Failed to create shaders, using CSS fallback');
-        canvas.style.background = 'linear-gradient(135deg, #0A0A0A 0%, #111114 25%, #6366F1 50%, #9333EA 75%, #A855F7 100%)';
+        canvas.style.background = STATIC_GRADIENT;
         return;
       }
       
@@ -262,7 +246,7 @@ export default function SilkBackground() {
       
       if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
         logger.error('Program link error:', gl.getProgramInfoLog(program));
-        canvas.style.background = 'linear-gradient(135deg, #0A0A0A 0%, #111114 25%, #6366F1 50%, #9333EA 75%, #A855F7 100%)';
+        canvas.style.background = STATIC_GRADIENT;
         return;
       }
       
@@ -453,18 +437,20 @@ export default function SilkBackground() {
   }, [shouldAnimate]); // re-run only when route changes between animated/static
 
   return (
-    <canvas 
+    <canvas
       ref={canvasRef}
       className="fixed inset-0 w-full h-full"
-      style={{ 
-        zIndex: 0, 
+      aria-hidden="true"
+      style={{
+        zIndex: 0,
         position: 'fixed',
         top: 0,
         left: 0,
         width: '100vw',
         height: '100vh',
-        background: '#000000',
-        pointerEvents: 'none'
+        // Rich base so laptop never sees flat pure black before WebGL starts
+        background: STATIC_GRADIENT,
+        pointerEvents: 'none',
       }}
     />
   );

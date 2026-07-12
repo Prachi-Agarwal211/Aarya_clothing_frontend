@@ -285,7 +285,7 @@ export function CartProvider({ children }) {
       throw new Error('Please login to update cart');
     }
     
-    // OPTIMISTIC UPDATE: Update local state immediately
+    // OPTIMISTIC UPDATE: Update local state immediately with correct totals
     const previousCart = { ...cart };
     setCart(prev => {
       const newItems = prev.items.map(item => {
@@ -294,9 +294,14 @@ export function CartProvider({ children }) {
         }
         return item;
       });
-      // Recalculate totals approximately (server will provide exact ones)
+      // Recalculate ALL totals so the UI shows correct prices immediately
       const itemCount = newItems.reduce((sum, i) => sum + i.quantity, 0);
-      return { ...prev, items: newItems, item_count: itemCount };
+      const subtotal = newItems.reduce((sum, i) => sum + (i.price || 0) * i.quantity, 0);
+      // Shipping is free (flat 0); discount is not affected by quantity changes
+      const discount = prev.discount || 0;
+      const shipping = 0;
+      const total = Math.max(0, subtotal - discount + shipping);
+      return { ...prev, items: newItems, item_count: itemCount, subtotal, total };
     });
 
     try {

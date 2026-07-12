@@ -89,14 +89,14 @@ export default function ChangePasswordPage() {
       <form className="w-full space-y-4 sm:space-y-5 md:space-y-6 animate-fade-in-up-delay" onSubmit={handleSubmit} noValidate>
         {/* Current Password */}
         <div className="luxury-input-wrapper h-14 sm:h-16 rounded-2xl relative group flex items-center px-5 sm:px-6">
-          <Lock className="w-5 h-5 sm:w-6 sm:h-6 text-[#E07B8B] group-focus-within:text-[#FFD700] transition-colors duration-300" aria-hidden="true" />
+          <Lock className="w-5 h-5 sm:w-6 sm:h-6 text-[#A8B4C8] group-focus-within:text-[#D4AF37] transition-colors duration-300" aria-hidden="true" />
           <Input
             type={showCurrentPassword ? "text" : "password"}
             placeholder="Current Password"
             value={currentPassword}
             onChange={(e) => setCurrentPassword(e.target.value)}
             variant="minimal"
-            className="h-full pl-4 sm:pl-5 pr-12 text-[#F5F5F5] placeholder:text-[#8A6A5C] text-base sm:text-lg"
+            className="h-full pl-4 sm:pl-5 pr-12 text-[#F5F0E8] placeholder:text-[#8A6A5C] text-base sm:text-lg"
             autoComplete="current-password"
             aria-label="Current password"
             required
@@ -104,7 +104,7 @@ export default function ChangePasswordPage() {
           <button
             type="button"
             onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-            className="touch-target-icon absolute right-3 sm:right-4 text-[#8A6A5C] hover:text-[#FFD700] transition-colors"
+            className="touch-target-icon absolute right-3 sm:right-4 text-[#8A6A5C] hover:text-[#D4AF37] transition-colors"
             aria-label={showCurrentPassword ? "Hide password" : "Show password"}
             tabIndex={0}
           >
@@ -114,14 +114,14 @@ export default function ChangePasswordPage() {
 
         {/* New Password */}
         <div className="luxury-input-wrapper h-14 sm:h-16 rounded-2xl relative group flex items-center px-5 sm:px-6">
-          <Lock className="w-5 h-5 sm:w-6 sm:h-6 text-[#E07B8B] group-focus-within:text-[#FFD700] transition-colors duration-300" aria-hidden="true" />
+          <Lock className="w-5 h-5 sm:w-6 sm:h-6 text-[#A8B4C8] group-focus-within:text-[#D4AF37] transition-colors duration-300" aria-hidden="true" />
           <Input
             type={showNewPassword ? "text" : "password"}
             placeholder="New Password"
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
             variant="minimal"
-            className="h-full pl-4 sm:pl-5 pr-12 text-[#F5F5F5] placeholder:text-[#8A6A5C] text-base sm:text-lg"
+            className="h-full pl-4 sm:pl-5 pr-12 text-[#F5F0E8] placeholder:text-[#8A6A5C] text-base sm:text-lg"
             autoComplete="new-password"
             aria-label="New password"
             required
@@ -129,7 +129,7 @@ export default function ChangePasswordPage() {
           <button
             type="button"
             onClick={() => setShowNewPassword(!showNewPassword)}
-            className="touch-target-icon absolute right-3 sm:right-4 text-[#8A6A5C] hover:text-[#FFD700] transition-colors"
+            className="touch-target-icon absolute right-3 sm:right-4 text-[#8A6A5C] hover:text-[#D4AF37] transition-colors"
             aria-label={showNewPassword ? "Hide password" : "Show password"}
             tabIndex={0}
           >
@@ -139,14 +139,14 @@ export default function ChangePasswordPage() {
 
         {/* Confirm Password */}
         <div className="luxury-input-wrapper h-14 sm:h-16 rounded-2xl relative group flex items-center px-5 sm:px-6">
-          <Lock className="w-5 h-5 sm:w-6 sm:h-6 text-[#E07B8B] group-focus-within:text-[#FFD700] transition-colors duration-300" aria-hidden="true" />
+          <Lock className="w-5 h-5 sm:w-6 sm:h-6 text-[#A8B4C8] group-focus-within:text-[#D4AF37] transition-colors duration-300" aria-hidden="true" />
           <Input
             type={showConfirmPassword ? "text" : "password"}
             placeholder="Confirm New Password"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
             variant="minimal"
-            className="h-full pl-4 sm:pl-5 pr-12 text-[#F5F5F5] placeholder:text-[#8A6A5C] text-base sm:text-lg"
+            className="h-full pl-4 sm:pl-5 pr-12 text-[#F5F0E8] placeholder:text-[#8A6A5C] text-base sm:text-lg"
             autoComplete="new-password"
             aria-label="Confirm new password"
             required
@@ -154,7 +154,7 @@ export default function ChangePasswordPage() {
           <button
             type="button"
             onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-            className="touch-target-icon absolute right-3 sm:right-4 text-[#8A6A5C] hover:text-[#FFD700] transition-colors"
+            className="touch-target-icon absolute right-3 sm:right-4 text-[#8A6A5C] hover:text-[#D4AF37] transition-colors"
             aria-label={showConfirmPassword ? "Hide password" : "Show password"}
             tabIndex={0}
           >
@@ -200,15 +200,15 @@ export default function ChangePasswordPage() {
         <Button
           type="submit"
           disabled={isSubmitting}
-          className="w-full h-14 sm:h-16 mt-4 sm:mt-6 relative overflow-hidden rounded-2xl bg-transparent border border-[#E07B8B]/40 group transition-all duration-500 hover:border-[#FFD700]/60 hover:shadow-[0_0_30px_rgba(183,110,121,0.3)]"
+          className="w-full h-14 sm:h-16 mt-4 sm:mt-6 relative overflow-hidden rounded-2xl bg-transparent border border-[#A8B4C8]/40 group transition-all duration-500 hover:border-[#D4AF37]/60 hover:shadow-[0_0_30px_rgba(183,110,121,0.3)]"
           aria-busy={isSubmitting}
         >
-          <div className="absolute inset-0 bg-gradient-to-r from-[#9333EA]/80 via-[#E07B8B]/70 to-[#2A1208]/80 opacity-90"></div>
+          <div className="absolute inset-0 bg-gradient-to-r from-[#1E3A5F]/80 via-[#A8B4C8]/70 to-[#152238]/80 opacity-90"></div>
           <div className="animate-sheen"></div>
-          <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-[#FFD700]/70 to-transparent"></div>
-          <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-[#E07B8B]/50 to-transparent"></div>
+          <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-[#D4AF37]/70 to-transparent"></div>
+          <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-[#A8B4C8]/50 to-transparent"></div>
 
-          <span className="relative z-10 text-[#FFD700] font-serif tracking-[0.1em] sm:tracking-[0.15em] text-base sm:text-lg group-hover:text-white transition-colors font-heading">
+          <span className="relative z-10 text-[#D4AF37] font-serif tracking-[0.1em] sm:tracking-[0.15em] text-base sm:text-lg group-hover:text-white transition-colors font-heading">
             {isSubmitting ? 'UPDATING...' : 'CHANGE PASSWORD'}
           </span>
         </Button>
@@ -228,7 +228,7 @@ export default function ChangePasswordPage() {
 
       {/* BACK TO PRODUCTS */}
       <div className="w-full mt-8 sm:mt-10 md:mt-12">
-        <Link href="/products" className="text-[#8A6A5C] hover:text-[#FFD700] transition-colors text-xs sm:text-sm tracking-wide uppercase text-xs font-bold tracking-widest">
+        <Link href="/products" className="text-[#8A6A5C] hover:text-[#D4AF37] transition-colors text-xs sm:text-sm tracking-wide uppercase text-xs font-bold tracking-widest">
           ← Back to Products
         </Link>
       </div>

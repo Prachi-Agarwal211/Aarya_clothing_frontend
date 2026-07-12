@@ -200,8 +200,8 @@ function CreateReturnContent() {
   if (loading) {
     return (
       <div className="space-y-6">
-        <div className="animate-pulse h-8 w-48 bg-[#E07B8B]/10 rounded" />
-        <div className="animate-pulse h-96 bg-[#E07B8B]/10 rounded-2xl" />
+        <div className="animate-pulse h-8 w-48 bg-[#A8B4C8]/10 rounded" />
+        <div className="animate-pulse h-96 bg-[#A8B4C8]/10 rounded-2xl" />
       </div>
     );
   }
@@ -211,7 +211,7 @@ function CreateReturnContent() {
       {/* Back Button */}
       <Link
         href={orderId ? `/profile/orders/${orderId}` : '/profile/orders'}
-        className="inline-flex items-center gap-2 text-[#E07B8B] hover:text-[#FFD700] transition-colors"
+        className="inline-flex items-center gap-2 text-[#A8B4C8] hover:text-[#D4AF37] transition-colors"
       >
         <ChevronLeft className="w-4 h-4" />
         Back to Orders
@@ -219,21 +219,21 @@ function CreateReturnContent() {
 
       {/* Header */}
       <div>
-        <h2 className="text-xl font-semibold text-[#FFD700]">Create Return/Exchange Request</h2>
-        <p className="text-sm text-[#F5F5F5]/50 mt-1">
+        <h2 className="text-xl font-semibold text-[#D4AF37]">Create Return/Exchange Request</h2>
+        <p className="text-sm text-[#F5F0E8]/50 mt-1">
           Submit a return or exchange request for defective or damaged items
         </p>
       </div>
 
       {/* Return Policy Notice - Video Recommended */}
-      <div className="p-4 bg-[#9333EA]/10 border border-[#E07B8B]/30 rounded-xl">
+      <div className="p-4 bg-[#1E3A5F]/10 border border-[#A8B4C8]/30 rounded-xl">
         <div className="flex gap-3">
-          <Video className="w-5 h-5 text-[#E07B8B] flex-shrink-0 mt-0.5" />
-          <div className="text-sm text-[#F5F5F5]/70">
-            <p className="font-medium text-[#FFD700] mb-1">📹 Video Proof Recommended for Faster Processing</p>
+          <Video className="w-5 h-5 text-[#A8B4C8] flex-shrink-0 mt-0.5" />
+          <div className="text-sm text-[#F5F0E8]/70">
+            <p className="font-medium text-[#D4AF37] mb-1">📹 Video Proof Recommended for Faster Processing</p>
             <ul className="list-disc list-inside space-y-1">
               <li>Adding a video of the unboxing helps us process your return faster</li>
-              <li>The video should show the <strong className="text-[#F5F5F5]">product defect or damage</strong> clearly</li>
+              <li>The video should show the <strong className="text-[#F5F0E8]">product defect or damage</strong> clearly</li>
               <li>Returns with clear video proof are typically approved faster</li>
               <li>Video must be under 3 minutes and clearly show the issue</li>
             </ul>
@@ -247,31 +247,31 @@ function CreateReturnContent() {
           <div className="md:col-span-2 space-y-6">
             {/* Order Info */}
             {order && (
-              <div className="p-6 bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl">
-                <h3 className="text-lg font-medium text-[#FFD700] mb-4">Order Information</h3>
+              <div className="p-6 bg-[#111111]/40 backdrop-blur-md border border-[#A8B4C8]/15 rounded-2xl">
+                <h3 className="text-lg font-medium text-[#D4AF37] mb-4">Order Information</h3>
                 <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-[#9333EA]/20 rounded-lg flex items-center justify-center">
-                    <Package className="w-6 h-6 text-[#E07B8B]" />
+                  <div className="w-12 h-12 bg-[#1E3A5F]/20 rounded-lg flex items-center justify-center">
+                    <Package className="w-6 h-6 text-[#A8B4C8]" />
                   </div>
                   <div>
-                    <p className="font-medium text-[#F5F5F5]">Order #{order.order_number}</p>
-                    <p className="text-sm text-[#F5F5F5]/50">Delivered on {order.delivered_at}</p>
+                    <p className="font-medium text-[#F5F0E8]">Order #{order.order_number}</p>
+                    <p className="text-sm text-[#F5F0E8]/50">Delivered on {order.delivered_at}</p>
                   </div>
                 </div>
               </div>
             )}
 
             {/* Select Items */}
-            <div className="p-6 bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl">
-              <h3 className="text-lg font-medium text-[#FFD700] mb-4">Select Items to Return</h3>
+            <div className="p-6 bg-[#111111]/40 backdrop-blur-md border border-[#A8B4C8]/15 rounded-2xl">
+              <h3 className="text-lg font-medium text-[#D4AF37] mb-4">Select Items to Return</h3>
               <div className="space-y-3">
                 {order?.items?.map((item) => (
                   <label
                     key={item.id}
                     className={`flex gap-4 p-4 rounded-xl cursor-pointer transition-colors ${
                       selectedItems.includes(item.id) 
-                        ? 'bg-[#E07B8B]/20 border border-[#E07B8B]/40' 
-                        : 'bg-[#9333EA]/10 border border-transparent hover:bg-[#9333EA]/20'
+                        ? 'bg-[#A8B4C8]/20 border border-[#A8B4C8]/40' 
+                        : 'bg-[#1E3A5F]/10 border border-transparent hover:bg-[#1E3A5F]/20'
                     }`}
                   >
                     <input
@@ -282,22 +282,22 @@ function CreateReturnContent() {
                     />
                     <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 mt-1 ${
                       selectedItems.includes(item.id) 
-                        ? 'bg-[#E07B8B] border-[#E07B8B]' 
-                        : 'border-[#E07B8B]/30'
+                        ? 'bg-[#A8B4C8] border-[#A8B4C8]' 
+                        : 'border-[#A8B4C8]/30'
                     }`}>
                       {selectedItems.includes(item.id) && (
                         <CheckCircle className="w-4 h-4 text-white" />
                       )}
                     </div>
-                    <div className="w-16 h-20 bg-[#9333EA]/20 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <Package className="w-6 h-6 text-[#E07B8B]/30" />
+                    <div className="w-16 h-20 bg-[#1E3A5F]/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <Package className="w-6 h-6 text-[#A8B4C8]/30" />
                     </div>
                     <div className="flex-1">
-                      <p className="font-medium text-[#F5F5F5]">{item.name}</p>
-                      <p className="text-sm text-[#F5F5F5]/50">
+                      <p className="font-medium text-[#F5F0E8]">{item.name}</p>
+                      <p className="text-sm text-[#F5F0E8]/50">
                         Size: {item.size} • Color: {item.color} • Qty: {item.quantity}
                       </p>
-                      <p className="text-[#FFD700] mt-1">{formatCurrency(item.price)}</p>
+                      <p className="text-[#D4AF37] mt-1">{formatCurrency(item.price)}</p>
                     </div>
                   </label>
                 ))}
@@ -305,16 +305,16 @@ function CreateReturnContent() {
             </div>
 
             {/* Return Type */}
-            <div className="p-6 bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl">
-              <h3 className="text-lg font-medium text-[#FFD700] mb-4">Return Type</h3>
+            <div className="p-6 bg-[#111111]/40 backdrop-blur-md border border-[#A8B4C8]/15 rounded-2xl">
+              <h3 className="text-lg font-medium text-[#D4AF37] mb-4">Return Type</h3>
               <div className="grid grid-cols-2 gap-4">
                 {RETURN_TYPES.map((type) => (
                   <label
                     key={type.value}
                     className={`p-4 rounded-xl cursor-pointer transition-colors ${
                       returnType === type.value 
-                        ? 'bg-[#E07B8B]/20 border border-[#E07B8B]/40' 
-                        : 'bg-[#9333EA]/10 border border-transparent hover:bg-[#9333EA]/20'
+                        ? 'bg-[#A8B4C8]/20 border border-[#A8B4C8]/40' 
+                        : 'bg-[#1E3A5F]/10 border border-transparent hover:bg-[#1E3A5F]/20'
                     }`}
                   >
                     <input
@@ -328,16 +328,16 @@ function CreateReturnContent() {
                     <div className="flex items-center gap-3">
                       <div className={`w-4 h-4 rounded-full border-2 ${
                         returnType === type.value 
-                          ? 'bg-[#E07B8B] border-[#E07B8B]' 
-                          : 'border-[#E07B8B]/30'
+                          ? 'bg-[#A8B4C8] border-[#A8B4C8]' 
+                          : 'border-[#A8B4C8]/30'
                       }`}>
                         {returnType === type.value && (
                           <div className="w-2 h-2 bg-white rounded-full m-0.5" />
                         )}
                       </div>
                       <div>
-                        <p className="font-medium text-[#F5F5F5]">{type.label}</p>
-                        <p className="text-xs text-[#F5F5F5]/50">{type.description}</p>
+                        <p className="font-medium text-[#F5F0E8]">{type.label}</p>
+                        <p className="text-xs text-[#F5F0E8]/50">{type.description}</p>
                       </div>
                     </div>
                   </label>
@@ -345,15 +345,15 @@ function CreateReturnContent() {
               </div>
 
               {returnType === 'exchange' && (
-                <div className="mt-4 p-4 bg-[#9333EA]/10 rounded-xl">
-                  <label className="block text-sm font-medium text-[#F5F5F5] mb-2">
+                <div className="mt-4 p-4 bg-[#1E3A5F]/10 rounded-xl">
+                  <label className="block text-sm font-medium text-[#F5F0E8] mb-2">
                     Exchange Preference
                   </label>
                   <textarea
                     value={exchangePreference}
                     onChange={(e) => setExchangePreference(e.target.value)}
                     placeholder="e.g., Exchange for size L, or different color..."
-                    className="w-full px-4 py-3 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-xl text-[#F5F5F5] placeholder-[#F5F5F5]/30 focus:outline-none focus:border-[#E07B8B]/40 resize-none"
+                    className="w-full px-4 py-3 bg-[#111111]/60 border border-[#A8B4C8]/20 rounded-xl text-[#F5F0E8] placeholder-[#F5F0E8]/30 focus:outline-none focus:border-[#A8B4C8]/40 resize-none"
                     rows={2}
                   />
                 </div>
@@ -361,16 +361,16 @@ function CreateReturnContent() {
             </div>
 
             {/* Reason */}
-            <div className="p-6 bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl">
-              <h3 className="text-lg font-medium text-[#FFD700] mb-4">Reason for Return</h3>
+            <div className="p-6 bg-[#111111]/40 backdrop-blur-md border border-[#A8B4C8]/15 rounded-2xl">
+              <h3 className="text-lg font-medium text-[#D4AF37] mb-4">Reason for Return</h3>
               <div className="space-y-3">
                 {RETURN_REASONS.map((r) => (
                   <label
                     key={r.value}
                     className={`flex gap-3 p-4 rounded-xl cursor-pointer transition-colors ${
                       reason === r.value 
-                        ? 'bg-[#E07B8B]/20 border border-[#E07B8B]/40' 
-                        : 'bg-[#9333EA]/10 border border-transparent hover:bg-[#9333EA]/20'
+                        ? 'bg-[#A8B4C8]/20 border border-[#A8B4C8]/40' 
+                        : 'bg-[#1E3A5F]/10 border border-transparent hover:bg-[#1E3A5F]/20'
                     }`}
                   >
                     <input
@@ -383,16 +383,16 @@ function CreateReturnContent() {
                     />
                     <div className={`w-4 h-4 rounded-full border-2 flex-shrink-0 mt-1 ${
                       reason === r.value 
-                        ? 'bg-[#E07B8B] border-[#E07B8B]' 
-                        : 'border-[#E07B8B]/30'
+                        ? 'bg-[#A8B4C8] border-[#A8B4C8]' 
+                        : 'border-[#A8B4C8]/30'
                     }`}>
                       {reason === r.value && (
                         <div className="w-2 h-2 bg-white rounded-full m-0.5" />
                       )}
                     </div>
                     <div>
-                      <p className="font-medium text-[#F5F5F5]">{r.label}</p>
-                      <p className="text-xs text-[#F5F5F5]/50">{r.description}</p>
+                      <p className="font-medium text-[#F5F0E8]">{r.label}</p>
+                      <p className="text-xs text-[#F5F0E8]/50">{r.description}</p>
                     </div>
                   </label>
                 ))}
@@ -400,30 +400,30 @@ function CreateReturnContent() {
             </div>
 
             {/* Description */}
-            <div className="p-6 bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl">
-              <h3 className="text-lg font-medium text-[#FFD700] mb-4">Description</h3>
+            <div className="p-6 bg-[#111111]/40 backdrop-blur-md border border-[#A8B4C8]/15 rounded-2xl">
+              <h3 className="text-lg font-medium text-[#D4AF37] mb-4">Description</h3>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Please describe the issue in detail. For defective items, mention specific defects..."
-                className="w-full px-4 py-3 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-xl text-[#F5F5F5] placeholder-[#F5F5F5]/30 focus:outline-none focus:border-[#E07B8B]/40 resize-none"
+                className="w-full px-4 py-3 bg-[#111111]/60 border border-[#A8B4C8]/20 rounded-xl text-[#F5F0E8] placeholder-[#F5F0E8]/30 focus:outline-none focus:border-[#A8B4C8]/40 resize-none"
                 rows={4}
               />
             </div>
 
             {/* Video Upload - Optional but recommended */}
-            <div className="p-6 bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl">
-              <h3 className="text-lg font-medium text-[#FFD700] mb-1">
+            <div className="p-6 bg-[#111111]/40 backdrop-blur-md border border-[#A8B4C8]/15 rounded-2xl">
+              <h3 className="text-lg font-medium text-[#D4AF37] mb-1">
                 Upload Unboxing Video (Recommended)
               </h3>
-              <p className="text-sm text-[#F5F5F5]/50 mb-4">
+              <p className="text-sm text-[#F5F0E8]/50 mb-4">
                 Adding a video showing the product defect or damage helps us process your return faster.
               </p>
 
               {/* Video Recording Instructions */}
-              <div className="mb-4 p-4 bg-[#9333EA]/20 border border-[#E07B8B]/30 rounded-xl">
-                <p className="text-sm font-medium text-[#FFD700] mb-2">📹 How to Record Your Video:</p>
-                <ol className="text-xs text-[#F5F5F5]/70 space-y-1 list-decimal list-inside">
+              <div className="mb-4 p-4 bg-[#1E3A5F]/20 border border-[#A8B4C8]/30 rounded-xl">
+                <p className="text-sm font-medium text-[#D4AF37] mb-2">📹 How to Record Your Video:</p>
+                <ol className="text-xs text-[#F5F0E8]/70 space-y-1 list-decimal list-inside">
                   <li>Start recording before opening the package</li>
                   <li>Show the sealed package clearly on camera</li>
                   <li>Open the package while recording - show the packaging</li>
@@ -443,7 +443,7 @@ function CreateReturnContent() {
               </div>
 
               {videoPreview ? (
-                <div className="relative rounded-xl overflow-hidden bg-[#0A0A0A]/60 border border-[#E07B8B]/20">
+                <div className="relative rounded-xl overflow-hidden bg-[#111111]/60 border border-[#A8B4C8]/20">
                   <video
                     src={videoPreview}
                     controls
@@ -463,7 +463,7 @@ function CreateReturnContent() {
                     <button
                       type="button"
                       onClick={() => document.getElementById('video-replace').click()}
-                      className="text-xs text-[#E07B8B] hover:underline"
+                      className="text-xs text-[#A8B4C8] hover:underline"
                     >
                       Replace Video
                     </button>
@@ -477,28 +477,28 @@ function CreateReturnContent() {
                   </div>
                   {videoUploadProgress > 0 && videoUploadProgress < 100 && (
                     <div className="p-2">
-                      <div className="h-1 bg-[#9333EA]/30 rounded-full overflow-hidden">
+                      <div className="h-1 bg-[#1E3A5F]/30 rounded-full overflow-hidden">
                         <div 
                           className="h-full bg-green-500 transition-all duration-300"
                           style={{ width: `${videoUploadProgress}%` }}
                         />
                       </div>
-                      <p className="text-xs text-center text-[#F5F5F5]/50 mt-1">Uploading... {videoUploadProgress}%</p>
+                      <p className="text-xs text-center text-[#F5F0E8]/50 mt-1">Uploading... {videoUploadProgress}%</p>
                     </div>
                   )}
                 </div>
               ) : (
-                <label className="flex flex-col items-center justify-center w-full h-40 rounded-xl border-2 border-dashed border-[#E07B8B]/30 cursor-pointer hover:border-[#E07B8B]/50 transition-colors bg-[#0A0A0A]/40">
+                <label className="flex flex-col items-center justify-center w-full h-40 rounded-xl border-2 border-dashed border-[#A8B4C8]/30 cursor-pointer hover:border-[#A8B4C8]/50 transition-colors bg-[#111111]/40">
                   <input
                     type="file"
                     accept="video/*"
                     onChange={handleVideoUpload}
                     className="sr-only"
                   />
-                  <Video className="w-10 h-10 text-[#E07B8B]/50 mb-2" />
-                  <span className="text-sm text-[#F5F5F5]">Click to upload your unboxing video</span>
+                  <Video className="w-10 h-10 text-[#A8B4C8]/50 mb-2" />
+                  <span className="text-sm text-[#F5F0E8]">Click to upload your unboxing video</span>
                   <span className="text-xs text-red-400 mt-1">⚠️ Video is required for return approval</span>
-                  <span className="text-xs text-[#F5F5F5]/30 mt-1">MP4, MOV, AVI up to 200MB • Under 3 minutes</span>
+                  <span className="text-xs text-[#F5F0E8]/30 mt-1">MP4, MOV, AVI up to 200MB • Under 3 minutes</span>
                 </label>
               )}
 
@@ -513,28 +513,28 @@ function CreateReturnContent() {
           {/* Sidebar */}
           <div className="space-y-6">
             {/* Return Summary */}
-            <div className="p-6 bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl sticky top-28">
-              <h3 className="text-lg font-medium text-[#FFD700] mb-4">Return Summary</h3>
+            <div className="p-6 bg-[#111111]/40 backdrop-blur-md border border-[#A8B4C8]/15 rounded-2xl sticky top-28">
+              <h3 className="text-lg font-medium text-[#D4AF37] mb-4">Return Summary</h3>
               
               <div className="space-y-3 mb-6">
                 <div className="flex justify-between text-sm">
-                  <span className="text-[#F5F5F5]/50">Items Selected</span>
-                  <span className="text-[#F5F5F5]">{selectedItems.length} item(s)</span>
+                  <span className="text-[#F5F0E8]/50">Items Selected</span>
+                  <span className="text-[#F5F0E8]">{selectedItems.length} item(s)</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-[#F5F5F5]/50">Return Type</span>
-                  <span className="text-[#F5F5F5]">{returnType === 'return' ? 'Refund' : 'Exchange'}</span>
+                  <span className="text-[#F5F0E8]/50">Return Type</span>
+                  <span className="text-[#F5F0E8]">{returnType === 'return' ? 'Refund' : 'Exchange'}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-[#F5F5F5]/50">Reason</span>
-                  <span className="text-[#F5F5F5]">
+                  <span className="text-[#F5F0E8]/50">Reason</span>
+                  <span className="text-[#F5F0E8]">
                     {reason ? RETURN_REASONS.find(r => r.value === reason)?.label : '-'}
                   </span>
                 </div>
-                <div className="h-px bg-[#E07B8B]/20 my-4" />
+                <div className="h-px bg-[#A8B4C8]/20 my-4" />
                 <div className="flex justify-between">
-                  <span className="text-[#F5F5F5]/50">Estimated Refund</span>
-                  <span className="text-xl font-semibold text-[#FFD700]">{formatCurrency(returnTotal)}</span>
+                  <span className="text-[#F5F0E8]/50">Estimated Refund</span>
+                  <span className="text-xl font-semibold text-[#D4AF37]">{formatCurrency(returnTotal)}</span>
                 </div>
               </div>
 
@@ -549,7 +549,7 @@ function CreateReturnContent() {
               <button
                 type="submit"
                 disabled={submitting || selectedItems.length === 0}
-                className="w-full px-6 py-3 bg-gradient-to-r from-[#9333EA] to-[#E07B8B] text-white rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="w-full px-6 py-3 bg-gradient-to-r from-[#1E3A5F] to-[#A8B4C8] text-white rounded-xl hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {submitting ? (
                   <>
@@ -564,7 +564,7 @@ function CreateReturnContent() {
                 )}
               </button>
 
-              <p className="text-xs text-[#F5F5F5]/40 text-center mt-4">
+              <p className="text-xs text-[#F5F0E8]/40 text-center mt-4">
                 By submitting, you agree to our return policy terms
               </p>
             </div>
@@ -578,7 +578,7 @@ function CreateReturnContent() {
 export default function CreateReturnPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center">
+      <div className="min-h-screen bg-[#111111] flex items-center justify-center">
         <div className="animate-pulse text-[#8A6A5C]">Loading...</div>
       </div>
     }>

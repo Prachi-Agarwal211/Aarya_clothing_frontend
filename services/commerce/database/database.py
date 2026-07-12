@@ -53,7 +53,7 @@ def get_db_context() -> Session:
         db.close()
 def init_db():
     """Initialize database tables."""
-    from shared.db_migration_helpers import ensure_column
+    from shared.db_migration_helpers import ensure_column, ensure_index
     from models.product import Product
     from models.order import Order, OrderItem
     from models.category import Category
@@ -71,6 +71,19 @@ def init_db():
     ensure_column(engine, "products", "material", "TEXT")
     ensure_column(engine, "products", "care_instructions", "TEXT")
     ensure_column(engine, "reviews", "image_urls", "TEXT[] DEFAULT '{}'" )
+    # Stock reservation IDs stored on pending orders (prepare → webhook create path).
+    # Missing column caused 500s on every PendingOrder ORM load / order recovery.
+    ensure_column(engine, "pending_orders", "reservation_ids", "JSONB")
+
+    # Add indexes for _order_exists() queries used by payment webhook handler.
+    # Without these, every webhook event triggers a sequential scan of the orders
+    # table, causing slow queries and race conditions under load.
+    ensure_index(engine, "orders", "ix_orders_razorpay_payment_id", "razorpay_payment_id")
+    ensure_index(engine, "orders", "ix_orders_razorpay_order_id", "razorpay_order_id")
+
+    # Also ensure pending_order_id has an index (should already exist from model, but be safe)
+    ensure_index(engine, "orders", "ix_orders_pending_order_id", "pending_order_id")
+
 def get_pool_status() -> dict:
     """Get connection pool status for monitoring."""
     return {

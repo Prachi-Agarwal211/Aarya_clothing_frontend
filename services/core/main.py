@@ -634,19 +634,16 @@ async def resend_verification(
     db: Session = Depends(get_db)
 ):
     """Resend OTP for verification (email OTP by default)."""
-    # Rate limiting: 7 OTP max per session with 30 min cooldown
-    # Use different rate keys for different OTP types to prevent key collision
+    # Rate limit: check first; bump only after we successfully queue a send
+    # so provider failures do not burn the customer's budget.
+    rate_key = f"auth_rate_limit:resend:{email.lower()}"
     try:
-        rate_key = f"auth_rate_limit:resend:{email.lower()}"
         attempts = redis_client.get_cache(rate_key) or 0
-
         if int(attempts) >= 7:
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                 detail="Too many resend requests. Please wait 30 minutes before requesting another OTP."
             )
-
-        redis_client.set_cache(rate_key, int(attempts) + 1, ttl=1800)  # 30 min cooldown
     except HTTPException:
         raise
     except Exception as e:
@@ -708,9 +705,14 @@ async def resend_verification(
             purpose="registration"
         )
 
-    # Send OTP in background
+    # Queue send, then bump rate limit (success path only)
     try:
         background_tasks.add_task(otp_service.send_otp, otp_request)
+        try:
+            attempts = redis_client.get_cache(rate_key) or 0
+            redis_client.set_cache(rate_key, int(attempts) + 1, ttl=1800)
+        except Exception as e:
+            logger.warning(f"Resend OTP rate bump failed: {e}")
         return {"message": "Verification OTP sent"}
     except ValueError as e:
         logger.warning(f"OTP send failed for resend verification: {e}")
@@ -729,32 +731,29 @@ async def login(
     Login with username/email and password.
     Sets HTTP-Only cookies for 24-hour session.
     """
-    # IP-based rate limiting: protects against distributed brute force attacks
-    # 50 attempts per 5 minutes per IP (distributed protection)
+    # IP-based rate limiting: protects against distributed brute force.
+    # Only FAILED attempts count — successful logins from shared NAT (office/school)
+    # must not lock out other customers.
+    client_ip = _get_client_ip(http_request)
+    account_id = (request.identifier or 'unknown').lower().strip()
+    ip_key = f'rate_limit:login_ip:{client_ip}'
+    account_key = f'rate_limit:login_account:{account_id}'
+
     if not _should_bypass_local_rate_limit(http_request):
         try:
-            client_ip = _get_client_ip(http_request)
-            ip_key = f'rate_limit:login_ip:{client_ip}'
             ip_count = redis_client.get_cache(ip_key) or 0
             if int(ip_count) >= 50:
                 raise HTTPException(
                     status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                     detail='Too many login attempts. Please try again in 5 minutes.'
                 )
-            redis_client.set_cache(ip_key, int(ip_count) + 1, ttl=300)
 
-            # Per-account rate limiting: prevents per-account abuse
-            # Keyed on the submitted identifier so attacks on a specific account do not
-            # punish other users behind the same NAT.
-            account_id = (request.identifier or 'unknown').lower().strip()
-            account_key = f'rate_limit:login_account:{account_id}'
             account_count = redis_client.get_cache(account_key) or 0
             if int(account_count) >= settings.LOGIN_RATE_LIMIT:
                 raise HTTPException(
                     status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                     detail='Too many login attempts for this account. Please wait 5 minutes and try again.'
                 )
-            redis_client.set_cache(account_key, int(account_count) + 1, ttl=settings.LOGIN_RATE_WINDOW)
         except HTTPException:
             raise
         except Exception as e:
@@ -763,7 +762,6 @@ async def login(
     try:
         auth_service = AuthService(db)
 
-        client_ip = http_request.client.host if http_request.client else None
         client_ua = http_request.headers.get("user-agent")
 
         result = auth_service.login(
@@ -797,6 +795,17 @@ async def login(
             device_trusted=bool(result.get("device_trusted", False)),
         )
     except ValueError as e:
+        # Count only failed password/identity attempts toward rate limits
+        try:
+            if not _should_bypass_local_rate_limit(http_request):
+                ip_count = int(redis_client.get_cache(ip_key) or 0)
+                redis_client.set_cache(ip_key, ip_count + 1, ttl=300)
+                account_count = int(redis_client.get_cache(account_key) or 0)
+                redis_client.set_cache(
+                    account_key, account_count + 1, ttl=settings.LOGIN_RATE_WINDOW
+                )
+        except Exception:
+            pass
         msg = str(e)
         if msg in (
             "Account not verified. Please complete verification.",
@@ -846,13 +855,12 @@ async def login_otp_request(
         raise HTTPException(status_code=400, detail="identifier is required")
     otp_type = (payload.get("otp_type") or payload.get("channel") or "EMAIL").upper()
 
-    # Rate limiting: 7 OTP max per session with 30 min cooldown (PER OTP TYPE)
-    # Use different rate keys for different OTP types to prevent key collision
-    # login_otp_request: auth_rate_limit:login:{identifier}
-    # forgot_password_otp: auth_rate_limit:password_reset:{identifier}
+    # Rate limiting: 7 OTP max per identifier per 30 min (PER OTP TYPE).
+    # Check limit BEFORE sending; only increment AFTER a successful OTP create/send
+    # so provider failures don't burn the customer's budget and leave them stuck.
+    rate_key = None
     if not _should_bypass_local_rate_limit(http_request):
         try:
-            # Use different rate keys for different OTP types
             if otp_type in ("EMAIL", "SMS", "WHATSAPP"):
                 rate_key = f"auth_rate_limit:login:{identifier.lower()}"
             else:
@@ -865,16 +873,25 @@ async def login_otp_request(
                     status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                     detail="Too many OTP requests. Please wait 30 minutes before requesting another OTP."
                 )
-
-            redis_client.set_cache(rate_key, int(attempts) + 1, ttl=1800)  # 30 min cooldown
         except HTTPException:
             raise
         except Exception as exc:
             logger.warning(f"login_otp_request rate limit error (skipping): {exc}")
+            rate_key = None
 
     from service.auth_service import _resolve_user_query
     from schemas.auth import UserCreate, VerificationMethod
     auth_service = AuthService(db)
+
+    def _bump_otp_rate_limit():
+        """Increment rate counter only after a successful OTP dispatch."""
+        if not rate_key:
+            return
+        try:
+            attempts = int(redis_client.get_cache(rate_key) or 0)
+            redis_client.set_cache(rate_key, attempts + 1, ttl=1800)
+        except Exception as exc:
+            logger.warning(f"OTP rate limit increment failed: {exc}")
 
     # UNIFIED FLOW: Check if user exists first.
     # If YES and active → send login OTP
@@ -886,6 +903,7 @@ async def login_otp_request(
         # Active existing user: send login OTP
         try:
             result = auth_service.send_login_otp(identifier=identifier, otp_type=otp_type)
+            _bump_otp_rate_limit()
             return {
                 "message": result.get("message", "OTP sent"),
                 "otp_type": result.get("otp_type", otp_type),
@@ -947,6 +965,7 @@ async def login_otp_request(
         try:
             result = otp_service.send_otp(otp_request)
             if result.get("success"):
+                _bump_otp_rate_limit()
                 # Return which channel was actually used so frontend can show correct UI
                 actual_otp_type = result.get("otp_type", otp_type)
                 return {
@@ -987,7 +1006,8 @@ async def login_otp_request(
             verification_method=VerificationMethod(verification_method),
         )
         result = auth_service.create_user(user_data)
-        
+        _bump_otp_rate_limit()
+
         return {
             "message": "Account created. Please verify with the OTP sent to your phone.",
             "otp_type": otp_type,
@@ -1349,19 +1369,17 @@ async def forgot_password_otp(
     # forgot_password_otp: auth_rate_limit:password_reset:{identifier}
     identifier = request_data.identifier
     otp_type = getattr(request_data, 'otp_type', 'SMS')
+    rate_key = f"auth_rate_limit:password_reset:{identifier.lower()}"
 
+    # Check limit first; bump only after a successful request so SMS/provider
+    # failures do not lock the user out for 30 minutes.
     try:
-        # Use different rate keys for different OTP types
-        rate_key = f"auth_rate_limit:password_reset:{identifier.lower()}"
         attempts = redis_client.get_cache(rate_key) or 0
-
         if int(attempts) >= 7:
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                 detail="Too many OTP requests. Please wait 30 minutes before requesting another OTP."
             )
-
-        redis_client.set_cache(rate_key, int(attempts) + 1, ttl=1800)  # 30 min cooldown
     except HTTPException:
         raise
     except Exception as e:
@@ -1370,6 +1388,11 @@ async def forgot_password_otp(
     auth_service = AuthService(db)
     try:
         result = auth_service.request_password_reset_otp(identifier, otp_type)
+        try:
+            attempts = redis_client.get_cache(rate_key) or 0
+            redis_client.set_cache(rate_key, int(attempts) + 1, ttl=1800)
+        except Exception as e:
+            logger.warning(f"Password reset OTP rate bump failed: {e}")
         logger.info(f"[AUTH] Password reset OTP requested identifier={identifier[:3]}***")
         return result
     except ValueError as e:

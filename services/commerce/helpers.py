@@ -200,7 +200,7 @@ def enrich_product(product, user_role: Optional[str] = None) -> dict:
         "material": product.material,
         "care_instructions": product.care_instructions,
         "hsn_code": getattr(product, "hsn_code", None),
-        "gst_rate": float(product.gst_rate) if product.gst_rate else None,
+        "gst_rate": getattr(product, "gst_rate", None),
         "is_taxable": getattr(product, "is_taxable", None),
         "created_at": product.created_at,
         "updated_at": product.updated_at,

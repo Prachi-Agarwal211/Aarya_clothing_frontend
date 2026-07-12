@@ -148,23 +148,23 @@ def _find_existing_order(
             if existing:
                 return existing
 
-        # 4. QR fallback — check by razorpay_payment_id within 5 min
+        # 4. QR fallback — only if order.transaction_id or payment_id equals this qr_code_id
+        # (older code matched ANY recent paid order for the user — wrong under concurrency)
         if qr_code_id:
             qr_existing = (
                 db.query(Order)
                 .filter(
-                    Order.razorpay_payment_id.isnot(None),
-                    Order.razorpay_payment_id != "",
                     Order.user_id == user_id,
+                    or_(
+                        Order.transaction_id == qr_code_id,
+                        Order.razorpay_payment_id == qr_code_id,
+                    ),
                 )
                 .order_by(Order.created_at.desc())
                 .first()
             )
             if qr_existing:
-                now_naive = now_ist().replace(tzinfo=None)
-                age = now_naive - qr_existing.created_at
-                if age <= timedelta(minutes=5):
-                    return qr_existing
+                return qr_existing
 
     except OperationalError:
         db.rollback()
@@ -268,6 +268,7 @@ class OrderService:
         shipping_cost: Decimal = Decimal(0),
         order_notes: Optional[str] = None,
         razorpay_payment_id: Optional[str] = None,
+        reservation_ids: Optional[List[Dict]] = None,
     ) -> Order:
         """Internal helper to build an Order object from a list of items."""
         order = Order(
@@ -297,10 +298,14 @@ class OrderService:
                 .first()
             )
             if not variant:
-                logger.warning(
-                    f"Variant {item['variant_id']} not found during order creation snapshot recovery"
+                logger.error(
+                    f"Variant {item['variant_id']} not found during order creation — rolling back"
                 )
-                continue
+                self.db.rollback()
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"'{item.get('name', 'Product')}' is no longer available. Order could not be placed.",
+                )
 
             order_item = OrderItem(
                 order_id=order.id,
@@ -316,14 +321,81 @@ class OrderService:
             )
             self.db.add(order_item)
 
-            # Deduct stock via inventory service (uses SELECT FOR UPDATE + total_stock sync)
+            # Stock deduction: prefer reservation confirmation (pre-payment lock)
+            # falls back to direct deduction for recovery/webhook paths without reservations.
             # CRITICAL: Stock deduction failure must rollback the entire order —
             # allowing an order without stock deduction causes overselling.
             sku = item.get("sku")
             if sku:
-                self.inventory_service.deduct_stock_for_order(sku=sku, quantity=item["quantity"])
+                # Try to use a specific reservation from the pending order first.
+                # This is precise and avoids picking the wrong reservation.
+                from models.stock_reservation import StockReservation, ReservationStatus
+                confirmed = False
+                if reservation_ids:
+                    for res_info in reservation_ids:
+                        if res_info.get("sku") == sku and res_info.get("quantity", 0) >= item["quantity"]:
+                            rid = res_info.get("reservation_id")
+                            if rid:
+                                # Lock the reservation row to prevent double-confirm
+                                res_row = (
+                                    self.db.query(StockReservation)
+                                    .filter(StockReservation.reservation_id == rid)
+                                    .with_for_update(skip_locked=True)
+                                    .first()
+                                )
+                                if res_row and res_row.status == ReservationStatus.PENDING:
+                                    self.inventory_service.confirm_reservation(rid)
+                                    res_row.order_id = order.id
+                                    confirmed = True
+                                    logger.info(
+                                        f"STOCK_FROM_RESERVATION: sku={sku} qty={item['quantity']} "
+                                        f"reservation={rid}"
+                                    )
+                                    break
+                if not confirmed:
+                    # Fallback: search for any pending reservation for this user+SKU
+                    existing_res = (
+                        self.db.query(StockReservation)
+                        .filter(
+                            StockReservation.user_id == user_id,
+                            StockReservation.sku == sku,
+                            StockReservation.status == ReservationStatus.PENDING,
+                            StockReservation.quantity >= item["quantity"],
+                        )
+                        .with_for_update(skip_locked=True)
+                        .order_by(StockReservation.created_at.asc())
+                        .first()
+                    )
+                    if existing_res:
+                        self.inventory_service.confirm_reservation(existing_res.reservation_id)
+                        existing_res.order_id = order.id
+                        confirmed = True
+                        logger.info(
+                            f"STOCK_FROM_RESERVATION_FALLBACK: sku={sku} qty={item['quantity']} "
+                            f"reservation={existing_res.reservation_id}"
+                        )
+                if not confirmed:
+                    # No reservation — last-resort direct deduction (recovery only).
+                    # Uses FOR UPDATE + available_quantity so concurrent paid orders
+                    # cannot oversell; losers get 400 and need refund/recovery UI.
+                    try:
+                        self.inventory_service.deduct_stock_for_order(
+                            sku=sku, quantity=item["quantity"]
+                        )
+                        logger.warning(
+                            f"STOCK_DIRECT_DEDUCT: sku={sku} qty={item['quantity']} "
+                            f"user={user_id} (no pre-payment reservation)"
+                        )
+                    except HTTPException:
+                        self.db.rollback()
+                        raise
             else:
-                logger.warning("No SKU for order item — skipping stock deduction (recovery order)")
+                logger.error(f"No SKU for order item '{item.get('name', item.get('product_id', '?'))}' — rolling back")
+                self.db.rollback()
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Item '{item.get('name', 'unknown')}' has no SKU and cannot be processed.",
+                )
 
         self.db.commit()
         self.db.refresh(order)
@@ -336,16 +408,13 @@ class OrderService:
         payment_method: str = "razorpay",
         razorpay_payment_id: Optional[str] = None,
         qr_code_id: Optional[str] = None,
+        expected_user_id: Optional[int] = None,
     ) -> Order:
         """Create order from a pending order snapshot (webhook recovery).
 
-        Uses distributed Redis lock on the payment_id to prevent race with
-        the frontend order creation path (create_order). On IntegrityError
-        from concurrent duplicate, falls back to finding the existing order.
-
-        After order creation, writes a payment_transactions record (if missing)
-        so that find_order_by_payment(qr_code_id) can find the order via the
-        payment_transactions bridge query.
+        Uses distributed Redis lock on the pending_id to prevent race with
+        the frontend path. ``expected_user_id`` MUST match pending.user_id when
+        provided — this blocks cross-user payment→pending mapping under load.
         """
         # ── DISTRIBUTED LOCK ──
         # CRITICAL FIX: Use pending_id as lock key so both frontend and webhook
@@ -360,6 +429,38 @@ class OrderService:
             pending = self.db.query(PendingOrder).filter(PendingOrder.id == pending_id).first()
             if not pending:
                 raise ValueError(f"Pending order {pending_id} not found")
+
+            if expected_user_id is not None and int(pending.user_id) != int(expected_user_id):
+                logger.critical(
+                    f"CROSS_USER_PENDING: pending={pending_id} owner={pending.user_id} "
+                    f"expected={expected_user_id} payment={transaction_id}"
+                )
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Pending order does not belong to payment user",
+                )
+
+            # Global uniqueness: this payment id must not already own another user's order
+            pay_key = razorpay_payment_id or transaction_id
+            if pay_key:
+                foreign = (
+                    self.db.query(Order)
+                    .filter(
+                        (Order.transaction_id == pay_key)
+                        | (Order.razorpay_payment_id == pay_key),
+                        Order.user_id != pending.user_id,
+                    )
+                    .first()
+                )
+                if foreign:
+                    logger.critical(
+                        f"CROSS_USER_PAYMENT_REUSE: payment={pay_key} already on "
+                        f"order={foreign.id} user={foreign.user_id}, pending_user={pending.user_id}"
+                    )
+                    raise HTTPException(
+                        status_code=status.HTTP_409_CONFLICT,
+                        detail="Payment already linked to another customer order",
+                    )
 
             # Double check idempotency under lock
             existing = (
@@ -407,6 +508,7 @@ class OrderService:
                 discount_applied=pending.discount_applied,
                 shipping_cost=pending.shipping_cost,
                 order_notes=pending.order_notes,
+                reservation_ids=pending.reservation_ids,
             )
 
             # Update pending status
@@ -415,6 +517,20 @@ class OrderService:
             pending.transaction_id = transaction_id
             pending.order_created_at = now_ist()
             self.db.commit()
+
+            # ── EMAIL: Enqueue order confirmation email ──
+            # CRITICAL FIX: Previously this path (webhook + recovery worker) did NOT
+            # send any email. Users whose orders were created by webhook never received
+            # a confirmation email, making them think the order wasn't created.
+            try:
+                user = self.db.query(User).filter(User.id == pending.user_id).first()
+                if user and user.email:
+                    self.email_service.enqueue_order_confirmation(
+                        order.id, pending.user_id, order, user
+                    )
+                    logger.info(f"EMAIL_ENQUEUED: order={order.id} user={pending.user_id}")
+            except Exception as email_err:
+                logger.error(f"Failed to enqueue email for order {order.id}: {email_err}")
 
             # ── BRIDGE: Create payment_transactions record ──
             # Without this, find_order_by_payment(qr_code_id) cannot find the order
@@ -744,10 +860,15 @@ class OrderService:
             f"qr={qr_code_id} pending={pending_order_id}"
         )
 
-        # NOTE: Cart is NOT cleared here. The cart is cleared by the frontend
-        # after the order is confirmed (CheckoutConfirmPage calls clearCart()).
-        # This prevents data loss if the webhook fails — the pending_order
-        # snapshot already has the cart data, and the cart remains as a backup.
+        # Clear cart server-side to prevent double-purchase on frontend failure.
+        # The pending_order has the cart_snapshot backup, and the webhook payload
+        # carries the transaction data. If the webhook fails, the recovery worker
+        # rebuilds from the pending_order — no data loss.
+        try:
+            self.cart_service.clear_cart(user_id)
+            logger.info(f"CART_CLEARED: user={user_id} payment={resolved_payment_id}")
+        except Exception as cart_err:
+            logger.warning(f"CART_CLEAR_FAILED: user={user_id} error={cart_err}")
         return {
             "status": "payment_registered",
             "payment_id": resolved_payment_id,
@@ -1069,7 +1190,30 @@ class OrderService:
                 self.db.add(order_item)
 
                 try:
-                    self.inventory_service.deduct_stock_for_order(sku=sku, quantity=qty)
+                    # Prefer reservation-based deduction to avoid double-deduction
+                    # when the checkout validation already reserved stock.
+                    from models.stock_reservation import StockReservation, ReservationStatus
+                    existing_res = (
+                        self.db.query(StockReservation)
+                        .filter(
+                            StockReservation.user_id == user_id,
+                            StockReservation.sku == sku,
+                            StockReservation.status == ReservationStatus.PENDING,
+                            StockReservation.quantity >= qty,
+                        )
+                        .with_for_update(skip_locked=True)
+                        .order_by(StockReservation.created_at.asc())
+                        .first()
+                    )
+                    if existing_res:
+                        self.inventory_service.confirm_reservation(existing_res.reservation_id)
+                        existing_res.order_id = order.id
+                        logger.info(
+                            f"WEBHOOK_STOCK_FROM_RESERVATION: sku={sku} "
+                            f"reservation={existing_res.reservation_id}"
+                        )
+                    else:
+                        self.inventory_service.deduct_stock_for_order(sku=sku, quantity=qty)
                 except Exception as e:
                     self.db.rollback()
                     logger.error(f"Failed to deduct stock for {sku}: {e}")

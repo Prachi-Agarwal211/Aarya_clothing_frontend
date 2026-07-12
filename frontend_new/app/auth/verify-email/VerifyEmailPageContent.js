@@ -272,7 +272,7 @@ function VerifyEmailPageContent() {
     <div className="w-full max-w-md mx-auto flex flex-col items-center px-4">
       {/* Logo */}
       <div className="flex flex-col items-center mb-6 animate-fade-in-up">
-        <div className="w-16 h-16 flex items-center justify-center text-3xl font-bold text-[#FFD700] drop-shadow-[0_0_15px_rgba(242,194,154,0.2)]" aria-label="Aarya Clothing">
+        <div className="w-16 h-16 flex items-center justify-center text-3xl font-bold text-[#D4AF37] drop-shadow-[0_0_15px_rgba(242,194,154,0.2)]" aria-label="Aarya Clothing">
           A
         </div>
       </div>
@@ -284,13 +284,13 @@ function VerifyEmailPageContent() {
           <p className="text-white/70 text-sm break-all px-1">
             We've sent a 6-digit code to:
           </p>
-          <p className="text-[#FFD700] font-medium break-all">
+          <p className="text-[#D4AF37] font-medium break-all">
             {contactInfo}
           </p>
         </div>
 
         {/* Countdown Timer */}
-        <div className={`flex items-center justify-center gap-2 mb-4 text-sm ${otpExpired ? 'text-red-400' : otpTimeLeft <= 30 ? 'text-amber-400' : 'text-[#FFD700]'}`}>
+        <div className={`flex items-center justify-center gap-2 mb-4 text-sm ${otpExpired ? 'text-red-400' : otpTimeLeft <= 30 ? 'text-amber-400' : 'text-[#D4AF37]'}`}>
           <span className="text-lg font-mono font-semibold tabular-nums">{Math.floor(otpTimeLeft / 60)}:{String(otpTimeLeft % 60).padStart(2, '0')}</span>
           <span className="text-xs">{otpExpired ? '— expired' : 'left'}</span>
         </div>
@@ -313,9 +313,9 @@ function VerifyEmailPageContent() {
                 aria-label={`Digit ${i + 1} of 6`}
                 className={[
                   'w-9 h-11 sm:w-10 sm:h-12 text-center text-lg sm:text-xl font-bold font-mono rounded-lg border-2 transition-all duration-200 outline-none',
-                  'bg-[#0A0A0A]/60 text-[#FFD700] caret-[#FFD700]',
-                  digit ? 'border-[#FFD700]/60 bg-[#9333EA]/20' : 'border-[#E07B8B]/30',
-                  otpExpired ? 'opacity-50 cursor-not-allowed' : 'focus:border-[#FFD700] focus:bg-[#9333EA]/15 focus:shadow-[0_0_0_3px_rgba(242,194,154,0.1)]',
+                  'bg-[#111111]/60 text-[#D4AF37] caret-[#D4AF37]',
+                  digit ? 'border-[#D4AF37]/60 bg-[#1E3A5F]/20' : 'border-[#A8B4C8]/30',
+                  otpExpired ? 'opacity-50 cursor-not-allowed' : 'focus:border-[#D4AF37] focus:bg-[#1E3A5F]/15 focus:shadow-[0_0_0_3px_rgba(242,194,154,0.1)]',
                 ].join(' ')}
               />
             ))}
@@ -336,10 +336,10 @@ function VerifyEmailPageContent() {
           <Button
             type="submit"
             disabled={isVerifying || otpValue.length !== 6 || otpExpired}
-            className="w-full h-11 sm:h-12 relative overflow-hidden rounded-xl bg-transparent border border-[#E07B8B]/40 transition-all duration-500 hover:border-[#FFD700]/60 hover:shadow-[0_0_30px_rgba(183,110,121,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full h-11 sm:h-12 relative overflow-hidden rounded-xl bg-transparent border border-[#A8B4C8]/40 transition-all duration-500 hover:border-[#D4AF37]/60 hover:shadow-[0_0_30px_rgba(183,110,121,0.3)] disabled:opacity-50 disabled:cursor-not-allowed"
             aria-busy={isVerifying}
           >
-            <div className="absolute inset-0 bg-gradient-to-r from-[#9333EA]/80 via-[#E07B8B]/70 to-[#2A1208]/80 opacity-90" />
+            <div className="absolute inset-0 bg-gradient-to-r from-[#1E3A5F]/80 via-[#A8B4C8]/70 to-[#152238]/80 opacity-90" />
             <span className="relative z-10 text-white font-serif tracking-[0.12em] text-base">
               {isVerifying ? 'VERIFYING...' : 'VERIFY & CONTINUE'}
             </span>
@@ -348,17 +348,17 @@ function VerifyEmailPageContent() {
 
         {/* Resend OTP */}
         <div className="text-center mt-4 space-y-1">
-          <p className="text-[#F5F5F5]/50 text-xs">Didn't receive the code?</p>
+          <p className="text-[#F5F0E8]/50 text-xs">Didn't receive the code?</p>
           {resendCooldown > 0 ? (
-            <p className="text-[#F5F5F5]/40 text-sm">
-              Resend available in <span className="text-[#FFD700] font-mono tabular-nums">{resendCooldown}s</span>
+            <p className="text-[#F5F0E8]/40 text-sm">
+              Resend available in <span className="text-[#D4AF37] font-mono tabular-nums">{resendCooldown}s</span>
             </p>
           ) : (
             <button
               type="button"
               onClick={handleResendOtp}
               disabled={isResending}
-              className="flex items-center gap-2 mx-auto text-[#F59E0B] hover:text-[#FFD700] transition-colors text-sm font-bold tracking-widest uppercase disabled:opacity-50"
+              className="flex items-center gap-2 mx-auto text-[#F59E0B] hover:text-[#D4AF37] transition-colors text-sm font-bold tracking-widest uppercase disabled:opacity-50"
             >
               {isResending ? <RefreshCw className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
               Resend via {methodLabel}
@@ -367,17 +367,17 @@ function VerifyEmailPageContent() {
         </div>
 
         {/* Method Info */}
-        <div className="mt-6 p-3 rounded-lg border border-[#E07B8B]/20 bg-[#0A0A0A]/25">
-          <p className="text-[#F5F5F5]/70 text-xs mb-2">Verification Method:</p>
+        <div className="mt-6 p-3 rounded-lg border border-[#A8B4C8]/20 bg-[#111111]/25">
+          <p className="text-[#F5F0E8]/70 text-xs mb-2">Verification Method:</p>
           <div className="flex items-center gap-2">
-            {verificationMethod === 'otp_email' && <Mail className="w-4 h-4 text-[#FFD700]" />}
-            {verificationMethod === 'otp_sms' && <Smartphone className="w-4 h-4 text-[#FFD700]" />}
-            {verificationMethod === 'otp_whatsapp' && <MessageCircle className="w-4 h-4 text-[#FFD700]" />}
-            <span className="text-[#FFD700] text-sm font-medium capitalize">
+            {verificationMethod === 'otp_email' && <Mail className="w-4 h-4 text-[#D4AF37]" />}
+            {verificationMethod === 'otp_sms' && <Smartphone className="w-4 h-4 text-[#D4AF37]" />}
+            {verificationMethod === 'otp_whatsapp' && <MessageCircle className="w-4 h-4 text-[#D4AF37]" />}
+            <span className="text-[#D4AF37] text-sm font-medium capitalize">
               {methodLabel} OTP
             </span>
           </div>
-          <p className="text-[#F5F5F5]/60 text-xs mt-1">
+          <p className="text-[#F5F0E8]/60 text-xs mt-1">
             {verificationMethod === 'otp_email' ? 'Check your email inbox' : 'Check your messages'}
           </p>
         </div>
@@ -386,7 +386,7 @@ function VerifyEmailPageContent() {
         <div className="w-full mt-4">
           <p className="text-center text-[#8A6A5C] text-xs tracking-wide">
             Need help?{' '}
-            <Link href="/support" className="text-[#F59E0B] hover:text-[#FFD700] transition-colors ml-1 uppercase text-xs font-bold tracking-widest">
+            <Link href="/support" className="text-[#F59E0B] hover:text-[#D4AF37] transition-colors ml-1 uppercase text-xs font-bold tracking-widest">
               Contact Support
             </Link>
           </p>

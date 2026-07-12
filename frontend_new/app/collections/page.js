@@ -66,7 +66,7 @@ export default async function CollectionsPage() {
   const { breadcrumbSchema, itemListSchema } = generateStructuredData(categories);
 
   return (
-    <main className="min-h-screen text-[#F5F5F5] selection:bg-[#FFD700] selection:text-[#000000]" role="main" aria-label="Collections">
+    <main className="min-h-screen text-[#F5F0E8] selection:bg-[#D4AF37] selection:text-[#000000]" role="main" aria-label="Collections">
       {/* Structured Data */}
       <script
         type="application/ld+json"
@@ -85,22 +85,22 @@ export default async function CollectionsPage() {
         <div className="page-content">
           <div className="container mx-auto px-4 sm:px-6 md:px-8 pt-16 md:pt-20">
             {/* Breadcrumbs */}
-            <nav className="flex items-center gap-2 text-sm text-[#F5F5F5]/50 mb-4" aria-label="Breadcrumb">
-              <Link href="/" className="hover:text-[#FFD700] transition-colors">Home</Link>
+            <nav className="flex items-center gap-2 text-sm text-[#F5F0E8]/50 mb-4" aria-label="Breadcrumb">
+              <Link href="/" className="hover:text-[#D4AF37] transition-colors">Home</Link>
               <ChevronRight className="w-4 h-4" aria-hidden="true" />
-              <span className="text-[#F5F5F5]" aria-current="page">Collections</span>
+              <span className="text-[#F5F0E8]" aria-current="page">Collections</span>
             </nav>
 
             {/* Page Header */}
             <div className="max-w-4xl mx-auto mb-8 text-center">
               <h1
-                className="text-4xl md:text-5xl lg:text-6xl text-[#FFD700] mb-6"
+                className="text-4xl md:text-5xl lg:text-6xl text-[#D4AF37] mb-6"
                 style={{ fontFamily: 'Cinzel, serif' }}
               >
                 Curated Collections
               </h1>
               <p
-                className="text-[#F5F5F5]/70 text-lg md:text-xl max-w-2xl mx-auto"
+                className="text-[#F5F0E8]/70 text-lg md:text-xl max-w-2xl mx-auto"
                 style={{ fontFamily: 'Playfair Display, serif' }}
               >
                 Explore our carefully curated categories of premium ethnic wear, designed to bring timeless elegance to your wardrobe.
@@ -109,11 +109,11 @@ export default async function CollectionsPage() {
 
             {/* Collections Grid */}
             {categories.length === 0 ? (
-              <div className="text-center py-20 bg-[#0A0A0A]/40 rounded-3xl border border-[#E07B8B]/20" role="status">
-                <p className="text-xl text-[#F5F5F5]/70">No collections available at the moment.</p>
+              <div className="text-center py-20 bg-[#111111]/40 rounded-3xl border border-[#A8B4C8]/20" role="status">
+                <p className="text-xl text-[#F5F0E8]/70">No collections available at the moment.</p>
                 <Link
                   href="/"
-                  className="inline-block mt-4 px-6 py-3 bg-gradient-to-r from-[#9333EA] to-[#E07B8B] text-white rounded-xl hover:opacity-90 transition-opacity"
+                  className="inline-block mt-4 px-6 py-3 bg-gradient-to-r from-[#1E3A5F] to-[#A8B4C8] text-white rounded-xl hover:opacity-90 transition-opacity"
                 >
                   Return to Home
                 </Link>
@@ -127,7 +127,7 @@ export default async function CollectionsPage() {
                     className="group relative aspect-[4/5] rounded-3xl overflow-hidden block"
                     aria-label={`Browse ${category.name} products`}
                   >
-                    <div className="absolute inset-0 bg-[#0A0A0A]/20 group-hover:bg-[#0A0A0A]/40 transition-colors z-10 duration-500" aria-hidden="true" />
+                    <div className="absolute inset-0 bg-[#111111]/20 group-hover:bg-[#111111]/40 transition-colors z-10 duration-500" aria-hidden="true" />
 
                     {category.image_url ? (
                       <Image
@@ -139,13 +139,13 @@ export default async function CollectionsPage() {
                         priority={category.id <= 3}
                       />
                     ) : (
-                      <div className="w-full h-full bg-[#141414] flex items-center justify-center transform group-hover:scale-105 transition-transform duration-700 ease-out">
-                        <span className="text-[#E07B8B]/30 text-lg tracking-widest uppercase">{category.name}</span>
+                      <div className="w-full h-full bg-[#161616] flex items-center justify-center transform group-hover:scale-105 transition-transform duration-700 ease-out">
+                        <span className="text-[#A8B4C8]/30 text-lg tracking-widest uppercase">{category.name}</span>
                       </div>
                     )}
 
                     <div className="absolute inset-0 z-20 flex flex-col items-center justify-center p-6 text-center">
-                      <span className="text-[#FFD700]/80 text-sm tracking-[0.2em] mb-3 opacity-0 translate-y-4 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-500 delay-100 uppercase">
+                      <span className="text-[#D4AF37]/80 text-sm tracking-[0.2em] mb-3 opacity-0 translate-y-4 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-500 delay-100 uppercase">
                         Discover
                       </span>
                       <h3
@@ -155,7 +155,7 @@ export default async function CollectionsPage() {
                         {category.name}
                       </h3>
                       {category.description && (
-                        <p className="mt-4 text-[#F5F5F5]/90 text-sm max-w-[80%] opacity-0 translate-y-4 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-500 delay-200">
+                        <p className="mt-4 text-[#F5F0E8]/90 text-sm max-w-[80%] opacity-0 translate-y-4 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-500 delay-200">
                           {category.description}
                         </p>
                       )}

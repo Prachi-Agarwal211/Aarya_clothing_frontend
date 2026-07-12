@@ -2,7 +2,7 @@
 import hashlib
 import hmac
 import json
-import requests
+import httpx
 from typing import Dict, Any, Optional
 from decimal import Decimal
 import razorpay
@@ -258,7 +258,7 @@ class RazorpayClient:
             # Razorpay QR codes API is not in the official SDK, use direct HTTP call
             url = "https://api.razorpay.com/v1/payments/qr_codes"
             auth = (settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET)
-            response = requests.post(url, json=qr_data, auth=auth, timeout=10)
+            response = httpx.post(url, json=qr_data, auth=auth, timeout=10)
             
             # If failed, log the error body for debugging
             if response.status_code != 200:
@@ -270,7 +270,10 @@ class RazorpayClient:
             logger.info(f"QR code created: id={qr_response.get('id')}, image_url present={bool(qr_response.get('image_url'))}")
             return qr_response
 
-        except requests.exceptions.RequestException as e:
+        except httpx.HTTPStatusError as e:
+            logger.error(f"Failed to create QR code: {str(e)}")
+            raise ValueError(f"QR code creation failed: {str(e)}")
+        except httpx.RequestError as e:
             logger.error(f"Failed to create QR code: {str(e)}")
             raise ValueError(f"QR code creation failed: {str(e)}")
         except Exception as e:
@@ -290,14 +293,17 @@ class RazorpayClient:
         try:
             url = f"https://api.razorpay.com/v1/payments/qr_codes/{qr_code_id}"
             auth = (settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET)
-            response = requests.get(url, auth=auth, timeout=10)
+            response = httpx.get(url, auth=auth, timeout=10)
             response.raise_for_status()
             qr_data = response.json()
 
             logger.info(f"QR code fetched: id={qr_data.get('id')}, status={qr_data.get('status')}")
             return qr_data
 
-        except requests.exceptions.RequestException as e:
+        except httpx.HTTPStatusError as e:
+            logger.error(f"Failed to fetch QR code: {str(e)}")
+            raise ValueError(f"QR code fetch failed: {str(e)}")
+        except httpx.RequestError as e:
             logger.error(f"Failed to fetch QR code: {str(e)}")
             raise ValueError(f"QR code fetch failed: {str(e)}")
         except Exception as e:
@@ -427,6 +433,8 @@ class RazorpayClient:
                     "method": payment_entity.get("method"),
                     "email": payment_entity.get("email"),
                     "contact": payment_entity.get("contact"),
+                    # CRITICAL: Extract payment entity notes (contains pending_order_id)
+                    "notes": payment_entity.get("notes", {}),
                 })
             
             elif event_type in ["qr_code.created", "qr_code.credited"]:

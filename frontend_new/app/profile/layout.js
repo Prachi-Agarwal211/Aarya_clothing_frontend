@@ -65,10 +65,10 @@ export default function ProfileLayout({ children }) {
   // Show loading state while checking auth
   if (loading) {
     return (
-      <main className="min-h-screen bg-[#000000] text-[#F5F5F5] flex items-center justify-center">
+      <main className="min-h-screen bg-[#000000] text-[#F5F0E8] flex items-center justify-center">
         <div className="text-center">
-          <div className="w-12 h-12 border-2 border-[#E07B8B]/30 border-t-[#FFD700] rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-[#F5F5F5]/70">Loading...</p>
+          <div className="w-12 h-12 border-2 border-[#A8B4C8]/30 border-t-[#D4AF37] rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-[#F5F0E8]/70">Loading...</p>
         </div>
       </main>
     );
@@ -81,7 +81,7 @@ export default function ProfileLayout({ children }) {
   const displayName = user?.full_name || user?.username || user?.email?.split('@')[0] || 'User';
 
   return (
-    <main className="min-h-screen text-[#F5F5F5] selection:bg-[#FFD700] selection:text-[#000000]">
+    <main className="min-h-screen text-[#F5F0E8] selection:bg-[#D4AF37] selection:text-[#000000]">
       <div className="relative z-10 page-wrapper">
         <EnhancedHeader />
 
@@ -90,7 +90,7 @@ export default function ProfileLayout({ children }) {
             {/* Page Header */}
             <div className="mb-6">
               <h1
-                className="text-2xl md:text-4xl font-bold text-[#FFD700]"
+                className="text-2xl md:text-4xl font-bold text-[#D4AF37]"
                 style={{ fontFamily: 'Cinzel, serif' }}
               >
                 My Account
@@ -108,8 +108,8 @@ export default function ProfileLayout({ children }) {
                       href={item.path}
                       className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium whitespace-nowrap transition-colors ${
                         isActive
-                          ? 'bg-[#9333EA]/40 text-[#FFD700] border border-[#E07B8B]/40'
-                          : 'bg-[#0A0A0A]/60 text-[#F5F5F5]/60 border border-[#E07B8B]/15 hover:text-[#F5F5F5]'
+                          ? 'bg-[#1E3A5F]/40 text-[#D4AF37] border border-[#A8B4C8]/40'
+                          : 'bg-[#111111]/60 text-[#F5F0E8]/60 border border-[#A8B4C8]/15 hover:text-[#F5F0E8]'
                       }`}
                     >
                       <item.icon className="w-3.5 h-3.5" />
@@ -123,8 +123,8 @@ export default function ProfileLayout({ children }) {
                   disabled={isLoggingOut}
                   className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium whitespace-nowrap transition-colors ${
                     isLoggingOut
-                      ? 'opacity-50 cursor-not-allowed bg-[#E07B8B]/20 text-[#E07B8B] border border-[#E07B8B]/40'
-                      : 'bg-[#0A0A0A]/60 text-[#E07B8B]/80 border border-[#E07B8B]/15 hover:text-[#FFD700] hover:border-[#E07B8B]/40'
+                      ? 'opacity-50 cursor-not-allowed bg-[#A8B4C8]/20 text-[#A8B4C8] border border-[#A8B4C8]/40'
+                      : 'bg-[#111111]/60 text-[#A8B4C8]/80 border border-[#A8B4C8]/15 hover:text-[#D4AF37] hover:border-[#A8B4C8]/40'
                   }`}
                 >
                   <LogOut className={`w-3.5 h-3.5 ${isLoggingOut ? 'animate-pulse' : ''}`} />
@@ -136,15 +136,15 @@ export default function ProfileLayout({ children }) {
             <div className="grid md:grid-cols-4 gap-8">
               {/* Sidebar (desktop only) */}
               <div className="hidden md:block md:col-span-1">
-                <div className="sticky top-28 p-4 bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl">
+                <div className="sticky top-28 p-4 bg-[#111111]/40 backdrop-blur-md border border-[#A8B4C8]/15 rounded-2xl">
                   {/* User Info */}
-                  <div className="flex items-center gap-3 mb-6 pb-4 border-b border-[#E07B8B]/10">
-                    <div className="w-12 h-12 rounded-full bg-gradient-to-r from-[#9333EA] to-[#E07B8B] flex items-center justify-center">
+                  <div className="flex items-center gap-3 mb-6 pb-4 border-b border-[#A8B4C8]/10">
+                    <div className="w-12 h-12 rounded-full bg-gradient-to-r from-[#1E3A5F] to-[#A8B4C8] flex items-center justify-center">
                       <User className="w-6 h-6 text-white" />
                     </div>
                     <div>
-                      <p className="font-medium text-[#FFD700]">Welcome back!</p>
-                      <p className="text-sm text-[#F5F5F5]/50 truncate max-w-[150px]">
+                      <p className="font-medium text-[#D4AF37]">Welcome back!</p>
+                      <p className="text-sm text-[#F5F0E8]/50 truncate max-w-[150px]">
                         {displayName}
                       </p>
                     </div>
@@ -159,8 +159,8 @@ export default function ProfileLayout({ children }) {
                           key={item.id}
                           href={item.path}
                           className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-colors ${isActive
-                              ? 'bg-[#9333EA]/30 text-[#FFD700]'
-                              : 'text-[#F5F5F5]/70 hover:bg-[#E07B8B]/10 hover:text-[#F5F5F5]'
+                              ? 'bg-[#1E3A5F]/30 text-[#D4AF37]'
+                              : 'text-[#F5F0E8]/70 hover:bg-[#A8B4C8]/10 hover:text-[#F5F0E8]'
                             }`}
                         >
                           <item.icon className="w-5 h-5" />
@@ -172,10 +172,10 @@ export default function ProfileLayout({ children }) {
 
                   {/* Admin Link (if staff) */}
                   {isStaff() && (
-                    <div className="mt-4 pt-4 border-t border-[#E07B8B]/10">
+                    <div className="mt-4 pt-4 border-t border-[#A8B4C8]/10">
                       <Link
                         href="/admin"
-                        className="flex items-center gap-3 px-3 py-2.5 w-full text-[#FFD700] hover:bg-[#E07B8B]/10 transition-colors rounded-xl"
+                        className="flex items-center gap-3 px-3 py-2.5 w-full text-[#D4AF37] hover:bg-[#A8B4C8]/10 transition-colors rounded-xl"
                       >
                         <Settings className="w-5 h-5" />
                         Admin Dashboard
@@ -184,11 +184,11 @@ export default function ProfileLayout({ children }) {
                   )}
 
                   {/* Logout */}
-                  <div className="mt-6 pt-4 border-t border-[#E07B8B]/10">
+                  <div className="mt-6 pt-4 border-t border-[#A8B4C8]/10">
                     <button
                       onClick={handleLogout}
                       disabled={isLoggingOut}
-                      className={`flex items-center gap-3 px-3 py-2.5 w-full text-[#E07B8B] hover:text-[#FFD700] transition-colors rounded-xl hover:bg-[#E07B8B]/10 ${isLoggingOut ? 'opacity-50 cursor-not-allowed' : ''
+                      className={`flex items-center gap-3 px-3 py-2.5 w-full text-[#A8B4C8] hover:text-[#D4AF37] transition-colors rounded-xl hover:bg-[#A8B4C8]/10 ${isLoggingOut ? 'opacity-50 cursor-not-allowed' : ''
                         }`}
                     >
                       <LogOut className={`w-5 h-5 ${isLoggingOut ? 'animate-pulse' : ''}`} />

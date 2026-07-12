@@ -1,6 +1,7 @@
 import { Suspense } from 'react';
 import ProductsClient from './ProductsClient';
 import { productsApi, collectionsApi } from '@/lib/customerApi';
+import { generateItemListSchema, generateBreadcrumbSchema } from '@/lib/structuredData';
 import logger from '@/lib/logger';
 
 export const dynamic = 'force-dynamic'; // Products vary by query params (collection, page, sort, search) — ISR unsafe here. Backend Redis caching handles performance.
@@ -68,16 +69,53 @@ export default async function ProductsPage({ searchParams }) {
     initialFilters.maxPrice ?? '',
   ].join('|');
 
+  const itemListSchema = generateItemListSchema(
+    (initialData.products || []).map((p) => ({
+      ...p,
+      url: `/products/${p.slug || p.id}`,
+    })),
+    'Product'
+  );
+  const breadcrumbSchema = generateBreadcrumbSchema([
+    { name: 'Home', url: '/' },
+    { name: 'Products', url: '/products' },
+  ]);
+
   return (
-    <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-[#000000]">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-12 h-12 border-2 border-[#E07B8B]/20 border-t-[#FFD700] rounded-full animate-spin" />
-          <p className="text-[#FFD700]/60 text-sm uppercase tracking-[0.3em]" style={{ fontFamily: 'Cinzel, serif' }}>Aarya Clothing</p>
-        </div>
-      </div>
-    }>
-      <ProductsClient key={productsClientKey} initialFilters={initialFilters} initialData={initialData} />
-    </Suspense>
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(itemListSchema).replace(/</g, '\\u003c'),
+        }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(breadcrumbSchema).replace(/</g, '\\u003c'),
+        }}
+      />
+      <Suspense
+        fallback={
+          <div className="min-h-screen flex items-center justify-center bg-transparent">
+            <div className="flex flex-col items-center gap-4">
+              <div className="w-12 h-12 border-2 border-[#A8B4C8]/20 border-t-[#D4AF37] rounded-full animate-spin" />
+              <p
+                className="text-[#D4AF37]/70 text-sm uppercase tracking-[0.3em]"
+                style={{ fontFamily: 'Cinzel, serif' }}
+              >
+                Aarya Clothing
+              </p>
+            </div>
+          </div>
+        }
+      >
+        <ProductsClient
+          key={productsClientKey}
+          initialFilters={initialFilters}
+          initialData={initialData}
+        />
+      </Suspense>
+    </>
   );
 }

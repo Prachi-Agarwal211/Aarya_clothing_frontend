@@ -189,6 +189,212 @@ class InventoryService:
 
         return True
 
+    def reserve_stock(
+        self, sku: str, quantity: int, user_id: int, reservation_id: str,
+        ttl_minutes: int = 30,
+    ) -> bool:
+        """
+        Atomically reserve stock for a pending checkout (pre-payment).
+
+        Uses SELECT FOR UPDATE to serialize concurrent reservations for the
+        same SKU.  Increments ``reserved_quantity`` on the inventory row and
+        inserts a ``StockReservation`` record with an expiry timestamp.
+
+        Returns True on success.  Raises HTTPException (400) if insufficient
+        available stock, or (409) on lock contention.
+
+        NOTE: Does NOT commit — caller must commit the transaction.
+        """
+        from datetime import timedelta
+        from models.stock_reservation import StockReservation, ReservationStatus
+
+        try:
+            inventory = self.get_inventory_by_sku_for_update(sku, skip_locked=False)
+        except OperationalError:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Inventory locked by another process. Please retry.",
+            )
+        if not inventory:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Inventory with SKU '{sku}' not found",
+            )
+        if inventory.available_quantity < quantity:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    f"Insufficient stock for {sku}. "
+                    f"Available: {inventory.available_quantity}, Required: {quantity}"
+                ),
+            )
+
+        inventory.reserved_quantity += quantity
+
+        # Create reservation tracking record
+        reservation = StockReservation(
+            reservation_id=reservation_id,
+            user_id=user_id,
+            sku=sku,
+            quantity=quantity,
+            status=ReservationStatus.PENDING,
+            expires_at=ist_naive() + timedelta(minutes=ttl_minutes),
+        )
+        self.db.add(reservation)
+
+        logger.info(
+            f"RESERVE_STOCK: sku={sku} qty={quantity} user={user_id} "
+            f"reserved_new={inventory.reserved_quantity} avail={inventory.available_quantity}"
+        )
+        return True
+
+    def confirm_reservation(self, reservation_id: str) -> bool:
+        """
+        Confirm a reservation: deduct the reserved quantity permanently.
+
+        Called after payment succeeds.  Reduces both ``reserved_quantity``
+        and ``quantity`` so the stock is permanently consumed.
+        Does NOT commit — caller must commit.
+        """
+        from models.stock_reservation import StockReservation, ReservationStatus
+
+        reservation = (
+            self.db.query(StockReservation)
+            .filter(StockReservation.reservation_id == reservation_id)
+            .first()
+        )
+        if not reservation:
+            logger.warning(f"RESERVATION_NOT_FOUND: {reservation_id}")
+            return False
+        if reservation.status != ReservationStatus.PENDING:
+            logger.info(
+                f"RESERVATION_ALREADY_{reservation.status.value.upper()}: {reservation_id}"
+            )
+            return True  # Idempotent — already processed
+
+        inventory = self.get_inventory_by_sku_for_update(reservation.sku, skip_locked=False)
+        if not inventory:
+            logger.error(f"INVENTORY_MISSING_FOR_RESERVATION: sku={reservation.sku}")
+            return False
+
+        qty = reservation.quantity
+        # Safety: never drive physical quantity negative even if reserved_quantity drifted
+        if inventory.quantity < qty:
+            logger.error(
+                f"CONFIRM_RESERVATION_INSUFFICIENT: sku={reservation.sku} "
+                f"qty={qty} on_hand={inventory.quantity} reserved={inventory.reserved_quantity}"
+            )
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    f"Insufficient on-hand stock for {reservation.sku} while confirming "
+                    f"reservation (have {inventory.quantity}, need {qty})."
+                ),
+            )
+
+        # Permanent deduction: reduce both reserved and total quantity
+        inventory.reserved_quantity = max(0, inventory.reserved_quantity - qty)
+        inventory.quantity -= qty
+
+        reservation.status = ReservationStatus.CONFIRMED
+        # order_id set by caller when known
+
+        # Sync product.total_stock
+        try:
+            product = self.db.query(Product).filter(Product.id == inventory.product_id).first()
+            if product:
+                product.total_stock = max(0, (product.total_stock or 0) - qty)
+        except Exception as e:
+            logger.warning(f"Failed to sync product.total_stock: {e}")
+
+        logger.info(
+            f"CONFIRM_RESERVATION: sku={reservation.sku} qty={qty} "
+            f"remaining_qty={inventory.quantity}"
+        )
+        return True
+
+    def release_reservation(self, reservation_id: str) -> bool:
+        """
+        Release a reservation: return stock to available pool.
+
+        Called when payment fails, expires, or is cancelled.  Decrements
+        ``reserved_quantity`` without touching ``quantity``.
+        Does NOT commit — caller must commit.
+        """
+        from models.stock_reservation import StockReservation, ReservationStatus
+
+        reservation = (
+            self.db.query(StockReservation)
+            .filter(StockReservation.reservation_id == reservation_id)
+            .first()
+        )
+        if not reservation:
+            logger.warning(f"RESERVATION_NOT_FOUND_FOR_RELEASE: {reservation_id}")
+            return False
+        if reservation.status != ReservationStatus.PENDING:
+            logger.info(
+                f"RESERVATION_ALREADY_{reservation.status.value.upper()}_FOR_RELEASE: {reservation_id}"
+            )
+            return True  # Idempotent
+
+        inventory = self.get_inventory_by_sku_for_update(reservation.sku, skip_locked=True)
+        if inventory:
+            inventory.reserved_quantity = max(0, inventory.reserved_quantity - reservation.quantity)
+        else:
+            logger.error(f"INVENTORY_MISSING_FOR_RELEASE: sku={reservation.sku}")
+
+        reservation.status = ReservationStatus.RELEASED
+
+        logger.info(
+            f"RELEASE_RESERVATION: sku={reservation.sku} qty={reservation.quantity} user={reservation.user_id}"
+        )
+        return True
+
+    def expire_stale_reservations(self, max_age_minutes: int = 30) -> int:
+        """
+        Release all PENDING reservations older than ``max_age_minutes``.
+
+        Background job calls this periodically to prevent stock from being
+        locked indefinitely when users abandon checkout.
+        Returns the number of released reservations.
+        """
+        from models.stock_reservation import StockReservation, ReservationStatus
+
+        # CRITICAL FIX: Use ist_naive() to match the timezone used by expires_at
+        # (which is set via ist_naive() in reserve_stock). Using utcnow() caused
+        # reservations to expire ~5.5 hours late.
+        cutoff = ist_naive()
+        stale = (
+            self.db.query(StockReservation)
+            .filter(
+                StockReservation.status == ReservationStatus.PENDING,
+                StockReservation.expires_at <= cutoff,
+            )
+            .all()
+        )
+
+        released = 0
+        for res in stale:
+            try:
+                inventory = self.get_inventory_by_sku_for_update(res.sku, skip_locked=True)
+                if inventory:
+                    inventory.reserved_quantity = max(
+                        0, inventory.reserved_quantity - res.quantity
+                    )
+                res.status = ReservationStatus.EXPIRED
+                released += 1
+                logger.info(
+                    f"EXPIRED_RESERVATION: id={res.reservation_id} sku={res.sku} "
+                    f"qty={res.quantity} user={res.user_id}"
+                )
+            except Exception as e:
+                logger.error(f"Failed to expire reservation {res.reservation_id}: {e}")
+
+        if released > 0:
+            self.db.commit()
+            logger.info(f"EXPIRED_STALE_RESERVATIONS: released={released}")
+        return released
+
     def get_low_stock_items(self) -> List[LowStockItem]:
         """Get all low stock items."""
         low_stock = (

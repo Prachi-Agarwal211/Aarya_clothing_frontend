@@ -76,9 +76,9 @@ function DashboardContent() {
         {/* Skeleton Stats Grid */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[...Array(4)].map((_, i) => (
-            <div key={i} className="bg-[#141414] border border-[#E07B8B]/15 rounded-2xl p-5 h-28">
-              <div className="h-4 bg-[#E07B8B]/10 rounded w-24 mb-3" />
-              <div className="h-8 bg-[#E07B8B]/10 rounded w-32" />
+            <div key={i} className="bg-[#161616] border border-[#A8B4C8]/15 rounded-2xl p-5 h-28">
+              <div className="h-4 bg-[#A8B4C8]/10 rounded w-24 mb-3" />
+              <div className="h-8 bg-[#A8B4C8]/10 rounded w-32" />
             </div>
           ))}
         </div>
@@ -86,12 +86,12 @@ function DashboardContent() {
         {/* Skeleton Alert Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {[...Array(3)].map((_, i) => (
-            <div key={i} className="bg-[#141414] border border-[#E07B8B]/15 rounded-2xl p-5 h-20">
+            <div key={i} className="bg-[#161616] border border-[#A8B4C8]/15 rounded-2xl p-5 h-20">
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 bg-[#E07B8B]/10 rounded-xl" />
+                <div className="h-10 w-10 bg-[#A8B4C8]/10 rounded-xl" />
                 <div className="flex-1">
-                  <div className="h-3 bg-[#E07B8B]/10 rounded w-20 mb-2" />
-                  <div className="h-6 bg-[#E07B8B]/10 rounded w-12" />
+                  <div className="h-3 bg-[#A8B4C8]/10 rounded w-20 mb-2" />
+                  <div className="h-6 bg-[#A8B4C8]/10 rounded w-12" />
                 </div>
               </div>
             </div>
@@ -99,11 +99,11 @@ function DashboardContent() {
         </div>
 
         {/* Skeleton Recent Orders */}
-        <div className="bg-[#141414] border border-[#E07B8B]/15 rounded-2xl p-5">
-          <div className="h-5 bg-[#E07B8B]/10 rounded w-32 mb-4" />
+        <div className="bg-[#161616] border border-[#A8B4C8]/15 rounded-2xl p-5">
+          <div className="h-5 bg-[#A8B4C8]/10 rounded w-32 mb-4" />
           <div className="space-y-3">
             {[...Array(5)].map((_, i) => (
-              <div key={i} className="h-10 bg-[#E07B8B]/10 rounded" />
+              <div key={i} className="h-10 bg-[#A8B4C8]/10 rounded" />
             ))}
           </div>
         </div>
@@ -151,16 +151,16 @@ function DashboardContent() {
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-[#FFD700]" style={{ fontFamily: 'Cinzel, serif' }}>
+          <h1 className="text-2xl md:text-3xl font-bold text-[#D4AF37]" style={{ fontFamily: 'Cinzel, serif' }}>
             Dashboard
           </h1>
-          <p className="text-[#F5F5F5]/50 mt-1 text-sm">
+          <p className="text-[#F5F0E8]/50 mt-1 text-sm">
             Welcome back! Here&apos;s your store at a glance.
           </p>
         </div>
         <div className="flex items-center gap-2">
           {/* Period Filter Buttons */}
-          <div className="flex rounded-xl border border-[#E07B8B]/20 overflow-hidden">
+          <div className="flex rounded-xl border border-[#A8B4C8]/20 overflow-hidden">
             {['daily', 'weekly', 'monthly'].map((p) => (
               <button
                 key={p}
@@ -168,8 +168,8 @@ function DashboardContent() {
                 disabled={loading}
                 className={`px-3 py-2 text-sm capitalize transition-colors disabled:opacity-50 ${
                   period === p
-                    ? 'bg-[#E07B8B] text-white'
-                    : 'text-[#F5F5F5]/60 hover:bg-[#E07B8B]/10'
+                    ? 'bg-[#A8B4C8] text-white'
+                    : 'text-[#F5F0E8]/60 hover:bg-[#A8B4C8]/10'
                 }`}
               >
                 {p}
@@ -179,7 +179,7 @@ function DashboardContent() {
           <button
             onClick={() => fetchDashboardData(period)}
             disabled={loading}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl border border-[#E07B8B]/20 text-[#F5F5F5]/60 hover:bg-[#E07B8B]/10 text-sm transition-colors disabled:opacity-50 min-h-[44px] touch-target"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl border border-[#A8B4C8]/20 text-[#F5F0E8]/60 hover:bg-[#A8B4C8]/10 text-sm transition-colors disabled:opacity-50 min-h-[44px] touch-target"
             aria-label="Refresh dashboard data"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} aria-hidden="true" />
@@ -195,13 +195,13 @@ function DashboardContent() {
           format="currency"
           prefix="₹"
           icon={IndianRupee}
-          accentColor="#FFD700"
+          accentColor="#D4AF37"
         />
         <StatCard
           title="Total Orders"
           value={d.total_orders || 0}
           icon={ShoppingBag}
-          accentColor="#E07B8B"
+          accentColor="#A8B4C8"
         />
         <StatCard
           title="Customers"
@@ -225,13 +225,13 @@ function DashboardContent() {
           format="currency"
           prefix="₹"
           icon={TrendingUp}
-          accentColor="#FFD700"
+          accentColor="#D4AF37"
         />
         <StatCard
           title={`${period.charAt(0).toUpperCase() + period.slice(1)} Orders`}
           value={d.period_orders || 0}
           icon={ShoppingBag}
-          accentColor="#E07B8B"
+          accentColor="#A8B4C8"
         />
         <StatCard
           title="New Customers"
@@ -246,7 +246,7 @@ function DashboardContent() {
         {[
           {
             href: '/admin/orders?status=confirmed',
-            bg: 'from-blue-500/15 to-[#0A0A0A]',
+            bg: 'from-blue-500/15 to-[#111111]',
             border: 'border-blue-500/25',
             hover: 'hover:border-blue-500/40',
             icon: Clock,
@@ -259,7 +259,7 @@ function DashboardContent() {
           },
           {
             href: '/admin/inventory?tab=low-stock',
-            bg: 'from-amber-500/15 to-[#0A0A0A]',
+            bg: 'from-amber-500/15 to-[#111111]',
             border: 'border-amber-500/25',
             hover: 'hover:border-amber-500/40',
             icon: AlertTriangle,
@@ -272,7 +272,7 @@ function DashboardContent() {
           },
           {
             href: '/admin/inventory?tab=out-of-stock',
-            bg: 'from-red-500/15 to-[#0A0A0A]',
+            bg: 'from-red-500/15 to-[#111111]',
             border: 'border-red-500/25',
             hover: 'hover:border-red-500/40',
             icon: XCircle,
@@ -299,7 +299,7 @@ function DashboardContent() {
               </div>
               <div>
                 <p className={cn('text-sm font-medium', labelColor)}>{label}</p>
-                <p className="text-2xl font-bold text-[#F5F5F5] mt-0.5">{value}</p>
+                <p className="text-2xl font-bold text-[#F5F0E8] mt-0.5">{value}</p>
               </div>
             </div>
             <ArrowRight
@@ -313,22 +313,22 @@ function DashboardContent() {
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 xl:grid-cols-5 gap-5">
         {/* Recent Orders */}
-        <div className="xl:col-span-3 bg-gradient-to-br from-[#141414] to-[#0A0A0A] border border-[#E07B8B]/15 rounded-2xl overflow-hidden">
-          <div className="flex items-center justify-between px-5 py-4 border-b border-[#E07B8B]/10">
-            <h2 className="font-semibold text-[#FFD700]" style={{ fontFamily: 'Cinzel, serif' }}>Recent Orders</h2>
+        <div className="xl:col-span-3 bg-gradient-to-br from-[#161616] to-[#111111] border border-[#A8B4C8]/15 rounded-2xl overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-[#A8B4C8]/10">
+            <h2 className="font-semibold text-[#D4AF37]" style={{ fontFamily: 'Cinzel, serif' }}>Recent Orders</h2>
             <Link
               href="/admin/orders"
-              className="text-xs text-[#E07B8B] hover:text-[#FFD700] transition-colors flex items-center gap-1 min-h-[44px] touch-target"
+              className="text-xs text-[#A8B4C8] hover:text-[#D4AF37] transition-colors flex items-center gap-1 min-h-[44px] touch-target"
             >
               View All <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
             </Link>
           </div>
           {loading ? (
             <div className="flex items-center justify-center py-12" role="status" aria-label="Loading orders">
-              <RefreshCw className="w-6 h-6 text-[#E07B8B]/40 animate-spin" aria-hidden="true" />
+              <RefreshCw className="w-6 h-6 text-[#A8B4C8]/40 animate-spin" aria-hidden="true" />
             </div>
           ) : (!d.recent_orders || d.recent_orders.length === 0) ? (
-            <div className="flex flex-col items-center justify-center py-12 text-[#F5F5F5]/30">
+            <div className="flex flex-col items-center justify-center py-12 text-[#F5F0E8]/30">
               <ShoppingBag className="w-10 h-10 mb-2" aria-hidden="true" />
               <p className="text-sm">No recent orders</p>
             </div>
@@ -336,11 +336,11 @@ function DashboardContent() {
             <div className="overflow-x-auto">
               <table className="w-full" role="table">
                 <thead>
-                  <tr className="border-b border-[#E07B8B]/10">
-                    <th scope="col" className="px-5 py-3 text-left text-xs text-[#F5F5F5]/40 font-semibold uppercase tracking-wider">Order</th>
-                    <th scope="col" className="px-5 py-3 text-left text-xs text-[#F5F5F5]/40 font-semibold uppercase tracking-wider hidden sm:table-cell">Amount</th>
-                    <th scope="col" className="px-5 py-3 text-left text-xs text-[#F5F5F5]/40 font-semibold uppercase tracking-wider">Status</th>
-                    <th scope="col" className="px-5 py-3 text-left text-xs text-[#F5F5F5]/40 font-semibold uppercase tracking-wider hidden md:table-cell">Date</th>
+                  <tr className="border-b border-[#A8B4C8]/10">
+                    <th scope="col" className="px-5 py-3 text-left text-xs text-[#F5F0E8]/40 font-semibold uppercase tracking-wider">Order</th>
+                    <th scope="col" className="px-5 py-3 text-left text-xs text-[#F5F0E8]/40 font-semibold uppercase tracking-wider hidden sm:table-cell">Amount</th>
+                    <th scope="col" className="px-5 py-3 text-left text-xs text-[#F5F0E8]/40 font-semibold uppercase tracking-wider">Status</th>
+                    <th scope="col" className="px-5 py-3 text-left text-xs text-[#F5F0E8]/40 font-semibold uppercase tracking-wider hidden md:table-cell">Date</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -348,19 +348,19 @@ function DashboardContent() {
                     <tr
                       key={order.id}
                       onClick={() => router.push(`/admin/orders/${order.id}`)}
-                      className="border-b border-[#E07B8B]/5 hover:bg-[#E07B8B]/5 cursor-pointer transition-colors"
+                      className="border-b border-[#A8B4C8]/5 hover:bg-[#A8B4C8]/5 cursor-pointer transition-colors"
                       tabIndex={0}
                       role="row"
                     >
                       <td className="px-5 py-3.5" role="cell">
-                        <span className="font-medium text-[#FFD700] text-sm">#{order.id}</span>
-                        <span className="block text-xs text-[#F5F5F5]/40 sm:hidden">{fmt(order.total_amount)}</span>
+                        <span className="font-medium text-[#D4AF37] text-sm">#{order.id}</span>
+                        <span className="block text-xs text-[#F5F0E8]/40 sm:hidden">{fmt(order.total_amount)}</span>
                       </td>
-                      <td className="px-5 py-3.5 text-sm text-[#F5F5F5]/70 hidden sm:table-cell" role="cell">{fmt(order.total_amount)}</td>
+                      <td className="px-5 py-3.5 text-sm text-[#F5F0E8]/70 hidden sm:table-cell" role="cell">{fmt(order.total_amount)}</td>
                       <td className="px-5 py-3.5" role="cell">
-                        <OrderStatusBadge status={order.status} />
+                        <OrderStatusBadge status={order.status} showAdminLabel />
                       </td>
-                      <td className="px-5 py-3.5 text-xs text-[#F5F5F5]/50 hidden md:table-cell" role="cell">{fmtDate(order.created_at)}</td>
+                      <td className="px-5 py-3.5 text-xs text-[#F5F0E8]/50 hidden md:table-cell" role="cell">{fmtDate(order.created_at)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -370,36 +370,36 @@ function DashboardContent() {
         </div>
 
         {/* Low Stock */}
-        <div className="xl:col-span-2 bg-gradient-to-br from-[#141414] to-[#0A0A0A] border border-[#E07B8B]/15 rounded-2xl overflow-hidden">
-          <div className="flex items-center justify-between px-5 py-4 border-b border-[#E07B8B]/10">
-            <h2 className="font-semibold text-[#FFD700]" style={{ fontFamily: 'Cinzel, serif' }}>Low Stock</h2>
+        <div className="xl:col-span-2 bg-gradient-to-br from-[#161616] to-[#111111] border border-[#A8B4C8]/15 rounded-2xl overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-[#A8B4C8]/10">
+            <h2 className="font-semibold text-[#D4AF37]" style={{ fontFamily: 'Cinzel, serif' }}>Low Stock</h2>
             <Link
               href="/admin/products?filter=low_stock"
-              className="text-xs text-[#E07B8B] hover:text-[#FFD700] transition-colors flex items-center gap-1 min-h-[44px] touch-target"
+              className="text-xs text-[#A8B4C8] hover:text-[#D4AF37] transition-colors flex items-center gap-1 min-h-[44px] touch-target"
             >
               View All <ArrowRight className="w-3.5 h-3.5" aria-hidden="true" />
             </Link>
           </div>
           {loading ? (
             <div className="flex items-center justify-center py-12" role="status" aria-label="Loading inventory">
-              <RefreshCw className="w-6 h-6 text-[#E07B8B]/40 animate-spin" aria-hidden="true" />
+              <RefreshCw className="w-6 h-6 text-[#A8B4C8]/40 animate-spin" aria-hidden="true" />
             </div>
           ) : lowStockItems.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-[#F5F5F5]/30">
+            <div className="flex flex-col items-center justify-center py-12 text-[#F5F0E8]/30">
               <CheckCircle className="w-10 h-10 mb-2 text-green-500/30" aria-hidden="true" />
               <p className="text-sm">All items well stocked!</p>
             </div>
           ) : (
-            <div className="divide-y divide-[#E07B8B]/5" role="list">
+            <div className="divide-y divide-[#A8B4C8]/5" role="list">
               {lowStockItems.slice(0, 8).map((item) => (
                 <div
                   key={item.sku || item.id}
-                  className="flex items-center justify-between px-5 py-3 hover:bg-[#E07B8B]/5 transition-colors"
+                  className="flex items-center justify-between px-5 py-3 hover:bg-[#A8B4C8]/5 transition-colors"
                   role="listitem"
                 >
                   <div className="min-w-0">
-                    <p className="text-sm text-[#F5F5F5] truncate">{item.product_name}</p>
-                    <p className="text-xs text-[#F5F5F5]/40 font-mono">{item.sku}</p>
+                    <p className="text-sm text-[#F5F0E8] truncate">{item.product_name}</p>
+                    <p className="text-xs text-[#F5F0E8]/40 font-mono">{item.sku}</p>
                   </div>
                   <div className="flex-shrink-0 ml-3">
                     {item.quantity === 0 ? (
@@ -420,12 +420,12 @@ function DashboardContent() {
       </div>
 
       {/* Quick Actions */}
-      <div className="bg-gradient-to-br from-[#141414] to-[#0A0A0A] border border-[#E07B8B]/15 rounded-2xl p-5">
-        <h2 className="font-semibold text-[#FFD700] mb-4" style={{ fontFamily: 'Cinzel, serif' }}>Quick Actions</h2>
+      <div className="bg-gradient-to-br from-[#161616] to-[#111111] border border-[#A8B4C8]/15 rounded-2xl p-5">
+        <h2 className="font-semibold text-[#D4AF37] mb-4" style={{ fontFamily: 'Cinzel, serif' }}>Quick Actions</h2>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
             { href: '/admin/orders?status=confirmed', icon: CheckCircle, label: 'Process Orders', color: 'text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/20' },
-            { href: '/admin/products/create', icon: Package, label: 'Add Product', color: 'text-[#FFD700]', bg: 'bg-[#9333EA]/20', border: 'border-[#E07B8B]/20' },
+            { href: '/admin/products/create', icon: Package, label: 'Add Product', color: 'text-[#D4AF37]', bg: 'bg-[#1E3A5F]/20', border: 'border-[#A8B4C8]/20' },
             { href: '/admin/inventory', icon: Truck, label: 'Manage Stock', color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20' },
             { href: '/admin/returns', icon: RotateCcw, label: 'Returns', color: 'text-purple-400', bg: 'bg-purple-500/10', border: 'border-purple-500/20' },
           ].map(({ href, icon: Icon, label, color, bg, border }) => (

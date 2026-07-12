@@ -9,8 +9,10 @@ import { useCart } from '@/lib/cartContext';
 import { useAuth } from '@/lib/authContext';
 import logger from '@/lib/logger';
 
-const POLL_INTERVAL = 3000; // 3 seconds
-const POLL_TIMEOUT = 60000; // 60 seconds — after this show "processing" state not error
+const POLL_INTERVAL = 2500; // 2.5 seconds
+// Webhooks are usually 2–15s; recovery worker is 5 min. Keep polling long enough
+// that most customers see the order without landing on "processing".
+const POLL_TIMEOUT = 120000; // 120 seconds
 
 export default function CheckoutConfirmPage() {
   const router = useRouter();
@@ -80,18 +82,23 @@ export default function CheckoutConfirmPage() {
             setPolling(false);
             setLoading(false);
             sessionStorage.setItem('order_created', foundOrder?.id || 'done');
-            // Clear cart & session on success
-            try {
-              await clearCart();
-            } catch (cartErr) {
-              logger.warn('Failed to clear cart:', cartErr.message);
-            }
-            sessionStorage.removeItem('checkout_address_id');
-            sessionStorage.removeItem('payment_id');
-            sessionStorage.removeItem('razorpay_order_id');
-            sessionStorage.removeItem('payment_signature');
-            sessionStorage.removeItem('qr_code_id');
-            sessionStorage.removeItem('pending_order_id');
+            // Defer clearCart to next tick to ensure order creation is fully
+            // committed (stock deduction, email enqueue) before cart is cleared.
+            // This prevents the webhook recovery fallback from seeing an empty cart
+            // if it fires in the same window as order creation.
+            setTimeout(async () => {
+              try {
+                await clearCart();
+              } catch (cartErr) {
+                logger.warn('Failed to clear cart:', cartErr.message);
+              }
+              sessionStorage.removeItem('checkout_address_id');
+              sessionStorage.removeItem('payment_id');
+              sessionStorage.removeItem('razorpay_order_id');
+              sessionStorage.removeItem('payment_signature');
+              sessionStorage.removeItem('qr_code_id');
+              sessionStorage.removeItem('pending_order_id');
+            }, 1000);
           }
           return;
         }
@@ -312,12 +319,12 @@ export default function CheckoutConfirmPage() {
     ];
     return (
       <div className="flex flex-col items-center justify-center py-16 space-y-6">
-        <div className="w-16 h-16 rounded-full bg-[#9333EA]/30 flex items-center justify-center">
-          <Loader2 className="w-8 h-8 text-[#FFD700] animate-spin" />
+        <div className="w-16 h-16 rounded-full bg-[#1E3A5F]/30 flex items-center justify-center">
+          <Loader2 className="w-8 h-8 text-[#D4AF37] animate-spin" />
         </div>
         <div className="text-center space-y-2">
-          <h3 className="text-lg font-semibold text-[#FFD700]">Processing Your Order</h3>
-          <p className="text-[#F5F5F5]/70 max-w-md">
+          <h3 className="text-lg font-semibold text-[#D4AF37]">Processing Your Order</h3>
+          <p className="text-[#F5F0E8]/70 max-w-md">
             {paymentRegistered
               ? 'Payment confirmed! Creating your order...'
               : 'Verifying your payment...'}
@@ -328,18 +335,18 @@ export default function CheckoutConfirmPage() {
           {steps.map((step, i) => (
             <div key={i} className="flex items-center gap-3">
               <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 ${
-                step.done ? 'bg-green-500/20' : (i === 1 && paymentRegistered) ? 'bg-[#9333EA]/30' : 'bg-[#E07B8B]/10'
+                step.done ? 'bg-green-500/20' : (i === 1 && paymentRegistered) ? 'bg-[#1E3A5F]/30' : 'bg-[#A8B4C8]/10'
               }`}>
                 {step.done ? (
                   <svg className="w-3 h-3 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
                 ) : (i === 1 && paymentRegistered) ? (
-                  <div className="w-2 h-2 rounded-full bg-[#FFD700] animate-pulse" />
+                  <div className="w-2 h-2 rounded-full bg-[#D4AF37] animate-pulse" />
                 ) : (
-                  <div className="w-2 h-2 rounded-full bg-[#E07B8B]/20" />
+                  <div className="w-2 h-2 rounded-full bg-[#A8B4C8]/20" />
                 )}
               </div>
               <span className={`text-sm ${
-                step.done ? 'text-green-400' : (i === 1 && paymentRegistered) ? 'text-[#FFD700]' : 'text-[#F5F5F5]/40'
+                step.done ? 'text-green-400' : (i === 1 && paymentRegistered) ? 'text-[#D4AF37]' : 'text-[#F5F0E8]/40'
               }`}>{step.label}</span>
             </div>
           ))}
@@ -349,49 +356,62 @@ export default function CheckoutConfirmPage() {
   }
 
   // Gentle processing state — payment was captured, order is being created async
+  // UX rule: NEVER look like a failure when money was taken (ui-ux-pro-max).
   if (orderProcessing && !order) {
-    const pid = paymentId || sessionStorage.getItem('payment_id') || '';
+    const pid = paymentId || (typeof window !== 'undefined' ? sessionStorage.getItem('payment_id') : null) || '';
+    const roid = typeof window !== 'undefined' ? sessionStorage.getItem('razorpay_order_id') : null;
+    const recoverHref = pid
+      ? `/profile/orders/recover?payment_id=${encodeURIComponent(pid)}${roid ? `&razorpay_order_id=${encodeURIComponent(roid)}` : ''}`
+      : '/profile/orders/recover';
     return (
-      <div className="space-y-6">
-        <div className="p-8 bg-[#0A0A0A]/40 backdrop-blur-md border border-amber-500/20 rounded-2xl text-center">
+      <div className="space-y-6 px-4 sm:px-0">
+        <div className="p-6 sm:p-8 bg-[#111111]/60 backdrop-blur-md border border-amber-500/25 rounded-2xl text-center">
           <div className="w-20 h-20 mx-auto mb-6 bg-amber-500/10 rounded-full flex items-center justify-center">
             <Clock className="w-10 h-10 text-amber-400 animate-pulse" />
           </div>
-          <h2 className="text-xl font-bold text-amber-400 mb-2">Your order is being processed</h2>
-          <p className="text-[#F5F5F5]/80 mb-2">
-            Your payment was received successfully.
+          <h2 className="text-xl sm:text-2xl font-bold text-amber-400 mb-2" style={{ fontFamily: 'Cinzel, serif' }}>
+            Payment received
+          </h2>
+          <p className="text-[#F5F0E8]/85 mb-2">
+            Your money is safe — we are finalising your order.
           </p>
-          <p className="text-[#F5F5F5]/60 text-sm mb-6">
-            Our system is finalising your order — this usually takes a few seconds.
-            It will appear in <strong className="text-[#FFD700]">My Orders</strong> shortly.
+          <p className="text-[#F5F0E8]/55 text-sm mb-6 max-w-md mx-auto">
+            This usually finishes within a minute. The order will show under{' '}
+            <strong className="text-[#D4AF37]">My Orders</strong>. You do not need to pay again.
           </p>
           {pid && (
-            <p className="text-xs text-[#F5F5F5]/40 mb-6 font-mono">
+            <p className="text-xs text-[#F5F0E8]/40 mb-6 font-mono break-all">
               Payment ID: {pid}
             </p>
           )}
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Link
               href="/profile/orders"
-              className="flex-1 sm:flex-none px-8 py-3 bg-gradient-to-r from-[#9333EA] to-[#E07B8B] text-white rounded-xl hover:opacity-90 transition-opacity text-center font-medium"
+              className="min-h-[48px] flex items-center justify-center px-8 py-3 bg-[#D4AF37] text-black rounded-xl hover:bg-[#D4AF37]/90 transition-colors text-center font-medium"
             >
               Check My Orders
             </Link>
             <Link
+              href={recoverHref}
+              className="min-h-[48px] flex items-center justify-center px-8 py-3 border border-[#A8B4C8]/40 text-[#F5F0E8] rounded-xl hover:border-[#D4AF37]/50 hover:text-[#D4AF37] transition-colors text-center"
+            >
+              Recover order
+            </Link>
+            <Link
               href="/products"
-              className="flex-1 sm:flex-none px-8 py-3 border border-[#E07B8B]/30 text-[#E07B8B] rounded-xl hover:border-[#E07B8B]/60 hover:text-[#FFD700] transition-colors text-center"
+              className="min-h-[48px] flex items-center justify-center px-8 py-3 border border-[#A8B4C8]/20 text-[#A8B4C8] rounded-xl hover:border-[#A8B4C8]/50 transition-colors text-center"
             >
               Continue Shopping
             </Link>
           </div>
         </div>
-        <div className="p-4 bg-[#9333EA]/10 border border-[#E07B8B]/10 rounded-xl text-center">
-          <p className="text-sm text-[#F5F5F5]/70">
-            If your order doesn’t appear in 5 minutes, contact us at{' '}
-            <a href="mailto:support@aaryaclothing.com" className="text-[#E07B8B] hover:text-[#FFD700]">
+        <div className="p-4 bg-[#1E3A5F]/10 border border-[#A8B4C8]/15 rounded-xl text-center">
+          <p className="text-sm text-[#F5F0E8]/70">
+            If nothing appears in 5 minutes, email{' '}
+            <a href="mailto:support@aaryaclothing.com" className="text-[#A8B4C8] hover:text-[#D4AF37]">
               support@aaryaclothing.com
             </a>
-            {pid && <> with Payment ID: <strong className="text-[#F5F5F5]/80 font-mono text-xs">{pid}</strong></>}
+            {pid && <> with Payment ID: <strong className="text-[#F5F0E8]/80 font-mono text-xs">{pid}</strong></>}
           </p>
         </div>
       </div>
@@ -400,14 +420,21 @@ export default function CheckoutConfirmPage() {
 
   // Show error with retry (only for genuine registration failures, not timeouts)
   if (error && !order) {
+    const pid = paymentId || (typeof window !== 'undefined' ? sessionStorage.getItem('payment_id') : null) || '';
+    const moneyTaken = /payment was successful|money was deducted|Payment ID/i.test(error || '');
     return (
-      <div className="space-y-6">
-        <div className="p-8 bg-[#0A0A0A]/40 backdrop-blur-md border border-red-500/20 rounded-2xl text-center">
+      <div className="space-y-6 px-4 sm:px-0">
+        <div className="p-6 sm:p-8 bg-[#111111]/60 backdrop-blur-md border border-red-500/25 rounded-2xl text-center">
           <div className="w-20 h-20 mx-auto mb-6 bg-red-500/20 rounded-full flex items-center justify-center">
             <AlertCircle className="w-10 h-10 text-red-400" />
           </div>
-          <h2 className="text-xl font-bold text-red-400 mb-2">Something went wrong</h2>
-          <p className="text-[#F5F5F5]/70 mb-4">{error}</p>
+          <h2 className="text-xl font-bold text-red-400 mb-2">
+            {moneyTaken ? 'Order needs a quick recovery' : 'Something went wrong'}
+          </h2>
+          <p className="text-[#F5F0E8]/70 mb-4">{error}</p>
+          {pid && (
+            <p className="text-xs text-[#F5F0E8]/40 mb-4 font-mono break-all">Payment ID: {pid}</p>
+          )}
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <button
               onClick={() => {
@@ -417,24 +444,33 @@ export default function CheckoutConfirmPage() {
                 setLoading(true);
                 registerAndPoll();
               }}
-              className="px-6 py-2 bg-gradient-to-r from-[#9333EA] to-[#E07B8B] text-white rounded-xl hover:opacity-90 transition-opacity"
+              className="min-h-[48px] px-6 py-2 bg-[#D4AF37] text-black font-medium rounded-xl hover:bg-[#D4AF37]/90 transition-colors"
             >
               Try Again
             </button>
             <Link
+              href={pid ? `/profile/orders/recover?payment_id=${encodeURIComponent(pid)}` : '/profile/orders/recover'}
+              className="min-h-[48px] flex items-center justify-center px-6 py-2 border border-[#A8B4C8]/40 text-[#F5F0E8] rounded-xl hover:border-[#D4AF37]/50 hover:text-[#D4AF37] transition-colors text-center"
+            >
+              Recover order
+            </Link>
+            <Link
               href="/profile/orders"
-              className="px-6 py-2 border border-[#E07B8B]/30 text-[#E07B8B] rounded-xl hover:border-[#E07B8B]/60 hover:text-[#FFD700] transition-colors text-center"
+              className="min-h-[48px] flex items-center justify-center px-6 py-2 border border-[#A8B4C8]/30 text-[#A8B4C8] rounded-xl hover:border-[#A8B4C8]/60 hover:text-[#D4AF37] transition-colors text-center"
             >
               Check My Orders
             </Link>
           </div>
         </div>
-        <div className="p-4 bg-[#9333EA]/10 border border-[#E07B8B]/10 rounded-xl text-center">
-          <p className="text-sm text-[#F5F5F5]/70">
-            If the problem persists, contact us at{' '}
-            <a href="mailto:support@aaryaclothing.com" className="text-[#E07B8B] hover:text-[#FFD700]">
+        <div className="p-4 bg-[#1E3A5F]/10 border border-[#A8B4C8]/10 rounded-xl text-center">
+          <p className="text-sm text-[#F5F0E8]/70">
+            {moneyTaken
+              ? 'Do not pay again. Contact '
+              : 'If the problem persists, contact '}
+            <a href="mailto:support@aaryaclothing.com" className="text-[#A8B4C8] hover:text-[#D4AF37]">
               support@aaryaclothing.com
             </a>
+            {pid && moneyTaken && <> with your Payment ID</>}
           </p>
         </div>
       </div>
@@ -445,80 +481,80 @@ export default function CheckoutConfirmPage() {
   return (
     <div className="space-y-6">
       {/* Success Message */}
-      <div className="p-8 bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl text-center">
+      <div className="p-8 bg-[#111111]/40 backdrop-blur-md border border-[#A8B4C8]/15 rounded-2xl text-center">
         <div className="w-20 h-20 mx-auto mb-6 bg-green-500/20 rounded-full flex items-center justify-center">
           <CheckCircle className="w-10 h-10 text-green-400" />
         </div>
 
-        <h2 className="text-2xl font-bold text-[#FFD700] mb-2">Order Confirmed!</h2>
-        <p className="text-[#F5F5F5]/70 mb-4">
+        <h2 className="text-2xl font-bold text-[#D4AF37] mb-2">Order Confirmed!</h2>
+        <p className="text-[#F5F0E8]/70 mb-4">
           Thank you for your order. We&apos;ve received your order and will process it shortly.
         </p>
 
         {order?.order_number && (
-          <div className="inline-block px-4 py-2 bg-[#9333EA]/20 rounded-lg">
-            <span className="text-sm text-[#F5F5F5]/70">Order Number: </span>
-            <span className="font-mono font-semibold text-[#FFD700]">{order.order_number}</span>
+          <div className="inline-block px-4 py-2 bg-[#1E3A5F]/20 rounded-lg">
+            <span className="text-sm text-[#F5F0E8]/70">Order Number: </span>
+            <span className="font-mono font-semibold text-[#D4AF37]">{order.order_number}</span>
           </div>
         )}
       </div>
 
       {/* Order Timeline */}
-      <div className="p-6 bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl">
-        <h3 className="text-lg font-semibold text-[#FFD700] mb-4">What&apos;s Next?</h3>
+      <div className="p-6 bg-[#111111]/40 backdrop-blur-md border border-[#A8B4C8]/15 rounded-2xl">
+        <h3 className="text-lg font-semibold text-[#D4AF37] mb-4">What&apos;s Next?</h3>
 
         <div className="space-y-4">
           <div className="flex items-start gap-4">
-            <div className="w-10 h-10 rounded-full bg-[#9333EA]/30 flex items-center justify-center flex-shrink-0">
+            <div className="w-10 h-10 rounded-full bg-[#1E3A5F]/30 flex items-center justify-center flex-shrink-0">
               <CheckCircle className="w-5 h-5 text-green-400" />
             </div>
             <div>
-              <p className="font-medium text-[#FFD700]">Order Confirmed</p>
-              <p className="text-sm text-[#F5F5F5]/70">Your order has been placed successfully</p>
+              <p className="font-medium text-[#D4AF37]">Order Confirmed</p>
+              <p className="text-sm text-[#F5F0E8]/70">Your order has been placed successfully</p>
             </div>
           </div>
 
           <div className="flex items-start gap-4">
-            <div className="w-10 h-10 rounded-full bg-[#E07B8B]/20 flex items-center justify-center flex-shrink-0">
-              <Package className="w-5 h-5 text-[#E07B8B]" />
+            <div className="w-10 h-10 rounded-full bg-[#A8B4C8]/20 flex items-center justify-center flex-shrink-0">
+              <Package className="w-5 h-5 text-[#A8B4C8]" />
             </div>
             <div>
-              <p className="font-medium text-[#F5F5F5]">Processing</p>
-              <p className="text-sm text-[#F5F5F5]/70">We&apos;re preparing your order for shipment</p>
+              <p className="font-medium text-[#F5F0E8]">Processing</p>
+              <p className="text-sm text-[#F5F0E8]/70">We&apos;re preparing your order for shipment</p>
             </div>
           </div>
 
           <div className="flex items-start gap-4">
-            <div className="w-10 h-10 rounded-full bg-[#E07B8B]/10 flex items-center justify-center flex-shrink-0">
-              <Truck className="w-5 h-5 text-[#F5F5F5]/50" />
+            <div className="w-10 h-10 rounded-full bg-[#A8B4C8]/10 flex items-center justify-center flex-shrink-0">
+              <Truck className="w-5 h-5 text-[#F5F0E8]/50" />
             </div>
             <div>
-              <p className="font-medium text-[#F5F5F5]/50">Shipped</p>
-              <p className="text-sm text-[#F5F5F5]/50">Your order is on its way</p>
+              <p className="font-medium text-[#F5F0E8]/50">Shipped</p>
+              <p className="text-sm text-[#F5F0E8]/50">Your order is on its way</p>
             </div>
           </div>
         </div>
 
         {order?.estimated_delivery && (
-          <div className="mt-6 p-4 bg-[#9333EA]/10 rounded-xl">
-            <p className="text-sm text-[#F5F5F5]/70">Estimated Delivery</p>
-            <p className="text-lg font-semibold text-[#FFD700]">{order.estimated_delivery}</p>
+          <div className="mt-6 p-4 bg-[#1E3A5F]/10 rounded-xl">
+            <p className="text-sm text-[#F5F0E8]/70">Estimated Delivery</p>
+            <p className="text-lg font-semibold text-[#D4AF37]">{order.estimated_delivery}</p>
           </div>
         )}
       </div>
 
       {/* Order Invoice */}
       {order && (
-        <div className="p-6 bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl">
+        <div className="p-6 bg-[#111111]/40 backdrop-blur-md border border-[#A8B4C8]/15 rounded-2xl">
           {/* Invoice Header */}
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-2">
-              <Receipt className="w-5 h-5 text-[#E07B8B]" />
-              <h3 className="text-lg font-semibold text-[#FFD700]">Order Invoice</h3>
+              <Receipt className="w-5 h-5 text-[#A8B4C8]" />
+              <h3 className="text-lg font-semibold text-[#D4AF37]">Order Invoice</h3>
             </div>
             <button
               onClick={() => window.print()}
-              className="flex items-center gap-1.5 px-3 py-1.5 border border-[#E07B8B]/30 text-[#E07B8B] text-sm rounded-lg hover:border-[#E07B8B] hover:text-[#FFD700] transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 border border-[#A8B4C8]/30 text-[#A8B4C8] text-sm rounded-lg hover:border-[#A8B4C8] hover:text-[#D4AF37] transition-colors"
             >
               <Printer className="w-4 h-4" />
               Print Invoice
@@ -526,35 +562,35 @@ export default function CheckoutConfirmPage() {
           </div>
 
           {/* Invoice Meta */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6 p-4 bg-[#9333EA]/10 rounded-xl text-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6 p-4 bg-[#1E3A5F]/10 rounded-xl text-sm">
             <div>
-              <p className="text-[#F5F5F5]/50 text-xs mb-0.5">Invoice Number</p>
-              <p className="text-[#FFD700] font-mono font-semibold">{order.invoice_number || `INV-${order.id}`}</p>
+              <p className="text-[#F5F0E8]/50 text-xs mb-0.5">Invoice Number</p>
+              <p className="text-[#D4AF37] font-mono font-semibold">{order.invoice_number || `INV-${order.id}`}</p>
             </div>
             <div>
-              <p className="text-[#F5F5F5]/50 text-xs mb-0.5">Order Number</p>
-              <p className="text-[#F5F5F5] font-mono">{order.order_number}</p>
+              <p className="text-[#F5F0E8]/50 text-xs mb-0.5">Order Number</p>
+              <p className="text-[#F5F0E8] font-mono">{order.order_number}</p>
             </div>
             <div>
-              <p className="text-[#F5F5F5]/50 text-xs mb-0.5">Date</p>
-              <p className="text-[#F5F5F5]">{new Date(order.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
+              <p className="text-[#F5F0E8]/50 text-xs mb-0.5">Date</p>
+              <p className="text-[#F5F0E8]">{new Date(order.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
             </div>
             <div>
-              <p className="text-[#F5F5F5]/50 text-xs mb-0.5">Payment Method</p>
-              <p className="text-[#F5F5F5] capitalize">{order.payment_method || 'Razorpay'}</p>
+              <p className="text-[#F5F0E8]/50 text-xs mb-0.5">Payment Method</p>
+              <p className="text-[#F5F0E8] capitalize">{order.payment_method || 'Razorpay'}</p>
             </div>
           </div>
 
           {/* Items */}
           <div className="space-y-3 mb-6">
             {(order.items || []).map((item, idx) => (
-              <div key={idx} className="flex items-start gap-3 py-3 border-b border-[#E07B8B]/10 last:border-0">
-                <div className="w-10 h-10 bg-[#9333EA]/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <Package className="w-5 h-5 text-[#E07B8B]/40" />
+              <div key={idx} className="flex items-start gap-3 py-3 border-b border-[#A8B4C8]/10 last:border-0">
+                <div className="w-10 h-10 bg-[#1E3A5F]/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <Package className="w-5 h-5 text-[#A8B4C8]/40" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-[#F5F5F5] text-sm font-medium truncate">{item.product_name}</p>
-                  <div className="flex items-center gap-3 mt-0.5 text-xs text-[#F5F5F5]/50">
+                  <p className="text-[#F5F0E8] text-sm font-medium truncate">{item.product_name}</p>
+                  <div className="flex items-center gap-3 mt-0.5 text-xs text-[#F5F0E8]/50">
                     {item.size && <span>Size: {item.size}</span>}
                     {item.color && (
                       <span className="inline-flex items-center gap-1">
@@ -565,33 +601,33 @@ export default function CheckoutConfirmPage() {
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-[#F5F5F5]/50 mt-0.5">
+                  <p className="text-xs text-[#F5F0E8]/50 mt-0.5">
                     {formatCurrency(item.unit_price || item.price)} × {item.quantity}
                   </p>
                 </div>
-                <p className="text-[#FFD700] text-sm font-semibold">{formatCurrency(item.price)}</p>
+                <p className="text-[#D4AF37] text-sm font-semibold">{formatCurrency(item.price)}</p>
               </div>
             ))}
           </div>
 
           {/* Cost Breakdown */}
-          <div className="space-y-2 pt-4 border-t border-[#E07B8B]/10 text-sm">
-            <div className="flex justify-between pt-3 border-t border-[#E07B8B]/10 text-base font-bold">
-              <span className="text-[#FFD700]">Total Paid</span>
-              <span className="text-[#FFD700]">{formatCurrency(order.total_amount ?? order.total)}</span>
+          <div className="space-y-2 pt-4 border-t border-[#A8B4C8]/10 text-sm">
+            <div className="flex justify-between pt-3 border-t border-[#A8B4C8]/10 text-base font-bold">
+              <span className="text-[#D4AF37]">Total Paid</span>
+              <span className="text-[#D4AF37]">{formatCurrency(order.total_amount ?? order.total)}</span>
             </div>
-            <p className="text-xs text-[#F5F5F5]/40 pt-1">
+            <p className="text-xs text-[#F5F0E8]/40 pt-1">
               Price shown is final - includes all taxes and shipping. No hidden charges.
             </p>
           </div>
 
           {/* Delivery Address */}
           {order.shipping_address && (
-            <div className="pt-4 mt-4 border-t border-[#E07B8B]/10">
-              <h4 className="text-xs font-medium text-[#F5F5F5]/50 uppercase tracking-wider mb-2">Delivery Address</h4>
+            <div className="pt-4 mt-4 border-t border-[#A8B4C8]/10">
+              <h4 className="text-xs font-medium text-[#F5F0E8]/50 uppercase tracking-wider mb-2">Delivery Address</h4>
               <div className="flex items-start gap-2">
-                <MapPin className="w-4 h-4 text-[#E07B8B] flex-shrink-0 mt-0.5" />
-                <p className="text-sm text-[#F5F5F5]/70">{order.shipping_address}</p>
+                <MapPin className="w-4 h-4 text-[#A8B4C8] flex-shrink-0 mt-0.5" />
+                <p className="text-sm text-[#F5F0E8]/70">{order.shipping_address}</p>
               </div>
             </div>
           )}
@@ -602,13 +638,13 @@ export default function CheckoutConfirmPage() {
       <div className="flex flex-col sm:flex-row gap-4">
         <Link
           href="/profile/orders"
-          className="flex-1 py-3 text-center border border-[#E07B8B]/20 text-[#E07B8B] rounded-xl hover:border-[#E07B8B]/40 hover:text-[#FFD700] transition-colors"
+          className="flex-1 py-3 text-center border border-[#A8B4C8]/20 text-[#A8B4C8] rounded-xl hover:border-[#A8B4C8]/40 hover:text-[#D4AF37] transition-colors"
         >
           View All Orders
         </Link>
         <Link
           href="/products"
-          className="flex-1 py-3 text-center bg-gradient-to-r from-[#9333EA] to-[#E07B8B] text-white rounded-xl hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
+          className="flex-1 py-3 text-center bg-gradient-to-r from-[#1E3A5F] to-[#A8B4C8] text-white rounded-xl hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
         >
           Continue Shopping
           <ShoppingBag className="w-4 h-4" />
@@ -616,10 +652,10 @@ export default function CheckoutConfirmPage() {
       </div>
 
       {/* Support */}
-      <div className="p-4 bg-[#9333EA]/10 border border-[#E07B8B]/10 rounded-xl text-center">
-        <p className="text-sm text-[#F5F5F5]/70">
+      <div className="p-4 bg-[#1E3A5F]/10 border border-[#A8B4C8]/10 rounded-xl text-center">
+        <p className="text-sm text-[#F5F0E8]/70">
           Need help? Contact us at{' '}
-          <a href="mailto:support@aaryaclothing.com" className="text-[#E07B8B] hover:text-[#FFD700]">
+          <a href="mailto:support@aaryaclothing.com" className="text-[#A8B4C8] hover:text-[#D4AF37]">
             support@aaryaclothing.com
           </a>
         </p>

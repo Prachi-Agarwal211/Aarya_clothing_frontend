@@ -22,8 +22,10 @@ import { cn } from '@/lib/utils';
  */
 // ── Global image load throttling ──────────────────────────────────────────
 // Limits concurrent image downloads to prevent browser overload on pages
-// with many images (admin panels, product grids, etc.)
-const MAX_CONCURRENT_LOADS = 4;
+// with many images (admin panels, product grids, etc.).
+// Raised from 4 → 8: product PNGs are large (~2MB); with only 4 slots the
+// queue starves and users perceive "images not loading" on product grids.
+const MAX_CONCURRENT_LOADS = 8;
 let activeLoads = 0;
 const loadQueue = [];
 
@@ -67,18 +69,29 @@ const OptimizedImage = ({
 }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
-  const [deferred, setDeferred] = useState(!priority);
+  // Gate non-priority images behind the global queue so we don't fire 50+
+  // 2MB PNG requests at once (browser cancels/stalls → "images not coming").
+  const [canLoad, setCanLoad] = useState(!!priority);
   const isLoadingRef = useRef(true);
   // Default to a placeholder if no valid src is provided to prevent Next.js Image crashes
-  const [currentSrc, setCurrentSrc] = useState(src && src !== '' ? src : (fallbackSrc || '/placeholder-image.jpg'));
+  const [currentSrc, setCurrentSrc] = useState(src && src !== '' ? src : (fallbackSrc || '/placeholder-image.svg'));
   const [imageQuality, setImageQuality] = useState(quality);
 
   // Throttle non-priority images through the global queue
   useEffect(() => {
-    if (priority || !deferred) return;
-    enqueueImageLoad(() => setDeferred(false));
-    return () => { if (isLoadingRef.current) dequeueImageLoad(); };
-  }, []);
+    if (priority) {
+      setCanLoad(true);
+      return undefined;
+    }
+    let released = false;
+    enqueueImageLoad(() => {
+      if (!released) setCanLoad(true);
+    });
+    return () => {
+      released = true;
+      if (isLoadingRef.current) dequeueImageLoad();
+    };
+  }, [priority]);
 
   // Detect connection speed and adjust quality accordingly
   useEffect(() => {
@@ -102,7 +115,7 @@ const OptimizedImage = ({
   // Update currentSrc when src changes
   React.useEffect(() => {
     isLoadingRef.current = true;
-    setCurrentSrc(src && src !== '' ? src : (fallbackSrc || '/placeholder-image.jpg'));
+    setCurrentSrc(src && src !== '' ? src : (fallbackSrc || '/placeholder-image.svg'));
     setHasError(false);
     setIsLoading(true);
   }, [src, fallbackSrc]);
@@ -116,8 +129,8 @@ const OptimizedImage = ({
     if (src && fallbackSrc && currentSrc !== fallbackSrc) {
       setCurrentSrc(fallbackSrc);
       setHasError(false);
-    } else if (currentSrc !== '/placeholder-image.jpg') {
-      setCurrentSrc('/placeholder-image.jpg');
+    } else if (currentSrc !== '/placeholder-image.svg') {
+      setCurrentSrc('/placeholder-image.svg');
       setHasError(false);
     }
   };
@@ -147,10 +160,10 @@ const OptimizedImage = ({
 
   // Error placeholder
   const errorPlaceholder = hasError && (
-    <div className="absolute inset-0 z-5 flex items-center justify-center bg-[#1a0a10] pointer-events-none" role="status" aria-label="Image unavailable">
+    <div className="absolute inset-0 z-5 flex items-center justify-center bg-[#0f1520] pointer-events-none" role="status" aria-label="Image unavailable">
       <div className="text-center p-4">
         <svg
-          className="w-12 h-12 mx-auto text-[#E07B8B]/30 mb-2"
+          className="w-12 h-12 mx-auto text-[#A8B4C8]/30 mb-2"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -163,10 +176,10 @@ const OptimizedImage = ({
             d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
           />
         </svg>
-        <p className="text-xs text-[#E07B8B]/50">Image unavailable</p>
+        <p className="text-xs text-[#A8B4C8]/50">Image unavailable</p>
         <button
           onClick={handleRetry}
-          className="mt-2 text-xs text-[#FFD700] hover:text-[#FFD700]/80 underline"
+          className="mt-2 text-xs text-[#D4AF37] hover:text-[#D4AF37]/80 underline"
           aria-label="Retry loading image"
         >
           Retry
@@ -188,11 +201,57 @@ const OptimizedImage = ({
     className
   );
 
+  // Skeleton while waiting for queue slot (non-priority only)
+  const pendingSlot = !canLoad && (
+    <div
+      className={cn(
+        fill ? 'absolute inset-0' : 'w-full h-full min-h-[120px]',
+        'bg-[#0f1520]/60 animate-pulse'
+      )}
+      aria-hidden="true"
+    />
+  );
+
   // For fill mode, don't wrap in extra div - just return the image with overlays
   if (fill) {
     return (
       <>
         {errorPlaceholder}
+        {pendingSlot}
+        {canLoad && (
+          <Image
+            src={currentSrc}
+            alt={alt || 'Product image'}
+            {...imageProps}
+            className={imageClasses}
+            priority={priority}
+            quality={imageQuality}
+            loading={loadingStrategy}
+            decoding={decoding}
+            onError={handleError}
+            onLoad={handleLoad}
+            placeholder={blur && blurDataURL ? 'blur' : undefined}
+            blurDataURL={blur && blurDataURL ? blurDataURL : undefined}
+            {...props}
+          />
+        )}
+      </>
+    );
+  }
+
+  // For non-fill mode, wrap in container with aspect ratio preservation
+  return (
+    <div
+      className={cn(
+        'relative overflow-hidden',
+        'contain-layout', // CSS containment for performance
+        containerClassName
+      )}
+    >
+      {errorPlaceholder}
+      {pendingSlot}
+
+      {canLoad && (
         <Image
           src={currentSrc}
           alt={alt || 'Product image'}
@@ -208,36 +267,7 @@ const OptimizedImage = ({
           blurDataURL={blur && blurDataURL ? blurDataURL : undefined}
           {...props}
         />
-      </>
-    );
-  }
-
-  // For non-fill mode, wrap in container with aspect ratio preservation
-  return (
-    <div
-      className={cn(
-        'relative overflow-hidden',
-        'contain-layout', // CSS containment for performance
-        containerClassName
       )}
-    >
-      {errorPlaceholder}
-
-      <Image
-        src={currentSrc}
-        alt={alt || 'Product image'}
-        {...imageProps}
-        className={imageClasses}
-        priority={priority}
-        quality={imageQuality}
-        loading={loadingStrategy}
-        decoding={decoding}
-        onError={handleError}
-        onLoad={handleLoad}
-        placeholder={blur && blurDataURL ? 'blur' : undefined}
-        blurDataURL={blur && blurDataURL ? blurDataURL : undefined}
-        {...props}
-      />
     </div>
   );
 };

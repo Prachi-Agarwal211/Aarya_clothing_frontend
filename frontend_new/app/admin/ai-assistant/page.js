@@ -34,25 +34,25 @@ function AdminMarkdown({ text }) {
     <div className="space-y-1 text-sm leading-relaxed">
       {lines.map((line, i) => {
         if (line.startsWith('## ')) return (
-          <p key={i} className="font-bold text-[#FFD700] text-base mt-2">{line.slice(3)}</p>
+          <p key={i} className="font-bold text-[#D4AF37] text-base mt-2">{line.slice(3)}</p>
         );
         if (line.startsWith('# ')) return (
-          <p key={i} className="font-bold text-[#FFD700] text-lg mt-2">{line.slice(2)}</p>
+          <p key={i} className="font-bold text-[#D4AF37] text-lg mt-2">{line.slice(2)}</p>
         );
         if (line.startsWith('- ') || line.startsWith('• ')) return (
           <div key={i} className="flex items-start gap-2">
-            <span className="text-[#E07B8B] mt-1 flex-shrink-0">·</span>
-            <span className="text-[#F5F5F5]/90">{renderInline(line.slice(2))}</span>
+            <span className="text-[#A8B4C8] mt-1 flex-shrink-0">·</span>
+            <span className="text-[#F5F0E8]/90">{renderInline(line.slice(2))}</span>
           </div>
         );
         if (/^\d+\./.test(line)) return (
           <div key={i} className="flex items-start gap-2">
-            <span className="text-[#E07B8B] font-semibold flex-shrink-0 min-w-[16px]">{line.match(/^\d+/)[0]}.</span>
-            <span className="text-[#F5F5F5]/90">{renderInline(line.replace(/^\d+\.\s*/, ''))}</span>
+            <span className="text-[#A8B4C8] font-semibold flex-shrink-0 min-w-[16px]">{line.match(/^\d+/)[0]}.</span>
+            <span className="text-[#F5F0E8]/90">{renderInline(line.replace(/^\d+\.\s*/, ''))}</span>
           </div>
         );
         if (line.trim() === '') return <div key={i} className="h-1" />;
-        return <p key={i} className="text-[#F5F5F5]/90">{renderInline(line)}</p>;
+        return <p key={i} className="text-[#F5F0E8]/90">{renderInline(line)}</p>;
       })}
     </div>
   );
@@ -62,9 +62,9 @@ function renderInline(text) {
   const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`|₹[\d,]+)/g);
   return parts.map((p, i) => {
     if (p.startsWith('**') && p.endsWith('**'))
-      return <strong key={i} className="text-[#FFD700] font-semibold">{p.slice(2, -2)}</strong>;
+      return <strong key={i} className="text-[#D4AF37] font-semibold">{p.slice(2, -2)}</strong>;
     if (p.startsWith('`') && p.endsWith('`'))
-      return <code key={i} className="bg-[#0A0A0A] px-1.5 py-0.5 rounded text-xs font-mono text-[#E07B8B]">{p.slice(1, -1)}</code>;
+      return <code key={i} className="bg-[#111111] px-1.5 py-0.5 rounded text-xs font-mono text-[#A8B4C8]">{p.slice(1, -1)}</code>;
     if (p.startsWith('₹'))
       return <span key={i} className="text-green-400 font-semibold">{p}</span>;
     return p;
@@ -85,7 +85,7 @@ function ToolBadges({ toolCalls }) {
   return (
     <div className="flex flex-wrap gap-1.5 mt-2">
       {toolCalls.map((t, i) => (
-        <span key={i} className="flex items-center gap-1 px-2 py-0.5 bg-[#9333EA]/20 border border-[#E07B8B]/20 rounded-full text-xs text-[#E07B8B]">
+        <span key={i} className="flex items-center gap-1 px-2 py-0.5 bg-[#1E3A5F]/20 border border-[#A8B4C8]/20 rounded-full text-xs text-[#A8B4C8]">
           <Zap className="w-2.5 h-2.5" />
           {labels[t] || t}
         </span>
@@ -104,7 +104,7 @@ function CopyButton({ text }) {
     });
   };
   return (
-    <button onClick={copy} className="p-1 text-[#F5F5F5]/30 hover:text-[#F5F5F5]/70 transition-colors">
+    <button onClick={copy} className="p-1 text-[#F5F0E8]/30 hover:text-[#F5F0E8]/70 transition-colors">
       {copied ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
     </button>
   );
@@ -125,27 +125,27 @@ function ConfirmActionModal({ actions, onConfirm, onDismiss, confirming, isOpen 
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onDismiss} />
-      <div className="relative w-full max-w-lg bg-[#0A0A0A] border border-[#E07B8B]/30 rounded-2xl shadow-2xl overflow-hidden">
+      <div className="relative w-full max-w-lg bg-[#111111] border border-[#A8B4C8]/30 rounded-2xl shadow-2xl overflow-hidden">
         {/* Header */}
-        <div className="flex items-center gap-3 px-5 py-4 border-b border-[#E07B8B]/15 bg-amber-500/5">
+        <div className="flex items-center gap-3 px-5 py-4 border-b border-[#A8B4C8]/15 bg-amber-500/5">
           <ShieldAlert className="w-5 h-5 text-amber-400 flex-shrink-0" />
           <div>
             <p className="text-sm font-bold text-amber-300">Confirm Pending Actions</p>
-            <p className="text-xs text-[#F5F5F5]/40 mt-0.5">Review carefully before approving. These changes cannot be easily undone.</p>
+            <p className="text-xs text-[#F5F0E8]/40 mt-0.5">Review carefully before approving. These changes cannot be easily undone.</p>
           </div>
         </div>
 
         {/* Actions list */}
         <div className="px-5 py-4 space-y-3 max-h-64 overflow-y-auto">
           {actions.map((action, i) => (
-            <div key={i} className="p-3 bg-[#180F14] border border-[#E07B8B]/20 rounded-xl">
+            <div key={i} className="p-3 bg-[#180F14] border border-[#A8B4C8]/20 rounded-xl">
               <div className="flex items-center justify-between mb-1.5">
-                <span className="text-xs font-bold text-[#FFD700] uppercase tracking-wider">
+                <span className="text-xs font-bold text-[#D4AF37] uppercase tracking-wider">
                   {ACTION_LABELS[action.type] || action.type}
                 </span>
-                <span className="text-[10px] text-[#F5F5F5]/30 font-mono">{i + 1} of {actions.length}</span>
+                <span className="text-[10px] text-[#F5F0E8]/30 font-mono">{i + 1} of {actions.length}</span>
               </div>
-              <p className="text-sm text-[#F5F5F5]/80">{action.description}</p>
+              <p className="text-sm text-[#F5F0E8]/80">{action.description}</p>
               {action.warning && (
                 <div className="flex items-start gap-1.5 mt-2">
                   <AlertTriangle className="w-3.5 h-3.5 text-amber-400 flex-shrink-0 mt-0.5" />
@@ -157,11 +157,11 @@ function ConfirmActionModal({ actions, onConfirm, onDismiss, confirming, isOpen 
         </div>
 
         {/* Actions */}
-        <div className="flex gap-3 px-5 py-4 border-t border-[#E07B8B]/10">
+        <div className="flex gap-3 px-5 py-4 border-t border-[#A8B4C8]/10">
           <button
             onClick={onDismiss}
             disabled={confirming}
-            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-[#180F14] border border-[#E07B8B]/20 rounded-xl text-sm text-[#F5F5F5]/60 hover:text-[#F5F5F5] hover:border-[#E07B8B]/40 transition-all disabled:opacity-40"
+            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-[#180F14] border border-[#A8B4C8]/20 rounded-xl text-sm text-[#F5F0E8]/60 hover:text-[#F5F0E8] hover:border-[#A8B4C8]/40 transition-all disabled:opacity-40"
           >
             <XCircle className="w-4 h-4" /> Cancel
           </button>
@@ -214,12 +214,12 @@ function AiAnalyticsPanel({ onClose, isSuperAdmin = false }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div className="relative bg-[#0A0A0A]/95 backdrop-blur-xl border border-[#E07B8B]/20 rounded-2xl p-6 w-full max-w-2xl my-8">
+      <div className="relative bg-[#111111]/95 backdrop-blur-xl border border-[#A8B4C8]/20 rounded-2xl p-6 w-full max-w-2xl my-8">
         <div className="flex items-center justify-between mb-6">
-          <h3 className="text-lg font-semibold text-[#FFD700]" style={{ fontFamily: 'Cinzel, serif' }}>
+          <h3 className="text-lg font-semibold text-[#D4AF37]" style={{ fontFamily: 'Cinzel, serif' }}>
             AI Usage & Cost Analytics
           </h3>
-          <button onClick={onClose}><X className="w-5 h-5 text-[#F5F5F5]/50 hover:text-[#F5F5F5]" /></button>
+          <button onClick={onClose}><X className="w-5 h-5 text-[#F5F0E8]/50 hover:text-[#F5F0E8]" /></button>
         </div>
 
         {/* Time Range Selector */}
@@ -230,8 +230,8 @@ function AiAnalyticsPanel({ onClose, isSuperAdmin = false }) {
               onClick={() => setTimeRange(days)}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                 timeRange === days 
-                  ? 'bg-[#E07B8B] text-white' 
-                  : 'bg-[#180F14] text-[#F5F5F5]/60 hover:text-[#F5F5F5]'
+                  ? 'bg-[#A8B4C8] text-white' 
+                  : 'bg-[#180F14] text-[#F5F0E8]/60 hover:text-[#F5F0E8]'
               }`}
             >
               {days} days
@@ -240,41 +240,41 @@ function AiAnalyticsPanel({ onClose, isSuperAdmin = false }) {
         </div>
 
         {loading ? (
-          <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-[#E07B8B]" /></div>
+          <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-[#A8B4C8]" /></div>
         ) : data ? (
           <div className="space-y-6">
             {/* Summary Cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <div className="p-3 bg-[#FFD700]/5 border border-[#FFD700]/20 rounded-xl text-center">
-                <p className="text-xs text-[#F5F5F5]/50 uppercase tracking-widest">Total Cost</p>
-                <p className="text-xl font-bold text-[#FFD700]">${(data.total_cost_usd || 0).toFixed(4)}</p>
+              <div className="p-3 bg-[#D4AF37]/5 border border-[#D4AF37]/20 rounded-xl text-center">
+                <p className="text-xs text-[#F5F0E8]/50 uppercase tracking-widest">Total Cost</p>
+                <p className="text-xl font-bold text-[#D4AF37]">${(data.total_cost_usd || 0).toFixed(4)}</p>
               </div>
-              <div className="p-3 bg-[#9333EA]/20 border border-[#E07B8B]/20 rounded-xl text-center">
-                <p className="text-xs text-[#F5F5F5]/50 uppercase tracking-widest">Sessions</p>
-                <p className="text-xl font-bold text-[#F5F5F5]">{data.total_sessions || 0}</p>
+              <div className="p-3 bg-[#1E3A5F]/20 border border-[#A8B4C8]/20 rounded-xl text-center">
+                <p className="text-xs text-[#F5F0E8]/50 uppercase tracking-widest">Sessions</p>
+                <p className="text-xl font-bold text-[#F5F0E8]">{data.total_sessions || 0}</p>
               </div>
               <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-xl text-center">
-                <p className="text-xs text-[#F5F5F5]/50 uppercase tracking-widest">Messages</p>
+                <p className="text-xs text-[#F5F0E8]/50 uppercase tracking-widest">Messages</p>
                 <p className="text-xl font-bold text-blue-400">{data.total_messages || 0}</p>
               </div>
               <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-xl text-center">
-                <p className="text-xs text-[#F5F5F5]/50 uppercase tracking-widest">Tool Calls</p>
+                <p className="text-xs text-[#F5F0E8]/50 uppercase tracking-widest">Tool Calls</p>
                 <p className="text-xl font-bold text-green-400">{data.total_tool_calls || 0}</p>
               </div>
             </div>
 
             {/* Role-based breakdown */}
             <div className="space-y-4">
-              <h4 className="text-sm font-semibold text-[#F5F5F5] flex items-center gap-2">
-                <BarChart2 className="w-4 h-4 text-[#E07B8B]" />
+              <h4 className="text-sm font-semibold text-[#F5F0E8] flex items-center gap-2">
+                <BarChart2 className="w-4 h-4 text-[#A8B4C8]" />
                 Usage by Role
               </h4>
               
               {data.by_role?.map((r, i) => (
-                <div key={i} className="p-4 bg-[#180F14] border border-[#E07B8B]/15 rounded-xl">
+                <div key={i} className="p-4 bg-[#180F14] border border-[#A8B4C8]/15 rounded-xl">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold text-[#F5F5F5] capitalize">{r.role} AI</span>
+                      <span className="text-sm font-semibold text-[#F5F0E8] capitalize">{r.role} AI</span>
                       {r.role === 'customer' && (
                         <span className="px-2 py-0.5 bg-amber-500/20 text-amber-400 text-[10px] rounded-full">
                           Rate Limited
@@ -282,7 +282,7 @@ function AiAnalyticsPanel({ onClose, isSuperAdmin = false }) {
                       )}
                     </div>
                     <div className="flex items-center gap-3 text-xs">
-                      <span className="text-[#F5F5F5]/50">
+                      <span className="text-[#F5F0E8]/50">
                         <Gauge className="w-3 h-3 inline mr-1" />
                         {getToolUsagePercent(r.role)}% tools
                       </span>
@@ -292,19 +292,19 @@ function AiAnalyticsPanel({ onClose, isSuperAdmin = false }) {
                   
                   {/* Tool vs Token Usage Bar */}
                   <div className="mb-3">
-                    <div className="flex h-2 rounded-full overflow-hidden bg-[#0A0A0A]">
+                    <div className="flex h-2 rounded-full overflow-hidden bg-[#111111]">
                       <div 
                         className="bg-green-500" 
                         style={{ width: `${getToolUsagePercent(r.role)}%` }}
                         title="Tool calls (low cost)"
                       />
                       <div 
-                        className="bg-[#E07B8B]" 
+                        className="bg-[#A8B4C8]" 
                         style={{ width: `${100 - getToolUsagePercent(r.role)}%` }}
                         title="Token usage (higher cost)"
                       />
                     </div>
-                    <div className="flex justify-between mt-1 text-[10px] text-[#F5F5F5]/40">
+                    <div className="flex justify-between mt-1 text-[10px] text-[#F5F0E8]/40">
                       <span className="flex items-center gap-1">
                         <Zap className="w-2 h-2" /> Tools: {r.tool_calls || 0}
                       </span>
@@ -314,21 +314,21 @@ function AiAnalyticsPanel({ onClose, isSuperAdmin = false }) {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs text-[#F5F5F5]/60">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs text-[#F5F0E8]/60">
                     <div className="flex items-center gap-1.5">
-                      <Clock className="w-3 h-3 text-[#F5F5F5]/40" />
+                      <Clock className="w-3 h-3 text-[#F5F0E8]/40" />
                       <span>{r.sessions} sessions</span>
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <MessageCircle className="w-3 h-3 text-[#F5F5F5]/40" />
+                      <MessageCircle className="w-3 h-3 text-[#F5F0E8]/40" />
                       <span>{r.messages} msgs</span>
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <TrendingUp className="w-3 h-3 text-[#F5F5F5]/40" />
+                      <TrendingUp className="w-3 h-3 text-[#F5F0E8]/40" />
                       <span>{(r.tokens_in || 0).toLocaleString()} in</span>
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <TrendingUp className="w-3 h-3 text-[#F5F5F5]/40" />
+                      <TrendingUp className="w-3 h-3 text-[#F5F0E8]/40" />
                       <span>{(r.tokens_out || 0).toLocaleString()} out</span>
                     </div>
                   </div>
@@ -337,25 +337,25 @@ function AiAnalyticsPanel({ onClose, isSuperAdmin = false }) {
             </div>
 
             {/* Provider Info */}
-            <div className="p-4 bg-[#180F14] border border-[#E07B8B]/15 rounded-xl">
-              <h4 className="text-sm font-semibold text-[#F5F5F5] mb-3 flex items-center gap-2">
-                <Settings className="w-4 h-4 text-[#E07B8B]" />
+            <div className="p-4 bg-[#180F14] border border-[#A8B4C8]/15 rounded-xl">
+              <h4 className="text-sm font-semibold text-[#F5F0E8] mb-3 flex items-center gap-2">
+                <Settings className="w-4 h-4 text-[#A8B4C8]" />
                 Active AI Providers
               </h4>
               <div className="grid grid-cols-2 gap-3">
-                <div className="flex items-center justify-between p-2 bg-[#0A0A0A] rounded-lg">
-                  <span className="text-xs text-[#F5F5F5]">Gemini Flash</span>
+                <div className="flex items-center justify-between p-2 bg-[#111111] rounded-lg">
+                  <span className="text-xs text-[#F5F0E8]">Gemini Flash</span>
                   <span className="w-2 h-2 rounded-full bg-green-400" />
                 </div>
-                <div className="flex items-center justify-between p-2 bg-[#0A0A0A] rounded-lg">
-                  <span className="text-xs text-[#F5F5F5]">OpenRouter</span>
-                  <span className="w-2 h-2 rounded-full bg-[#F5F5F5]/30" />
+                <div className="flex items-center justify-between p-2 bg-[#111111] rounded-lg">
+                  <span className="text-xs text-[#F5F0E8]">OpenRouter</span>
+                  <span className="w-2 h-2 rounded-full bg-[#F5F0E8]/30" />
                 </div>
               </div>
             </div>
           </div>
         ) : (
-          <p className="text-sm text-[#F5F5F5]/50 text-center py-6">No data available yet.</p>
+          <p className="text-sm text-[#F5F0E8]/50 text-center py-6">No data available yet.</p>
         )}
       </div>
     </div>
@@ -500,16 +500,16 @@ export default function AdminAiAssistantPage() {
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)]" style={{ fontFamily: "'Inter', sans-serif" }}>
       {/* Header */}
-      <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-[#E07B8B]/15 flex-shrink-0">
+      <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-[#A8B4C8]/15 flex-shrink-0">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#9333EA] to-[#E07B8B] flex items-center justify-center shadow-lg shadow-[#E07B8B]/20">
+          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#1E3A5F] to-[#A8B4C8] flex items-center justify-center shadow-lg shadow-[#A8B4C8]/20">
             <Sparkles className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h1 className="text-lg font-bold text-[#FFD700]" style={{ fontFamily: 'Cinzel, serif' }}>Aria AI Assistant</h1>
+            <h1 className="text-lg font-bold text-[#D4AF37]" style={{ fontFamily: 'Cinzel, serif' }}>Aria AI Assistant</h1>
             <div className="flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-              <p className="text-xs text-[#F5F5F5]/40">Agentic · Tool-powered · Gemini Flash</p>
+              <p className="text-xs text-[#F5F0E8]/40">Agentic · Tool-powered · Gemini Flash</p>
             </div>
           </div>
         </div>
@@ -517,19 +517,19 @@ export default function AdminAiAssistantPage() {
           <button
             onClick={() => router.push('/admin/dashboard')}
             title="Switch to Dashboard"
-            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-xs text-[#F5F5F5]/50 border border-[#E07B8B]/20 rounded-xl hover:bg-[#E07B8B]/10 hover:text-[#F5F5F5]/80 transition-colors"
+            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-xs text-[#F5F0E8]/50 border border-[#A8B4C8]/20 rounded-xl hover:bg-[#A8B4C8]/10 hover:text-[#F5F0E8]/80 transition-colors"
           >
             <LayoutDashboard className="w-3.5 h-3.5" /> Dashboard
           </button>
           <button
             onClick={() => setShowAnalytics(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-[#F5F5F5]/60 border border-[#E07B8B]/20 rounded-xl hover:bg-[#E07B8B]/10 transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-[#F5F0E8]/60 border border-[#A8B4C8]/20 rounded-xl hover:bg-[#A8B4C8]/10 transition-colors"
           >
             <BarChart2 className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Analytics</span>
           </button>
           <button
             onClick={clearSession}
-            className="p-2 text-[#F5F5F5]/40 hover:text-[#F5F5F5]/70 border border-[#E07B8B]/20 rounded-xl hover:bg-[#E07B8B]/10 transition-colors"
+            className="p-2 text-[#F5F0E8]/40 hover:text-[#F5F0E8]/70 border border-[#A8B4C8]/20 rounded-xl hover:bg-[#A8B4C8]/10 transition-colors"
             title="New conversation"
           >
             <RefreshCw className="w-4 h-4" />
@@ -538,13 +538,13 @@ export default function AdminAiAssistantPage() {
       </div>
 
       {/* Quick prompts bar */}
-      <div className="flex gap-2 overflow-x-auto px-4 sm:px-6 py-3 border-b border-[#E07B8B]/10 flex-shrink-0 no-scrollbar">
+      <div className="flex gap-2 overflow-x-auto px-4 sm:px-6 py-3 border-b border-[#A8B4C8]/10 flex-shrink-0 no-scrollbar">
         {QUICK_PROMPTS.map(({ Icon, label, prompt: qpPrompt }) => (
           <button
             key={label}
             onClick={() => sendMessage(qpPrompt)}
             disabled={loading}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-[#180F14] border border-[#E07B8B]/20 rounded-full text-xs text-[#F5F5F5]/60 hover:text-[#FFD700] hover:border-[#E07B8B]/40 whitespace-nowrap transition-colors disabled:opacity-40 flex-shrink-0"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-[#180F14] border border-[#A8B4C8]/20 rounded-full text-xs text-[#F5F0E8]/60 hover:text-[#D4AF37] hover:border-[#A8B4C8]/40 whitespace-nowrap transition-colors disabled:opacity-40 flex-shrink-0"
           >
             <Icon className="w-3 h-3" />
             {label}
@@ -582,7 +582,7 @@ export default function AdminAiAssistantPage() {
             <div className="flex gap-2">
               <button
                 onClick={() => setPendingActions([])}
-                className="text-xs text-[#F5F5F5]/40 hover:text-[#F5F5F5]/70 transition-colors px-2"
+                className="text-xs text-[#F5F0E8]/40 hover:text-[#F5F0E8]/70 transition-colors px-2"
               >Dismiss</button>
               <button
                 onClick={() => setShowConfirmModal(true)}
@@ -607,7 +607,7 @@ export default function AdminAiAssistantPage() {
         {messages.map((msg) => (
           <div key={msg.id} className={`flex items-start gap-2.5 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
             {msg.role === 'assistant' && (
-              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#9333EA] to-[#E07B8B] flex items-center justify-center flex-shrink-0 mt-0.5">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#1E3A5F] to-[#A8B4C8] flex items-center justify-center flex-shrink-0 mt-0.5">
                 <Sparkles className="w-4 h-4 text-white" />
               </div>
             )}
@@ -622,7 +622,7 @@ export default function AdminAiAssistantPage() {
                         src={src}
                         alt={`Attached image ${i + 1}`}
                         fill
-                        className="rounded-xl object-cover border border-[#E07B8B]/20"
+                        className="rounded-xl object-cover border border-[#A8B4C8]/20"
                         sizes="80px"
                       />
                     </div>
@@ -632,12 +632,12 @@ export default function AdminAiAssistantPage() {
 
               <div className={`rounded-2xl w-full ${
                 msg.role === 'user'
-                  ? 'bg-gradient-to-br from-[#9333EA] to-[#E07B8B] text-white px-4 py-3 rounded-tr-sm shadow-md'
-                  : 'bg-[#0A0A0A]/60 border border-[#E07B8B]/15 px-4 py-3 rounded-tl-sm'
+                  ? 'bg-gradient-to-br from-[#1E3A5F] to-[#A8B4C8] text-white px-4 py-3 rounded-tr-sm shadow-md'
+                  : 'bg-[#111111]/60 border border-[#A8B4C8]/15 px-4 py-3 rounded-tl-sm'
               }`}>
                 {msg.role === 'assistant' && (
                   <div className="flex items-start justify-between gap-2 mb-1">
-                    <span className="text-[10px] text-[#F5F5F5]/30">Aria</span>
+                    <span className="text-[10px] text-[#F5F0E8]/30">Aria</span>
                     <CopyButton text={msg.text} />
                   </div>
                 )}
@@ -652,8 +652,8 @@ export default function AdminAiAssistantPage() {
                 
                 {/* Cost indicator */}
                 {msg.tokenCost !== undefined && (
-                  <div className="mt-2 pt-2 border-t border-[#E07B8B]/10 flex items-center justify-between">
-                    <span className="text-[10px] text-[#F5F5F5]/30">
+                  <div className="mt-2 pt-2 border-t border-[#A8B4C8]/10 flex items-center justify-between">
+                    <span className="text-[10px] text-[#F5F0E8]/30">
                       {msg.provider || 'Gemini Flash'}
                     </span>
                     <span className="text-[10px] text-green-400/70">
@@ -663,7 +663,7 @@ export default function AdminAiAssistantPage() {
                 )}
               </div>
               
-              <span className="text-[10px] text-[#F5F5F5]/20 mt-1">
+              <span className="text-[10px] text-[#F5F0E8]/20 mt-1">
                 {msg.timestamp?.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
               </span>
             </div>
@@ -673,14 +673,14 @@ export default function AdminAiAssistantPage() {
         {/* Typing indicator */}
         {loading && (
           <div className="flex items-start gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#9333EA] to-[#E07B8B] flex items-center justify-center flex-shrink-0 mt-0.5">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#1E3A5F] to-[#A8B4C8] flex items-center justify-center flex-shrink-0 mt-0.5">
               <Sparkles className="w-4 h-4 text-white" />
             </div>
-            <div className="bg-[#0A0A0A]/60 border border-[#E07B8B]/15 px-4 py-3 rounded-2xl rounded-tl-sm">
+            <div className="bg-[#111111]/60 border border-[#A8B4C8]/15 px-4 py-3 rounded-2xl rounded-tl-sm">
               <div className="flex gap-1">
-                <span className="w-2 h-2 rounded-full bg-[#E07B8B] animate-bounce" style={{ animationDelay: '0ms' }} />
-                <span className="w-2 h-2 rounded-full bg-[#E07B8B] animate-bounce" style={{ animationDelay: '150ms' }} />
-                <span className="w-2 h-2 rounded-full bg-[#E07B8B] animate-bounce" style={{ animationDelay: '300ms' }} />
+                <span className="w-2 h-2 rounded-full bg-[#A8B4C8] animate-bounce" style={{ animationDelay: '0ms' }} />
+                <span className="w-2 h-2 rounded-full bg-[#A8B4C8] animate-bounce" style={{ animationDelay: '150ms' }} />
+                <span className="w-2 h-2 rounded-full bg-[#A8B4C8] animate-bounce" style={{ animationDelay: '300ms' }} />
               </div>
             </div>
           </div>
@@ -689,7 +689,7 @@ export default function AdminAiAssistantPage() {
       </div>
 
       {/* Input area */}
-      <div className="px-4 sm:px-6 py-4 border-t border-[#E07B8B]/15 bg-[#0A0A0A]/40">
+      <div className="px-4 sm:px-6 py-4 border-t border-[#A8B4C8]/15 bg-[#111111]/40">
         <div className="flex items-end gap-3">
           <div className="flex-1 relative">
             <textarea
@@ -699,7 +699,7 @@ export default function AdminAiAssistantPage() {
               onKeyDown={handleKeyDown}
               placeholder="Ask me anything about your store..."
               rows={1}
-              className="w-full px-4 py-3 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-xl text-[#F5F5F5] placeholder-[#F5F5F5]/40 focus:outline-none focus:border-[#E07B8B]/40 resize-none pr-12"
+              className="w-full px-4 py-3 bg-[#111111]/60 border border-[#A8B4C8]/20 rounded-xl text-[#F5F0E8] placeholder-[#F5F0E8]/40 focus:outline-none focus:border-[#A8B4C8]/40 resize-none pr-12"
               style={{ minHeight: '48px', maxHeight: '120px' }}
             />
             <input
@@ -715,7 +715,7 @@ export default function AdminAiAssistantPage() {
           {/* Attachment button */}
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="p-3 text-[#F5F5F5]/40 hover:text-[#F5F5F5]/70 transition-colors"
+            className="p-3 text-[#F5F0E8]/40 hover:text-[#F5F0E8]/70 transition-colors"
             title="Attach image"
           >
             <Paperclip className="w-5 h-5" />
@@ -725,7 +725,7 @@ export default function AdminAiAssistantPage() {
           <button
             onClick={() => sendMessage()}
             disabled={!input.trim() || loading}
-            className="p-3 bg-gradient-to-br from-[#9333EA] to-[#E07B8B] rounded-xl text-white hover:opacity-90 transition-opacity disabled:opacity-40"
+            className="p-3 bg-gradient-to-br from-[#1E3A5F] to-[#A8B4C8] rounded-xl text-white hover:opacity-90 transition-opacity disabled:opacity-40"
           >
             {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
           </button>

@@ -160,8 +160,8 @@ const DialogContent = React.forwardRef(({ className, children, showCloseButton =
       <div
         ref={contentRef}
         className={cn(
-          "relative grid w-full max-w-lg gap-4 border border-[#E07B8B]/30",
-          "bg-[#0A0A0A] p-6 shadow-xl sm:rounded-2xl",
+          "relative grid w-full max-w-lg gap-4 border border-[#A8B4C8]/30",
+          "bg-[#111111] p-6 shadow-xl sm:rounded-2xl",
           "max-h-[90vh] overflow-y-auto",
           "transition-all duration-200",
           className
@@ -177,8 +177,8 @@ const DialogContent = React.forwardRef(({ className, children, showCloseButton =
             aria-label="Close dialog"
             className={cn(
               "absolute right-4 top-4 rounded-xl p-2",
-              "text-[#F5F5F5]/60 hover:text-[#F5F5F5]",
-              "hover:bg-[#E07B8B]/10 transition-colors",
+              "text-[#F5F0E8]/60 hover:text-[#F5F0E8]",
+              "hover:bg-[#A8B4C8]/10 transition-colors",
               "min-w-[44px] min-h-[44px] touch-target"
             )}
           >
@@ -194,7 +194,7 @@ DialogContent.displayName = "DialogContent";
 const DialogDescription = React.forwardRef(({ className, ...props }, ref) => (
   <p
     ref={ref}
-    className={cn("text-sm text-[#F5F5F5]/60", className)}
+    className={cn("text-sm text-[#F5F0E8]/60", className)}
     {...props}
   />
 ));
@@ -224,7 +224,7 @@ const DialogTitle = React.forwardRef(({ className, ...props }, ref) => (
     ref={ref}
     id="dialog-title"
     className={cn(
-      "text-lg font-bold leading-none tracking-tight text-[#FFD700]",
+      "text-lg font-bold leading-none tracking-tight text-[#D4AF37]",
       "font-['Cinzel',serif]",
       className
     )}

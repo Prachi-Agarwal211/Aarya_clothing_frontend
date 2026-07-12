@@ -103,14 +103,32 @@ html {
     --ring: 222.2 84% 4.9%;
     --radius: 0.5rem;
 
-    /* Premium Design System Variables */
-    --gold-primary: #FFD700;
-    --gold-dark: #F59E0B;
-    --rose-gold: #E07B8B;
-    --purple-accent: #9333EA;
-    --bg-deep: #000000;
-    
-    /* Premium Transition Variables */
+    /* AARYA Royal: matte black/grey + cool royal blue + white/beige + gold */
+    --gold-primary: #D4AF37;
+    --gold-bright: #E8C547;
+    --gold-pale: #F0D78C;
+    --gold-dark: #B8962E;
+    --steel: #A8B4C8;
+    --steel-dim: #8A919C;
+    --royal: #1E3A5F;
+    --royal-mid: #2C4A7C;
+    --royal-soft: #3D5A80;
+    --navy: #1E3A5F;
+    --navy-deep: #152238;
+    --bg-deep: #0D0D0D;
+    --bg-ink: #111111;
+    --bg-card: #161616;
+    --bg-surface: #1C1C1C;
+    --bg-elevated: #252525;
+    --text-white: #FFFFFF;
+    --text-ivory: #F7F4EE;
+    --text-beige: #F5F0E8;
+    --text-beige-muted: #C8BFAF;
+    --text-cream: #F5F0E8;
+    --text-muted: #8A919C;
+    --rose-gold: #A8B4C8;
+    --purple-accent: #1E3A5F;
+
     --transition-smooth: cubic-bezier(0.4, 0, 0.2, 1);
     --transition-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
     --transition-elegant: cubic-bezier(0.25, 0.46, 0.45, 0.94);
@@ -139,33 +157,155 @@ html {
     --ring: 212.7 26.8% 83.9%;
   }
   
-  /* Reset specific to this dark theme */
+  /* Matte + grayish metal-royal wash (silk-aligned) */
   body {
-    background-color: var(--bg-deep);
-    color: #D4D4D4;
+    background-color: #0B0D10;
+    background-image:
+      radial-gradient(ellipse 120% 75% at 20% -10%, rgba(61, 90, 128, 0.42) 0%, transparent 55%),
+      radial-gradient(ellipse 55% 45% at 100% 70%, rgba(30, 58, 95, 0.28) 0%, transparent 48%),
+      linear-gradient(180deg, #0B0D10 0%, #121820 42%, #0D0D0D 100%);
+    background-attachment: fixed;
+    color: var(--text-beige);
     font-family: var(--font-inter), 'Inter', system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     line-height: 1.6;
   }
-  
-  /* Display headings: Cinzel serif for luxury feel */
+
+  /* Headings: white/ivory for premium contrast on matte black */
   h1, h2, h3 {
     font-family: var(--font-cinzel), serif;
     letter-spacing: 0.03em;
     font-weight: 400;
+    color: var(--text-ivory);
   }
-  /* Body headings: Inter for clean UI hierarchy */
   h4, h5, h6 {
     font-family: var(--font-inter), 'Inter', system-ui, sans-serif;
     letter-spacing: 0.01em;
     font-weight: 500;
+    color: var(--text-beige);
   }
-  
-  /* Refined selection styling */
+
   ::selection {
-    background: rgba(255, 215, 0, 0.2);
-    color: #FFD700;
+    background: rgba(30, 58, 95, 0.45);
+    color: #F7F4EE;
+  }
+
+  .hairline-gold {
+    background: linear-gradient(90deg, transparent, rgba(212, 175, 55, 0.45), transparent);
+    height: 1px;
+  }
+
+  .panel-matte {
+    background: linear-gradient(160deg, #1C1C1C 0%, #161616 50%, #111111 100%);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03), 0 10px 32px rgba(0, 0, 0, 0.5);
+  }
+
+  .panel-royal {
+    background: linear-gradient(
+      145deg,
+      rgba(30, 58, 95, 0.4) 0%,
+      rgba(22, 22, 22, 0.96) 42%,
+      rgba(13, 13, 13, 0.99) 100%
+    );
+    border: 1px solid rgba(61, 90, 128, 0.35);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 10px 32px rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(12px);
+  }
+
+  /* ── Product page (PDP): CSS-only reveals — GPU friendly, no GSAP ── */
+  @keyframes pdp-fade-up {
+    from {
+      opacity: 0;
+      transform: translate3d(0, 16px, 0);
+    }
+    to {
+      opacity: 1;
+      transform: translate3d(0, 0, 0);
+    }
+  }
+
+  @keyframes pdp-img-in {
+    from {
+      opacity: 0.35;
+      transform: scale(1.04);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  @keyframes pdp-tab-in {
+    from {
+      opacity: 0;
+      transform: translate3d(0, 8px, 0);
+    }
+    to {
+      opacity: 1;
+      transform: translate3d(0, 0, 0);
+    }
+  }
+
+  .pdp-reveal {
+    animation: pdp-fade-up 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+    will-change: opacity, transform;
+  }
+
+  .pdp-gallery-img {
+    animation: pdp-img-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+    will-change: opacity, transform;
+  }
+
+  .pdp-tab-panel {
+    animation: pdp-tab-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  /* Stagger helpers for SSR-safe delayed reveals */
+  .pdp-delay-1 { animation-delay: 60ms; }
+  .pdp-delay-2 { animation-delay: 120ms; }
+  .pdp-delay-3 { animation-delay: 180ms; }
+  .pdp-delay-4 { animation-delay: 240ms; }
+  .pdp-delay-5 { animation-delay: 300ms; }
+
+  /* Hero image participates in view transitions when navigating from PLP cards */
+  .pdp-gallery {
+    view-transition-name: pdp-hero;
+  }
+
+  /* View Transitions API (supporting browsers) — soft page morph */
+  @supports (view-transition-name: none) {
+    ::view-transition-old(root),
+    ::view-transition-new(root) {
+      animation-duration: 0.28s;
+      animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    ::view-transition-old(pdp-hero),
+    ::view-transition-new(pdp-hero) {
+      animation-duration: 0.35s;
+      animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+      mix-blend-mode: normal;
+      height: 100%;
+      overflow: clip;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .pdp-reveal,
+    .pdp-gallery-img,
+    .pdp-tab-panel,
+    .page-enter,
+    .page-exit {
+      animation: none !important;
+      opacity: 1 !important;
+      transform: none !important;
+    }
+
+    .pdp-gallery {
+      view-transition-name: none;
+    }
   }
   
   /* Smooth scroll behavior */
@@ -327,25 +467,9 @@ html {
   animation: ripple 0.6s ease-out;
 }
 
-/* Premium Button Glow */
+/* Button glow - disabled, subtle border transition only */
 .btn-glow {
   position: relative;
-}
-
-.btn-glow::before {
-  content: '';
-  position: absolute;
-  inset: -2px;
-  background: linear-gradient(45deg, rgba(255,255,255,0.05), rgba(255,255,255,0.1), rgba(255,255,255,0.05));
-  border-radius: inherit;
-  z-index: -1;
-  opacity: 0;
-  transition: opacity 0.4s ease;
-  filter: blur(8px);
-}
-
-.btn-glow:hover::before {
-  opacity: 0.7;
 }
 
 @keyframes gradientShift {
@@ -358,18 +482,17 @@ html {
    ============================================ */
 
 /* Gold text — clean, no shadow */
-.text-\[\#FFD700\] {
+.text-\[\#D4AF37\] {
   text-shadow: none;
 }
 
 /* Premium Heading Style */
 .heading-premium {
-  background: linear-gradient(135deg, #FFD700 0%, #F5F5F5 50%, #FFD700 100%);
+  background: linear-gradient(135deg, #D4AF37 0%, #F5F0E8 50%, #D4AF37 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
   text-shadow: none;
-  filter: drop-shadow(0 2px 8px rgba(242, 194, 154, 0.3));
 }
 
 /* Elegant Underline Animation */
@@ -385,7 +508,7 @@ html {
   left: 0;
   width: 0;
   height: 2px;
-  background: linear-gradient(90deg, #FFD700, #E07B8B);
+  background: linear-gradient(90deg, #D4AF37, #A8B4C8);
   transition: width 0.4s var(--transition-smooth);
 }
 
@@ -393,13 +516,13 @@ html {
   width: 100%;
 }
 
-/* Light text (#F5F5F5) — clean, no shadow */
-.text-\[\#F5F5F5\] {
+/* Light text (#F5F0E8) — clean, no shadow */
+.text-\[\#F5F0E8\] {
   text-shadow: none;
 }
 
 /* Rose gold text — clean */
-.text-\[\#E07B8B\] {
+.text-\[\#A8B4C8\] {
   text-shadow: none;
 }
 
@@ -430,8 +553,8 @@ input:-webkit-autofill:hover,
 input:-webkit-autofill:focus, 
 input:-webkit-autofill:active {
   transition: background-color 5000s ease-in-out 0s !important;
-  -webkit-text-fill-color: #F5F5F5 !important;
-  caret-color: #F5F5F5 !important;
+  -webkit-text-fill-color: #F5F0E8 !important;
+  caret-color: #F5F0E8 !important;
 }
 
 /* Enhanced Luxury Input */
@@ -641,161 +764,34 @@ input[type="checkbox"]:focus {
 }
 
 /* ============================================
-   PREMIUM MICRO-INTERACTIONS
+   MICRO-INTERACTIONS
    ============================================ */
 
 /* Float Animation */
 @keyframes float {
   0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-10px); }
+  50% { transform: translateY(-6px); }
 }
 
 .animate-float {
-  animation: float 6s ease-in-out infinite;
+  animation: float 8s ease-in-out infinite;
 }
 
-/* Glow Pulse Animation */
-@keyframes glowPulse {
-  0%, 100% { box-shadow: 0 0 12px rgba(255, 255, 255, 0.05); }
-  50% { box-shadow: 0 0 24px rgba(255, 255, 255, 0.08); }
-}
-
-.animate-glow-pulse {
-  animation: glowPulse 3s ease-in-out infinite;
-}
-
-/* Shimmer Effect for Cards */
-@keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
-}
-
-.animate-shimmer {
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    rgba(255, 255, 255, 0.04) 50%,
-    transparent 100%
-  );
-  background-size: 200% 100%;
-  animation: shimmer 3s ease-in-out infinite;
-}
-
-/* Scroll Indicator Animation */
-@keyframes scrollBounce {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(8px); }
-}
-
-.animate-scroll-bounce {
-  animation: scrollBounce 2s ease-in-out infinite;
-}
-
-/* ============================================
-   HERO BUTTON STYLES
-   ============================================ */
-
-/* Hero Button Glow Effect */
-.hero-btn-glow {
-  position: relative;
-}
-
-.hero-btn-glow::before {
-  content: '';
-  position: absolute;
-  inset: -1px;
-  background: linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.12), rgba(255,255,255,0.08));
-  border-radius: inherit;
-  z-index: -1;
-  opacity: 0;
-  transition: opacity 0.4s ease;
-  filter: blur(4px);
-}
-
-.hero-btn-glow:hover::before {
-  opacity: 0.6;
-}
-
-/* Silk Text Shimmer Animation */
+/* Silk Text - simple white text, no shimmer animation */
 .silk-text-animate {
-  background: linear-gradient(
-    90deg,
-    #0D0D0D 0%,
-    #0D0D0D 20%,
-    rgba(255,255,255,0.15) 35%,
-    rgba(255,255,255,0.25) 50%,
-    rgba(255,255,255,0.15) 65%,
-    #0D0D0D 100%
-  );
-  background-size: 200% 100%;
-  background-clip: text;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  animation: silkShimmer 4s linear infinite;
+  color: #0D0D0D;
 }
 
-@keyframes silkShimmer {
-  0% {
-    background-position: 200% 0;
-  }
-  100% {
-    background-position: -200% 0;
-  }
-}
-
-/* Silk text for outline buttons (white text with subtle shimmer) */
-.silk-text-outline {
-  position: relative;
-}
-
-.silk-text-outline::after {
-  content: attr(data-text);
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    rgba(255, 255, 255, 0.15) 25%,
-    rgba(255, 255, 255, 0.3) 50%,
-    rgba(255, 255, 255, 0.15) 75%,
-    transparent 100%
-  );
-  background-size: 200% 100%;
-  background-clip: text;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  animation: silkShimmerSubtle 3s linear infinite;
-  pointer-events: none;
-}
-
-@keyframes silkShimmerSubtle {
-  0% {
-    background-position: 200% 0;
-  }
-  100% {
-    background-position: -200% 0;
-  }
-}
-
-/* ============================================
-   PREMIUM GRADIENT TEXT
-   ============================================ */
-
+/* Gradient text - static, no animation */
 .gradient-text-gold {
-  background: linear-gradient(135deg, #FFD700, #F59E0B, #FFD700);
-  background-size: 200% 200%;
+  background: linear-gradient(135deg, #D4AF37, #F59E0B, #D4AF37);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  animation: gradientShift 4s ease infinite;
 }
 
 .gradient-text-rose {
   background: linear-gradient(135deg, rgba(255,255,255,0.6), rgba(255,255,255,0.9), rgba(255,255,255,0.6));
-  background-size: 200% 200%;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -813,29 +809,24 @@ input[type="checkbox"]:focus {
    PREMIUM CARD ENHANCEMENTS
    ============================================ */
 
-/* Product Card Hover Effect */
+/* Product Card Hover Effect
+   DEPRECATED: white bottom-line glow removed — ProductCard uses soft dark lift only.
+   Keep class as no-op so any leftover usage does not reintroduce harsh outlines. */
 .product-card-enhanced {
-  transition: all 0.5s var(--transition-smooth);
+  /* no global transform / ::after glow */
 }
 
 .product-card-enhanced:hover {
-  transform: translateY(-8px) scale(1.02);
+  /* intentional no-op */
 }
 
 .product-card-enhanced::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: rgba(255, 255, 255, 0.15);
-  transform: scaleX(0);
-  transition: transform 0.4s var(--transition-smooth);
+  display: none;
+  content: none;
 }
 
 .product-card-enhanced:hover::after {
-  transform: scaleX(1);
+  display: none;
 }
 
 /* ============================================
@@ -898,10 +889,10 @@ input[type="checkbox"]:focus {
 /* Size button styling */
 .size-button {
   background: rgba(10, 10, 10, 0.45);
-  border: 2px solid rgba(224, 123, 139, 0.2);
+  border: 2px solid rgba(168, 180, 200, 0.2);
   border-radius: 0.75rem;
   padding: 0.5rem 1rem;
-  color: #F5F5F5;
+  color: #F5F0E8;
   transition: all 0.3s var(--transition-smooth);
   cursor: pointer;
   min-width: 44px;
@@ -919,7 +910,7 @@ input[type="checkbox"]:focus {
 .size-button.selected {
   background: rgba(255, 255, 255, 0.08);
   border-color: rgba(255, 255, 255, 0.25);
-  color: #F5F5F5;
+  color: #F5F0E8;
   box-shadow: none;
 }
 
@@ -1107,27 +1098,16 @@ input[type="checkbox"]:focus {
     background: rgba(10, 10, 10, 0.4);
   }
   
-  .product-card-enhanced:hover {
-    transform: none;
-  }
-  
+  .product-card-enhanced:hover,
   .product-card-enhanced:hover::after {
-    transform: scaleX(0);
+    transform: none;
+    display: none;
   }
   
   /* Reduce backdrop blur on mobile for performance */
   .glass-card,
   .luxury-input-wrapper {
     backdrop-filter: blur(8px);
-  }
-  
-  /* Disable complex animations on mobile */
-  .animate-sheen {
-    animation: none;
-  }
-  
-  .btn-glow::before {
-    display: none;
   }
   
   /* Simpler hover states */
@@ -1140,35 +1120,11 @@ input[type="checkbox"]:focus {
 
 /* Mobile-specific performance */
 @media (max-width: 640px) {
-  /* Reduce animation complexity */
-  @keyframes float {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-5px); }
-  }
-  
-  .animate-float {
-    animation-duration: 8s;
-  }
-  
   /* Reduce shadow complexity */
   .glass-card {
     box-shadow: 
       0 4px 16px rgba(0, 0, 0, 0.2),
       inset 0 1px 0 rgba(255, 255, 255, 0.03);
-  }
-  
-  /* Simpler gradients */
-  .gradient-text-gold,
-  .gradient-text-rose {
-    background-size: 100% 100%;
-    animation: none;
-  }
-  
-  /* Reduce text shadow complexity */
-  .text-\[\#FFD700\] {
-    text-shadow: 
-      0 1px 2px rgba(0, 0, 0, 0.8),
-      0 0 8px rgba(242, 194, 154, 0.2);
   }
 }
 
@@ -1208,21 +1164,31 @@ button, .btn, a, .no-select {
  * Header height: ~80px desktop, ~60px mobile
  * Adding padding-top to prevent content overlap
  */
+/* Fixed header clearance — must clear logo row (~64–80px) + safe area */
 .header-spacing {
-  padding-top: clamp(80px, 10vh, 120px); /* Responsive padding: 80px min, 10vh fluid, 120px max */
+  padding-top: calc(5.5rem + env(safe-area-inset-top, 0px)); /* ~88px */
 }
 
-/* Mobile adjustment - smaller header on mobile */
 @media (max-width: 768px) {
   .header-spacing {
-    padding-top: clamp(70px, 12vh, 100px);
+    padding-top: calc(4.75rem + env(safe-area-inset-top, 0px)); /* ~76px */
   }
 }
 
-/* Extra large screens - more generous spacing */
-@media (min-width: 1536px) {
+@media (min-width: 1024px) {
   .header-spacing {
-    padding-top: 140px;
+    padding-top: calc(5.75rem + env(safe-area-inset-top, 0px)); /* ~92px */
+  }
+}
+
+/* PDP / catalog pages need a bit more air under solid header */
+.header-spacing-page {
+  padding-top: calc(6.25rem + env(safe-area-inset-top, 0px));
+}
+
+@media (max-width: 768px) {
+  .header-spacing-page {
+    padding-top: calc(5.25rem + env(safe-area-inset-top, 0px));
   }
 }
 
@@ -1300,7 +1266,7 @@ header {
 }
 
 .modal-content {
-  background: linear-gradient(135deg, #0A0A0A 0%, #141414 100%);
+  background: linear-gradient(135deg, #111111 0%, #161616 100%);
   border: 1px solid rgba(242, 194, 154, 0.1);
   border-radius: 1rem;
   box-shadow:
@@ -1586,11 +1552,22 @@ header {
 }
 
 .page-enter {
-  animation: page-fade-in 0.4s ease-out forwards;
+  animation: page-fade-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
 .page-exit {
   animation: page-fade-out 0.3s ease-in forwards;
+}
+
+/* Global route shell — light fade used by ClientShell / loading boundaries */
+.route-fade {
+  animation: pdp-fade-up 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .route-fade {
+    animation: none !important;
+  }
 }
 
 /* ============================================
@@ -1688,7 +1665,7 @@ header {
 
 /* Focus Visible for Keyboard Navigation */
 .focus-visible:focus-visible {
-  outline: 2px solid #FFD700;
+  outline: 2px solid #D4AF37;
   outline-offset: 2px;
 }
 
@@ -1723,7 +1700,7 @@ header {
 
 /* Universal Focus Visible */
 *:focus-visible {
-  outline: 2px solid #FFD700;
+  outline: 2px solid #D4AF37;
   outline-offset: 2px;
   box-shadow: 0 0 0 4px rgba(242, 194, 154, 0.2);
 }
@@ -1741,7 +1718,7 @@ input:focus-visible,
 select:focus-visible,
 textarea:focus-visible,
 [tabindex]:focus-visible {
-  outline: 2px solid #FFD700;
+  outline: 2px solid #D4AF37;
   outline-offset: 2px;
   box-shadow: 
     0 0 0 2px rgba(5, 2, 3, 0.8),
@@ -1784,7 +1761,7 @@ main a:not(.no-underline):not([role="button"]):not(.nav-link):not(.header-link):
 article a:not(.no-underline):hover,
 p a:not(.no-underline):hover,
 .prose a:not(.no-underline):hover {
-  text-decoration-color: #FFD700;
+  text-decoration-color: #D4AF37;
 }
 
 /* ==================== NAVIGATION - NO UNDERLINES ==================== */
@@ -1918,16 +1895,16 @@ a[role="button"] *:hover,
 
 /* High Contrast Mode Support */
 @media (prefers-contrast: high) {
-  .border-\[\#E07B8B\]\/10,
-  .border-\[\#E07B8B\]\/15,
-  .border-\[\#E07B8B\]\/20 {
-    border-color: #E07B8B !important;
+  .border-\[\#A8B4C8\]\/10,
+  .border-\[\#A8B4C8\]\/15,
+  .border-\[\#A8B4C8\]\/20 {
+    border-color: #A8B4C8 !important;
   }
   
-  .text-\[\#F5F5F5\]\/50,
-  .text-\[\#F5F5F5\]\/60,
-  .text-\[\#F5F5F5\]\/70 {
-    color: #F5F5F5 !important;
+  .text-\[\#F5F0E8\]\/50,
+  .text-\[\#F5F0E8\]\/60,
+  .text-\[\#F5F0E8\]\/70 {
+    color: #F5F0E8 !important;
   }
   
   *:focus-visible {
@@ -2041,6 +2018,46 @@ main {
   transform: translateY(0);
 }
 
+/* ============================================
+   CINEMATIC LANDING PAGE TRANSITIONS
+   ============================================ */
+
+/* Curtain wipe - the dark panel that slides up over the hero */
+.curtain-wipe {
+  will-change: transform;
+}
+
+/* Reveal section base - used by GSAP ScrollTrigger for cinematic entrance */
+.reveal-section {
+  will-change: transform, opacity;
+}
+
+/* Reveal item base - GSAP handles initial state and animation.
+   These classes are markers for GSAP ScrollTrigger, not CSS-animated. */
+.reveal-item {
+  will-change: transform, opacity;
+}
+
+
+
+/* Lenis smooth scroll overrides - prevent conflicts */
+html.lenis, html.lenis body {
+  height: auto;
+}
+
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+
+.lenis.lenis-smooth [data-lenis-prevent] {
+  overscroll-behavior: contain;
+}
+
+/* Hero section pin spacer styling */
+.pin-spacer {
+  overflow: visible !important;
+}
+
 /* iOS safe-area bottom padding utility */
 .pb-safe {
   padding-bottom: env(safe-area-inset-bottom, 0px);
@@ -2145,9 +2162,9 @@ main {
 
 /* Mobile — no text shadows for crisp rendering */
 @media (max-width: 640px) {
-  .text-\[\#FFD700\],
-  .text-\[\#F5F5F5\],
-  .text-\[\#E07B8B\] {
+  .text-\[\#D4AF37\],
+  .text-\[\#F5F0E8\],
+  .text-\[\#A8B4C8\] {
     text-shadow: none;
   }
 }

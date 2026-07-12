@@ -100,10 +100,10 @@ function StaffDashboard() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl md:text-3xl font-bold text-[#FFD700]" style={{ fontFamily: 'Cinzel, serif' }}>
+        <h1 className="text-2xl md:text-3xl font-bold text-[#D4AF37]" style={{ fontFamily: 'Cinzel, serif' }}>
           Staff Dashboard
         </h1>
-        <p className="text-[#F5F5F5]/50 mt-1 text-sm">
+        <p className="text-[#F5F0E8]/50 mt-1 text-sm">
           Welcome back, {user?.full_name || user?.username}! Here&apos;s your workspace.
         </p>
       </div>
@@ -119,7 +119,7 @@ function StaffDashboard() {
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
         {[
           { label: 'Pending Orders', value: stats.pending_orders ?? pending.length, icon: Clock, color: 'text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/20', href: '/admin/staff/orders' },
-          { label: 'Orders Today', value: stats.today_orders ?? '—', icon: ShoppingBag, color: 'text-[#FFD700]', bg: 'bg-[#9333EA]/15', border: 'border-[#E07B8B]/20', href: '/admin/staff/orders' },
+          { label: 'Orders Today', value: stats.today_orders ?? '—', icon: ShoppingBag, color: 'text-[#D4AF37]', bg: 'bg-[#1E3A5F]/15', border: 'border-[#A8B4C8]/20', href: '/admin/staff/orders' },
           { label: 'Low Stock', value: stats.low_stock_count ?? '—', icon: AlertTriangle, color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20', href: '/admin/staff/inventory' },
         ].map(({ label, value, icon: Icon, color, bg, border, href }) => (
           <Link key={href} href={href} className={`${bg} border ${border} rounded-2xl p-5 flex items-center gap-4 hover:opacity-90 transition-opacity`}>
@@ -127,21 +127,21 @@ function StaffDashboard() {
               <Icon className={`w-5 h-5 ${color}`} />
             </div>
             <div>
-              <p className="text-xs text-[#F5F5F5]/50 uppercase tracking-wider">{label}</p>
-              <p className="text-2xl font-bold text-[#F5F5F5]">{loading ? '…' : value}</p>
+              <p className="text-xs text-[#F5F0E8]/50 uppercase tracking-wider">{label}</p>
+              <p className="text-2xl font-bold text-[#F5F0E8]">{loading ? '…' : value}</p>
             </div>
           </Link>
         ))}
       </div>
 
       {/* Quick Actions */}
-      <div className="bg-gradient-to-br from-[#141414] to-[#0A0A0A] border border-[#E07B8B]/15 rounded-2xl p-5">
-        <h2 className="font-semibold text-[#FFD700] mb-4" style={{ fontFamily: 'Cinzel, serif' }}>Quick Actions</h2>
+      <div className="bg-gradient-to-br from-[#161616] to-[#111111] border border-[#A8B4C8]/15 rounded-2xl p-5">
+        <h2 className="font-semibold text-[#D4AF37] mb-4" style={{ fontFamily: 'Cinzel, serif' }}>Quick Actions</h2>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
             { href: '/admin/staff/orders', icon: Package, label: 'Process Orders', color: 'text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/20' },
             { href: '/admin/staff/inventory', icon: Warehouse, label: 'Manage Stock', color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20' },
-            { href: '/admin/products', icon: ShoppingBag, label: 'Products', color: 'text-[#FFD700]', bg: 'bg-[#9333EA]/20', border: 'border-[#E07B8B]/20' },
+            { href: '/admin/products', icon: ShoppingBag, label: 'Products', color: 'text-[#D4AF37]', bg: 'bg-[#1E3A5F]/20', border: 'border-[#A8B4C8]/20' },
             { href: '/admin/collections', icon: BarChart3, label: 'Collections', color: 'text-purple-400', bg: 'bg-purple-500/10', border: 'border-purple-500/20' },
           ].map(({ href, icon: Icon, label, color, bg, border }) => (
             <Link key={href} href={href}
@@ -154,19 +154,19 @@ function StaffDashboard() {
       </div>
 
       {/* Pending Orders Table */}
-      <div className="bg-gradient-to-br from-[#141414] to-[#0A0A0A] border border-[#E07B8B]/15 rounded-2xl overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[#E07B8B]/10">
-          <h2 className="font-semibold text-[#FFD700]" style={{ fontFamily: 'Cinzel, serif' }}>Pending Orders</h2>
-          <Link href="/admin/staff/orders" className="text-xs text-[#E07B8B] hover:text-[#FFD700] transition-colors flex items-center gap-1">
+      <div className="bg-gradient-to-br from-[#161616] to-[#111111] border border-[#A8B4C8]/15 rounded-2xl overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[#A8B4C8]/10">
+          <h2 className="font-semibold text-[#D4AF37]" style={{ fontFamily: 'Cinzel, serif' }}>Pending Orders</h2>
+          <Link href="/admin/staff/orders" className="text-xs text-[#A8B4C8] hover:text-[#D4AF37] transition-colors flex items-center gap-1">
             View All <ArrowRight className="w-3.5 h-3.5" />
           </Link>
         </div>
         {loading ? (
           <div className="flex items-center justify-center py-12">
-            <RefreshCw className="w-6 h-6 text-[#E07B8B]/40 animate-spin" />
+            <RefreshCw className="w-6 h-6 text-[#A8B4C8]/40 animate-spin" />
           </div>
         ) : pending.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 text-[#F5F5F5]/30">
+          <div className="flex flex-col items-center justify-center py-12 text-[#F5F0E8]/30">
             <CheckCircle className="w-10 h-10 mb-2 text-green-500/30" />
             <p className="text-sm">No pending orders — all caught up!</p>
           </div>
@@ -174,18 +174,18 @@ function StaffDashboard() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-[#E07B8B]/10">
+                <tr className="border-b border-[#A8B4C8]/10">
                   {['Order #', 'Customer', 'Amount', 'Status'].map(h => (
-                    <th key={h} className="px-5 py-3 text-left text-xs text-[#F5F5F5]/40 font-semibold uppercase tracking-wider">{h}</th>
+                    <th key={h} className="px-5 py-3 text-left text-xs text-[#F5F0E8]/40 font-semibold uppercase tracking-wider">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {pending.slice(0, 8).map(order => (
-                  <tr key={order.id} className="border-b border-[#E07B8B]/5 hover:bg-[#E07B8B]/5 transition-colors">
-                    <td className="px-5 py-3.5 font-medium text-[#FFD700]">#{order.id}</td>
-                    <td className="px-5 py-3.5 text-[#F5F5F5]/70">{order.customer_name || order.customer_email || '—'}</td>
-                    <td className="px-5 py-3.5 text-[#F5F5F5]/70">₹{(order.total_amount || 0).toLocaleString('en-IN')}</td>
+                  <tr key={order.id} className="border-b border-[#A8B4C8]/5 hover:bg-[#A8B4C8]/5 transition-colors">
+                    <td className="px-5 py-3.5 font-medium text-[#D4AF37]">#{order.id}</td>
+                    <td className="px-5 py-3.5 text-[#F5F0E8]/70">{order.customer_name || order.customer_email || '—'}</td>
+                    <td className="px-5 py-3.5 text-[#F5F0E8]/70">₹{(order.total_amount || 0).toLocaleString('en-IN')}</td>
                     <td className="px-5 py-3.5">
                       <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-blue-500/15 text-blue-400">{order.status}</span>
                     </td>
@@ -389,10 +389,10 @@ function StaffManagementPage() {
     }
   };
 
-  const inputCls = "w-full px-3 py-2.5 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-xl text-[#F5F5F5] placeholder-[#F5F5F5]/30 focus:outline-none focus:border-[#E07B8B]/40 text-sm";
-  const labelCls = "block text-xs text-[#F5F5F5]/60 mb-1.5 uppercase tracking-wider";
+  const inputCls = "w-full px-3 py-2.5 bg-[#111111]/60 border border-[#A8B4C8]/20 rounded-xl text-[#F5F0E8] placeholder-[#F5F0E8]/30 focus:outline-none focus:border-[#A8B4C8]/40 text-sm";
+  const labelCls = "block text-xs text-[#F5F0E8]/60 mb-1.5 uppercase tracking-wider";
   const roleBadge = (role) => {
-    const map = { super_admin: 'bg-red-500/20 text-red-300', admin: 'bg-[#9333EA]/30 text-[#FFD700]', staff: 'bg-[#E07B8B]/15 text-[#F5F5F5]/70' };
+    const map = { super_admin: 'bg-red-500/20 text-red-300', admin: 'bg-[#1E3A5F]/30 text-[#D4AF37]', staff: 'bg-[#A8B4C8]/15 text-[#F5F0E8]/70' };
     return map[role] || map.staff;
   };
 
@@ -401,19 +401,19 @@ function StaffManagementPage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-[#FFD700]" style={{ fontFamily: 'Cinzel, serif' }}>Staff Management</h1>
-          <p className="text-[#F5F5F5]/60 mt-1">Manage staff accounts, roles, and permissions</p>
+          <h1 className="text-2xl md:text-3xl font-bold text-[#D4AF37]" style={{ fontFamily: 'Cinzel, serif' }}>Staff Management</h1>
+          <p className="text-[#F5F0E8]/60 mt-1">Manage staff accounts, roles, and permissions</p>
         </div>
         <div className="flex gap-3">
           <button
             onClick={() => setIsRoleDialogOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl border border-[#E07B8B]/20 text-[#F5F5F5]/70 hover:bg-[#E07B8B]/10 transition-colors text-sm"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl border border-[#A8B4C8]/20 text-[#F5F0E8]/70 hover:bg-[#A8B4C8]/10 transition-colors text-sm"
           >
             <Shield className="w-4 h-4" /> Create Role
           </button>
           <button
             onClick={() => setIsCreateDialogOpen(true)}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-[#9333EA] to-[#E07B8B] text-white font-medium hover:opacity-90 transition-opacity text-sm"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-[#1E3A5F] to-[#A8B4C8] text-white font-medium hover:opacity-90 transition-opacity text-sm"
           >
             <UserPlus className="w-4 h-4" /> Add Staff
           </button>
@@ -421,11 +421,11 @@ function StaffManagementPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 p-1 bg-[#0A0A0A]/60 border border-[#E07B8B]/15 rounded-2xl w-fit">
+      <div className="flex gap-1 p-1 bg-[#111111]/60 border border-[#A8B4C8]/15 rounded-2xl w-fit">
         {[{ id: 'accounts', label: `Accounts (${accounts.length})`, icon: Users }, { id: 'roles', label: `Roles (${roles.length})`, icon: Shield }, { id: 'audit', label: 'Audit Logs', icon: FileText }].map(tab => (
           <button key={tab.id} onClick={() => setActiveTab(tab.id)}
             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm transition-all ${
-              activeTab === tab.id ? 'bg-[#9333EA]/40 text-[#FFD700] font-medium' : 'text-[#F5F5F5]/50 hover:text-[#F5F5F5]/80'
+              activeTab === tab.id ? 'bg-[#1E3A5F]/40 text-[#D4AF37] font-medium' : 'text-[#F5F0E8]/50 hover:text-[#F5F0E8]/80'
             }`}>
             <tab.icon className="w-4 h-4" />{tab.label}
           </button>
@@ -434,64 +434,64 @@ function StaffManagementPage() {
 
       {/* Accounts Tab */}
       {activeTab === 'accounts' && (
-        <div className="bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl overflow-hidden">
-          <div className="p-4 border-b border-[#E07B8B]/10">
-            <h3 className="text-[#FFD700] font-medium">Staff Accounts</h3>
-            <p className="text-xs text-[#F5F5F5]/50 mt-0.5">Manage all staff, admin, and super admin accounts</p>
+        <div className="bg-[#111111]/40 backdrop-blur-md border border-[#A8B4C8]/15 rounded-2xl overflow-hidden">
+          <div className="p-4 border-b border-[#A8B4C8]/10">
+            <h3 className="text-[#D4AF37] font-medium">Staff Accounts</h3>
+            <p className="text-xs text-[#F5F0E8]/50 mt-0.5">Manage all staff, admin, and super admin accounts</p>
           </div>
           {isLoading ? (
-            <div className="p-8 text-center"><RefreshCw className="w-6 h-6 animate-spin text-[#E07B8B] mx-auto" /></div>
+            <div className="p-8 text-center"><RefreshCw className="w-6 h-6 animate-spin text-[#A8B4C8] mx-auto" /></div>
           ) : accounts.length === 0 ? (
-            <div className="p-12 text-center"><Users className="w-10 h-10 text-[#E07B8B]/30 mx-auto mb-3" /><p className="text-[#F5F5F5]/40">No staff accounts found</p></div>
+            <div className="p-12 text-center"><Users className="w-10 h-10 text-[#A8B4C8]/30 mx-auto mb-3" /><p className="text-[#F5F0E8]/40">No staff accounts found</p></div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-[#E07B8B]/10">
+                  <tr className="border-b border-[#A8B4C8]/10">
                     {['User', 'Role', 'Department', '2FA', 'Status', 'Last Login', 'Actions'].map(h => (
-                      <th key={h} className="px-4 py-3 text-left text-xs text-[#F5F5F5]/40 uppercase tracking-wider font-medium">{h}</th>
+                      <th key={h} className="px-4 py-3 text-left text-xs text-[#F5F0E8]/40 uppercase tracking-wider font-medium">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {accounts.map((account) => (
-                    <tr key={account.id} className="border-b border-[#E07B8B]/5 hover:bg-[#E07B8B]/5 transition-colors">
+                    <tr key={account.id} className="border-b border-[#A8B4C8]/5 hover:bg-[#A8B4C8]/5 transition-colors">
                       <td className="px-4 py-3">
-                        <p className="font-medium text-[#F5F5F5]">{account.full_name || account.username}</p>
-                        <p className="text-xs text-[#F5F5F5]/50">{account.email}</p>
+                        <p className="font-medium text-[#F5F0E8]">{account.full_name || account.username}</p>
+                        <p className="text-xs text-[#F5F0E8]/50">{account.email}</p>
                       </td>
                       <td className="px-4 py-3">
                         <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${roleBadge(account.role)}`}>
                           {account.role.replace('_', ' ')}
                         </span>
-                        {account.custom_role_name && <p className="text-xs text-[#F5F5F5]/40 mt-0.5">{account.custom_role_name}</p>}
+                        {account.custom_role_name && <p className="text-xs text-[#F5F0E8]/40 mt-0.5">{account.custom_role_name}</p>}
                       </td>
-                      <td className="px-4 py-3 text-[#F5F5F5]/60">{account.department || '—'}</td>
+                      <td className="px-4 py-3 text-[#F5F0E8]/60">{account.department || '—'}</td>
                       <td className="px-4 py-3">
                         {account.two_factor_enabled
                           ? <CheckCircle className="w-4 h-4 text-green-400" />
-                          : <XCircle className="w-4 h-4 text-[#F5F5F5]/20" />}
+                          : <XCircle className="w-4 h-4 text-[#F5F0E8]/20" />}
                       </td>
                       <td className="px-4 py-3">
                         <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
-                          account.is_active ? 'bg-green-500/15 text-green-400' : 'bg-[#F5F5F5]/5 text-[#F5F5F5]/30'
+                          account.is_active ? 'bg-green-500/15 text-green-400' : 'bg-[#F5F0E8]/5 text-[#F5F0E8]/30'
                         }`}>{account.is_active ? 'Active' : 'Inactive'}</span>
                       </td>
-                      <td className="px-4 py-3 text-xs text-[#F5F5F5]/50">
+                      <td className="px-4 py-3 text-xs text-[#F5F0E8]/50">
                         {account.last_login ? new Date(account.last_login).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Never'}
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex gap-1">
                           <button
                             onClick={() => handleDeactivateAccount(account)}
-                            className="p-1.5 rounded-lg hover:bg-[#E07B8B]/10 text-[#F5F5F5]/50 hover:text-orange-400 transition-colors flex items-center justify-center"
+                            className="p-1.5 rounded-lg hover:bg-[#A8B4C8]/10 text-[#F5F0E8]/50 hover:text-orange-400 transition-colors flex items-center justify-center"
                             title={account.is_active ? 'Deactivate Account' : 'Activate Account'}
                           >
                             {account.is_active ? <LogOut className="w-4 h-4" /> : <CheckCircle className="w-4 h-4" />}
                           </button>
                           <button
                             onClick={() => handleDeleteAccount(account.id, account.full_name || account.username)}
-                            className="p-1.5 rounded-lg hover:bg-red-500/10 text-[#F5F5F5]/50 hover:text-red-400 transition-colors flex items-center justify-center"
+                            className="p-1.5 rounded-lg hover:bg-red-500/10 text-[#F5F0E8]/50 hover:text-red-400 transition-colors flex items-center justify-center"
                             title="Delete Account"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -509,45 +509,45 @@ function StaffManagementPage() {
 
       {/* Roles Tab */}
       {activeTab === 'roles' && (
-        <div className="bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl overflow-hidden">
-          <div className="p-4 border-b border-[#E07B8B]/10">
-            <h3 className="text-[#FFD700] font-medium">Custom Roles</h3>
-            <p className="text-xs text-[#F5F5F5]/50 mt-0.5">Define custom permission sets for specific use cases</p>
+        <div className="bg-[#111111]/40 backdrop-blur-md border border-[#A8B4C8]/15 rounded-2xl overflow-hidden">
+          <div className="p-4 border-b border-[#A8B4C8]/10">
+            <h3 className="text-[#D4AF37] font-medium">Custom Roles</h3>
+            <p className="text-xs text-[#F5F0E8]/50 mt-0.5">Define custom permission sets for specific use cases</p>
           </div>
           {roles.length === 0 ? (
-            <div className="p-12 text-center"><Shield className="w-10 h-10 text-[#E07B8B]/30 mx-auto mb-3" /><p className="text-[#F5F5F5]/40">No custom roles defined</p></div>
+            <div className="p-12 text-center"><Shield className="w-10 h-10 text-[#A8B4C8]/30 mx-auto mb-3" /><p className="text-[#F5F0E8]/40">No custom roles defined</p></div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-[#E07B8B]/10">
+                  <tr className="border-b border-[#A8B4C8]/10">
                     {['Role Name', 'Description', 'Modules', 'Permissions', 'Status', 'Created', 'Actions'].map(h => (
-                      <th key={h} className="px-4 py-3 text-left text-xs text-[#F5F5F5]/40 uppercase tracking-wider font-medium">{h}</th>
+                      <th key={h} className="px-4 py-3 text-left text-xs text-[#F5F0E8]/40 uppercase tracking-wider font-medium">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {roles.map((role) => (
-                    <tr key={role.id} className="border-b border-[#E07B8B]/5 hover:bg-[#E07B8B]/5 transition-colors">
-                      <td className="px-4 py-3 font-medium text-[#FFD700]">{role.name}</td>
-                      <td className="px-4 py-3 text-[#F5F5F5]/60 max-w-xs truncate">{role.description || '—'}</td>
+                    <tr key={role.id} className="border-b border-[#A8B4C8]/5 hover:bg-[#A8B4C8]/5 transition-colors">
+                      <td className="px-4 py-3 font-medium text-[#D4AF37]">{role.name}</td>
+                      <td className="px-4 py-3 text-[#F5F0E8]/60 max-w-xs truncate">{role.description || '—'}</td>
                       <td className="px-4 py-3">
                         <div className="flex flex-wrap gap-1">
                           {role.permissions?.slice(0, 4).map((p, idx) => (
-                            <span key={idx} className="px-1.5 py-0.5 bg-[#9333EA]/20 text-[#F5F5F5]/60 text-xs rounded">{p.module}</span>
+                            <span key={idx} className="px-1.5 py-0.5 bg-[#1E3A5F]/20 text-[#F5F0E8]/60 text-xs rounded">{p.module}</span>
                           ))}
-                          {role.permissions?.length > 4 && <span className="px-1.5 py-0.5 bg-[#9333EA]/20 text-[#F5F5F5]/40 text-xs rounded">+{role.permissions.length - 4}</span>}
+                          {role.permissions?.length > 4 && <span className="px-1.5 py-0.5 bg-[#1E3A5F]/20 text-[#F5F0E8]/40 text-xs rounded">+{role.permissions.length - 4}</span>}
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-[#F5F5F5]/60">{role.permissions?.reduce((acc, p) => acc + p.actions.length, 0) || 0}</td>
+                      <td className="px-4 py-3 text-[#F5F0E8]/60">{role.permissions?.reduce((acc, p) => acc + p.actions.length, 0) || 0}</td>
                       <td className="px-4 py-3">
                         <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
-                          role.is_active ? 'bg-green-500/15 text-green-400' : 'bg-[#F5F5F5]/5 text-[#F5F5F5]/30'
+                          role.is_active ? 'bg-green-500/15 text-green-400' : 'bg-[#F5F0E8]/5 text-[#F5F0E8]/30'
                         }`}>{role.is_active ? 'Active' : 'Inactive'}</span>
                       </td>
-                      <td className="px-4 py-3 text-xs text-[#F5F5F5]/50">{role.created_at ? new Date(role.created_at).toLocaleDateString('en-IN') : '—'}</td>
+                      <td className="px-4 py-3 text-xs text-[#F5F0E8]/50">{role.created_at ? new Date(role.created_at).toLocaleDateString('en-IN') : '—'}</td>
                       <td className="px-4 py-3">
-                        <button onClick={() => handleDeleteRole(role.id)} className="p-1.5 rounded-lg hover:bg-red-500/10 text-[#F5F5F5]/40 hover:text-red-400 transition-colors flex items-center justify-center" title="Delete">
+                        <button onClick={() => handleDeleteRole(role.id)} className="p-1.5 rounded-lg hover:bg-red-500/10 text-[#F5F0E8]/40 hover:text-red-400 transition-colors flex items-center justify-center" title="Delete">
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </td>
@@ -567,10 +567,10 @@ function StaffManagementPage() {
       {isCreateDialogOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/60" onClick={() => setIsCreateDialogOpen(false)} />
-          <div className="relative bg-[#0A0A0A]/95 backdrop-blur-xl border border-[#E07B8B]/20 rounded-2xl p-6 w-full max-w-md">
+          <div className="relative bg-[#111111]/95 backdrop-blur-xl border border-[#A8B4C8]/20 rounded-2xl p-6 w-full max-w-md">
             <div className="flex items-center justify-between mb-5">
-              <h3 className="text-xl font-semibold text-[#FFD700]" style={{ fontFamily: 'Cinzel, serif' }}>Add Staff Account</h3>
-              <button onClick={() => setIsCreateDialogOpen(false)} className="p-1 rounded-lg hover:bg-[#E07B8B]/10"><X className="w-5 h-5 text-[#F5F5F5]/50" /></button>
+              <h3 className="text-xl font-semibold text-[#D4AF37]" style={{ fontFamily: 'Cinzel, serif' }}>Add Staff Account</h3>
+              <button onClick={() => setIsCreateDialogOpen(false)} className="p-1 rounded-lg hover:bg-[#A8B4C8]/10"><X className="w-5 h-5 text-[#F5F0E8]/50" /></button>
             </div>
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
@@ -579,15 +579,15 @@ function StaffManagementPage() {
               </div>
               <div><label className={labelCls}>Full Name</label><input placeholder="Full Name" value={formData.full_name} onChange={e => setFormData({...formData, full_name: e.target.value})} className={inputCls} autoComplete="off" /></div>
               <div><label className={labelCls}>Password *</label><input type="password" placeholder="Minimum 8 characters" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} className={inputCls} required minLength={8} autoComplete="new-password" /></div>
-              <div className="p-3 bg-[#9333EA]/10 border border-[#9333EA]/20 rounded-xl">
-                <p className="text-xs text-[#F5F5F5]/60">
-                  <span className="text-[#FFD700] font-medium">Note:</span> New staff will be automatically assigned the "staff" role with access to orders, products, inventory, and collections only.
+              <div className="p-3 bg-[#1E3A5F]/10 border border-[#1E3A5F]/20 rounded-xl">
+                <p className="text-xs text-[#F5F0E8]/60">
+                  <span className="text-[#D4AF37] font-medium">Note:</span> New staff will be automatically assigned the "staff" role with access to orders, products, inventory, and collections only.
                 </p>
               </div>
             </div>
             <div className="flex gap-3 mt-6">
-              <button onClick={() => setIsCreateDialogOpen(false)} className="flex-1 px-4 py-2.5 border border-[#E07B8B]/20 rounded-xl text-[#F5F5F5]/70 hover:bg-[#E07B8B]/10 transition-colors">Cancel</button>
-              <button onClick={handleCreateAccount} className="flex-1 px-4 py-2.5 bg-gradient-to-r from-[#9333EA] to-[#E07B8B] rounded-xl text-white font-semibold hover:opacity-90 transition-opacity">Create Account</button>
+              <button onClick={() => setIsCreateDialogOpen(false)} className="flex-1 px-4 py-2.5 border border-[#A8B4C8]/20 rounded-xl text-[#F5F0E8]/70 hover:bg-[#A8B4C8]/10 transition-colors">Cancel</button>
+              <button onClick={handleCreateAccount} className="flex-1 px-4 py-2.5 bg-gradient-to-r from-[#1E3A5F] to-[#A8B4C8] rounded-xl text-white font-semibold hover:opacity-90 transition-opacity">Create Account</button>
             </div>
           </div>
         </div>
@@ -597,10 +597,10 @@ function StaffManagementPage() {
       {isRoleDialogOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/60" onClick={() => setIsRoleDialogOpen(false)} />
-          <div className="relative bg-[#0A0A0A]/95 backdrop-blur-xl border border-[#E07B8B]/20 rounded-2xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+          <div className="relative bg-[#111111]/95 backdrop-blur-xl border border-[#A8B4C8]/20 rounded-2xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-5">
-              <h3 className="text-xl font-semibold text-[#FFD700]" style={{ fontFamily: 'Cinzel, serif' }}>Create Custom Role</h3>
-              <button onClick={() => setIsRoleDialogOpen(false)} className="p-1 rounded-lg hover:bg-[#E07B8B]/10"><X className="w-5 h-5 text-[#F5F5F5]/50" /></button>
+              <h3 className="text-xl font-semibold text-[#D4AF37]" style={{ fontFamily: 'Cinzel, serif' }}>Create Custom Role</h3>
+              <button onClick={() => setIsRoleDialogOpen(false)} className="p-1 rounded-lg hover:bg-[#A8B4C8]/10"><X className="w-5 h-5 text-[#F5F0E8]/50" /></button>
             </div>
             <div className="space-y-5">
               <div className="grid grid-cols-2 gap-4">
@@ -610,33 +610,33 @@ function StaffManagementPage() {
               <div>
                 <label className={labelCls}>Load Preset</label>
                 <div className="flex gap-2 mt-1">
-                  <button onClick={() => loadRolePreset('staff')} className="px-3 py-1.5 border border-[#E07B8B]/20 rounded-lg text-xs text-[#F5F5F5]/70 hover:bg-[#E07B8B]/10 transition-colors">Staff Preset</button>
-                  <button onClick={() => loadRolePreset('admin')} className="px-3 py-1.5 border border-[#E07B8B]/20 rounded-lg text-xs text-[#F5F5F5]/70 hover:bg-[#E07B8B]/10 transition-colors">Admin Preset</button>
+                  <button onClick={() => loadRolePreset('staff')} className="px-3 py-1.5 border border-[#A8B4C8]/20 rounded-lg text-xs text-[#F5F0E8]/70 hover:bg-[#A8B4C8]/10 transition-colors">Staff Preset</button>
+                  <button onClick={() => loadRolePreset('admin')} className="px-3 py-1.5 border border-[#A8B4C8]/20 rounded-lg text-xs text-[#F5F0E8]/70 hover:bg-[#A8B4C8]/10 transition-colors">Admin Preset</button>
                 </div>
               </div>
               <div>
                 <label className={labelCls}>Permissions</label>
-                <div className="mt-2 border border-[#E07B8B]/15 rounded-xl overflow-x-auto">
+                <div className="mt-2 border border-[#A8B4C8]/15 rounded-xl overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="border-b border-[#E07B8B]/10">
-                        <th className="px-4 py-2.5 text-left text-xs text-[#F5F5F5]/50 font-medium w-40">Module</th>
+                      <tr className="border-b border-[#A8B4C8]/10">
+                        <th className="px-4 py-2.5 text-left text-xs text-[#F5F0E8]/50 font-medium w-40">Module</th>
                         {PERMISSION_ACTIONS.map(a => (
-                          <th key={a.value} className="px-3 py-2.5 text-center text-xs text-[#F5F5F5]/50 font-medium">{a.label}</th>
+                          <th key={a.value} className="px-3 py-2.5 text-center text-xs text-[#F5F0E8]/50 font-medium">{a.label}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
                       {PERMISSION_MODULES.map(module => (
-                        <tr key={module.value} className="border-b border-[#E07B8B]/5 hover:bg-[#E07B8B]/5">
-                          <td className="px-4 py-2.5 text-[#F5F5F5]/80 font-medium">{module.label}</td>
+                        <tr key={module.value} className="border-b border-[#A8B4C8]/5 hover:bg-[#A8B4C8]/5">
+                          <td className="px-4 py-2.5 text-[#F5F0E8]/80 font-medium">{module.label}</td>
                           {PERMISSION_ACTIONS.map(action => (
                             <td key={action.value} className="px-3 py-2.5 text-center">
                               <input
                                 type="checkbox"
                                 checked={hasPermission(module.value, action.value)}
                                 onChange={() => togglePermission(module.value, action.value)}
-                                className="w-4 h-4 rounded border-[#E07B8B]/30 bg-[#0A0A0A]/60 accent-[#E07B8B] cursor-pointer"
+                                className="w-4 h-4 rounded border-[#A8B4C8]/30 bg-[#111111]/60 accent-[#A8B4C8] cursor-pointer"
                               />
                             </td>
                           ))}
@@ -645,14 +645,14 @@ function StaffManagementPage() {
                     </tbody>
                   </table>
                 </div>
-                <p className="text-xs text-[#F5F5F5]/40 mt-2">
+                <p className="text-xs text-[#F5F0E8]/40 mt-2">
                   {roleFormData.permissions.reduce((acc, p) => acc + p.actions.length, 0)} permissions across {roleFormData.permissions.length} modules selected
                 </p>
               </div>
             </div>
             <div className="flex gap-3 mt-6">
-              <button onClick={() => setIsRoleDialogOpen(false)} className="flex-1 px-4 py-2.5 border border-[#E07B8B]/20 rounded-xl text-[#F5F5F5]/70 hover:bg-[#E07B8B]/10 transition-colors">Cancel</button>
-              <button onClick={handleCreateRole} className="flex-1 px-4 py-2.5 bg-gradient-to-r from-[#9333EA] to-[#E07B8B] rounded-xl text-white font-semibold hover:opacity-90 transition-opacity">Create Role</button>
+              <button onClick={() => setIsRoleDialogOpen(false)} className="flex-1 px-4 py-2.5 border border-[#A8B4C8]/20 rounded-xl text-[#F5F0E8]/70 hover:bg-[#A8B4C8]/10 transition-colors">Cancel</button>
+              <button onClick={handleCreateRole} className="flex-1 px-4 py-2.5 bg-gradient-to-r from-[#1E3A5F] to-[#A8B4C8] rounded-xl text-white font-semibold hover:opacity-90 transition-opacity">Create Role</button>
             </div>
           </div>
         </div>
@@ -692,85 +692,85 @@ function AuditLogsTab() {
   };
 
   const actionColor = (type) => {
-    const map = { CREATE: 'bg-green-500/15 text-green-400', UPDATE: 'bg-blue-500/15 text-blue-400', DELETE: 'bg-red-500/15 text-red-400', LOGIN: 'bg-[#9333EA]/20 text-[#FFD700]', LOGOUT: 'bg-[#F5F5F5]/5 text-[#F5F5F5]/40' };
-    return map[type] || 'bg-[#E07B8B]/10 text-[#F5F5F5]/60';
+    const map = { CREATE: 'bg-green-500/15 text-green-400', UPDATE: 'bg-blue-500/15 text-blue-400', DELETE: 'bg-red-500/15 text-red-400', LOGIN: 'bg-[#1E3A5F]/20 text-[#D4AF37]', LOGOUT: 'bg-[#F5F0E8]/5 text-[#F5F0E8]/40' };
+    return map[type] || 'bg-[#A8B4C8]/10 text-[#F5F0E8]/60';
   };
 
-  const cls = "w-full px-3 py-2 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-xl text-[#F5F5F5] focus:outline-none focus:border-[#E07B8B]/40 text-sm";
+  const cls = "w-full px-3 py-2 bg-[#111111]/60 border border-[#A8B4C8]/20 rounded-xl text-[#F5F0E8] focus:outline-none focus:border-[#A8B4C8]/40 text-sm";
 
   return (
-    <div className="bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl overflow-hidden">
-      <div className="p-4 border-b border-[#E07B8B]/10 flex items-center justify-between">
+    <div className="bg-[#111111]/40 backdrop-blur-md border border-[#A8B4C8]/15 rounded-2xl overflow-hidden">
+      <div className="p-4 border-b border-[#A8B4C8]/10 flex items-center justify-between">
         <div>
-          <h3 className="text-[#FFD700] font-medium">Audit Logs</h3>
-          <p className="text-xs text-[#F5F5F5]/50 mt-0.5">Track all staff actions across the platform</p>
+          <h3 className="text-[#D4AF37] font-medium">Audit Logs</h3>
+          <p className="text-xs text-[#F5F0E8]/50 mt-0.5">Track all staff actions across the platform</p>
         </div>
         <div className="flex gap-2">
-          <button onClick={loadLogs} className="p-2 rounded-xl border border-[#E07B8B]/20 text-[#F5F5F5]/60 hover:bg-[#E07B8B]/10 transition-colors">
+          <button onClick={loadLogs} className="p-2 rounded-xl border border-[#A8B4C8]/20 text-[#F5F0E8]/60 hover:bg-[#A8B4C8]/10 transition-colors">
             <RefreshCw className={isLoading ? 'w-4 h-4 animate-spin' : 'w-4 h-4'} />
           </button>
-          <button onClick={exportLogs} className="flex items-center gap-2 px-3 py-1.5 border border-[#E07B8B]/20 rounded-xl text-[#F5F5F5]/70 hover:bg-[#E07B8B]/10 transition-colors text-sm">
+          <button onClick={exportLogs} className="flex items-center gap-2 px-3 py-1.5 border border-[#A8B4C8]/20 rounded-xl text-[#F5F0E8]/70 hover:bg-[#A8B4C8]/10 transition-colors text-sm">
             <Download className="w-4 h-4" /> Export CSV
           </button>
         </div>
       </div>
-      <div className="p-4 border-b border-[#E07B8B]/10 grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="p-4 border-b border-[#A8B4C8]/10 grid grid-cols-2 md:grid-cols-4 gap-3">
         <div>
-          <p className="text-xs text-[#F5F5F5]/50 mb-1 uppercase tracking-wider">Module</p>
+          <p className="text-xs text-[#F5F0E8]/50 mb-1 uppercase tracking-wider">Module</p>
           <select value={filters.module} onChange={e => setFilters({...filters, module: e.target.value})} className={cls}>
             <option value="">All modules</option>
             {['products','orders','customers','inventory','staff','settings'].map(m => <option key={m} value={m}>{m}</option>)}
           </select>
         </div>
         <div>
-          <p className="text-xs text-[#F5F5F5]/50 mb-1 uppercase tracking-wider">Action Type</p>
+          <p className="text-xs text-[#F5F0E8]/50 mb-1 uppercase tracking-wider">Action Type</p>
           <select value={filters.action_type} onChange={e => setFilters({...filters, action_type: e.target.value})} className={cls}>
             <option value="">All actions</option>
             {['CREATE','UPDATE','DELETE','VIEW','EXPORT','LOGIN','LOGOUT'].map(a => <option key={a} value={a}>{a}</option>)}
           </select>
         </div>
         <div>
-          <p className="text-xs text-[#F5F5F5]/50 mb-1 uppercase tracking-wider">Start Date</p>
+          <p className="text-xs text-[#F5F0E8]/50 mb-1 uppercase tracking-wider">Start Date</p>
           <input type="date" value={filters.start_date} onChange={e => setFilters({...filters, start_date: e.target.value})} className={cls} />
         </div>
         <div>
-          <p className="text-xs text-[#F5F5F5]/50 mb-1 uppercase tracking-wider">End Date</p>
+          <p className="text-xs text-[#F5F0E8]/50 mb-1 uppercase tracking-wider">End Date</p>
           <input type="date" value={filters.end_date} onChange={e => setFilters({...filters, end_date: e.target.value})} className={cls} />
         </div>
       </div>
       <div className="overflow-x-auto">
         {isLoading ? (
-          <div className="p-8 text-center"><RefreshCw className="w-6 h-6 animate-spin text-[#E07B8B] mx-auto" /></div>
+          <div className="p-8 text-center"><RefreshCw className="w-6 h-6 animate-spin text-[#A8B4C8] mx-auto" /></div>
         ) : logs.length === 0 ? (
           <div className="p-12 text-center">
-            <FileText className="w-10 h-10 text-[#E07B8B]/30 mx-auto mb-3" />
-            <p className="text-[#F5F5F5]/40">No audit logs found</p>
+            <FileText className="w-10 h-10 text-[#A8B4C8]/30 mx-auto mb-3" />
+            <p className="text-[#F5F0E8]/40">No audit logs found</p>
           </div>
         ) : (
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-[#E07B8B]/10">
+              <tr className="border-b border-[#A8B4C8]/10">
                 {['Timestamp','Staff','Action','Module','Description','IP Address'].map(h => (
-                  <th key={h} className="px-4 py-3 text-left text-xs text-[#F5F5F5]/40 uppercase tracking-wider font-medium">{h}</th>
+                  <th key={h} className="px-4 py-3 text-left text-xs text-[#F5F0E8]/40 uppercase tracking-wider font-medium">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {logs.map((log) => (
-                <tr key={log.id} className="border-b border-[#E07B8B]/5 hover:bg-[#E07B8B]/5 transition-colors">
-                  <td className="px-4 py-3 font-mono text-xs text-[#F5F5F5]/60">{new Date(log.created_at).toLocaleString('en-IN')}</td>
+                <tr key={log.id} className="border-b border-[#A8B4C8]/5 hover:bg-[#A8B4C8]/5 transition-colors">
+                  <td className="px-4 py-3 font-mono text-xs text-[#F5F0E8]/60">{new Date(log.created_at).toLocaleString('en-IN')}</td>
                   <td className="px-4 py-3">
-                    <p className="font-medium text-[#F5F5F5] text-xs">{log.staff_name || `ID: ${log.staff_id}`}</p>
-                    <p className="text-xs text-[#F5F5F5]/40">{log.staff_email}</p>
+                    <p className="font-medium text-[#F5F0E8] text-xs">{log.staff_name || `ID: ${log.staff_id}`}</p>
+                    <p className="text-xs text-[#F5F0E8]/40">{log.staff_email}</p>
                   </td>
                   <td className="px-4 py-3">
                     <span className={'px-2 py-0.5 rounded-full text-xs font-medium ' + actionColor(log.action_type)}>{log.action_type}</span>
                   </td>
                   <td className="px-4 py-3">
-                    <span className="px-2 py-0.5 bg-[#E07B8B]/10 text-[#F5F5F5]/60 text-xs rounded">{log.module}</span>
+                    <span className="px-2 py-0.5 bg-[#A8B4C8]/10 text-[#F5F0E8]/60 text-xs rounded">{log.module}</span>
                   </td>
-                  <td className="px-4 py-3 text-xs text-[#F5F5F5]/70 max-w-xs truncate">{log.description}</td>
-                  <td className="px-4 py-3 font-mono text-xs text-[#F5F5F5]/40">{log.ip_address || '-'}</td>
+                  <td className="px-4 py-3 text-xs text-[#F5F0E8]/70 max-w-xs truncate">{log.description}</td>
+                  <td className="px-4 py-3 font-mono text-xs text-[#F5F0E8]/40">{log.ip_address || '-'}</td>
                 </tr>
               ))}
             </tbody>

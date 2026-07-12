@@ -28,7 +28,7 @@ export default function StatusBadge({ status, variant = 'auto', size = 'md' }) {
     warning: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
     danger: 'bg-red-500/20 text-red-400 border-red-500/30',
     info: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
-    default: 'bg-[#E07B8B]/20 text-[#F5F5F5]/70 border-[#E07B8B]/30',
+    default: 'bg-[#A8B4C8]/20 text-[#F5F0E8]/70 border-[#A8B4C8]/30',
   };
 
   const sizes = {
@@ -56,7 +56,7 @@ export default function StatusBadge({ status, variant = 'auto', size = 'md' }) {
           currentVariant === 'warning' ? 'bg-yellow-400' :
           currentVariant === 'danger' ? 'bg-red-400' :
           currentVariant === 'info' ? 'bg-blue-400' :
-          'bg-[#F5F5F5]/50'
+          'bg-[#F5F0E8]/50'
         )}
         aria-hidden="true"
       />
@@ -70,14 +70,14 @@ export default function StatusBadge({ status, variant = 'auto', size = 'md' }) {
 // Order status badge — 4-state machine
 export function OrderStatusBadge({ status, showAdminLabel = false }) {
   const statusConfig = {
-    confirmed:  { color: 'bg-amber-500/20 text-amber-400 border-amber-500/30', dot: 'bg-amber-400', label: 'Confirmed', adminLabel: 'Awaiting Shipment' },
-    shipped:    { color: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30', dot: 'bg-cyan-400', label: 'Shipped', adminLabel: 'Shipped' },
-    delivered:  { color: 'bg-green-500/20 text-green-400 border-green-500/30', dot: 'bg-green-400', label: 'Delivered', adminLabel: 'Delivered' },
-    cancelled:  { color: 'bg-red-500/20 text-red-400 border-red-500/30', dot: 'bg-red-400', label: 'Cancelled', adminLabel: 'Cancelled' },
+    confirmed:  { color: 'bg-amber-500/20 text-amber-400 border-amber-500/30', dot: 'bg-amber-400', label: 'Order Confirmed', adminLabel: 'Awaiting Shipment' },
+    shipped:    { color: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30', dot: 'bg-cyan-400', label: 'Out for Delivery', adminLabel: 'Shipped' },
+    delivered:  { color: 'bg-green-500/20 text-green-400 border-green-500/30', dot: 'bg-green-400', label: 'Order Delivered', adminLabel: 'Delivered' },
+    cancelled:  { color: 'bg-red-500/20 text-red-400 border-red-500/30', dot: 'bg-red-400', label: 'Order Cancelled', adminLabel: 'Cancelled' },
   };
 
   const key = status?.toLowerCase();
-  const config = statusConfig[key] || { color: 'bg-[#E07B8B]/20 text-[#F5F5F5]/70 border-[#E07B8B]/30', dot: 'bg-[#E07B8B]/50', label: status || 'Unknown', adminLabel: status || 'Unknown' };
+  const config = statusConfig[key] || { color: 'bg-[#A8B4C8]/20 text-[#F5F0E8]/70 border-[#A8B4C8]/30', dot: 'bg-[#A8B4C8]/50', label: status || 'Unknown', adminLabel: status || 'Unknown' };
   const displayLabel = showAdminLabel ? config.adminLabel : config.label;
 
   return (

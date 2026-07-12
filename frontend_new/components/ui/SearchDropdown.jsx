@@ -166,7 +166,7 @@ const SearchDropdown = ({
                 <span className="text-xs font-medium text-[#737373] uppercase tracking-wider">
                   Recent Searches
                 </span>
-                <button className="text-xs text-[#E07B8B] hover:text-[#F3E8EB]">
+                <button className="text-xs text-[#A8B4C8] hover:text-[#F3E8EB]">
                   Clear All
                 </button>
               </div>

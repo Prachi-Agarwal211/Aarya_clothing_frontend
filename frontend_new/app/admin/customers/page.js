@@ -262,36 +262,36 @@ export default function CustomersPage() {
         </div>
       )}
 
-      <div className="bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl overflow-hidden">
+      <div className="bg-[#111111]/40 backdrop-blur-md border border-[#A8B4C8]/15 rounded-2xl overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="border-b border-[#E07B8B]/10">
+              <tr className="border-b border-[#A8B4C8]/10">
                 <th className="px-6 py-4 text-left w-10">
                   <button
                     onClick={toggleAll}
-                    className="p-2 rounded hover:bg-[#E07B8B]/10"
+                    className="p-2 rounded hover:bg-[#A8B4C8]/10"
                     aria-label={
                       allSelected ? 'Deselect all' : 'Select all on page'
                     }
                   >
                     {allSelected ? (
-                      <CheckSquare className="w-5 h-5 text-[#E07B8B]" />
+                      <CheckSquare className="w-5 h-5 text-[#A8B4C8]" />
                     ) : (
-                      <Square className="w-5 h-5 text-[#F5F5F5]/40" />
+                      <Square className="w-5 h-5 text-[#F5F0E8]/40" />
                     )}
                   </button>
                 </th>
                 {COLUMNS.map((col) => (
                   <th
                     key={col.key}
-                    className={`px-4 py-4 text-left text-sm font-medium text-[#F5F5F5]/60 select-none ${col.sortable ? 'cursor-pointer hover:text-[#F5F5F5]' : ''}`}
+                    className={`px-4 py-4 text-left text-sm font-medium text-[#F5F0E8]/60 select-none ${col.sortable ? 'cursor-pointer hover:text-[#F5F0E8]' : ''}`}
                     onClick={() => col.sortable && handleSort(col.key)}
                   >
                     <div className="flex items-center gap-1">
                       {col.label}
                       {col.sortable && (
-                        <span className="text-[#E07B8B]">
+                        <span className="text-[#A8B4C8]">
                           {sort.key === col.key ? (
                             sort.direction === 'asc' ? (
                               <ChevronUp className="w-4 h-4" />
@@ -306,7 +306,7 @@ export default function CustomersPage() {
                     </div>
                   </th>
                 ))}
-                <th className="px-4 py-4 text-right text-sm font-medium text-[#F5F5F5]/60">
+                <th className="px-4 py-4 text-right text-sm font-medium text-[#F5F0E8]/60">
                   Actions
                 </th>
               </tr>
@@ -315,7 +315,7 @@ export default function CustomersPage() {
               {loading ? (
                 <tr>
                   <td colSpan={COLUMNS.length + 2} className="px-6 py-20 text-center">
-                    <RefreshCw className="w-8 h-8 text-[#E07B8B]/50 animate-spin mx-auto" />
+                    <RefreshCw className="w-8 h-8 text-[#A8B4C8]/50 animate-spin mx-auto" />
                   </td>
                 </tr>
               ) : customers.length === 0 ? (
@@ -360,10 +360,10 @@ function Header({ loading, onRefresh, onExport, canExport }) {
   return (
     <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
       <div>
-        <h1 className="text-2xl md:text-3xl font-bold text-[#FFD700] font-cinzel">
+        <h1 className="text-2xl md:text-3xl font-bold text-[#D4AF37] font-cinzel">
           Customers
         </h1>
-        <p className="text-[#F5F5F5]/60 mt-1">
+        <p className="text-[#F5F0E8]/60 mt-1">
           {PAGE_SIZE} per page · click a row to open the full customer page
         </p>
       </div>
@@ -371,13 +371,13 @@ function Header({ loading, onRefresh, onExport, canExport }) {
         <button
           onClick={onExport}
           disabled={!canExport}
-          className="flex items-center gap-2 px-4 py-2.5 border border-[#E07B8B]/30 text-[#F5F5F5]/70 hover:bg-[#E07B8B]/10 transition-colors rounded-xl text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex items-center gap-2 px-4 py-2.5 border border-[#A8B4C8]/30 text-[#F5F0E8]/70 hover:bg-[#A8B4C8]/10 transition-colors rounded-xl text-sm disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Download className="w-4 h-4" /> Export CSV
         </button>
         <button
           onClick={onRefresh}
-          className="p-2.5 rounded-xl border border-[#E07B8B]/20 text-[#F5F5F5]/70 hover:bg-[#E07B8B]/10 transition-colors"
+          className="p-2.5 rounded-xl border border-[#A8B4C8]/20 text-[#F5F0E8]/70 hover:bg-[#A8B4C8]/10 transition-colors"
           title="Refresh"
         >
           <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
@@ -389,21 +389,21 @@ function Header({ loading, onRefresh, onExport, canExport }) {
 
 function StatsRow({ total, active, revenue, orders }) {
   const items = [
-    { icon: <Users className="w-4 h-4 text-[#E07B8B]" />, label: 'Total customers', value: total, accent: 'text-[#FFD700]' },
+    { icon: <Users className="w-4 h-4 text-[#A8B4C8]" />, label: 'Total customers', value: total, accent: 'text-[#D4AF37]' },
     { icon: <User className="w-4 h-4 text-green-400" />, label: 'Active on page', value: active, accent: 'text-green-400' },
-    { icon: <IndianRupee className="w-4 h-4 text-[#FFD700]" />, label: 'Page revenue', value: formatINR(revenue), accent: 'text-[#FFD700]' },
-    { icon: <ShoppingBag className="w-4 h-4 text-[#E07B8B]" />, label: 'Page orders', value: orders, accent: 'text-[#FFD700]' },
+    { icon: <IndianRupee className="w-4 h-4 text-[#D4AF37]" />, label: 'Page revenue', value: formatINR(revenue), accent: 'text-[#D4AF37]' },
+    { icon: <ShoppingBag className="w-4 h-4 text-[#A8B4C8]" />, label: 'Page orders', value: orders, accent: 'text-[#D4AF37]' },
   ];
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
       {items.map((it) => (
         <div
           key={it.label}
-          className="bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl p-4"
+          className="bg-[#111111]/40 backdrop-blur-md border border-[#A8B4C8]/15 rounded-2xl p-4"
         >
           <div className="flex items-center gap-2 mb-1">
             {it.icon}
-            <p className="text-[#F5F5F5]/60 text-sm">{it.label}</p>
+            <p className="text-[#F5F0E8]/60 text-sm">{it.label}</p>
           </div>
           <p className={`text-2xl font-bold ${it.accent}`}>{it.value}</p>
         </div>
@@ -415,21 +415,21 @@ function StatsRow({ total, active, revenue, orders }) {
 function FiltersBar({ filters, setFilters, clearFilters }) {
   const hasFilters = filters.search || filters.status;
   return (
-    <div className="bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl p-4">
+    <div className="bg-[#111111]/40 backdrop-blur-md border border-[#A8B4C8]/15 rounded-2xl p-4">
       <div className="flex flex-col md:flex-row gap-4">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#F5F5F5]/40" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#F5F0E8]/40" />
           <input
             type="text"
             placeholder="Search by name, email, or username..."
             value={filters.search}
             onChange={(e) => setFilters((p) => ({ ...p, search: e.target.value }))}
-            className="w-full pl-10 pr-4 py-2.5 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-xl text-[#F5F5F5] placeholder-[#F5F5F5]/40 focus:outline-none focus:border-[#E07B8B]/40 text-sm"
+            className="w-full pl-10 pr-4 py-2.5 bg-[#111111]/60 border border-[#A8B4C8]/20 rounded-xl text-[#F5F0E8] placeholder-[#F5F0E8]/40 focus:outline-none focus:border-[#A8B4C8]/40 text-sm"
           />
           {filters.search && (
             <button
               onClick={() => setFilters((p) => ({ ...p, search: '' }))}
-              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-[#E07B8B]/10 text-[#F5F5F5]/40 hover:text-[#F5F5F5]"
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-[#A8B4C8]/10 text-[#F5F0E8]/40 hover:text-[#F5F0E8]"
               title="Clear search"
             >
               <X className="w-4 h-4" />
@@ -439,17 +439,17 @@ function FiltersBar({ filters, setFilters, clearFilters }) {
         <select
           value={filters.status}
           onChange={(e) => setFilters((p) => ({ ...p, status: e.target.value }))}
-          className="px-4 py-2.5 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-xl text-[#F5F5F5] focus:outline-none focus:border-[#E07B8B]/40 text-sm cursor-pointer min-w-[160px]"
+          className="px-4 py-2.5 bg-[#111111]/60 border border-[#A8B4C8]/20 rounded-xl text-[#F5F0E8] focus:outline-none focus:border-[#A8B4C8]/40 text-sm cursor-pointer min-w-[160px]"
         >
-          <option value="" className="bg-[#0A0A0A]">All status</option>
-          <option value="active" className="bg-[#0A0A0A]">Active</option>
-          <option value="inactive" className="bg-[#0A0A0A]">Inactive</option>
+          <option value="" className="bg-[#111111]">All status</option>
+          <option value="active" className="bg-[#111111]">Active</option>
+          <option value="inactive" className="bg-[#111111]">Inactive</option>
         </select>
       </div>
       {hasFilters && (
         <button
           onClick={clearFilters}
-          className="text-xs text-[#F5F5F5]/50 hover:text-[#F5F5F5] mt-3"
+          className="text-xs text-[#F5F0E8]/50 hover:text-[#F5F0E8] mt-3"
         >
           Clear all filters
         </button>
@@ -469,19 +469,19 @@ function BulkActionsBar({
 }) {
   if (selectedCount === 0) return null;
   return (
-    <div className="bg-[#9333EA]/10 border border-[#E07B8B]/30 rounded-xl p-3 flex flex-wrap items-center gap-3">
+    <div className="bg-[#1E3A5F]/10 border border-[#A8B4C8]/30 rounded-xl p-3 flex flex-wrap items-center gap-3">
       <button
         onClick={toggleAll}
-        className="flex items-center gap-2 text-sm text-[#F5F5F5]/70 hover:text-[#F5F5F5]"
+        className="flex items-center gap-2 text-sm text-[#F5F0E8]/70 hover:text-[#F5F0E8]"
       >
         {allSelected ? (
-          <CheckSquare className="w-4 h-4 text-[#E07B8B]" />
+          <CheckSquare className="w-4 h-4 text-[#A8B4C8]" />
         ) : (
           <Square className="w-4 h-4" />
         )}
         Select all on page
       </button>
-      <span className="text-sm text-[#F5F5F5]/60">{selectedCount} selected</span>
+      <span className="text-sm text-[#F5F0E8]/60">{selectedCount} selected</span>
       <div className="flex items-center gap-2 ml-auto">
         <button
           onClick={onActivate}
@@ -499,7 +499,7 @@ function BulkActionsBar({
         </button>
         <button
           onClick={clearSelection}
-          className="text-xs text-[#F5F5F5]/40 hover:text-[#F5F5F5]/70"
+          className="text-xs text-[#F5F0E8]/40 hover:text-[#F5F0E8]/70"
         >
           Clear
         </button>
@@ -511,13 +511,13 @@ function BulkActionsBar({
 function EmptyState({ hasFilters, onClear }) {
   return (
     <div className="flex flex-col items-center justify-center py-16 px-4">
-      <div className="w-20 h-20 rounded-full bg-[#9333EA]/20 flex items-center justify-center mb-4">
-        <Users className="w-10 h-10 text-[#E07B8B]/50" />
+      <div className="w-20 h-20 rounded-full bg-[#1E3A5F]/20 flex items-center justify-center mb-4">
+        <Users className="w-10 h-10 text-[#A8B4C8]/50" />
       </div>
-      <h3 className="text-lg font-medium text-[#F5F5F5] mb-2">
+      <h3 className="text-lg font-medium text-[#F5F0E8] mb-2">
         {hasFilters ? 'No customers match your filters' : 'No customers yet'}
       </h3>
-      <p className="text-sm text-[#F5F5F5]/50 text-center max-w-sm mb-4">
+      <p className="text-sm text-[#F5F0E8]/50 text-center max-w-sm mb-4">
         {hasFilters
           ? 'Try a different search term or clear the active filters.'
           : 'Customers will appear here once they register on the storefront.'}
@@ -525,7 +525,7 @@ function EmptyState({ hasFilters, onClear }) {
       {hasFilters && (
         <button
           onClick={onClear}
-          className="px-4 py-2 rounded-xl border border-[#E07B8B]/30 text-[#F5F5F5]/70 hover:bg-[#E07B8B]/10 transition-colors text-sm"
+          className="px-4 py-2 rounded-xl border border-[#A8B4C8]/30 text-[#F5F0E8]/70 hover:bg-[#A8B4C8]/10 transition-colors text-sm"
         >
           Clear filters
         </button>

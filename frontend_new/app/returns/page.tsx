@@ -32,38 +32,38 @@ export default function ReturnRefundPolicyPage() {
       <div className="container mx-auto px-4 sm:px-6 md:px-8 max-w-4xl">
         {/* Header */}
         <div className="text-center mb-12">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-[#E07B8B]/20 mb-6">
-            <RotateCcw className="w-8 h-8 text-[#FFD700]" />
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-[#A8B4C8]/20 mb-6">
+            <RotateCcw className="w-8 h-8 text-[#D4AF37]" />
           </div>
           <h1 
-            className="text-3xl sm:text-4xl md:text-5xl font-semibold text-[#FFD700] mb-4"
+            className="text-3xl sm:text-4xl md:text-5xl font-semibold text-[#D4AF37] mb-4"
             style={{ fontFamily: 'Cinzel, serif' }}
           >
             Return & Refund Policy
           </h1>
-          <p className="text-[#F5F5F5]/70 text-sm sm:text-base max-w-2xl mx-auto">
+          <p className="text-[#F5F0E8]/70 text-sm sm:text-base max-w-2xl mx-auto">
             Last updated: {new Date().toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' })}
           </p>
         </div>
 
         {/* Content Container */}
-        <div className="relative rounded-3xl p-6 sm:p-8 md:p-12 bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
+        <div className="relative rounded-3xl p-6 sm:p-8 md:p-12 bg-[#111111]/40 backdrop-blur-md border border-[#A8B4C8]/15 shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
           
           {/* Important Notice */}
           <section className="mb-10">
-            <div className="p-6 rounded-2xl bg-gradient-to-br from-[#FFD700]/15 to-[#E07B8B]/10 border border-[#FFD700]/25">
+            <div className="p-6 rounded-2xl bg-gradient-to-br from-[#D4AF37]/15 to-[#A8B4C8]/10 border border-[#D4AF37]/25">
               <div className="flex items-start gap-4 mb-4">
-                <AlertTriangle className="w-6 h-6 text-[#FFD700] flex-shrink-0 mt-0.5" />
-                <h2 className="text-xl text-[#F5F5F5] font-medium" style={{ fontFamily: 'Cinzel, serif' }}>
+                <AlertTriangle className="w-6 h-6 text-[#D4AF37] flex-shrink-0 mt-0.5" />
+                <h2 className="text-xl text-[#F5F0E8] font-medium" style={{ fontFamily: 'Cinzel, serif' }}>
                   Return Policy - Damaged/Defective Items Only
                 </h2>
               </div>
-              <p className="text-[#F5F5F5]/80 leading-relaxed mb-4">
+              <p className="text-[#F5F0E8]/80 leading-relaxed mb-4">
                 At Aarya Clothing, we stand behind the quality of our products. We only accept returns for 
-                <strong className="text-[#FFD700]">damaged or defective items</strong> within <strong className="text-[#FFD700]">7 days 
+                <strong className="text-[#D4AF37]">damaged or defective items</strong> within <strong className="text-[#D4AF37]">7 days 
                 of delivery</strong>. Unboxing video proof is required for all return requests.
               </p>
-              <p className="text-[#F5F5F5]/80 leading-relaxed">
+              <p className="text-[#F5F0E8]/80 leading-relaxed">
                 Simply submit a return request, and our team will guide you through the process. If we need any additional 
                 information, we'll reach out to you. Your satisfaction is our priority!
               </p>
@@ -72,15 +72,15 @@ export default function ReturnRefundPolicyPage() {
 
           {/* Section 2 */}
           <section className="mb-10">
-            <h2 className="text-xl sm:text-2xl text-[#F5F5F5] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
-              <Clock className="w-6 h-6 text-[#FFD700]" />
+            <h2 className="text-xl sm:text-2xl text-[#F5F0E8] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
+              <Clock className="w-6 h-6 text-[#D4AF37]" />
               Return Timeframe
             </h2>
-            <div className="space-y-4 text-[#F5F5F5]/70 leading-relaxed pl-4">
-              <div className="p-5 rounded-xl bg-[#FFD700]/10 border border-[#FFD700]/20">
-                <p className="text-[#F5F5F5] leading-relaxed">
-                  <strong className="text-[#FFD700] text-lg">7-Day Window:</strong> You must report any issues and 
-                  initiate a return request within <strong className="text-[#FFD700]">7 days</strong> of 
+            <div className="space-y-4 text-[#F5F0E8]/70 leading-relaxed pl-4">
+              <div className="p-5 rounded-xl bg-[#D4AF37]/10 border border-[#D4AF37]/20">
+                <p className="text-[#F5F0E8] leading-relaxed">
+                  <strong className="text-[#D4AF37] text-lg">7-Day Window:</strong> You must report any issues and 
+                  initiate a return request within <strong className="text-[#D4AF37]">7 days</strong> of 
                   receiving your order. Returns requested after this period will not be accepted.
                 </p>
               </div>
@@ -95,23 +95,23 @@ export default function ReturnRefundPolicyPage() {
 
           {/* Section 4 */}
           <section className="mb-10">
-            <h2 className="text-xl sm:text-2xl text-[#F5F5F5] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
-              <RotateCcw className="w-6 h-6 text-[#FFD700]" />
+            <h2 className="text-xl sm:text-2xl text-[#F5F0E8] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
+              <RotateCcw className="w-6 h-6 text-[#D4AF37]" />
               Exchange Process
             </h2>
-            <div className="space-y-4 text-[#F5F5F5]/70 leading-relaxed pl-4">
+            <div className="space-y-4 text-[#F5F0E8]/70 leading-relaxed pl-4">
               <p>If you receive a damaged, defective, or incorrect product, follow these steps:</p>
               
               <div className="space-y-4 mt-6">
                 {/* Step 1 */}
                 <div className="flex gap-4">
                   <div className="flex-shrink-0">
-                    <div className="w-10 h-10 rounded-full bg-[#FFD700]/20 border border-[#FFD700]/30 flex items-center justify-center text-[#FFD700] font-medium">
+                    <div className="w-10 h-10 rounded-full bg-[#D4AF37]/20 border border-[#D4AF37]/30 flex items-center justify-center text-[#D4AF37] font-medium">
                       1
                     </div>
                   </div>
                   <div className="flex-1">
-                    <h3 className="text-[#F5F5F5] font-medium mb-2">Create Unboxing Video</h3>
+                    <h3 className="text-[#F5F0E8] font-medium mb-2">Create Unboxing Video</h3>
                     <p className="text-sm">
                       When you receive your package, create a clear video showing:
                     </p>
@@ -127,14 +127,14 @@ export default function ReturnRefundPolicyPage() {
                 {/* Step 2 */}
                 <div className="flex gap-4">
                   <div className="flex-shrink-0">
-                    <div className="w-10 h-10 rounded-full bg-[#FFD700]/20 border border-[#FFD700]/30 flex items-center justify-center text-[#FFD700] font-medium">
+                    <div className="w-10 h-10 rounded-full bg-[#D4AF37]/20 border border-[#D4AF37]/30 flex items-center justify-center text-[#D4AF37] font-medium">
                       2
                     </div>
                   </div>
                   <div className="flex-1">
-                    <h3 className="text-[#F5F5F5] font-medium mb-2">Submit Return Request</h3>
+                    <h3 className="text-[#F5F0E8] font-medium mb-2">Submit Return Request</h3>
                     <p className="text-sm">
-                      Email us at <span className="text-[#FFD700]">support@aaryaclothing.com</span> within 7 days 
+                      Email us at <span className="text-[#D4AF37]">support@aaryaclothing.com</span> within 7 days 
                       of delivery. Include your order number, product details, and upload the unboxing video 
                       showing the issue clearly.
                     </p>
@@ -144,12 +144,12 @@ export default function ReturnRefundPolicyPage() {
                 {/* Step 3 */}
                 <div className="flex gap-4">
                   <div className="flex-shrink-0">
-                    <div className="w-10 h-10 rounded-full bg-[#FFD700]/20 border border-[#FFD700]/30 flex items-center justify-center text-[#FFD700] font-medium">
+                    <div className="w-10 h-10 rounded-full bg-[#D4AF37]/20 border border-[#D4AF37]/30 flex items-center justify-center text-[#D4AF37] font-medium">
                       3
                     </div>
                   </div>
                   <div className="flex-1">
-                    <h3 className="text-[#F5F5F5] font-medium mb-2">Review & Approval</h3>
+                    <h3 className="text-[#F5F0E8] font-medium mb-2">Review & Approval</h3>
                     <p className="text-sm">
                       Our team will review your video and request within 24-48 hours. Return requests will be 
                       accepted or rejected based on the video evidence. If approved, we will send you a return 
@@ -161,12 +161,12 @@ export default function ReturnRefundPolicyPage() {
                 {/* Step 4 */}
                 <div className="flex gap-4">
                   <div className="flex-shrink-0">
-                    <div className="w-10 h-10 rounded-full bg-[#FFD700]/20 border border-[#FFD700]/30 flex items-center justify-center text-[#FFD700] font-medium">
+                    <div className="w-10 h-10 rounded-full bg-[#D4AF37]/20 border border-[#D4AF37]/30 flex items-center justify-center text-[#D4AF37] font-medium">
                       4
                     </div>
                   </div>
                   <div className="flex-1">
-                    <h3 className="text-[#F5F5F5] font-medium mb-2">Product Return & Exchange</h3>
+                    <h3 className="text-[#F5F0E8] font-medium mb-2">Product Return & Exchange</h3>
                     <p className="text-sm">
                       Pack the item securely in its original packaging with all tags intact. Attach the return 
                       label and ship back to us. Once we receive and verify the returned product, we will dispatch 
@@ -176,10 +176,10 @@ export default function ReturnRefundPolicyPage() {
                 </div>
               </div>
               
-              <div className="flex items-start gap-3 p-4 rounded-xl bg-[#FFD700]/5 border border-[#FFD700]/10 mt-6">
-                <AlertTriangle className="w-5 h-5 text-[#FFD700] flex-shrink-0 mt-0.5" />
-                <p className="text-sm text-[#F5F5F5]/70">
-                  <strong className="text-[#FFD700]">Important:</strong> Unboxing videos are mandatory for all return requests. 
+              <div className="flex items-start gap-3 p-4 rounded-xl bg-[#D4AF37]/5 border border-[#D4AF37]/10 mt-6">
+                <AlertTriangle className="w-5 h-5 text-[#D4AF37] flex-shrink-0 mt-0.5" />
+                <p className="text-sm text-[#F5F0E8]/70">
+                  <strong className="text-[#D4AF37]">Important:</strong> Unboxing videos are mandatory for all return requests. 
                   Returns without proper video evidence will not be accepted. Make sure the video clearly shows 
                   the product condition and any issues you're reporting.
                 </p>
@@ -189,15 +189,15 @@ export default function ReturnRefundPolicyPage() {
 
           {/* Section 5 */}
           <section className="mb-10">
-            <h2 className="text-xl sm:text-2xl text-[#F5F5F5] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
-              <Truck className="w-6 h-6 text-[#FFD700]" />
+            <h2 className="text-xl sm:text-2xl text-[#F5F0E8] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
+              <Truck className="w-6 h-6 text-[#D4AF37]" />
               Return Shipping
             </h2>
-            <div className="space-y-4 text-[#F5F5F5]/70 leading-relaxed pl-4">
-              <div className="p-5 rounded-xl bg-[#FFD700]/10 border border-[#FFD700]/20">
-                <p className="text-[#F5F5F5] leading-relaxed">
-                  <strong className="text-[#FFD700]">Free Return Shipping:</strong> For approved returns (damaged, 
-                  defective, or wrong items), we provide a <strong className="text-[#FFD700]">prepaid return label</strong> at 
+            <div className="space-y-4 text-[#F5F0E8]/70 leading-relaxed pl-4">
+              <div className="p-5 rounded-xl bg-[#D4AF37]/10 border border-[#D4AF37]/20">
+                <p className="text-[#F5F0E8] leading-relaxed">
+                  <strong className="text-[#D4AF37]">Free Return Shipping:</strong> For approved returns (damaged, 
+                  defective, or wrong items), we provide a <strong className="text-[#D4AF37]">prepaid return label</strong> at 
                   no cost to you.
                 </p>
               </div>
@@ -206,9 +206,9 @@ export default function ReturnRefundPolicyPage() {
                 customer and deducted from the refund amount. We recommend using a trackable shipping service 
                 and purchasing shipping insurance for valuable items.
               </p>
-              <div className="flex items-start gap-3 p-4 rounded-xl bg-[#FFD700]/5 border border-[#FFD700]/10">
-                <AlertTriangle className="w-5 h-5 text-[#FFD700] flex-shrink-0 mt-0.5" />
-                <p className="text-sm text-[#F5F5F5]/70">
+              <div className="flex items-start gap-3 p-4 rounded-xl bg-[#D4AF37]/5 border border-[#D4AF37]/10">
+                <AlertTriangle className="w-5 h-5 text-[#D4AF37] flex-shrink-0 mt-0.5" />
+                <p className="text-sm text-[#F5F0E8]/70">
                   We are not responsible for lost or damaged return shipments. Please retain your tracking 
                   information until your return is processed.
                 </p>
@@ -219,14 +219,14 @@ export default function ReturnRefundPolicyPage() {
 
           {/* Section 7 */}
           <section className="mb-10">
-            <h2 className="text-xl sm:text-2xl text-[#F5F5F5] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
-              <Clock className="w-6 h-6 text-[#FFD700]" />
+            <h2 className="text-xl sm:text-2xl text-[#F5F0E8] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
+              <Clock className="w-6 h-6 text-[#D4AF37]" />
               Refund Process
             </h2>
-            <div className="space-y-4 text-[#F5F5F5]/70 leading-relaxed pl-4">
+            <div className="space-y-4 text-[#F5F0E8]/70 leading-relaxed pl-4">
               <p>Once your return is approved and the product is received:</p>
-              <div className="p-5 rounded-xl bg-[#FFD700]/10 border border-[#FFD700]/20 mt-4">
-                <p className="text-[#F5F5F5]">
+              <div className="p-5 rounded-xl bg-[#D4AF37]/10 border border-[#D4AF37]/20 mt-4">
+                <p className="text-[#F5F0E8]">
                   Our team will review the returned product and contact you with updates on your refund or exchange. 
                   The refund will be processed to your original payment method after verification.
                 </p>
@@ -240,11 +240,11 @@ export default function ReturnRefundPolicyPage() {
 
           {/* Section 9 */}
           <section className="mb-10">
-            <h2 className="text-xl sm:text-2xl text-[#F5F5F5] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
-              <AlertTriangle className="w-6 h-6 text-[#FFD700]" />
+            <h2 className="text-xl sm:text-2xl text-[#F5F0E8] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
+              <AlertTriangle className="w-6 h-6 text-[#D4AF37]" />
               Damaged in Transit
             </h2>
-            <div className="space-y-4 text-[#F5F5F5]/70 leading-relaxed pl-4">
+            <div className="space-y-4 text-[#F5F0E8]/70 leading-relaxed pl-4">
               <p>
                 If your package arrives damaged due to shipping:
               </p>
@@ -262,30 +262,30 @@ export default function ReturnRefundPolicyPage() {
 
           {/* Section 10 */}
           <section className="mb-10">
-            <h2 className="text-xl sm:text-2xl text-[#F5F5F5] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
-              <CheckCircle className="w-6 h-6 text-[#FFD700]" />
+            <h2 className="text-xl sm:text-2xl text-[#F5F0E8] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
+              <CheckCircle className="w-6 h-6 text-[#D4AF37]" />
               Contact Us
             </h2>
-            <div className="space-y-4 text-[#F5F5F5]/70 leading-relaxed pl-4">
+            <div className="space-y-4 text-[#F5F0E8]/70 leading-relaxed pl-4">
               <p>
                 For any questions about our Return & Refund Policy or to initiate a return, please contact us:
               </p>
-              <div className="p-6 rounded-xl bg-[#FFD700]/5 border border-[#FFD700]/10 space-y-3">
-                <p className="text-[#F5F5F5]">
-                  <strong className="text-[#FFD700]">Customer Support:</strong> support@aaryaclothing.com
+              <div className="p-6 rounded-xl bg-[#D4AF37]/5 border border-[#D4AF37]/10 space-y-3">
+                <p className="text-[#F5F0E8]">
+                  <strong className="text-[#D4AF37]">Customer Support:</strong> support@aaryaclothing.com
                 </p>
-                <p className="text-[#F5F5F5]">
-                  <strong className="text-[#FFD700]">Phone:</strong> +91 7300186757
+                <p className="text-[#F5F0E8]">
+                  <strong className="text-[#D4AF37]">Phone:</strong> +91 7300186757
                 </p>
               </div>
             </div>
           </section>
 
           {/* Back to Top */}
-          <div className="pt-8 border-t border-[#E07B8B]/15">
+          <div className="pt-8 border-t border-[#A8B4C8]/15">
             <Link 
               href="/" 
-              className="inline-flex items-center gap-2 text-[#FFD700] hover:text-[#F5F5F5] transition-colors text-sm"
+              className="inline-flex items-center gap-2 text-[#D4AF37] hover:text-[#F5F0E8] transition-colors text-sm"
             >
               ← Back to Home
             </Link>

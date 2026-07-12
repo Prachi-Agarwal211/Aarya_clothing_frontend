@@ -74,37 +74,37 @@ export default function PaymentPolicyPage() {
       <div className="container mx-auto px-4 sm:px-6 md:px-8 max-w-4xl">
         {/* Header */}
         <div className="text-center mb-12">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-[#E07B8B]/20 mb-6">
-            <CreditCard className="w-8 h-8 text-[#FFD700]" />
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-[#A8B4C8]/20 mb-6">
+            <CreditCard className="w-8 h-8 text-[#D4AF37]" />
           </div>
           <h1
-            className="text-3xl sm:text-4xl md:text-5xl font-semibold text-[#FFD700] mb-4"
+            className="text-3xl sm:text-4xl md:text-5xl font-semibold text-[#D4AF37] mb-4"
             style={{ fontFamily: 'Cinzel, serif' }}
           >
             Payment Policy
           </h1>
-          <p className="text-[#F5F5F5]/70 text-sm sm:text-base max-w-2xl mx-auto">
+          <p className="text-[#F5F0E8]/70 text-sm sm:text-base max-w-2xl mx-auto">
             Last updated: {new Date().toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' })}
           </p>
         </div>
 
         {/* Content Container */}
-        <div className="relative rounded-3xl p-6 sm:p-8 md:p-12 bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
+        <div className="relative rounded-3xl p-6 sm:p-8 md:p-12 bg-[#111111]/40 backdrop-blur-md border border-[#A8B4C8]/15 shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
 
           {/* Section 1 */}
           <section className="mb-10">
-            <h2 className="text-xl sm:text-2xl text-[#F5F5F5] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
-              <span className="w-8 h-8 rounded-full bg-[#E07B8B]/20 flex items-center justify-center text-sm text-[#FFD700]">1</span>
+            <h2 className="text-xl sm:text-2xl text-[#F5F0E8] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
+              <span className="w-8 h-8 rounded-full bg-[#A8B4C8]/20 flex items-center justify-center text-sm text-[#D4AF37]">1</span>
               Our Payment Approach
             </h2>
-            <div className="space-y-4 text-[#F5F5F5]/70 leading-relaxed pl-11">
-              <p>At Aarya Clothing, we accept <strong className="text-[#F5F5F5]">online payments only</strong> through our secure payment gateway. All orders must be paid in full at checkout.</p>
+            <div className="space-y-4 text-[#F5F0E8]/70 leading-relaxed pl-11">
+              <p>At Aarya Clothing, we accept <strong className="text-[#F5F0E8]">online payments only</strong> through our secure payment gateway. All orders must be paid in full at checkout.</p>
 
               <div className="grid sm:grid-cols-1 gap-3 mt-4">
                 <div className="flex items-start gap-3 p-4 rounded-xl bg-green-500/10 border border-green-500/20">
                   <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
                   <div>
-                    <p className="text-[#F5F5F5] font-medium mb-1">No Hidden Charges</p>
+                    <p className="text-[#F5F0E8] font-medium mb-1">No Hidden Charges</p>
                     <p className="text-sm">The price you see is the price you pay. No additional processing fees, no convenience charges, no surprises at checkout.</p>
                   </div>
                 </div>
@@ -112,7 +112,7 @@ export default function PaymentPolicyPage() {
                 <div className="flex items-start gap-3 p-4 rounded-xl bg-green-500/10 border border-green-500/20">
                   <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
                   <div>
-                    <p className="text-[#F5F5F5] font-medium mb-1">All Taxes Included</p>
+                    <p className="text-[#F5F0E8] font-medium mb-1">All Taxes Included</p>
                     <p className="text-sm">Every listed price is <strong>inclusive of all taxes</strong> (GST included). What you see is what you pay — nothing more.</p>
                   </div>
                 </div>
@@ -120,7 +120,7 @@ export default function PaymentPolicyPage() {
                 <div className="flex items-start gap-3 p-4 rounded-xl bg-green-500/10 border border-green-500/20">
                   <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
                   <div>
-                    <p className="text-[#F5F5F5] font-medium mb-1">Free Shipping</p>
+                    <p className="text-[#F5F0E8] font-medium mb-1">Free Shipping</p>
                     <p className="text-sm">We offer <strong>free shipping</strong> on all orders across India. No minimum order value required.</p>
                   </div>
                 </div>
@@ -128,7 +128,7 @@ export default function PaymentPolicyPage() {
                 <div className="flex items-start gap-3 p-4 rounded-xl bg-green-500/10 border border-green-500/20">
                   <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
                   <div>
-                    <p className="text-[#F5F5F5] font-medium mb-1">Reasonable Prices</p>
+                    <p className="text-[#F5F0E8] font-medium mb-1">Reasonable Prices</p>
                     <p className="text-sm">We source directly from manufacturers and artisans to bring you <strong>premium ethnic wear at reasonable prices</strong>. No middlemen, no markups.</p>
                   </div>
                 </div>
@@ -138,12 +138,12 @@ export default function PaymentPolicyPage() {
 
           {/* Section 2 */}
           <section className="mb-10">
-            <h2 className="text-xl sm:text-2xl text-[#F5F5F5] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
-              <span className="w-8 h-8 rounded-full bg-[#E07B8B]/20 flex items-center justify-center text-sm text-[#FFD700]">2</span>
+            <h2 className="text-xl sm:text-2xl text-[#F5F0E8] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
+              <span className="w-8 h-8 rounded-full bg-[#A8B4C8]/20 flex items-center justify-center text-sm text-[#D4AF37]">2</span>
               Accepted Payment Methods
             </h2>
-            <div className="space-y-4 text-[#F5F5F5]/70 leading-relaxed pl-11">
-              <p>All payments are processed securely via <strong className="text-[#F5F5F5]">Razorpay</strong>, India&apos;s leading payment gateway. We accept:</p>
+            <div className="space-y-4 text-[#F5F0E8]/70 leading-relaxed pl-11">
+              <p>All payments are processed securely via <strong className="text-[#F5F0E8]">Razorpay</strong>, India&apos;s leading payment gateway. We accept:</p>
               <div className="grid sm:grid-cols-2 gap-3 mt-4">
                 {[
                   { icon: '📱', label: 'UPI', desc: 'GPay, PhonePe, Paytm, BHIM & all UPI apps' },
@@ -151,11 +151,11 @@ export default function PaymentPolicyPage() {
                   { icon: '🏦', label: 'Net Banking', desc: 'All major Indian banks supported' },
                   { icon: '👛', label: 'Digital Wallets', desc: 'Paytm, Mobikwik, and more' },
                 ].map(m => (
-                  <div key={m.label} className="flex items-start gap-3 p-4 rounded-xl bg-[#FFD700]/5 border border-[#FFD700]/10">
+                  <div key={m.label} className="flex items-start gap-3 p-4 rounded-xl bg-[#D4AF37]/5 border border-[#D4AF37]/10">
                     <span className="text-2xl">{m.icon}</span>
                     <div>
-                      <p className="text-[#F5F5F5] font-medium">{m.label}</p>
-                      <p className="text-xs text-[#F5F5F5]/50">{m.desc}</p>
+                      <p className="text-[#F5F0E8] font-medium">{m.label}</p>
+                      <p className="text-xs text-[#F5F0E8]/50">{m.desc}</p>
                     </div>
                   </div>
                 ))}
@@ -165,14 +165,14 @@ export default function PaymentPolicyPage() {
 
           {/* Section 3 */}
           <section className="mb-10">
-            <h2 className="text-xl sm:text-2xl text-[#F5F5F5] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
-              <span className="w-8 h-8 rounded-full bg-[#E07B8B]/20 flex items-center justify-center text-sm text-[#FFD700]">3</span>
+            <h2 className="text-xl sm:text-2xl text-[#F5F0E8] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
+              <span className="w-8 h-8 rounded-full bg-[#A8B4C8]/20 flex items-center justify-center text-sm text-[#D4AF37]">3</span>
               Payment Security
             </h2>
-            <div className="space-y-4 text-[#F5F5F5]/70 leading-relaxed pl-11">
+            <div className="space-y-4 text-[#F5F0E8]/70 leading-relaxed pl-11">
               <p>Your payment security is our highest priority.</p>
               <ul className="list-disc list-inside space-y-2 ml-4">
-                <li>All transactions are <strong className="text-[#F5F5F5]">256-bit SSL encrypted</strong></li>
+                <li>All transactions are <strong className="text-[#F5F0E8]">256-bit SSL encrypted</strong></li>
                 <li>We never store your card or banking details on our servers</li>
                 <li>Razorpay is PCI-DSS compliant and RBI-authorised</li>
                 <li>3D Secure authentication for card payments</li>
@@ -182,40 +182,40 @@ export default function PaymentPolicyPage() {
 
           {/* Section 4 */}
           <section className="mb-10">
-            <h2 className="text-xl sm:text-2xl text-[#F5F5F5] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
-              <span className="w-8 h-8 rounded-full bg-[#E07B8B]/20 flex items-center justify-center text-sm text-[#FFD700]">4</span>
+            <h2 className="text-xl sm:text-2xl text-[#F5F0E8] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
+              <span className="w-8 h-8 rounded-full bg-[#A8B4C8]/20 flex items-center justify-center text-sm text-[#D4AF37]">4</span>
               Refunds &amp; Failed Payments
             </h2>
-            <div className="space-y-4 text-[#F5F5F5]/70 leading-relaxed pl-11">
-              <p>If a payment fails or is charged but the order is not created, the amount will be automatically refunded to your original payment method within <strong className="text-[#F5F5F5]">5–7 business days</strong>.</p>
+            <div className="space-y-4 text-[#F5F0E8]/70 leading-relaxed pl-11">
+              <p>If a payment fails or is charged but the order is not created, the amount will be automatically refunded to your original payment method within <strong className="text-[#F5F0E8]">5–7 business days</strong>.</p>
               <p>For approved returns, refunds are processed within 5–7 business days after the return is verified.</p>
-              <div className="flex items-start gap-3 p-4 rounded-xl bg-[#FFD700]/10 border border-[#FFD700]/20">
-                <AlertCircle className="w-5 h-5 text-[#FFD700] flex-shrink-0 mt-0.5" />
-                <p className="text-sm">If you face any payment issue, please contact <strong className="text-[#F5F5F5]">support@aaryaclothing.com</strong> with your order ID.</p>
+              <div className="flex items-start gap-3 p-4 rounded-xl bg-[#D4AF37]/10 border border-[#D4AF37]/20">
+                <AlertCircle className="w-5 h-5 text-[#D4AF37] flex-shrink-0 mt-0.5" />
+                <p className="text-sm">If you face any payment issue, please contact <strong className="text-[#F5F0E8]">support@aaryaclothing.com</strong> with your order ID.</p>
               </div>
             </div>
           </section>
 
           {/* Section 5 */}
           <section className="mb-10">
-            <h2 className="text-xl sm:text-2xl text-[#F5F5F5] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
-              <span className="w-8 h-8 rounded-full bg-[#E07B8B]/20 flex items-center justify-center text-sm text-[#FFD700]">5</span>
+            <h2 className="text-xl sm:text-2xl text-[#F5F0E8] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
+              <span className="w-8 h-8 rounded-full bg-[#A8B4C8]/20 flex items-center justify-center text-sm text-[#D4AF37]">5</span>
               Contact Us
             </h2>
-            <div className="space-y-4 text-[#F5F5F5]/70 leading-relaxed pl-11">
-              <div className="p-6 rounded-xl bg-[#FFD700]/5 border border-[#FFD700]/10">
-                <p className="text-[#F5F5F5] mb-2"><strong>Email:</strong> support@aaryaclothing.com</p>
-                <p className="text-[#F5F5F5] mb-2"><strong>Phone:</strong> +91-XXXXXXXXXX</p>
-                <p className="text-[#F5F5F5]"><strong>Hours:</strong> Monday – Saturday, 10 AM – 7 PM IST</p>
+            <div className="space-y-4 text-[#F5F0E8]/70 leading-relaxed pl-11">
+              <div className="p-6 rounded-xl bg-[#D4AF37]/5 border border-[#D4AF37]/10">
+                <p className="text-[#F5F0E8] mb-2"><strong>Email:</strong> support@aaryaclothing.com</p>
+                <p className="text-[#F5F0E8] mb-2"><strong>Phone:</strong> +91-XXXXXXXXXX</p>
+                <p className="text-[#F5F0E8]"><strong>Hours:</strong> Monday – Saturday, 10 AM – 7 PM IST</p>
               </div>
             </div>
           </section>
 
           {/* Back to Top */}
-          <div className="pt-8 border-t border-[#E07B8B]/15">
+          <div className="pt-8 border-t border-[#A8B4C8]/15">
             <Link 
               href="/" 
-              className="inline-flex items-center gap-2 text-[#FFD700] hover:text-[#F5F5F5] transition-colors text-sm"
+              className="inline-flex items-center gap-2 text-[#D4AF37] hover:text-[#F5F0E8] transition-colors text-sm"
             >
               ← Back to Home
             </Link>

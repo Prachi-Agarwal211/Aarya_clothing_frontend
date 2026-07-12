@@ -57,26 +57,26 @@ class ErrorBoundary extends Component {
       }
 
       return (
-        <div className="min-h-screen flex items-center justify-center bg-[#000000] text-[#F5F5F5] p-4">
+        <div className="min-h-screen flex items-center justify-center bg-[#000000] text-[#F5F0E8] p-4">
           <div className="max-w-md w-full text-center">
             {/* Logo */}
             <div className="mb-8 h-20" />
 
             {/* Error Message */}
             <h1
-              className="text-2xl md:text-3xl text-[#FFD700] mb-4"
+              className="text-2xl md:text-3xl text-[#D4AF37] mb-4"
               style={{ fontFamily: 'Cinzel, serif' }}
             >
               Something went wrong
             </h1>
 
-            <p className="text-[#F5F5F5]/70 mb-8">
+            <p className="text-[#F5F0E8]/70 mb-8">
               We apologize for the inconvenience. Please try again or return to the home page.
             </p>
 
             {/* Error Details (Development Only) */}
             {process.env.NODE_ENV === 'development' && this.state.error && (
-              <div className="mb-8 p-4 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-xl text-left overflow-auto max-h-40">
+              <div className="mb-8 p-4 bg-[#111111]/60 border border-[#A8B4C8]/20 rounded-xl text-left overflow-auto max-h-40">
                 <p className="text-red-400 text-sm font-mono">
                   {this.state.error.toString()}
                 </p>
@@ -87,13 +87,13 @@ class ErrorBoundary extends Component {
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <button
                 onClick={this.handleRetry}
-                className="px-6 py-3 bg-gradient-to-r from-[#9333EA] to-[#E07B8B] text-white rounded-xl hover:opacity-90 transition-opacity"
+                className="px-6 py-3 bg-gradient-to-r from-[#1E3A5F] to-[#A8B4C8] text-white rounded-xl hover:opacity-90 transition-opacity"
               >
                 Try Again
               </button>
               <button
                 onClick={this.handleGoHome}
-                className="px-6 py-3 border border-[#E07B8B]/30 text-[#F5F5F5] rounded-xl hover:border-[#E07B8B]/50 transition-colors"
+                className="px-6 py-3 border border-[#A8B4C8]/30 text-[#F5F0E8] rounded-xl hover:border-[#A8B4C8]/50 transition-colors"
               >
                 Go to Home
               </button>

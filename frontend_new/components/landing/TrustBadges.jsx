@@ -106,32 +106,27 @@ export default function TrustBadges() {
   }, [isMobile, prefersReducedMotion]);
 
   return (
-    <section ref={sectionRef} className="py-20 sm:py-24 relative z-10 overflow-hidden">
-      {/* Background glow */}
-      <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
-        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[300px] bg-[#E07B8B]/4 rounded-full blur-[120px]" />
-      </div>
+    <section ref={sectionRef} className="py-20 sm:py-24 relative z-10 overflow-hidden reveal-section">
+
 
       <div className="max-w-7xl mx-auto px-5 sm:px-6 lg:px-8 relative z-10">
         <div className="max-w-4xl mx-auto">
 
           {/* Heading */}
           <div ref={headingRef} className="text-center mb-16">
-            <div className="flex items-center justify-center gap-4 mb-4">
-              <div className="h-[1px] w-12 sm:w-20 bg-gradient-to-r from-transparent to-[#FFD700]/80" />
-              <div className="w-1.5 h-1.5 rounded-full bg-[#FFD700] transform rotate-45" />
+            <div className="flex items-center justify-center gap-3 mb-4">
+              <div className="h-[1px] w-10 bg-gradient-to-r from-transparent to-white/15" />
               <span
-                className="text-[#FFD700] text-xs sm:text-sm tracking-[0.35em] uppercase px-2"
+                className="text-[#A0A0A0] text-xs sm:text-sm tracking-[0.3em] uppercase px-2"
                 style={{ fontFamily: 'Cinzel, serif' }}
               >
                 Our Promise to You
               </span>
-              <div className="w-1.5 h-1.5 rounded-full bg-[#FFD700] transform rotate-45" />
-              <div className="h-[1px] w-12 sm:w-20 bg-gradient-to-l from-transparent to-[#FFD700]/80" />
+              <div className="h-[1px] w-10 bg-gradient-to-l from-transparent to-white/15" />
             </div>
             
             <h2
-              className="text-2xl sm:text-4xl text-[#F5F5F5] font-light leading-tight"
+              className="text-2xl sm:text-4xl text-[#F5F0E8] font-light leading-tight"
               style={{ fontFamily: 'var(--font-geist-sans), sans-serif' }}
             >
               Shopping should be simple, honest, and stress-free.
@@ -146,41 +141,32 @@ export default function TrustBadges() {
                 ref={el => badgeRefs.current[i] = el}
                 className="
                   group relative p-8 sm:p-10 rounded-2xl
-                  bg-[#0A0A0A]/50 backdrop-blur-md
-                  border-x border-[#E07B8B]/10
+                  bg-[#111111]/50 backdrop-blur-md
+                  border-x border-[#A8B4C8]/10
                   text-center transition-all duration-500
                   hover:-translate-y-2
                   overflow-hidden
                 "
               >
-                {/* Top/Bottom Glowing Borders */}
-                <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#FFD700]/60 to-transparent opacity-80" />
-                <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#FFD700]/60 to-transparent opacity-80" />
-                
-                {/* Top glowing orb effect (optional but nice) */}
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-1 bg-[#FFD700] blur-[8px] opacity-60" />
-                <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-32 h-1 bg-[#FFD700] blur-[8px] opacity-60" />
+
 
                 {/* Icon */}
-                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full border border-[#FFD700]/30 mb-6 group-hover:bg-[#FFD700]/10 transition-colors duration-300">
-                  <Icon className="w-8 h-8 text-[#FFD700]" strokeWidth={1.5} aria-hidden="true" />
+                <div className="inline-flex items-center justify-center w-12 h-12 rounded-full border border-white/10 mb-5">
+                  <Icon className="w-6 h-6 text-white/60" strokeWidth={1.5} aria-hidden="true" />
                 </div>
                 
                 {/* Title */}
                 <h3 
-                  className="text-[#F5F5F5] font-semibold mb-3 text-sm sm:text-base uppercase tracking-widest"
+                  className="text-[#F5F0E8] font-semibold mb-3 text-sm sm:text-base uppercase tracking-widest"
                   style={{ fontFamily: 'Cinzel, serif' }}
                 >
                   {title}
                 </h3>
 
-                {/* Inner separator */}
-                <div className="flex items-center justify-center gap-2 mb-4" aria-hidden="true">
-                  <div className="w-1 h-1 rounded-full bg-[#FFD700] transform rotate-45 opacity-60" />
-                </div>
+
                 
                 {/* Description */}
-                <p className="text-[#F5F5F5]/70 text-sm leading-relaxed max-w-[260px] mx-auto">
+                <p className="text-[#F5F0E8]/70 text-sm leading-relaxed max-w-[260px] mx-auto">
                   {desc}
                 </p>
               </div>

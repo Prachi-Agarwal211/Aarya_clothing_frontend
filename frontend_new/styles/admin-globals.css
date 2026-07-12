@@ -78,20 +78,20 @@ a.touch-target,
 }
 
 *:focus-visible {
-  outline: 2px solid #E07B8B;
+  outline: 2px solid #D4AF37;
   outline-offset: 2px;
 }
 
-/* Focus ring for interactive elements */
+/* Focus ring for interactive elements — royal gold */
 button:focus-visible,
 a:focus-visible,
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible,
 [tabindex]:focus-visible {
-  outline: 2px solid #E07B8B;
+  outline: 2px solid #D4AF37;
   outline-offset: 2px;
-  box-shadow: 0 0 0 4px rgba(224, 123, 139, 0.2);
+  box-shadow: 0 0 0 4px rgba(212, 175, 55, 0.18);
 }
 
 /* =============================================================================
@@ -267,8 +267,8 @@ textarea:focus-visible,
   position: absolute;
   top: -40px;
   left: 0;
-  background: #9333EA;
-  color: #FFD700;
+  background: #1E3A5F;
+  color: #D4AF37;
   padding: 8px 16px;
   z-index: 100;
   transition: top var(--transition-fast);

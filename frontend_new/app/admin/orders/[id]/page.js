@@ -159,31 +159,31 @@ function Loader() {
       {/* Header Skeleton */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div className="flex items-center gap-4">
-          <div className="w-10 h-10 bg-[#E07B8B]/10 rounded-xl" />
+          <div className="w-10 h-10 bg-[#A8B4C8]/10 rounded-xl" />
           <div className="space-y-2">
-            <div className="h-8 bg-[#E07B8B]/10 rounded-lg w-48" />
-            <div className="h-4 bg-[#E07B8B]/10 rounded w-32" />
+            <div className="h-8 bg-[#A8B4C8]/10 rounded-lg w-48" />
+            <div className="h-4 bg-[#A8B4C8]/10 rounded w-32" />
           </div>
         </div>
         <div className="flex gap-2">
-          <div className="h-10 w-24 bg-[#E07B8B]/10 rounded-xl" />
-          <div className="h-10 w-32 bg-[#E07B8B]/10 rounded-xl" />
+          <div className="h-10 w-24 bg-[#A8B4C8]/10 rounded-xl" />
+          <div className="h-10 w-32 bg-[#A8B4C8]/10 rounded-xl" />
         </div>
       </div>
 
       {/* Timeline Skeleton */}
-      <div className="h-24 bg-[#0A0A0A]/40 border border-[#E07B8B]/15 rounded-2xl" />
+      <div className="h-24 bg-[#111111]/40 border border-[#A8B4C8]/15 rounded-2xl" />
 
       {/* Content Skeleton */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
-          <div className="h-96 bg-[#0A0A0A]/40 border border-[#E07B8B]/15 rounded-2xl" />
-          <div className="h-48 bg-[#0A0A0A]/40 border border-[#E07B8B]/15 rounded-2xl" />
+          <div className="h-96 bg-[#111111]/40 border border-[#A8B4C8]/15 rounded-2xl" />
+          <div className="h-48 bg-[#111111]/40 border border-[#A8B4C8]/15 rounded-2xl" />
         </div>
         <div className="space-y-6">
-          <div className="h-48 bg-[#0A0A0A]/40 border border-[#E07B8B]/15 rounded-2xl" />
-          <div className="h-48 bg-[#0A0A0A]/40 border border-[#E07B8B]/15 rounded-2xl" />
-          <div className="h-64 bg-[#0A0A0A]/40 border border-[#E07B8B]/15 rounded-2xl" />
+          <div className="h-48 bg-[#111111]/40 border border-[#A8B4C8]/15 rounded-2xl" />
+          <div className="h-48 bg-[#111111]/40 border border-[#A8B4C8]/15 rounded-2xl" />
+          <div className="h-64 bg-[#111111]/40 border border-[#A8B4C8]/15 rounded-2xl" />
         </div>
       </div>
     </div>
@@ -193,11 +193,11 @@ function Loader() {
 function NotFound() {
   return (
     <div className="text-center py-12">
-      <Package className="w-16 h-16 text-[#E07B8B]/30 mx-auto mb-4" />
-      <h2 className="text-xl font-semibold text-[#F5F5F5]">Order not found</h2>
+      <Package className="w-16 h-16 text-[#A8B4C8]/30 mx-auto mb-4" />
+      <h2 className="text-xl font-semibold text-[#F5F0E8]">Order not found</h2>
       <Link
         href="/admin/orders"
-        className="text-[#E07B8B] hover:text-[#FFD700] mt-2 inline-block"
+        className="text-[#A8B4C8] hover:text-[#D4AF37] mt-2 inline-block"
       >
         ← Back to orders
       </Link>
@@ -211,27 +211,27 @@ function Header({ order, onBack, onUpdate }) {
       <div className="flex items-center gap-4">
         <button
           onClick={onBack}
-          className="p-2 rounded-xl border border-[#E07B8B]/20 text-[#F5F5F5]/70 hover:bg-[#E07B8B]/10 transition-colors"
+          className="p-2 rounded-xl border border-[#A8B4C8]/20 text-[#F5F0E8]/70 hover:bg-[#A8B4C8]/10 transition-colors"
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div>
           <h1
-            className="text-2xl md:text-3xl font-bold text-[#FFD700]"
+            className="text-2xl md:text-3xl font-bold text-[#D4AF37]"
             style={{ fontFamily: 'Cinzel, serif' }}
           >
             Order #{order.id}
           </h1>
-          <p className="text-[#F5F5F5]/60 mt-1">
+          <p className="text-[#F5F0E8]/60 mt-1">
             Placed on {formatDate(order.created_at)}
           </p>
         </div>
       </div>
       <div className="flex items-center gap-3">
-        <OrderStatusBadge status={order.status} />
+        <OrderStatusBadge status={order.status} showAdminLabel />
         <button
           onClick={onUpdate}
-          className="px-4 py-2 bg-[#9333EA]/30 border border-[#E07B8B]/30 rounded-xl text-[#FFD700] hover:bg-[#9333EA]/40 transition-colors"
+          className="px-4 py-2 bg-[#1E3A5F]/30 border border-[#A8B4C8]/30 rounded-xl text-[#D4AF37] hover:bg-[#1E3A5F]/40 transition-colors"
         >
           Update status
         </button>
@@ -253,19 +253,19 @@ function Timeline({ currentStatusIndex }) {
                 <div
                   className={`w-10 h-10 rounded-full flex items-center justify-center
                     ${isCompleted
-                      ? 'bg-[#9333EA]/30 border-2 border-[#E07B8B]'
-                      : 'bg-[#0A0A0A]/60 border border-[#E07B8B]/20'}
-                    ${isCurrent ? 'ring-2 ring-[#FFD700]/30' : ''}`}
+                      ? 'bg-[#1E3A5F]/30 border-2 border-[#A8B4C8]'
+                      : 'bg-[#111111]/60 border border-[#A8B4C8]/20'}
+                    ${isCurrent ? 'ring-2 ring-[#D4AF37]/30' : ''}`}
                 >
                   {isCompleted ? (
-                    <CheckCircle className="w-5 h-5 text-[#FFD700]" />
+                    <CheckCircle className="w-5 h-5 text-[#D4AF37]" />
                   ) : (
-                    <span className="text-[#F5F5F5]/40 text-sm">{index + 1}</span>
+                    <span className="text-[#F5F0E8]/40 text-sm">{index + 1}</span>
                   )}
                 </div>
                 <span
                   className={`mt-2 text-xs capitalize ${
-                    isCompleted ? 'text-[#FFD700]' : 'text-[#F5F5F5]/40'
+                    isCompleted ? 'text-[#D4AF37]' : 'text-[#F5F0E8]/40'
                   }`}
                 >
                   {status}
@@ -275,8 +275,8 @@ function Timeline({ currentStatusIndex }) {
                 <div
                   className={`w-16 md:w-24 h-0.5 mx-2 ${
                     index < currentStatusIndex
-                      ? 'bg-[#E07B8B]'
-                      : 'bg-[#E07B8B]/20'
+                      ? 'bg-[#A8B4C8]'
+                      : 'bg-[#A8B4C8]/20'
                   }`}
                 />
               )}
@@ -295,9 +295,9 @@ function ItemsCard({ items, total }) {
         {items.map((item) => (
           <div
             key={item.id}
-            className="flex items-center gap-4 p-4 bg-[#0A0A0A]/60 border border-[#E07B8B]/10 rounded-xl"
+            className="flex items-center gap-4 p-4 bg-[#111111]/60 border border-[#A8B4C8]/10 rounded-xl"
           >
-            <div className="w-16 h-16 rounded-lg overflow-hidden bg-[#0A0A0A]/40 flex-shrink-0 border border-[#E07B8B]/10">
+            <div className="w-16 h-16 rounded-lg overflow-hidden bg-[#111111]/40 flex-shrink-0 border border-[#A8B4C8]/10">
               {item.image_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -307,16 +307,16 @@ function ItemsCard({ items, total }) {
                   loading="lazy"
                 />
               ) : (
-                <div className="w-full h-full flex items-center justify-center bg-[#9333EA]/20">
-                  <Package className="w-8 h-8 text-[#E07B8B]/50" />
+                <div className="w-full h-full flex items-center justify-center bg-[#1E3A5F]/20">
+                  <Package className="w-8 h-8 text-[#A8B4C8]/50" />
                 </div>
               )}
             </div>
             <div className="flex-1 min-w-0">
-              <h3 className="font-medium text-[#F5F5F5] truncate">
+              <h3 className="font-medium text-[#F5F0E8] truncate">
                 {item.product_name}
               </h3>
-              <p className="text-sm text-[#F5F5F5]/60">
+              <p className="text-sm text-[#F5F0E8]/60">
                 {item.size && <span>Size: {item.size}</span>}
                 {item.color && (
                   <span className="ml-2 inline-flex items-center gap-1.5">
@@ -330,19 +330,19 @@ function ItemsCard({ items, total }) {
               </p>
             </div>
             <div className="text-right flex-shrink-0">
-              <p className="font-medium text-[#F5F5F5]">{formatINR(item.price)}</p>
-              <p className="text-sm text-[#F5F5F5]/60">Qty: {item.quantity}</p>
+              <p className="font-medium text-[#F5F0E8]">{formatINR(item.price)}</p>
+              <p className="text-sm text-[#F5F0E8]/60">Qty: {item.quantity}</p>
             </div>
           </div>
         ))}
       </div>
 
-      <div className="mt-6 pt-6 border-t border-[#E07B8B]/15">
-        <div className="flex justify-between text-lg font-semibold text-[#FFD700]">
+      <div className="mt-6 pt-6 border-t border-[#A8B4C8]/15">
+        <div className="flex justify-between text-lg font-semibold text-[#D4AF37]">
           <span>Total</span>
           <span>{formatINR(total)}</span>
         </div>
-        <p className="text-xs text-[#F5F5F5]/40 mt-2">
+        <p className="text-xs text-[#F5F0E8]/40 mt-2">
           Price shown is final — includes all taxes and shipping
         </p>
       </div>
@@ -357,10 +357,10 @@ function PaymentCard({ order, status }) {
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <CreditCard className="w-5 h-5 text-[#E07B8B]" />
+            <CreditCard className="w-5 h-5 text-[#A8B4C8]" />
             <div>
-              <p className="text-[#F5F5F5]">{label}</p>
-              <p className="text-sm text-[#F5F5F5]/60">
+              <p className="text-[#F5F0E8]">{label}</p>
+              <p className="text-sm text-[#F5F0E8]/60">
                 {order.transaction_id || 'TXN_PENDING'}
               </p>
             </div>
@@ -385,13 +385,13 @@ function PaymentCard({ order, status }) {
 
 function PaymentDetailBlock({ label, rows }) {
   return (
-    <div className="bg-[#9333EA]/20 border border-[#E07B8B]/20 rounded-xl p-4">
-      <p className="text-xs text-[#E07B8B] mb-2 font-semibold">{label}</p>
+    <div className="bg-[#1E3A5F]/20 border border-[#A8B4C8]/20 rounded-xl p-4">
+      <p className="text-xs text-[#A8B4C8] mb-2 font-semibold">{label}</p>
       <div className="grid grid-cols-1 gap-2 text-sm">
         {rows.map(([k, v]) => (
           <div key={k}>
-            <span className="text-[#F5F5F5]/60">{k}:</span>
-            <p className="text-[#FFD700] font-mono">{v}</p>
+            <span className="text-[#F5F0E8]/60">{k}:</span>
+            <p className="text-[#D4AF37] font-mono">{v}</p>
           </div>
         ))}
       </div>
@@ -404,21 +404,21 @@ function CustomerCard({ customer }) {
     <Section title="Customer">
       <div className="space-y-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-[#9333EA]/30 flex items-center justify-center">
-            <User className="w-5 h-5 text-[#E07B8B]" />
+          <div className="w-10 h-10 rounded-full bg-[#1E3A5F]/30 flex items-center justify-center">
+            <User className="w-5 h-5 text-[#A8B4C8]" />
           </div>
           <div>
-            <p className="font-medium text-[#F5F5F5]">
+            <p className="font-medium text-[#F5F0E8]">
               {customer?.full_name || 'Customer'}
             </p>
-            <p className="text-sm text-[#F5F5F5]/60">ID: #{customer?.id}</p>
+            <p className="text-sm text-[#F5F0E8]/60">ID: #{customer?.id}</p>
           </div>
         </div>
-        <div className="flex items-center gap-3 text-[#F5F5F5]/70">
+        <div className="flex items-center gap-3 text-[#F5F0E8]/70">
           <Mail className="w-4 h-4" />
           <span className="text-sm">{customer?.email}</span>
         </div>
-        <div className="flex items-center gap-3 text-[#F5F5F5]/70">
+        <div className="flex items-center gap-3 text-[#F5F0E8]/70">
           <Phone className="w-4 h-4" />
           <span className="text-sm">{customer?.phone}</span>
         </div>
@@ -430,7 +430,7 @@ function CustomerCard({ customer }) {
 function AddressCard({ address }) {
   return (
     <Section title="Shipping address">
-      <div className="space-y-2 text-[#F5F5F5]/70 whitespace-pre-wrap">
+      <div className="space-y-2 text-[#F5F0E8]/70 whitespace-pre-wrap">
         <p>{address || 'No address provided'}</p>
       </div>
     </Section>
@@ -440,17 +440,17 @@ function AddressCard({ address }) {
 function TrackingCard({ tracking }) {
   return (
     <div className="bg-cyan-400/5 backdrop-blur-md border border-cyan-400/20 rounded-2xl p-6">
-      <h2 className="text-lg font-semibold text-[#FFD700] mb-3 font-cinzel">
+      <h2 className="text-lg font-semibold text-[#D4AF37] mb-3 font-cinzel">
         POD / Tracking
       </h2>
       <div className="flex items-start gap-3">
         <Truck className="w-5 h-5 text-cyan-400 mt-0.5 flex-shrink-0" />
         <div>
-          <p className="text-xs text-[#F5F5F5]/50 uppercase tracking-widest mb-1">
+          <p className="text-xs text-[#F5F0E8]/50 uppercase tracking-widest mb-1">
             Proof of delivery number
           </p>
           <p className="font-mono font-bold text-cyan-300 text-lg">{tracking}</p>
-          <p className="text-xs text-[#F5F5F5]/40 mt-1">
+          <p className="text-xs text-[#F5F0E8]/40 mt-1">
             Shown to customer for tracking
           </p>
         </div>
@@ -463,12 +463,12 @@ function QuickActions({ status, updating, onCancel }) {
   return (
     <Section title="Quick actions">
       <div className="space-y-2">
-        <button className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl bg-[#9333EA]/10 border border-[#E07B8B]/10 hover:border-[#E07B8B]/30 text-[#F5F5F5] transition-colors">
+        <button className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl bg-[#1E3A5F]/10 border border-[#A8B4C8]/10 hover:border-[#A8B4C8]/30 text-[#F5F0E8] transition-colors">
           <MessageSquare className="w-4 h-4" />
           <span>Contact customer</span>
         </button>
         {status === 'shipped' && (
-          <button className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl bg-[#9333EA]/10 border border-[#E07B8B]/10 hover:border-[#E07B8B]/30 text-[#F5F5F5] transition-colors">
+          <button className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl bg-[#1E3A5F]/10 border border-[#A8B4C8]/10 hover:border-[#A8B4C8]/30 text-[#F5F0E8] transition-colors">
             <Truck className="w-4 h-4" />
             <span>Print shipping label</span>
           </button>
@@ -492,29 +492,29 @@ function HistoryCard({ entries }) {
   return (
     <Section title="Order history">
       {entries.length === 0 ? (
-        <p className="text-sm text-[#F5F5F5]/50">No history available</p>
+        <p className="text-sm text-[#F5F0E8]/50">No history available</p>
       ) : (
         <div className="space-y-3 max-h-64 overflow-y-auto">
           {entries.map((entry, idx) => (
             <div
               key={idx}
-              className="flex items-start gap-3 pb-3 border-b border-[#E07B8B]/10 last:border-0"
+              className="flex items-start gap-3 pb-3 border-b border-[#A8B4C8]/10 last:border-0"
             >
-              <div className="w-2 h-2 rounded-full bg-[#E07B8B] mt-2 flex-shrink-0" />
+              <div className="w-2 h-2 rounded-full bg-[#A8B4C8] mt-2 flex-shrink-0" />
               <div className="flex-1">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-[#F5F5F5] capitalize">
+                  <span className="text-sm font-medium text-[#F5F0E8] capitalize">
                     {entry.status}
                   </span>
-                  <span className="text-xs text-[#F5F5F5]/40">
+                  <span className="text-xs text-[#F5F0E8]/40">
                     {new Date(entry.created_at).toLocaleString('en-IN')}
                   </span>
                 </div>
                 {entry.notes && (
-                  <p className="text-xs text-[#F5F5F5]/60 mt-1">{entry.notes}</p>
+                  <p className="text-xs text-[#F5F0E8]/60 mt-1">{entry.notes}</p>
                 )}
                 {entry.location && (
-                  <p className="text-xs text-[#E07B8B]/70 mt-1">
+                  <p className="text-xs text-[#A8B4C8]/70 mt-1">
                     📍 {entry.location}
                   </p>
                 )}
@@ -529,9 +529,9 @@ function HistoryCard({ entries }) {
 
 function Section({ title, children }) {
   return (
-    <div className="bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl p-6">
+    <div className="bg-[#111111]/40 backdrop-blur-md border border-[#A8B4C8]/15 rounded-2xl p-6">
       <h2
-        className="text-lg font-semibold text-[#FFD700] mb-4"
+        className="text-lg font-semibold text-[#D4AF37] mb-4"
         style={{ fontFamily: 'Cinzel, serif' }}
       >
         {title}

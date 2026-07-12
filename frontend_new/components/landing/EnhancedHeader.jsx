@@ -55,6 +55,18 @@ const EnhancedHeader = () => {
 
   // Is the user currently on the landing page?
   const isLandingPage = pathname === '/';
+  // Product / catalog / checkout pages: always solid glass header so content
+  // never clashes under a transparent bar (PDP header/content overlap fix).
+  const forceSolidHeader =
+    !isLandingPage &&
+    (pathname?.startsWith('/products') ||
+      pathname?.startsWith('/cart') ||
+      pathname?.startsWith('/checkout') ||
+      pathname?.startsWith('/search') ||
+      pathname?.startsWith('/profile') ||
+      pathname?.startsWith('/orders') ||
+      pathname?.startsWith('/collections') ||
+      pathname?.startsWith('/auth'));
 
   // Trap focus in mobile menu when open
   useEffect(() => {
@@ -156,24 +168,25 @@ const EnhancedHeader = () => {
   // Memoize navLinks reference
   const navLinks = NAV_LINKS;
 
+  const solid = isScrolled || forceSolidHeader;
+
   return (
     <>
       <header
         className={cn(
           "fixed top-0 left-0 w-full z-[100] transition-all duration-500",
-          isScrolled
-            ? "py-2"
-            : "py-3"
+          solid ? "py-2" : "py-3"
         )}
         role="banner"
         aria-label="Main header"
+        data-solid={solid ? 'true' : 'false'}
       >
-        {/* Glass Background - only visible when scrolled */}
+        {/* Glass matte bar — always solid on PDP/catalog so content never shows through */}
         <div
           className={cn(
             "absolute inset-0 transition-all duration-500",
-            isScrolled
-              ? "bg-[#0A0A0A]/60 backdrop-blur-md border-b border-[#E07B8B]/10"
+            solid
+              ? "bg-[#0D0D0D]/92 backdrop-blur-md border-b border-white/[0.06]"
               : "bg-transparent border-b border-transparent"
           )}
           aria-hidden="true"
@@ -194,10 +207,10 @@ const EnhancedHeader = () => {
                   width={80}
                   height={80}
                   priority
-                  className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 object-contain drop-shadow-[0_0_15px_rgba(242,194,154,0.25)] group-hover:drop-shadow-[0_0_25px_rgba(242,194,154,0.4)] transition-all duration-300"
+                  className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 object-contain transition-all duration-300"
                 />
               ) : (
-                <span className="text-xl sm:text-2xl font-bold text-[#FFD700]" style={{ fontFamily: 'Cinzel, serif' }}>
+                <span className="text-xl sm:text-2xl font-bold text-[#D4AF37]" style={{ fontFamily: 'Cinzel, serif' }}>
                   AARYA
                 </span>
               )}
@@ -217,16 +230,16 @@ const EnhancedHeader = () => {
                   scroll={false}
                   onClick={(e) => handleNavClick(e, link)}
                   className={`relative text-sm font-medium transition-colors duration-300 py-2 group nav-link ${link.highlight
-                      ? 'text-[#FFD700] hover:text-white px-3 py-1.5 rounded-full bg-gradient-to-r from-[#9333EA]/40 to-[#E07B8B]/30 border border-[#E07B8B]/40 hover:border-[#E07B8B]/70'
+                      ? 'text-[#D4AF37] hover:text-white px-3 py-1.5 rounded-full bg-gradient-to-r from-[#1E3A5F]/40 to-[#A8B4C8]/30 border border-[#A8B4C8]/40 hover:border-[#A8B4C8]/70'
                       : activeSection === link.anchor
-                        ? 'text-[#FFD700]'
-                        : 'text-[#F5F5F5]/80 hover:text-[#FFD700]'
+                        ? 'text-[#D4AF37]'
+                        : 'text-[#F5F0E8]/80 hover:text-[#D4AF37]'
                     }`}
                   aria-current={link.name === 'New Arrivals' ? 'page' : undefined}
                 >
                   {link.name}
                   {!link.highlight && (
-                    <span className={`absolute bottom-0 left-0 h-[1px] bg-[#FFD700] transition-all duration-300 ${activeSection === link.anchor ? 'w-full' : 'w-0 group-hover:w-full'}`} aria-hidden="true" />
+                    <span className={`absolute bottom-0 left-0 h-[1px] bg-[#D4AF37] transition-all duration-300 ${activeSection === link.anchor ? 'w-full' : 'w-0 group-hover:w-full'}`} aria-hidden="true" />
                   )}
                 </Link>
               ))}
@@ -239,7 +252,7 @@ const EnhancedHeader = () => {
                   {user?.role && user.role !== 'customer' && (
                     <button
                       onClick={() => router.push(getRedirectForRole(user.role))}
-                      className="flex items-center gap-1.5 text-[#FFD700] hover:text-white text-xs font-semibold uppercase tracking-widest px-3 py-1.5 rounded-full border border-[#E07B8B]/50 hover:border-[#FFD700]/70 hover:bg-[#9333EA]/20 transition-all duration-300"
+                      className="flex items-center gap-1.5 text-[#D4AF37] hover:text-white text-xs font-semibold uppercase tracking-widest px-3 py-1.5 rounded-full border border-[#A8B4C8]/50 hover:border-[#D4AF37]/70 hover:bg-[#1E3A5F]/20 transition-all duration-300"
                       aria-label={`Go to ${user.role.replace('_', ' ')} dashboard`}
                       type="button"
                     >
@@ -249,7 +262,7 @@ const EnhancedHeader = () => {
                   )}
                   <button
                     onClick={() => router.push('/profile')}
-                    className="text-[#F5F5F5] hover:text-[#FFD700] transition-colors duration-300"
+                    className="text-[#F5F0E8] hover:text-[#D4AF37] transition-colors duration-300"
                     aria-label="View profile"
                     type="button"
                   >
@@ -261,7 +274,7 @@ const EnhancedHeader = () => {
                   onClick={() => {
                     window.location.href = `/auth/login?redirect_url=${encodeURIComponent(pathname)}`;
                   }}
-                  className="text-[#F5F5F5]/80 hover:text-[#FFD700] text-sm font-medium transition-colors duration-300 flex items-center"
+                  className="text-[#F5F0E8]/80 hover:text-[#D4AF37] text-sm font-medium transition-colors duration-300 flex items-center"
                   type="button"
                 >
                   Sign In
@@ -285,14 +298,14 @@ const EnhancedHeader = () => {
                 id="cart-button"
                 suppressHydrationWarning
                 onClick={handleCartClick}
-                className="relative text-[#F5F5F5] hover:text-[#FFD700] transition-colors duration-300 group"
+                className="relative text-[#F5F0E8] hover:text-[#D4AF37] transition-colors duration-300 group"
                 aria-label={`Shopping cart with ${itemCount} items`}
                 type="button"
               >
                 <ShoppingBag className="w-5 h-5" aria-hidden="true" />
                 {itemCount > 0 && (
                   <span 
-                    className="absolute -top-2 -right-2 bg-[#9333EA] text-[#F5F5F5] text-[10px] w-4 h-4 rounded-full flex items-center justify-center"
+                    className="absolute -top-2 -right-2 bg-[#1E3A5F] text-[#F5F0E8] text-[10px] w-4 h-4 rounded-full flex items-center justify-center"
                     aria-label={`${itemCount} items in cart`}
                   >
                     {itemCount > 9 ? '9+' : itemCount}
@@ -307,14 +320,14 @@ const EnhancedHeader = () => {
                 id="cart-button-mobile"
                 suppressHydrationWarning
                 onClick={handleCartClick}
-                className="relative text-[#F5F5F5] hover:text-[#FFD700] transition-colors duration-300 min-h-[44px] min-w-[44px] flex items-center justify-center mr-1"
+                className="relative text-[#F5F0E8] hover:text-[#D4AF37] transition-colors duration-300 min-h-[44px] min-w-[44px] flex items-center justify-center mr-1"
                 aria-label={`Shopping cart with ${itemCount} items`}
                 type="button"
               >
                 <ShoppingBag className="w-5 h-5" aria-hidden="true" />
                 {itemCount > 0 && (
                   <span 
-                    className="absolute top-1 right-1 bg-[#9333EA] text-[#F5F5F5] text-[10px] w-4 h-4 rounded-full flex items-center justify-center"
+                    className="absolute top-1 right-1 bg-[#1E3A5F] text-[#F5F0E8] text-[10px] w-4 h-4 rounded-full flex items-center justify-center"
                     aria-label={`${itemCount} items in cart`}
                   >
                     {itemCount > 9 ? '9+' : itemCount}
@@ -323,7 +336,7 @@ const EnhancedHeader = () => {
               </button>
               <button
                 ref={mobileMenuButtonRef}
-                className="relative z-50 text-[#F5F5F5] hover:text-[#FFD700] min-h-[44px] min-w-[44px] flex items-center justify-center"
+                className="relative z-50 text-[#F5F0E8] hover:text-[#D4AF37] min-h-[44px] min-w-[44px] flex items-center justify-center"
                 onClick={toggleMobileMenu}
                 aria-expanded={isMobileMenuOpen}
                 aria-controls="mobile-menu"
@@ -357,7 +370,7 @@ const EnhancedHeader = () => {
       >
         {/* Glass Background */}
         <div 
-          className="absolute inset-0 bg-[#0A0A0A]/95 backdrop-blur-lg" 
+          className="absolute inset-0 bg-[#111111]/95 backdrop-blur-lg" 
           onClick={() => setIsMobileMenuOpen(false)}
           aria-hidden="true"
         />
@@ -372,10 +385,10 @@ const EnhancedHeader = () => {
               alt="Aarya Clothing Logo"
               width={80}
               height={80}
-              className="w-20 h-20 object-contain drop-shadow-[0_0_15px_rgba(242,194,154,0.25)]"
+              className="w-20 h-20 object-contain"
             />
           ) : (
-            <span className="text-3xl font-bold text-[#FFD700]" style={{ fontFamily: 'Cinzel, serif' }}>
+            <span className="text-3xl font-bold text-[#D4AF37]" style={{ fontFamily: 'Cinzel, serif' }}>
               AARYA
             </span>
           )}
@@ -392,7 +405,7 @@ const EnhancedHeader = () => {
               href={link.href}
               scroll={false}
               ref={index === 0 ? firstNavItemRef : null}
-              className="text-2xl text-[#F5F5F5] hover:text-[#FFD700] transition-colors duration-300 nav-link mobile-menu-item-enter"
+              className="text-2xl text-[#F5F0E8] hover:text-[#D4AF37] transition-colors duration-300 nav-link mobile-menu-item-enter"
               style={{ fontFamily: 'Cinzel, serif', animationDelay: `${index * 60}ms` }}
               onClick={(e) => {
                 setIsMobileMenuOpen(false);
@@ -428,7 +441,7 @@ const EnhancedHeader = () => {
                       setIsMobileMenuOpen(false);
                       router.push(getRedirectForRole(user.role));
                     }}
-                    className="flex items-center gap-1.5 text-[#FFD700] hover:text-white text-xs font-semibold uppercase tracking-widest px-3 py-1.5 rounded-full border border-[#E07B8B]/50 hover:border-[#FFD700]/70 hover:bg-[#9333EA]/20 transition-all duration-300 min-h-[44px]"
+                    className="flex items-center gap-1.5 text-[#D4AF37] hover:text-white text-xs font-semibold uppercase tracking-widest px-3 py-1.5 rounded-full border border-[#A8B4C8]/50 hover:border-[#D4AF37]/70 hover:bg-[#1E3A5F]/20 transition-all duration-300 min-h-[44px]"
                     aria-label={`Go to ${user.role.replace('_', ' ')} dashboard`}
                     type="button"
                   >
@@ -441,7 +454,7 @@ const EnhancedHeader = () => {
                     setIsMobileMenuOpen(false);
                     router.push('/profile');
                   }}
-                  className="text-[#F5F5F5] hover:text-[#FFD700] min-h-[44px] min-w-[44px] flex items-center justify-center"
+                  className="text-[#F5F0E8] hover:text-[#D4AF37] min-h-[44px] min-w-[44px] flex items-center justify-center"
                   aria-label="View profile"
                   type="button"
                 >
@@ -454,7 +467,7 @@ const EnhancedHeader = () => {
                     await logout();
                     router.push('/');
                   }}
-                  className="text-[#E07B8B] hover:text-[#FFD700] min-h-[44px] min-w-[44px] flex items-center justify-center transition-colors duration-300"
+                  className="text-[#A8B4C8] hover:text-[#D4AF37] min-h-[44px] min-w-[44px] flex items-center justify-center transition-colors duration-300"
                   aria-label="Logout"
                   type="button"
                 >
@@ -468,7 +481,7 @@ const EnhancedHeader = () => {
                     setIsMobileMenuOpen(false);
                     window.location.href = `/auth/login?redirect_url=${encodeURIComponent(pathname)}`;
                   }}
-                  className="text-[#F5F5F5]/80 hover:text-[#FFD700] text-xl transition-colors duration-300"
+                  className="text-[#F5F0E8]/80 hover:text-[#D4AF37] text-xl transition-colors duration-300"
                   style={{ fontFamily: 'Cinzel, serif' }}
                   type="button"
                 >
@@ -481,14 +494,14 @@ const EnhancedHeader = () => {
                 setIsMobileMenuOpen(false);
                 handleCartClick();
               }}
-              className="relative text-[#F5F5F5] hover:text-[#FFD700] min-h-[44px] min-w-[44px] flex items-center justify-center"
+              className="relative text-[#F5F0E8] hover:text-[#D4AF37] min-h-[44px] min-w-[44px] flex items-center justify-center"
               aria-label={`Shopping cart with ${itemCount} items`}
               type="button"
             >
               <ShoppingBag className="w-6 h-6" aria-hidden="true" />
               {itemCount > 0 && (
                 <span 
-                  className="absolute -top-2 -right-2 bg-[#9333EA] text-[#F5F5F5] text-xs w-5 h-5 rounded-full flex items-center justify-center"
+                  className="absolute -top-2 -right-2 bg-[#1E3A5F] text-[#F5F0E8] text-xs w-5 h-5 rounded-full flex items-center justify-center"
                   aria-label={`${itemCount} items in cart`}
                 >
                   {itemCount > 9 ? '9+' : itemCount}

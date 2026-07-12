@@ -65,43 +65,43 @@ export default function ShipOrderModal({ orderId, onClose, onShipped, onError })
       />
       <form
         onSubmit={handleSubmit}
-        className="relative bg-[#0A0A0A]/95 backdrop-blur-xl border border-[#E07B8B]/20 rounded-2xl p-6 w-full max-w-md"
+        className="relative bg-[#111111]/95 backdrop-blur-xl border border-[#A8B4C8]/20 rounded-2xl p-6 w-full max-w-md"
       >
-        <h3 className="text-xl font-semibold text-[#FFD700] mb-1 font-cinzel">
+        <h3 className="text-xl font-semibold text-[#D4AF37] mb-1 font-cinzel">
           Ship Order #{orderId}
         </h3>
-        <p className="text-sm text-[#F5F5F5]/50 mb-5">
+        <p className="text-sm text-[#F5F0E8]/50 mb-5">
           Enter the courier tracking number — it will be shown to the customer.
         </p>
         <div className="space-y-4">
           <Field label="POD / Tracking number" required>
-            <Hash className="w-4 h-4 text-[#E07B8B] ml-3 flex-shrink-0" />
+            <Hash className="w-4 h-4 text-[#A8B4C8] ml-3 flex-shrink-0" />
             <input
               type="text"
               value={pod}
               onChange={(e) => setPod(e.target.value)}
               placeholder="e.g. DTDC1234567890"
               autoFocus
-              className="flex-1 px-3 py-2.5 bg-transparent text-[#F5F5F5] placeholder-[#F5F5F5]/30 focus:outline-none text-sm"
+              className="flex-1 px-3 py-2.5 bg-transparent text-[#F5F0E8] placeholder-[#F5F0E8]/30 focus:outline-none text-sm"
             />
           </Field>
           <Field label="Delivery partner" required>
-            <Truck className="w-4 h-4 text-[#E07B8B] ml-3 flex-shrink-0" />
+            <Truck className="w-4 h-4 text-[#A8B4C8] ml-3 flex-shrink-0" />
             <select
               value={courier}
               onChange={(e) => setCourier(e.target.value)}
-              className="flex-1 px-3 py-2.5 bg-transparent text-[#F5F5F5] focus:outline-none text-sm"
+              className="flex-1 px-3 py-2.5 bg-transparent text-[#F5F0E8] focus:outline-none text-sm"
             >
               <option value="">Select delivery partner...</option>
               {DELIVERY_PARTNERS.map((dp) => (
-                <option key={dp} value={dp} className="bg-[#0A0A0A]">
+                <option key={dp} value={dp} className="bg-[#111111]">
                   {dp}
                 </option>
               ))}
             </select>
           </Field>
           <div>
-            <label className="block text-sm text-[#F5F5F5]/70 mb-1">
+            <label className="block text-sm text-[#F5F0E8]/70 mb-1">
               Notes (optional)
             </label>
             <input
@@ -109,7 +109,7 @@ export default function ShipOrderModal({ orderId, onClose, onShipped, onError })
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Pickup date, special instructions, etc."
-              className="w-full px-4 py-2.5 bg-[#0A0A0A]/60 border border-[#E07B8B]/20 rounded-xl text-[#F5F5F5] placeholder-[#F5F5F5]/30 focus:outline-none focus:border-[#E07B8B]/40 text-sm"
+              className="w-full px-4 py-2.5 bg-[#111111]/60 border border-[#A8B4C8]/20 rounded-xl text-[#F5F0E8] placeholder-[#F5F0E8]/30 focus:outline-none focus:border-[#A8B4C8]/40 text-sm"
             />
           </div>
         </div>
@@ -118,14 +118,14 @@ export default function ShipOrderModal({ orderId, onClose, onShipped, onError })
             type="button"
             onClick={handleClose}
             disabled={busy}
-            className="flex-1 px-4 py-2.5 border border-[#E07B8B]/20 rounded-xl text-[#F5F5F5]/70 hover:bg-[#E07B8B]/10 transition-colors disabled:opacity-50"
+            className="flex-1 px-4 py-2.5 border border-[#A8B4C8]/20 rounded-xl text-[#F5F0E8]/70 hover:bg-[#A8B4C8]/10 transition-colors disabled:opacity-50"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={busy || !pod.trim() || !courier.trim()}
-            className="flex-1 px-4 py-2.5 bg-gradient-to-r from-[#9333EA] to-[#E07B8B] rounded-xl text-white font-semibold hover:opacity-90 transition-opacity disabled:opacity-40 flex items-center justify-center gap-2"
+            className="flex-1 px-4 py-2.5 bg-gradient-to-r from-[#1E3A5F] to-[#A8B4C8] rounded-xl text-white font-semibold hover:opacity-90 transition-opacity disabled:opacity-40 flex items-center justify-center gap-2"
           >
             {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Truck className="w-4 h-4" />}
             {busy ? 'Shipping...' : 'Confirm ship'}
@@ -139,11 +139,11 @@ export default function ShipOrderModal({ orderId, onClose, onShipped, onError })
 function Field({ label, required, children }) {
   return (
     <div>
-      <label className="block text-sm text-[#F5F5F5]/70 mb-1">
+      <label className="block text-sm text-[#F5F0E8]/70 mb-1">
         {label}
         {required && <span className="text-red-400"> *</span>}
       </label>
-      <div className="flex items-center border border-[#E07B8B]/30 rounded-xl overflow-hidden">
+      <div className="flex items-center border border-[#A8B4C8]/30 rounded-xl overflow-hidden">
         {children}
       </div>
     </div>

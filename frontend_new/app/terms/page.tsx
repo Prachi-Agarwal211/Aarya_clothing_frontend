@@ -74,33 +74,33 @@ export default function TermsOfServicePage() {
       <div className="container mx-auto px-4 sm:px-6 md:px-8 max-w-4xl">
         {/* Header */}
         <div className="text-center mb-12">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-[#E07B8B]/20 mb-6">
-            <Scale className="w-8 h-8 text-[#FFD700]" />
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-[#A8B4C8]/20 mb-6">
+            <Scale className="w-8 h-8 text-[#D4AF37]" />
           </div>
           <h1 
-            className="text-3xl sm:text-4xl md:text-5xl font-semibold text-[#FFD700] mb-4"
+            className="text-3xl sm:text-4xl md:text-5xl font-semibold text-[#D4AF37] mb-4"
             style={{ fontFamily: 'Cinzel, serif' }}
           >
             Terms of Service
           </h1>
-          <p className="text-[#F5F5F5]/70 text-sm sm:text-base max-w-2xl mx-auto">
+          <p className="text-[#F5F0E8]/70 text-sm sm:text-base max-w-2xl mx-auto">
             Last updated: {new Date().toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' })}
           </p>
         </div>
 
         {/* Content Container */}
-        <div className="relative rounded-3xl p-6 sm:p-8 md:p-12 bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
+        <div className="relative rounded-3xl p-6 sm:p-8 md:p-12 bg-[#111111]/40 backdrop-blur-md border border-[#A8B4C8]/15 shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
           
           {/* Introduction */}
           <section className="mb-10">
-            <p className="text-[#F5F5F5]/80 leading-relaxed mb-6">
+            <p className="text-[#F5F0E8]/80 leading-relaxed mb-6">
               Welcome to Aarya Clothing. These Terms of Service ("Terms") govern your access to and use of our website, 
               products, and services. By accessing or using our platform, you agree to be bound by these Terms. 
               Please read them carefully before making any purchase.
             </p>
-            <div className="flex items-start gap-3 p-4 rounded-xl bg-[#FFD700]/10 border border-[#FFD700]/20">
-              <AlertCircle className="w-5 h-5 text-[#FFD700] flex-shrink-0 mt-0.5" />
-              <p className="text-sm text-[#F5F5F5]/70">
+            <div className="flex items-start gap-3 p-4 rounded-xl bg-[#D4AF37]/10 border border-[#D4AF37]/20">
+              <AlertCircle className="w-5 h-5 text-[#D4AF37] flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-[#F5F0E8]/70">
                 If you do not agree with any part of these terms, please do not use our website or purchase our products.
               </p>
             </div>
@@ -108,11 +108,11 @@ export default function TermsOfServicePage() {
 
           {/* Section 1 */}
           <section className="mb-10">
-            <h2 className="text-xl sm:text-2xl text-[#F5F5F5] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
-              <span className="w-8 h-8 rounded-full bg-[#E07B8B]/20 flex items-center justify-center text-sm text-[#FFD700]">1</span>
+            <h2 className="text-xl sm:text-2xl text-[#F5F0E8] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
+              <span className="w-8 h-8 rounded-full bg-[#A8B4C8]/20 flex items-center justify-center text-sm text-[#D4AF37]">1</span>
               Acceptance of Terms
             </h2>
-            <div className="space-y-4 text-[#F5F5F5]/70 leading-relaxed pl-11">
+            <div className="space-y-4 text-[#F5F0E8]/70 leading-relaxed pl-11">
               <p>
                 By accessing, browsing, or using this website, you acknowledge that you have read, understood, and agree 
                 to be bound by these Terms of Service and to comply with all applicable laws and regulations. You also 
@@ -128,19 +128,19 @@ export default function TermsOfServicePage() {
 
           {/* Section 2 */}
           <section className="mb-10">
-            <h2 className="text-xl sm:text-2xl text-[#F5F5F5] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
-              <span className="w-8 h-8 rounded-full bg-[#E07B8B]/20 flex items-center justify-center text-sm text-[#FFD700]">2</span>
+            <h2 className="text-xl sm:text-2xl text-[#F5F0E8] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
+              <span className="w-8 h-8 rounded-full bg-[#A8B4C8]/20 flex items-center justify-center text-sm text-[#D4AF37]">2</span>
               Product Information
             </h2>
-            <div className="space-y-4 text-[#F5F5F5]/70 leading-relaxed pl-11">
+            <div className="space-y-4 text-[#F5F0E8]/70 leading-relaxed pl-11">
               <p>
                 We strive to provide accurate and up-to-date product information, including descriptions, images, 
                 pricing, and availability. However, we do not warrant that product descriptions, images, or other 
                 content on this website are accurate, complete, reliable, current, or error-free.
               </p>
-              <div className="flex items-start gap-3 p-4 rounded-xl bg-[#FFD700]/5 border border-[#FFD700]/10">
-                <CheckCircle className="w-5 h-5 text-[#FFD700] flex-shrink-0 mt-0.5" />
-                <p className="text-sm text-[#F5F5F5]/70">
+              <div className="flex items-start gap-3 p-4 rounded-xl bg-[#D4AF37]/5 border border-[#D4AF37]/10">
+                <CheckCircle className="w-5 h-5 text-[#D4AF37] flex-shrink-0 mt-0.5" />
+                <p className="text-sm text-[#F5F0E8]/70">
                   Product colors may vary slightly from images shown due to monitor settings and photography lighting. 
                   We recommend checking product measurements and fabric details before purchasing.
                 </p>
@@ -154,17 +154,17 @@ export default function TermsOfServicePage() {
 
           {/* Section 3 */}
           <section className="mb-10">
-            <h2 className="text-xl sm:text-2xl text-[#F5F5F5] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
-              <span className="w-8 h-8 rounded-full bg-[#E07B8B]/20 flex items-center justify-center text-sm text-[#FFD700]">3</span>
+            <h2 className="text-xl sm:text-2xl text-[#F5F0E8] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
+              <span className="w-8 h-8 rounded-full bg-[#A8B4C8]/20 flex items-center justify-center text-sm text-[#D4AF37]">3</span>
               Pricing &amp; No Hidden Charges
             </h2>
-            <div className="space-y-4 text-[#F5F5F5]/70 leading-relaxed pl-11">
+            <div className="space-y-4 text-[#F5F0E8]/70 leading-relaxed pl-11">
               <div className="flex items-start gap-3 p-4 rounded-xl bg-green-500/10 border border-green-500/20">
                 <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-[#F5F5F5] font-medium mb-1">Transparent Pricing — What You See Is What You Pay</p>
-                  <p className="text-sm text-[#F5F5F5]/70">
-                    All prices displayed on our website are in Indian Rupees (₹/INR) and are <strong className="text-[#F5F5F5]">fully inclusive of all taxes and shipping charges</strong>. There are no hidden fees, no surprise GST additions, and no shipping charges added at checkout.
+                  <p className="text-[#F5F0E8] font-medium mb-1">Transparent Pricing — What You See Is What You Pay</p>
+                  <p className="text-sm text-[#F5F0E8]/70">
+                    All prices displayed on our website are in Indian Rupees (₹/INR) and are <strong className="text-[#F5F0E8]">fully inclusive of all taxes and shipping charges</strong>. There are no hidden fees, no surprise GST additions, and no shipping charges added at checkout.
                   </p>
                 </div>
               </div>
@@ -181,13 +181,13 @@ export default function TermsOfServicePage() {
 
           {/* Section 3b — Payment Policy */}
           <section className="mb-10">
-            <h2 className="text-xl sm:text-2xl text-[#F5F5F5] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
-              <span className="w-8 h-8 rounded-full bg-[#E07B8B]/20 flex items-center justify-center text-sm text-[#FFD700]">4</span>
+            <h2 className="text-xl sm:text-2xl text-[#F5F0E8] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
+              <span className="w-8 h-8 rounded-full bg-[#A8B4C8]/20 flex items-center justify-center text-sm text-[#D4AF37]">4</span>
               Payment Policy — Online Payments Only
             </h2>
-            <div className="space-y-4 text-[#F5F5F5]/70 leading-relaxed pl-11">
+            <div className="space-y-4 text-[#F5F0E8]/70 leading-relaxed pl-11">
               <p>
-                At Aarya Clothing, we accept <strong className="text-[#F5F5F5]">online payments only</strong> through our secure payment gateway. All orders must be paid in full at checkout using Razorpay. We accept UPI, credit/debit cards, net banking, and digital wallets.
+                At Aarya Clothing, we accept <strong className="text-[#F5F0E8]">online payments only</strong> through our secure payment gateway. All orders must be paid in full at checkout using Razorpay. We accept UPI, credit/debit cards, net banking, and digital wallets.
               </p>
               <p>
                 Payments are processed securely via Razorpay. Your payment information is encrypted and never stored on our servers.
@@ -197,11 +197,11 @@ export default function TermsOfServicePage() {
 
           {/* Section 4 */}
           <section className="mb-10">
-            <h2 className="text-xl sm:text-2xl text-[#F5F5F5] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
-              <span className="w-8 h-8 rounded-full bg-[#E07B8B]/20 flex items-center justify-center text-sm text-[#FFD700]">5</span>
+            <h2 className="text-xl sm:text-2xl text-[#F5F0E8] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
+              <span className="w-8 h-8 rounded-full bg-[#A8B4C8]/20 flex items-center justify-center text-sm text-[#D4AF37]">5</span>
               Order Acceptance
             </h2>
-            <div className="space-y-4 text-[#F5F5F5]/70 leading-relaxed pl-11">
+            <div className="space-y-4 text-[#F5F0E8]/70 leading-relaxed pl-11">
               <p>
                 Your placement of an order represents an offer to purchase from us. All orders are subject to 
                 acceptance and availability. We reserve the right to refuse or cancel any order for any reason, 
@@ -223,23 +223,23 @@ export default function TermsOfServicePage() {
 
           {/* Return Policy Section */}
           <section className="mb-10">
-            <h2 className="text-xl sm:text-2xl text-[#F5F5F5] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
-              <span className="w-8 h-8 rounded-full bg-[#E07B8B]/20 flex items-center justify-center text-sm text-[#FFD700]">6</span>
+            <h2 className="text-xl sm:text-2xl text-[#F5F0E8] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
+              <span className="w-8 h-8 rounded-full bg-[#A8B4C8]/20 flex items-center justify-center text-sm text-[#D4AF37]">6</span>
               Returns &amp; Refund Policy
             </h2>
-            <div className="space-y-4 text-[#F5F5F5]/70 leading-relaxed pl-11">
-              <p>We accept returns <strong className="text-[#F5F5F5]">only for defective or damaged items</strong>. We do not accept returns for change of mind, size issues, or any reason other than a manufacturing defect or damage during shipping.</p>
-              <div className="p-4 rounded-xl bg-[#E07B8B]/10 border border-[#E07B8B]/20 space-y-2">
-                <p className="text-[#F5F5F5] font-medium">Mandatory Video Proof Requirement</p>
+            <div className="space-y-4 text-[#F5F0E8]/70 leading-relaxed pl-11">
+              <p>We accept returns <strong className="text-[#F5F0E8]">only for defective or damaged items</strong>. We do not accept returns for change of mind, size issues, or any reason other than a manufacturing defect or damage during shipping.</p>
+              <div className="p-4 rounded-xl bg-[#A8B4C8]/10 border border-[#A8B4C8]/20 space-y-2">
+                <p className="text-[#F5F0E8] font-medium">Mandatory Video Proof Requirement</p>
                 <ul className="list-disc list-inside space-y-1 text-sm">
-                  <li>A video recording of the <strong className="text-[#F5F5F5]">unboxing of the package</strong> is mandatory for all return requests</li>
+                  <li>A video recording of the <strong className="text-[#F5F0E8]">unboxing of the package</strong> is mandatory for all return requests</li>
                   <li>The video must be recorded continuously from before opening the sealed package to revealing the product</li>
                   <li>The defect or damage must be clearly visible in the video</li>
                   <li>Returns submitted without a valid unboxing video will be automatically rejected</li>
                 </ul>
               </div>
               <ul className="list-disc list-inside space-y-2 ml-4">
-                <li>Return requests must be submitted within <strong className="text-[#F5F5F5]">7 days</strong> of delivery</li>
+                <li>Return requests must be submitted within <strong className="text-[#F5F0E8]">7 days</strong> of delivery</li>
                 <li>Approved refunds are processed within 5–7 business days to the original payment method</li>
                 <li>Items must be unused and in their original packaging</li>
               </ul>
@@ -248,11 +248,11 @@ export default function TermsOfServicePage() {
 
           {/* Section 5 */}
           <section className="mb-10">
-            <h2 className="text-xl sm:text-2xl text-[#F5F5F5] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
-              <span className="w-8 h-8 rounded-full bg-[#E07B8B]/20 flex items-center justify-center text-sm text-[#FFD700]">7</span>
+            <h2 className="text-xl sm:text-2xl text-[#F5F0E8] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
+              <span className="w-8 h-8 rounded-full bg-[#A8B4C8]/20 flex items-center justify-center text-sm text-[#D4AF37]">7</span>
               User Account Responsibilities
             </h2>
-            <div className="space-y-4 text-[#F5F5F5]/70 leading-relaxed pl-11">
+            <div className="space-y-4 text-[#F5F0E8]/70 leading-relaxed pl-11">
               <p>
                 To make purchases on our website, you may be required to create an account. You are responsible for:
               </p>
@@ -272,11 +272,11 @@ export default function TermsOfServicePage() {
 
           {/* Section 6 */}
           <section className="mb-10">
-            <h2 className="text-xl sm:text-2xl text-[#F5F5F5] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
-              <span className="w-8 h-8 rounded-full bg-[#E07B8B]/20 flex items-center justify-center text-sm text-[#FFD700]">6</span>
+            <h2 className="text-xl sm:text-2xl text-[#F5F0E8] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
+              <span className="w-8 h-8 rounded-full bg-[#A8B4C8]/20 flex items-center justify-center text-sm text-[#D4AF37]">6</span>
               Prohibited Uses
             </h2>
-            <div className="space-y-4 text-[#F5F5F5]/70 leading-relaxed pl-11">
+            <div className="space-y-4 text-[#F5F0E8]/70 leading-relaxed pl-11">
               <p>
                 You agree not to use our website or services for any purpose that is unlawful or prohibited by these 
                 terms. You may not use our services in any way that could:
@@ -295,19 +295,19 @@ export default function TermsOfServicePage() {
 
           {/* Section 7 */}
           <section className="mb-10">
-            <h2 className="text-xl sm:text-2xl text-[#F5F5F5] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
-              <span className="w-8 h-8 rounded-full bg-[#E07B8B]/20 flex items-center justify-center text-sm text-[#FFD700]">7</span>
+            <h2 className="text-xl sm:text-2xl text-[#F5F0E8] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
+              <span className="w-8 h-8 rounded-full bg-[#A8B4C8]/20 flex items-center justify-center text-sm text-[#D4AF37]">7</span>
               Limitation of Liability
             </h2>
-            <div className="space-y-4 text-[#F5F5F5]/70 leading-relaxed pl-11">
+            <div className="space-y-4 text-[#F5F0E8]/70 leading-relaxed pl-11">
               <p>
                 To the maximum extent permitted by applicable law, Aarya Clothing shall not be liable for any indirect, 
                 incidental, special, consequential, or punitive damages, or any loss of profits or revenues, whether 
                 incurred directly or indirectly, or any loss of data, use, goodwill, or other intangible losses.
               </p>
-              <div className="flex items-start gap-3 p-4 rounded-xl bg-[#FFD700]/10 border border-[#FFD700]/20">
-                <Shield className="w-5 h-5 text-[#FFD700] flex-shrink-0 mt-0.5" />
-                <p className="text-sm text-[#F5F5F5]/70">
+              <div className="flex items-start gap-3 p-4 rounded-xl bg-[#D4AF37]/10 border border-[#D4AF37]/20">
+                <Shield className="w-5 h-5 text-[#D4AF37] flex-shrink-0 mt-0.5" />
+                <p className="text-sm text-[#F5F0E8]/70">
                   Our total liability to you for any claim arising out of or relating to these terms or your use of 
                   our services shall not exceed the amount you paid to us for the products or services giving rise 
                   to the claim.
@@ -324,11 +324,11 @@ export default function TermsOfServicePage() {
 
           {/* Section 8 */}
           <section className="mb-10">
-            <h2 className="text-xl sm:text-2xl text-[#F5F5F5] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
-              <span className="w-8 h-8 rounded-full bg-[#E07B8B]/20 flex items-center justify-center text-sm text-[#FFD700]">8</span>
+            <h2 className="text-xl sm:text-2xl text-[#F5F0E8] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
+              <span className="w-8 h-8 rounded-full bg-[#A8B4C8]/20 flex items-center justify-center text-sm text-[#D4AF37]">8</span>
               Intellectual Property
             </h2>
-            <div className="space-y-4 text-[#F5F5F5]/70 leading-relaxed pl-11">
+            <div className="space-y-4 text-[#F5F0E8]/70 leading-relaxed pl-11">
               <p>
                 All content on this website, including but not limited to text, graphics, logos, images, audio clips, 
                 digital downloads, and software, is the property of Aarya Clothing or its content suppliers and is 
@@ -345,11 +345,11 @@ export default function TermsOfServicePage() {
 
           {/* Section 9 */}
           <section className="mb-10">
-            <h2 className="text-xl sm:text-2xl text-[#F5F5F5] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
-              <span className="w-8 h-8 rounded-full bg-[#E07B8B]/20 flex items-center justify-center text-sm text-[#FFD700]">9</span>
+            <h2 className="text-xl sm:text-2xl text-[#F5F0E8] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
+              <span className="w-8 h-8 rounded-full bg-[#A8B4C8]/20 flex items-center justify-center text-sm text-[#D4AF37]">9</span>
               Governing Law and Jurisdiction
             </h2>
-            <div className="space-y-4 text-[#F5F5F5]/70 leading-relaxed pl-11">
+            <div className="space-y-4 text-[#F5F0E8]/70 leading-relaxed pl-11">
               <p>
                 These Terms of Service shall be governed by and construed in accordance with the laws of India, 
                 without regard to its conflict of law provisions. Any disputes arising out of or relating to these 
@@ -366,27 +366,27 @@ export default function TermsOfServicePage() {
 
           {/* Section 10 */}
           <section className="mb-10">
-            <h2 className="text-xl sm:text-2xl text-[#F5F5F5] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
-              <span className="w-8 h-8 rounded-full bg-[#E07B8B]/20 flex items-center justify-center text-sm text-[#FFD700]">10</span>
+            <h2 className="text-xl sm:text-2xl text-[#F5F0E8] mb-4 flex items-center gap-3" style={{ fontFamily: 'Cinzel, serif' }}>
+              <span className="w-8 h-8 rounded-full bg-[#A8B4C8]/20 flex items-center justify-center text-sm text-[#D4AF37]">10</span>
               Contact Information
             </h2>
-            <div className="space-y-4 text-[#F5F5F5]/70 leading-relaxed pl-11">
+            <div className="space-y-4 text-[#F5F0E8]/70 leading-relaxed pl-11">
               <p>
                 For any questions, concerns, or requests regarding these Terms of Service, please contact us:
               </p>
-              <div className="p-6 rounded-xl bg-[#FFD700]/5 border border-[#FFD700]/10">
-                <p className="text-[#F5F5F5] mb-2"><strong>Email:</strong> support@aaryaclothing.com</p>
-                <p className="text-[#F5F5F5] mb-2"><strong>Phone:</strong> +91 7300186757</p>
-                <p className="text-[#F5F5F5]"><strong>Address:</strong> [Registered Office Address], India</p>
+              <div className="p-6 rounded-xl bg-[#D4AF37]/5 border border-[#D4AF37]/10">
+                <p className="text-[#F5F0E8] mb-2"><strong>Email:</strong> support@aaryaclothing.com</p>
+                <p className="text-[#F5F0E8] mb-2"><strong>Phone:</strong> +91 7300186757</p>
+                <p className="text-[#F5F0E8]"><strong>Address:</strong> [Registered Office Address], India</p>
               </div>
             </div>
           </section>
 
           {/* Back to Top */}
-          <div className="pt-8 border-t border-[#E07B8B]/15">
+          <div className="pt-8 border-t border-[#A8B4C8]/15">
             <Link 
               href="/" 
-              className="inline-flex items-center gap-2 text-[#FFD700] hover:text-[#F5F5F5] transition-colors text-sm"
+              className="inline-flex items-center gap-2 text-[#D4AF37] hover:text-[#F5F0E8] transition-colors text-sm"
             >
               ← Back to Home
             </Link>

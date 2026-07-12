@@ -77,34 +77,69 @@ export function generateProductSchema(product, reviews = []) {
   const productUrl = product.slug || (product.id ? String(product.id) : '');
   const productPath = productUrl ? `/products/${productUrl}` : '/products';
 
-  return {
+  const images = [];
+  if (product.primary_image || product.image_url) {
+    images.push(product.primary_image || product.image_url);
+  }
+  (product.images || []).forEach((img) => {
+    const u = typeof img === 'string' ? img : img?.image_url;
+    if (u && !images.includes(u)) images.push(u);
+  });
+
+  const schema = {
     "@context": "https://schema.org",
     "@type": "Product",
     "name": product.name,
-    "description": product.description,
-    "image": product.primary_image || product.image_url,
-    "sku": product.sku,
+    "description": (product.short_description || product.description || product.name || '')
+      .toString()
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 5000),
+    "image": images.length ? images : undefined,
+    "sku": product.sku || String(product.id),
+    "url": `${BASE_URL}${productPath}`,
     "brand": {
       "@type": "Brand",
-      "name": "Aarya Clothing"
+      "name": product.brand || "Aarya Clothing"
     },
     "offers": {
       "@type": "Offer",
       "url": `${BASE_URL}${productPath}`,
       "priceCurrency": "INR",
-      "price": product.price,
+      "price": String(product.price ?? 0),
       "priceValidUntil": new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       "availability": product.in_stock ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+      "itemCondition": "https://schema.org/NewCondition",
       "seller": {
         "@type": "Organization",
         "name": "Aarya Clothing"
       }
     },
     "category": product.collection_name || product.category,
-    "material": product.fabric,
-    "color": product.colors?.[0]?.name || 'Multi-color',
-    "size": product.sizes?.join(',') || 'One Size'
+    "material": product.material || product.fabric,
+    "color": product.colors?.[0]?.name || product.colors?.[0]?.display_name,
   };
+
+  if (aggregateRating && Number(aggregateRating.ratingValue) > 0) {
+    schema.aggregateRating = aggregateRating;
+  }
+
+  if (hasReviews) {
+    schema.review = reviews.slice(0, 10).map((r) => ({
+      "@type": "Review",
+      "author": { "@type": "Person", "name": r.user || r.user_name || "Customer" },
+      "datePublished": r.created_at,
+      "reviewBody": r.comment || r.review_text || "",
+      "reviewRating": {
+        "@type": "Rating",
+        "ratingValue": String(r.rating || 5),
+        "bestRating": "5",
+        "worstRating": "1",
+      },
+    }));
+  }
+
+  return schema;
 }
 
 /**

@@ -28,24 +28,24 @@ export default function NotFound() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#0A0A0A] px-4 py-12">
+    <div className="min-h-screen flex items-center justify-center bg-[#111111] px-4 py-12">
       <div className="max-w-2xl w-full text-center space-y-8 relative z-10">
         {/* Decorative Element */}
         <div className="relative">
-          <div className="absolute inset-0 blur-3xl opacity-20 bg-gradient-to-r from-[#9333EA] to-[#FFD700] rounded-full"></div>
+          <div className="absolute inset-0 blur-3xl opacity-20 bg-gradient-to-r from-[#1E3A5F] to-[#D4AF37] rounded-full"></div>
           
           {/* 404 Text */}
-          <h1 className="relative text-9xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#FFD700] via-[#E07B8B] to-[#9333EA] animate-pulse" style={{ fontFamily: 'Cinzel, serif' }}>
+          <h1 className="relative text-9xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#D4AF37] via-[#A8B4C8] to-[#1E3A5F] animate-pulse" style={{ fontFamily: 'Cinzel, serif' }}>
             404
           </h1>
         </div>
 
         {/* Message */}
         <div className="space-y-4">
-          <h2 className="text-3xl font-semibold text-[#FFD700]" style={{ fontFamily: 'Cinzel, serif' }}>
+          <h2 className="text-3xl font-semibold text-[#D4AF37]" style={{ fontFamily: 'Cinzel, serif' }}>
             PAGE NOT FOUND
           </h2>
-          <p className="text-[#F5F5F5]/70 text-lg">
+          <p className="text-[#F5F0E8]/70 text-lg">
             The page you&apos;re looking for seems to have wandered off into the ether. 
             Don&apos;t worry, even the most beautiful fabrics sometimes get misplaced.
           </p>
@@ -59,11 +59,11 @@ export default function NotFound() {
               placeholder="Search for products..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full h-12 px-6 pr-14 bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/25 rounded-full text-[#F5F5F5] placeholder:text-[#8A6A5C] focus:outline-none focus:border-[#FFD700]/50 transition-colors"
+              className="w-full h-12 px-6 pr-14 bg-[#111111]/40 backdrop-blur-md border border-[#A8B4C8]/25 rounded-full text-[#F5F0E8] placeholder:text-[#8A6A5C] focus:outline-none focus:border-[#D4AF37]/50 transition-colors"
             />
             <button
               type="submit"
-              className="absolute right-1.5 top-1/2 -translate-y-1/2 h-9 w-9 flex items-center justify-center rounded-full bg-gradient-to-r from-[#9333EA] to-[#E07B8B] text-white hover:opacity-90 transition-opacity"
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 h-9 w-9 flex items-center justify-center rounded-full bg-gradient-to-r from-[#1E3A5F] to-[#A8B4C8] text-white hover:opacity-90 transition-opacity"
             >
               <Search className="h-4 w-4" />
             </button>
@@ -71,8 +71,8 @@ export default function NotFound() {
         </form>
 
         {/* Quick Links */}
-        <div className="bg-[#0A0A0A]/40 backdrop-blur-md border border-[#E07B8B]/15 rounded-2xl p-6">
-          <h3 className="text-sm font-medium text-[#F5F5F5]/50 mb-6 uppercase tracking-wider" style={{ fontFamily: 'Cinzel, serif' }}>
+        <div className="bg-[#111111]/40 backdrop-blur-md border border-[#A8B4C8]/15 rounded-2xl p-6">
+          <h3 className="text-sm font-medium text-[#F5F0E8]/50 mb-6 uppercase tracking-wider" style={{ fontFamily: 'Cinzel, serif' }}>
             Quick Links
           </h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -80,7 +80,7 @@ export default function NotFound() {
               <Link
                 key={link.href}
                 href={link.href}
-                className="group flex flex-col items-center p-4 rounded-xl hover:bg-[#E07B8B]/10 transition-all duration-300"
+                className="group flex flex-col items-center p-4 rounded-xl hover:bg-[#A8B4C8]/10 transition-all duration-300"
               >
                 <span className="text-2xl mb-3 group-hover:scale-110 transition-transform">
                   {link.href === '/products' && '🛍️'}
@@ -88,7 +88,7 @@ export default function NotFound() {
                   {link.href === '/about' && 'ℹ️'}
                   {link.href.includes('new-arrivals') && '✨'}
                 </span>
-                <span className="text-xs text-[#F5F5F5]/70 group-hover:text-[#FFD700] font-medium transition-colors">
+                <span className="text-xs text-[#F5F0E8]/70 group-hover:text-[#D4AF37] font-medium transition-colors">
                   {link.label}
                 </span>
               </Link>
@@ -99,13 +99,13 @@ export default function NotFound() {
         {/* Action Buttons */}
         <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
           <Link href="/">
-            <button className="h-12 px-8 text-sm font-medium bg-gradient-to-r from-[#9333EA] to-[#E07B8B] text-white rounded-full hover:opacity-90 transition-opacity w-full sm:w-auto">
+            <button className="h-12 px-8 text-sm font-medium bg-gradient-to-r from-[#1E3A5F] to-[#A8B4C8] text-white rounded-full hover:opacity-90 transition-opacity w-full sm:w-auto">
               Return Home
             </button>
           </Link>
           <a
             href="mailto:support@aaryaclothing.com"
-            className="inline-flex items-center justify-center h-12 px-8 text-sm font-medium border border-[#E07B8B]/30 text-[#F5F5F5] hover:border-[#FFD700] hover:text-[#FFD700] rounded-full transition-all w-full sm:w-auto bg-[#0A0A0A]/40"
+            className="inline-flex items-center justify-center h-12 px-8 text-sm font-medium border border-[#A8B4C8]/30 text-[#F5F0E8] hover:border-[#D4AF37] hover:text-[#D4AF37] rounded-full transition-all w-full sm:w-auto bg-[#111111]/40"
           >
             Report Issue
           </a>
@@ -113,9 +113,9 @@ export default function NotFound() {
 
         {/* Decorative Bottom */}
         <div className="pt-8">
-          <p className="text-sm text-[#F5F5F5]/50">
+          <p className="text-sm text-[#F5F0E8]/50">
             Need help?{' '}
-            <Link href="/contact" className="text-[#FFD700] hover:text-[#E07B8B] transition-colors font-medium">
+            <Link href="/contact" className="text-[#D4AF37] hover:text-[#A8B4C8] transition-colors font-medium">
               Contact Support
             </Link>
           </p>

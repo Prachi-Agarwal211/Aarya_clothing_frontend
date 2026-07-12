@@ -11,7 +11,7 @@ export default function Gauge({
   max = 100,
   label = '',
   unit = '',
-  color = '#E07B8B',
+  color = '#A8B4C8',
   size = 'medium' // small, medium, large
 }) {
   const percentage = Math.min((value / max) * 100, 100);
@@ -36,7 +36,7 @@ export default function Gauge({
         <div
           className={`absolute bottom-0 left-1/2 -translate-x-1/2 ${sizeClasses[size]} rounded-t-full border-4`}
           style={{
-            borderColor: 'rgba(224, 123, 139, 0.2)',
+            borderColor: 'rgba(212, 175, 55, 0.25)',
             transform: 'translateX(-50%)'
           }}
         />
@@ -76,12 +76,12 @@ export default function Gauge({
 
       {/* Value Display */}
       <div className="mt-2 text-center">
-        <p className="text-2xl font-bold text-[#FFD700]">
+        <p className="text-2xl font-bold text-[#D4AF37]">
           {value.toLocaleString(undefined, { maximumFractionDigits: 2 })}
           {unit && <span className="text-sm ml-1">{unit}</span>}
         </p>
         {label && (
-          <p className="text-xs text-[#F5F5F5]/60 mt-1 max-w-[120px] truncate">
+          <p className="text-xs text-[#F5F0E8]/60 mt-1 max-w-[120px] truncate">
             {label}
           </p>
         )}
@@ -98,7 +98,7 @@ export function LinearGauge({
   max = 100,
   label = '',
   unit = '',
-  color = '#E07B8B',
+  color = '#A8B4C8',
   showPercentage = true
 }) {
   const percentage = Math.min((value / max) * 100, 100);
@@ -106,14 +106,14 @@ export function LinearGauge({
   return (
     <div className="w-full space-y-2">
       <div className="flex justify-between items-center">
-        {label && <p className="text-sm text-[#F5F5F5]/80">{label}</p>}
+        {label && <p className="text-sm text-[#F5F0E8]/80">{label}</p>}
         {showPercentage && (
-          <p className="text-xs text-[#F5F5F5]/60">
+          <p className="text-xs text-[#F5F0E8]/60">
             {percentage.toFixed(1)}%
           </p>
         )}
       </div>
-      <div className="relative h-3 bg-[#0A0A0A] rounded-full overflow-hidden">
+      <div className="relative h-3 bg-[#111111] rounded-full overflow-hidden">
         <div
           className="absolute inset-y-0 left-0 rounded-full transition-all duration-500"
           style={{
@@ -123,7 +123,7 @@ export function LinearGauge({
           }}
         />
       </div>
-      <div className="flex justify-between text-xs text-[#F5F5F5]/40">
+      <div className="flex justify-between text-xs text-[#F5F0E8]/40">
         <span>0{unit}</span>
         <span>{max}{unit}</span>
       </div>

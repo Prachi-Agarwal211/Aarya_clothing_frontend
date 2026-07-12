@@ -139,10 +139,10 @@ test.describe('Image Architecture', () => {
 
   test('placeholder images exist in /public', async ({ page }) => {
     // Verify placeholder images are accessible
-    const placeholderResponse = await page.request.get('/placeholder-image.jpg');
+    const placeholderResponse = await page.request.get('/placeholder-image.svg');
     expect(placeholderResponse.ok()).toBeTruthy();
 
-    const placeholderCollectionResponse = await page.request.get('/placeholder-collection.jpg');
+    const placeholderCollectionResponse = await page.request.get('/placeholder-collection.svg');
     expect(placeholderCollectionResponse.ok()).toBeTruthy();
 
     const logoResponse = await page.request.get('/logo.png');

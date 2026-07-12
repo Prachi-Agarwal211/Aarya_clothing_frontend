@@ -55,7 +55,7 @@ export default async function SearchPage({ searchParams }) {
   return (
     <Suspense fallback={
       <div className="min-h-screen flex items-center justify-center bg-[#000000]">
-        <div className="w-10 h-10 border-2 border-[#E07B8B] border-t-transparent rounded-full animate-spin" />
+        <div className="w-10 h-10 border-2 border-[#A8B4C8] border-t-transparent rounded-full animate-spin" />
       </div>
     }>
       <SearchClient 
